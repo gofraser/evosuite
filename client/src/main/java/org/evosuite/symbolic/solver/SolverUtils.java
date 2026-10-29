@@ -204,9 +204,6 @@ public abstract class SolverUtils {
 
     /**
      * Recursively determine constraints in expression.
-     *
-     * @param expr      a {@link org.evosuite.symbolic.expr.Expression} object.
-     * @param variables a {@link java.util.Set} object.
      */
     private static void getVariables(Expression<?> expr, Set<Variable<?>> variables) {
         variables.addAll(expr.getVariables());

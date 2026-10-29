@@ -852,8 +852,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
     /**
      * <p>Getter for the field <code>proxyCount</code>.</p>
-     *
-     * @return a int.
      */
     public int getProxyCount() {
         return proxyCount;

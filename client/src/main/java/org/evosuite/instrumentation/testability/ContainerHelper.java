@@ -34,9 +34,6 @@ public class ContainerHelper {
 
     /**
      * Helper function that is called instead of Map.isEmpty
-     *
-     * @param m a {@link java.util.Map} object.
-     * @return a int.
      */
     public static int mapIsEmpty(Map<?, ?> m) {
         return m.isEmpty() ? BooleanHelper.TRUE : -m.size();
@@ -44,9 +41,6 @@ public class ContainerHelper {
 
     /**
      * Helper function that is called instead of Collection.isEmpty
-     *
-     * @param c a {@link java.util.Collection} object.
-     * @return a int.
      */
     public static int collectionIsEmpty(Collection<?> c) {
         return c.isEmpty() ? BooleanHelper.TRUE : -c.size();
@@ -67,10 +61,6 @@ public class ContainerHelper {
      * that do not decide membership with a linear {@code equals} scan (a {@code TreeSet}
      * compares, a {@code HashSet} hashes, a {@code SetUniqueList} delegates) keep throwing what
      * they throw and answering what they answer. The scan only supplies the distance.
-     *
-     * @param c  a {@link java.util.Collection} object.
-     * @param o1 a {@link java.lang.Object} object.
-     * @return a int.
      */
     public static int collectionContains(Collection<?> c, Object o1) {
         if (o1 != null) {
@@ -138,10 +128,6 @@ public class ContainerHelper {
 
     /**
      * Helper function that is called instead of Collection.containsAll
-     *
-     * @param c  a {@link java.util.Collection} object.
-     * @param c2 a {@link java.util.Collection} object.
-     * @return a int.
      */
     public static int collectionContainsAll(Collection<?> c, Collection<?> c2) {
         if (c.containsAll(c2)) {
@@ -167,10 +153,6 @@ public class ContainerHelper {
 
     /**
      * Helper function that is called instead of Map.containsKey
-     *
-     * @param o1 a {@link java.lang.Object} object.
-     * @param m  a {@link java.util.Map} object.
-     * @return a int.
      */
     public static int mapContainsKey(Map<?, ?> m, Object o1) {
         if (o1 != null) {
@@ -182,10 +164,6 @@ public class ContainerHelper {
 
     /**
      * Helper function that is called instead of Map.containsValue
-     *
-     * @param o1 a {@link java.lang.Object} object.
-     * @param m  a {@link java.util.Map} object.
-     * @return a int.
      */
     public static int mapContainsValue(Map<?, ?> m, Object o1) {
         if (o1 != null) {

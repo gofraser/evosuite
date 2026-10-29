@@ -131,7 +131,6 @@ public class TestSuiteWriter implements Opcodes {
      * existing test. If an existing test is a prefix of the test, replace the
      * existing test.
      *
-     * @param test a {@link org.evosuite.testcase.TestCase} object.
      * @return Index of the test case
      */
     public int insertTest(TestCase test) {
@@ -140,10 +139,6 @@ public class TestSuiteWriter implements Opcodes {
 
     /**
      * Insert test.
-     *
-     * @param test    a {@link org.evosuite.testcase.TestCase} object.
-     * @param comment a {@link java.lang.String} object.
-     * @return a int.
      */
     public int insertTest(TestCase test, String comment) {
         int id = insertTest(test);
@@ -161,8 +156,6 @@ public class TestSuiteWriter implements Opcodes {
     /**
      * Insert tests.
      * Insert all tests.
-     *
-     * @param tests a {@link java.util.List} object.
      */
     public void insertTests(List<TestCase> tests) {
         for (TestCase test : tests) {
@@ -172,8 +165,6 @@ public class TestSuiteWriter implements Opcodes {
 
     /**
      * Insert all tests.
-     *
-     * @param tests a {@link java.util.List} object.
      */
     public void insertAllTests(List<TestCase> tests) {
         testCases.addAll(tests);
@@ -181,8 +172,6 @@ public class TestSuiteWriter implements Opcodes {
 
     /**
      * Get all test cases.
-     *
-     * @return a {@link java.util.List} object.
      */
     public List<TestCase> getTestCases() {
         return testCases;
@@ -435,9 +424,6 @@ public class TestSuiteWriter implements Opcodes {
 
     /**
      * Run test.
-     *
-     * @param test a {@link org.evosuite.testcase.TestCase} object.
-     * @return a {@link org.evosuite.testcase.execution.ExecutionResult} object.
      */
     protected ExecutionResult runTest(TestCase test) {
 
@@ -461,9 +447,6 @@ public class TestSuiteWriter implements Opcodes {
 
     /**
      * Determine packages that need to be imported in the JUnit file.
-     *
-     * @param results a {@link java.util.List} object.
-     * @return a {@link java.lang.String} object.
      */
     protected String getImports(List<ExecutionResult> results, RuntimeRequirements requirements) {
         StringBuilder builder = new StringBuilder();
@@ -646,11 +629,6 @@ public class TestSuiteWriter implements Opcodes {
 
     /**
      * JUnit file header.
-     *
-     * @param testName        a {@link java.lang.String} object.
-     * @param scaffoldingName a {@link java.lang.String} object.
-     * @param results          a {@link java.util.List} object.
-     * @return a {@link java.lang.String} object.
      */
     protected String getHeader(String testName, String scaffoldingName, List<ExecutionResult> results,
                                RuntimeRequirements requirements) {
@@ -810,8 +788,6 @@ public class TestSuiteWriter implements Opcodes {
 
     /**
      * JUnit file footer.
-     *
-     * @return a {@link java.lang.String} object.
      */
     protected String getFooter() {
         return "}" + NEWLINE;
@@ -838,7 +814,6 @@ public class TestSuiteWriter implements Opcodes {
      *
      * @param number Number of the test case
      * @param id     Index of the test case
-     * @param result a {@link org.evosuite.testcase.execution.ExecutionResult} object.
      * @return String representation of test case
      */
     protected String testToString(int number, int id, ExecutionResult result) {

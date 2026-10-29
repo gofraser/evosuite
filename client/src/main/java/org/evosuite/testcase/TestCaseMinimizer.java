@@ -132,8 +132,6 @@ public class TestCaseMinimizer {
     /**
      * Central minimization function. Loop and try to remove until all
      * statements have been checked.
-     *
-     * @param c a {@link org.evosuite.testcase.TestChromosome} object.
      */
     public void minimize(TestChromosome c) {
         if (!Properties.MINIMIZE) {

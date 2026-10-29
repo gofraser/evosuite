@@ -45,9 +45,6 @@ public class BranchCoverageTestFitness extends TestFitnessFunction {
 
     /**
      * Constructor - fitness is specific to a branch.
-     *
-     * @param goal a {@link org.evosuite.coverage.branch.BranchCoverageGoal}
-     *             object.
      */
     public BranchCoverageTestFitness(BranchCoverageGoal goal) {
         this.goal = Objects.requireNonNull(goal, "goal cannot be null");
@@ -57,8 +54,6 @@ public class BranchCoverageTestFitness extends TestFitnessFunction {
      * <p>
      * getBranch.
      * </p>
-     *
-     * @return a {@link org.evosuite.coverage.branch.Branch} object.
      */
     public Branch getBranch() {
         return goal.getBranch();
@@ -76,8 +71,6 @@ public class BranchCoverageTestFitness extends TestFitnessFunction {
      * <p>
      * getClassName.
      * </p>
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getClassName() {
         return goal.getClassName();
@@ -87,8 +80,6 @@ public class BranchCoverageTestFitness extends TestFitnessFunction {
      * <p>
      * getMethod.
      * </p>
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getMethod() {
         return goal.getMethodName();
@@ -98,8 +89,6 @@ public class BranchCoverageTestFitness extends TestFitnessFunction {
      * <p>
      * getBranchExpressionValue.
      * </p>
-     *
-     * @return a boolean.
      */
     public boolean getBranchExpressionValue() {
         return goal.getValue();

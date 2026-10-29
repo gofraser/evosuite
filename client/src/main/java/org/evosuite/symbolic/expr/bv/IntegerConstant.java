@@ -35,8 +35,6 @@ public final class IntegerConstant extends AbstractExpression<Long> implements
      * <p>
      * Constructor for IntegerConstant.
      * </p>
-     *
-     * @param longValue a long.
      */
     public IntegerConstant(long longValue) {
         super(longValue, 1, false);

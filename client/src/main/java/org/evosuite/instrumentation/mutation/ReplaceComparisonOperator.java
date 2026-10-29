@@ -165,10 +165,6 @@ public class ReplaceComparisonOperator implements MutationOperator {
 
     /**
      * <p>getInfectionDistance.</p>
-     *
-     * @param opcodeOrig a int.
-     * @param opcodeNew  a int.
-     * @return a {@link org.objectweb.asm.tree.InsnList} object.
      */
     public InsnList getInfectionDistance(int opcodeOrig, int opcodeNew) {
         InsnList distance = new InsnList();
@@ -380,12 +376,6 @@ public class ReplaceComparisonOperator implements MutationOperator {
 
     /**
      * <p>getInfectionDistance.</p>
-     *
-     * @param left       a int.
-     * @param right      a int.
-     * @param opcodeOrig a int.
-     * @param opcodeNew  a int.
-     * @return a double.
      */
     public static double getInfectionDistance(int left, int right, int opcodeOrig,
                                               int opcodeNew) {
@@ -395,11 +385,6 @@ public class ReplaceComparisonOperator implements MutationOperator {
 
     /**
      * <p>getInfectionDistance.</p>
-     *
-     * @param intVal     a int.
-     * @param opcodeOrig a int.
-     * @param opcodeNew  a int.
-     * @return a double.
      */
     public static double getInfectionDistance(int intVal, int opcodeOrig, int opcodeNew) {
         long val = intVal;

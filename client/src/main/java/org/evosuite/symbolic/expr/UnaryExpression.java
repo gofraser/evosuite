@@ -24,15 +24,11 @@ public interface UnaryExpression<T extends Object> {
 
     /**
      * Returns the operand of the unary expression.
-     *
-     * @return a {@link org.evosuite.symbolic.expr.Expression} object.
      */
     Expression<T> getOperand();
 
     /**
      * Returns the operator of the unary expression.
-     *
-     * @return a {@link org.evosuite.symbolic.expr.Operator} object.
      */
     Operator getOperator();
 

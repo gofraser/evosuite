@@ -120,8 +120,6 @@ public class ContractChecker extends ExecutionObserver {
      * <p>
      * Setter for the field <code>active</code>.
      * </p>
-     *
-     * @param isActive a boolean.
      */
     public static void setActive(boolean isActive) {
         active = isActive;

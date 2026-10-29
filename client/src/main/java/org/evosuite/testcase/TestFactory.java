@@ -912,7 +912,6 @@ public class TestFactory {
      * @param position the position at which to insert
      * @param context the generation context
      * @param allowNull whether to allow the creation of the {@code null} reference
-     * @return a reference to the created object
      * @throws ConstructionFailedException if creation fails
      */
     protected VariableReference attemptObjectGeneration(
@@ -1181,7 +1180,6 @@ public class TestFactory {
      * @param position the position in {@code test} at which to insert the reference to the object
      * @param recursionDepth the current recursion depth (see above)
      * @param generatorRefToExclude the generator reference to exclude.
-     * @return a reference to the generated object
      * @throws ConstructionFailedException if generation was not possible
      */
     public VariableReference createObject(

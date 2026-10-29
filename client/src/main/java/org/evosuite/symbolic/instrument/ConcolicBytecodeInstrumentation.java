@@ -39,10 +39,6 @@ public class ConcolicBytecodeInstrumentation {
 
     /**
      * Applies DscClassAdapter to the className in the argument.
-     *
-     * @param className a {@link java.lang.String} object.
-     * @param reader a {@link org.objectweb.asm.ClassReader} object.
-     * @return an array of {@link byte} objects.
      */
     public byte[] transformBytes(String className, ClassReader reader) {
         int readFlags = ClassReader.SKIP_FRAMES;

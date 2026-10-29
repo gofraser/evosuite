@@ -68,35 +68,21 @@ public interface UnitTestAdapter {
 
     /**
      * Get all the framework dependent imports.
-     *
-     * @return a {@link java.lang.String} object.
      */
     String getImports();
 
     /**
      * Get the framework specific definition of the test class.
-     *
-     * @param testName a {@link java.lang.String} object.
-     * @return a {@link java.lang.String} object.
      */
     String getClassDefinition(String testName);
 
     /**
      * Get the framework specific definition of a test method.
-     *
-     * @param testName a {@link java.lang.String} object.
-     * @return a {@link java.lang.String} object.
      */
     String getMethodDefinition(String testName);
 
     /**
      * Return the sequence of method calls for a test.
-     *
-     * @param test       a {@link org.evosuite.testcase.TestCase} object.
-     * @param exceptions a {@link java.util.Map} object.
-     * @param visitor    a {@link org.evosuite.testcase.TestCodeVisitor} object.
-     * @param id         a int.
-     * @return a {@link java.lang.String} object.
      */
     default String getTestString(int id, TestCase test,
                                  Map<Integer, Throwable> exceptions, TestCodeVisitor visitor) {

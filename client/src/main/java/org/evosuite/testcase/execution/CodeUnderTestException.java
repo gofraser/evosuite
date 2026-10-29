@@ -39,8 +39,6 @@ public class CodeUnderTestException extends Exception {
 
     /**
      * <p>Constructor for CodeUnderTestException.</p>
-     *
-     * @param cause a {@link java.lang.Throwable} object.
      */
     public CodeUnderTestException(Throwable cause) {
         super(cause);
@@ -49,12 +47,7 @@ public class CodeUnderTestException extends Exception {
     /**
      * Used by code calling VariableReference.setObject/2 and .getObject()/1.
      *
-     * @param e a {@link java.lang.Throwable} object.
      * @return only there to make the compiler happy, this method always throws an exception
-     * @throws java.lang.IllegalAccessException      if any.
-     * @throws java.lang.IllegalArgumentException    if any.
-     * @throws java.lang.NullPointerException        if any.
-     * @throws java.lang.ExceptionInInitializerError if any.
      * @throws AssertionError                        if e wasn't one of listed for types
      */
     @Deprecated

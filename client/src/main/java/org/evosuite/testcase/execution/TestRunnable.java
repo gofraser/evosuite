@@ -124,10 +124,6 @@ public class TestRunnable implements Callable<ExecutionResult> {
      * <p>
      * Constructor for TestRunnable.
      * </p>
-     *
-     * @param tc        a {@link org.evosuite.testcase.TestCase} object.
-     * @param scope     a {@link org.evosuite.testcase.execution.Scope} object.
-     * @param observers a {@link java.util.Set} object.
      */
     public TestRunnable(TestCase tc, Scope scope, Set<ExecutionObserver> observers) {
         test = tc;

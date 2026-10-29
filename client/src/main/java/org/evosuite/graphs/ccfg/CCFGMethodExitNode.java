@@ -25,8 +25,6 @@ public class CCFGMethodExitNode extends CCFGNode {
 
     /**
      * Constructor for CCFGMethodExitNode.
-     *
-     * @param method a {@link java.lang.String} object.
      */
     public CCFGMethodExitNode(String method) {
         this.method = method;
@@ -34,9 +32,6 @@ public class CCFGMethodExitNode extends CCFGNode {
 
     /**
      * isExitOfMethodEntry.
-     *
-     * @param methodEntry a {@link org.evosuite.graphs.ccfg.CCFGMethodEntryNode} object.
-     * @return a boolean.
      */
     public boolean isExitOfMethodEntry(CCFGMethodEntryNode methodEntry) {
         if (methodEntry == null) {
@@ -47,8 +42,6 @@ public class CCFGMethodExitNode extends CCFGNode {
 
     /**
      * Getter for the field <code>method</code>.
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getMethod() {
         return method;

@@ -68,8 +68,6 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
      * <p>
      * Constructor for MutationTestFitness.
      * </p>
-     *
-     * @param mutation a {@link org.evosuite.coverage.mutation.Mutation} object.
      */
     public MutationTestFitness(Mutation mutation) {
         this.mutation = mutation;
@@ -89,8 +87,6 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
      * <p>
      * Getter for the field <code>mutation</code>.
      * </p>
-     *
-     * @return a {@link org.evosuite.coverage.mutation.Mutation} object.
      */
     public Mutation getMutation() {
         return mutation;
@@ -105,10 +101,6 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
      * <p>
      * runTest.
      * </p>
-     *
-     * @param test   a {@link org.evosuite.testcase.TestCase} object.
-     * @param mutant a {@link org.evosuite.coverage.mutation.Mutation} object.
-     * @return a {@link org.evosuite.testcase.execution.ExecutionResult} object.
      */
     public static ExecutionResult runTest(TestCase test, Mutation mutant) {
 
@@ -149,9 +141,6 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
      * <p>
      * getExecutionDistance.
      * </p>
-     *
-     * @param result a {@link org.evosuite.testcase.execution.ExecutionResult} object.
-     * @return a double.
      */
     protected double getExecutionDistance(ExecutionResult result) {
         double fitness = 0.0;

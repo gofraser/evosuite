@@ -43,9 +43,6 @@ public class ConstantValue extends VariableReferenceImpl {
 
     /**
      * Constructor for ConstantValue.
-     *
-     * @param testCase a {@link org.evosuite.testcase.TestCase} object.
-     * @param type     a {@link GenericClassImpl} object.
      */
     public ConstantValue(TestCase testCase, GenericClass<?> type) {
         super(testCase, type);
@@ -54,8 +51,6 @@ public class ConstantValue extends VariableReferenceImpl {
     /**
      * Constructor for ConstantValue.
      *
-     * @param testCase a {@link org.evosuite.testcase.TestCase} object.
-     * @param type     a {@link GenericClass} object.
      * @param value    the value of the constant.
      */
     public ConstantValue(TestCase testCase, GenericClass<?> type, Object value) {
@@ -65,9 +60,6 @@ public class ConstantValue extends VariableReferenceImpl {
 
     /**
      * Constructor for ConstantValue.
-     *
-     * @param testCase a {@link org.evosuite.testcase.TestCase} object.
-     * @param type     a {@link java.lang.reflect.Type} object.
      */
     public ConstantValue(TestCase testCase, Type type) {
         this(testCase, GenericClassFactory.get(type));
@@ -98,8 +90,6 @@ public class ConstantValue extends VariableReferenceImpl {
 
     /**
      * Getter for the field <code>value</code>.
-     *
-     * @return a {@link java.lang.Object} object.
      */
     public Object getValue() {
         return value;
@@ -107,8 +97,6 @@ public class ConstantValue extends VariableReferenceImpl {
 
     /**
      * Setter for the field <code>value</code>.
-     *
-     * @param value a {@link java.lang.Object} object.
      */
     public void setValue(Object value) {
         this.value = value;

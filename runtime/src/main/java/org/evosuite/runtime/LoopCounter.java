@@ -410,10 +410,8 @@ public class LoopCounter {
     /**
      * This is added directly in the instrumented CUT after each loop statement.
      *
-     * @param index a int.
      * @throws org.evosuite.runtime.TooManyResourcesException if this loop has executed too
      *     many iterations
-     * @throws java.lang.IllegalArgumentException if any.
      */
     public void checkLoop(int index) throws TooManyResourcesException, IllegalArgumentException {
         if (delegate != null) {

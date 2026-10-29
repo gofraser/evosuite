@@ -45,9 +45,6 @@ public class TypeBasedVariableNameStrategy extends AbstractVariableNameStrategy 
 
     /**
      * getPlainNameForVariable.
-     *
-     * @param var a {@link org.evosuite.testcase.variable.VariableReference} object.
-     * @return a {@link java.lang.String} object.
      */
     public String getPlainNameForVariable(VariableReference var) {
         String className = var.getSimpleClassName();
@@ -86,7 +83,6 @@ public class TypeBasedVariableNameStrategy extends AbstractVariableNameStrategy 
      *
      * <p>Mainly used for Type-Based Renaming Strategy (traditional naming in EvoSuite).
      *
-     * @param variableName a {@link java.lang.String} object.
      * @return String
      */
     private String getIndexIncludingFirstAppearance(String variableName) {

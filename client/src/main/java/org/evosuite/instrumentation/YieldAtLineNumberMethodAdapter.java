@@ -34,12 +34,6 @@ public class YieldAtLineNumberMethodAdapter extends AbstractEvoMethodAdapter {
 
     /**
      * <p>Constructor for YieldAtLineNumberMethodAdapter.</p>
-     *
-     * @param mv         a {@link org.objectweb.asm.MethodVisitor} object.
-     * @param access     a int.
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @param desc       a {@link java.lang.String} object.
      */
     public YieldAtLineNumberMethodAdapter(MethodVisitor mv, int access, String className,
                                           String methodName, String desc) {

@@ -168,8 +168,6 @@ public enum Operator {
 
     /**
      * <p>Getter for the field <code>arity</code>.</p>
-     *
-     * @return a int.
      */
     public int getArity() {
         return arity;

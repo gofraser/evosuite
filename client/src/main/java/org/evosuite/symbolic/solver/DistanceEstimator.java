@@ -48,7 +48,6 @@ public abstract class DistanceEstimator {
     /**
      * Returns the normalized distance for a collection of constraints.
      *
-     * @param constraints a {@link java.util.Collection} object.
      * @return normalized distance in [0,1]
      */
     public static double getDistance(Collection<Constraint<?>> constraints) {

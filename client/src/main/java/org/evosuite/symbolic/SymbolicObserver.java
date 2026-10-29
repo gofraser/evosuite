@@ -108,8 +108,6 @@ public class SymbolicObserver extends ExecutionObserver {
 
     /**
      * Constructor.
-     *
-     * @param env a {@link org.evosuite.symbolic.vm.SymbolicEnvironment} object.
      */
     public SymbolicObserver(SymbolicEnvironment env) {
         this.env = env;
@@ -307,9 +305,6 @@ public class SymbolicObserver extends ExecutionObserver {
      * Reads a VariableReference from the stored symbolic references and
      * symbolic expressions.
      *
-     * @param rhs a {@link org.evosuite.testcase.variable.VariableReference} object.
-     * @param scope a {@link org.evosuite.testcase.execution.Scope} object.
-     * @return a {@link org.evosuite.symbolic.SymbolicObserver.ReferenceExpressionPair} object.
      * @throws java.lang.IllegalArgumentException if no value was found.
      */
     private ReferenceExpressionPair readVariable(VariableReference rhs, Scope scope) {
@@ -932,9 +927,6 @@ public class SymbolicObserver extends ExecutionObserver {
     /**
      * This method forbids using the same interning String in two separate
      * string primitive statements.
-     *
-     * @param statement a {@link org.evosuite.testcase.statements.StringPrimitiveStatement} object.
-     * @param scope a {@link org.evosuite.testcase.execution.Scope} object.
      */
     private void before(StringPrimitiveStatement statement, Scope scope) {
         /* do nothing */
@@ -1545,9 +1537,6 @@ public class SymbolicObserver extends ExecutionObserver {
 
     /**
      * Upgrades a symbolic array from a literal to a variable in the symbolic heap.
-     *
-     * @param arrayRef a {@link org.evosuite.testcase.variable.ArrayReference} object.
-     * @param concArray a {@link java.lang.Object} object.
      */
     private void upgradeSymbolicArrayLiteralToVariable(ArrayReference arrayRef, Object concArray) {
         if (Properties.IS_DSE_ARRAYS_SUPPORT_ENABLED) {

@@ -31,22 +31,16 @@ public abstract class Constraint<T extends Object> implements Serializable {
 
     /**
      * Returns the comparator used in this constraint.
-     *
-     * @return a {@link org.evosuite.symbolic.expr.Comparator} object.
      */
     public abstract Comparator getComparator();
 
     /**
      * Returns the left operand of the constraint.
-     *
-     * @return a {@link org.evosuite.symbolic.expr.Expression} object.
      */
     public abstract Expression<?> getLeftOperand();
 
     /**
      * Returns the right operand of the constraint.
-     *
-     * @return a {@link org.evosuite.symbolic.expr.Expression} object.
      */
     public abstract Expression<?> getRightOperand();
 

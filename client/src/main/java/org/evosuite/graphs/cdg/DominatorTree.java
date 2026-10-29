@@ -68,8 +68,6 @@ public class DominatorTree<V> extends EvoSuiteGraph<DominatorNode<V>, DefaultEdg
     /**
      * Will start the computation of all immediateDominators for the given CFG
      * which can later be retrieved via getImmediateDominator().
-     *
-     * @param cfg a {@link org.evosuite.graphs.cfg.ControlFlowGraph} object.
      */
     public DominatorTree(ControlFlowGraph<V> cfg) {
         super(DefaultEdge.class);
@@ -188,7 +186,6 @@ public class DominatorTree<V> extends EvoSuiteGraph<DominatorNode<V>, DefaultEdg
      *
      * @param v A node within this objects CFG for wich the immediateDominator
      *          is to be returned
-     * @return a V object.
      */
     public V getImmediateDominator(V v) {
         if (v == null) {
@@ -213,9 +210,6 @@ public class DominatorTree<V> extends EvoSuiteGraph<DominatorNode<V>, DefaultEdg
 
     /**
      * Getter for the field <code>dominatingFrontiers</code>.
-     *
-     * @param v a V object.
-     * @return a {@link java.util.Set} object.
      */
     public Set<V> getDominatingFrontiers(V v) {
         if (v == null) {

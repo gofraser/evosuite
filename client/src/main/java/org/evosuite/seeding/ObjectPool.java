@@ -54,9 +54,6 @@ public class ObjectPool implements Serializable {
 
     /**
      * Insert a new sequence for given Type.
-     *
-     * @param clazz    a {@link java.lang.reflect.Type} object.
-     * @param sequence a {@link TestCase} object.
      */
     public void addSequence(GenericClass<?> clazz, TestCase sequence) {
         ObjectSequence seq = new ObjectSequence(clazz, sequence);
@@ -78,9 +75,6 @@ public class ObjectPool implements Serializable {
 
     /**
      * Randomly choose a sequence for a given Type.
-     *
-     * @param clazz a {@link java.lang.reflect.Type} object.
-     * @return a {@link org.evosuite.testcase.TestCase} object.
      */
     public TestCase getRandomSequence(GenericClass<?> clazz) {
         Set<TestCase> sequences = getSequences(clazz);
@@ -93,9 +87,6 @@ public class ObjectPool implements Serializable {
     /**
      * Retrieve all possible sequences for a given Type.
      * Returns a snapshot to avoid ConcurrentModificationException during search.
-     *
-     * @param clazz a {@link java.lang.reflect.Type} object.
-     * @return a {@link java.util.Set} object.
      */
     public Set<TestCase> getSequences(GenericClass<?> clazz) {
         Set<TestCase> exact = pool.get(clazz);
@@ -130,9 +121,6 @@ public class ObjectPool implements Serializable {
     /**
      * Check if there are sequences for given Type.
      * Safe for concurrent reads — iterates ConcurrentHashMap snapshot view.
-     *
-     * @param clazz a {@link java.lang.reflect.Type} object.
-     * @return a boolean.
      */
     public boolean hasSequence(GenericClass<?> clazz) {
         Set<TestCase> exact = pool.get(clazz);

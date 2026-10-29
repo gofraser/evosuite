@@ -218,10 +218,6 @@ public class MutationInstrumentation implements MethodInstrumentation {
      * <p>
      * addInstrumentation.
      * </p>
-     *
-     * @param mn        a {@link org.objectweb.asm.tree.MethodNode} object.
-     * @param original  a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
-     * @param mutations a {@link java.util.List} object.
      */
     protected void addInstrumentation(MethodNode mn, AbstractInsnNode original,
                                       List<Mutation> mutations) {

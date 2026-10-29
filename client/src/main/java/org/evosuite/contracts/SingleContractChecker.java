@@ -44,8 +44,6 @@ public class SingleContractChecker extends ExecutionObserver {
      * <p>
      * Constructor for SingleContractChecker.
      * </p>
-     *
-     * @param contract a {@link org.evosuite.contracts.Contract} object.
      */
     public SingleContractChecker(Contract contract) {
         this.contract = contract;
@@ -55,8 +53,6 @@ public class SingleContractChecker extends ExecutionObserver {
      * <p>
      * isValid.
      * </p>
-     *
-     * @return a boolean.
      */
     public boolean isValid() {
         return valid;

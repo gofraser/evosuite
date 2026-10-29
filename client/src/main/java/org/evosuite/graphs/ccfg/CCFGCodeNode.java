@@ -27,8 +27,6 @@ public class CCFGCodeNode extends CCFGNode {
 
     /**
      * Constructor for CCFGCodeNode.
-     *
-     * @param code a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      */
     public CCFGCodeNode(BytecodeInstruction code) {
         this.codeInstruction = code;
@@ -36,8 +34,6 @@ public class CCFGCodeNode extends CCFGNode {
 
     /**
      * getMethod.
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getMethod() {
         return codeInstruction.getMethodName();
@@ -45,8 +41,6 @@ public class CCFGCodeNode extends CCFGNode {
 
     /**
      * Getter for the field <code>codeInstruction</code>.
-     *
-     * @return a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      */
     public BytecodeInstruction getCodeInstruction() {
         return codeInstruction;

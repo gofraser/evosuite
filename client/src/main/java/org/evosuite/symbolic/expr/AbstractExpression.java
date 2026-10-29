@@ -54,8 +54,6 @@ public abstract class AbstractExpression<T> implements Expression<T> {
      * <p>
      * Getter for the field <code>parent</code>.
      * </p>
-     *
-     * @return a {@link org.evosuite.symbolic.expr.Expression} object.
      */
     @Override
     public final Expression<?> getParent() {

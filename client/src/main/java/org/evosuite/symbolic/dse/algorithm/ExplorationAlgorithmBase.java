@@ -163,9 +163,6 @@ public abstract class ExplorationAlgorithmBase implements Serializable {
 
     /**
      * Adds a stopping condition.
-     *
-     * @param condition a {@link org.evosuite.ga.stoppingconditions.StoppingCondition}
-     *                  object.
      */
     public void addStoppingCondition(StoppingCondition condition) {
         Iterator<StoppingCondition> it = stoppingConditions.iterator();
@@ -191,9 +188,6 @@ public abstract class ExplorationAlgorithmBase implements Serializable {
 
     /**
      * Sets a stopping condition.
-     *
-     * @param condition a {@link org.evosuite.ga.stoppingconditions.StoppingCondition}
-     *                  object.
      */
     public void setStoppingCondition(StoppingCondition condition) {
         stoppingConditions.clear();
@@ -203,9 +197,6 @@ public abstract class ExplorationAlgorithmBase implements Serializable {
 
     /**
      * Removes a stopping condition.
-     *
-     * @param condition a {@link org.evosuite.ga.stoppingconditions.StoppingCondition}
-     *                  object.
      */
     public void removeStoppingCondition(StoppingCondition condition) {
         Iterator<StoppingCondition> it = stoppingConditions.iterator();
@@ -227,8 +218,6 @@ public abstract class ExplorationAlgorithmBase implements Serializable {
 
     /**
      * Determine whether any of the stopping conditions hold.
-     *
-     * @return a boolean.
      */
     public boolean isFinished() {
         for (StoppingCondition c : stoppingConditions) {

@@ -36,11 +36,6 @@ public interface ExecutionTrace {
 
     /**
      * Add branch to currently active method call.
-     *
-     * @param branch         a int.
-     * @param trueDistance  a double.
-     * @param falseDistance a double.
-     * @param bytecodeId    a int.
      */
     void branchPassed(int branch, int bytecodeId, double trueDistance, double falseDistance);
 
@@ -49,21 +44,12 @@ public interface ExecutionTrace {
      * happened; a later evaluation replaces an earlier one. Only called when
      * {@link org.evosuite.Properties#LLM_BRANCH_OPERAND_HINTS} is on. Primitive so recording
      * never allocates on this hot path.
-     *
-     * @param branch a int.
-     * @param left   a int.
-     * @param right  a int.
-     * @param opcode a int.
      */
     void branchOperandsSeen(int branch, int left, int right, int opcode);
 
     /**
      * Records the operands of a one-int-operand evaluation of {@code branch} that just
      * happened; see {@link #branchOperandsSeen(int, int, int, int)}.
-     *
-     * @param branch a int.
-     * @param value  a int.
-     * @param opcode a int.
      */
     void branchOperandsSeen(int branch, int value, int opcode);
 
@@ -72,131 +58,88 @@ public interface ExecutionTrace {
      * happened; see {@link #branchOperandsSeen(int, int, int, int)}. The operands are rendered
      * to text immediately, exactly as {@link BranchOperands#ofObjects(Object, Object, int)}
      * would, so no reference to a SUT object is retained.
-     *
-     * @param branch a int.
-     * @param left   a {@link java.lang.Object} object.
-     * @param right  a {@link java.lang.Object} object.
-     * @param opcode a int.
      */
     void branchOperandsSeen(int branch, Object left, Object right, int opcode);
 
     /**
      * Records the operands of a one-object-operand evaluation of {@code branch} that just
      * happened; see {@link #branchOperandsSeen(int, Object, Object, int)}.
-     *
-     * @param branch a int.
-     * @param value  a {@link java.lang.Object} object.
-     * @param opcode a int.
      */
     void branchOperandsSeen(int branch, Object value, int opcode);
 
     /**
      * Retrieve minimum branch distance to false branch.
-     *
-     * @param branchId a int.
-     * @return a double.
      */
     double getFalseDistance(int branchId);
 
     /**
      * Retrieve minimum branch distance to true branch.
-     *
-     * @param branchId a int.
-     * @return a double.
      */
     double getTrueDistance(int branchId);
 
     /**
      * Retrieve set of branches that evaluated to true.
-     *
-     * @return a {@link java.util.Set} object.
      */
     Set<Integer> getCoveredTrueBranches();
 
     /**
      * Retrieve set of branches that evaluated to false.
-     *
-     * @return a {@link java.util.Set} object.
      */
     Set<Integer> getCoveredFalseBranches();
 
     /**
      * Retrieve set of branches that were executed.
-     *
-     * @return a {@link java.util.Set} object.
      */
     Set<Integer> getCoveredPredicates();
 
     /**
      * Retrieve execution counts for branches.
-     *
-     * @return a {@link java.util.Map} object.
      */
     Map<Integer, Integer> getPredicateExecutionCount();
 
     /**
      * Retrieve execution counts for methods.
-     *
-     * @return a {@link java.util.Map} object.
      */
     Map<String, Integer> getMethodExecutionCount();
 
     /**
      * Retrieve execution counts for definitions.
-     *
-     * @return a {@link java.util.Map} object.
      */
     Map<Integer, Integer> getDefinitionExecutionCount();
 
     /**
      * Determine if a branch has a true distance stored.
-     *
-     * @param predicateId a int.
-     * @return a boolean.
      */
     boolean hasTrueDistance(int predicateId);
 
     /**
      * Determine if a branch has a false distance stored.
-     *
-     * @param predicateId a int.
-     * @return a boolean.
      */
     boolean hasFalseDistance(int predicateId);
 
     /**
      * Retrieve map of all minimal true distances.
-     *
-     * @return a {@link java.util.Map} object.
      */
     Map<Integer, Double> getTrueDistances();
 
     /**
      * Retrieve map of all minimal false distances.
-     *
-     * @return a {@link java.util.Map} object.
      */
     Map<Integer, Double> getFalseDistances();
 
     /**
      * Retrieve map of all minimal true distances.
-     *
-     * @return a {@link java.util.Map} object.
      */
     Map<Integer, Map<CallContext, Double>> getTrueDistancesContext();
 
     /**
      * Retrieve map of all minimal false distances.
-     *
-     * @return a {@link java.util.Map} object.
      */
     Map<Integer, Map<CallContext, Double>> getFalseDistancesContext();
 
     /**
      * Branch id &rarr; operands of the last evaluation of that predicate in this execution;
      * empty unless operand recording is on.
-     *
-     * @return a {@link java.util.Map} object.
      */
     Map<Integer, BranchOperands> getLastBranchOperands();
 
@@ -211,103 +154,72 @@ public interface ExecutionTrace {
 
     /**
      * Retrieve map of all context method counts.
-     *
-     * @return a {@link java.util.Map} object.
      */
     Map<String, Map<CallContext, Integer>> getMethodContextCount();
 
     /**
      * Retrieve number of predicate executions.
-     *
-     * @return a {@link java.util.Map} object.
      */
     Map<Integer, Map<CallContext, Integer>> getPredicateContextExecutionCount();
 
     /**
      * Retrieve the set of line numbers covered.
-     *
-     * @param className a {@link java.lang.String} object.
-     * @return a {@link java.util.Set} object.
      */
     Set<Integer> getCoveredLines(String className);
 
     /**
      * Retrieve the set of line numbers covered of
      * {@link org.evosuite.Properties.TARGET_CLASS} class.
-     *
-     * @return a {@link java.util.Set} object.
      */
     Set<Integer> getCoveredLines();
 
     /**
      * Retrieve detailed line coverage count.
-     *
-     * @return a {@link java.util.Map} object.
      */
     Map<String, Map<String, Map<Integer, Integer>>> getCoverageData();
 
     /**
      * Retrieve return value data.
-     *
-     * @return a {@link java.util.Map} object.
      */
     Map<String, Map<String, Map<Integer, Integer>>> getReturnData();
 
     /**
      * Retrieve data definitions.
-     *
-     * @return a {@link java.util.Map} object.
      */
     Map<String, HashMap<Integer, HashMap<Integer, Integer>>> getDefinitionData();
 
     /**
      * Retrieve data definitions.
-     *
-     * @return a {@link java.util.Map} object.
      */
     Map<String, HashMap<Integer, HashMap<Integer, Object>>> getDefinitionDataObjects();
 
     /**
      * Retrieve data uses.
-     *
-     * @return a {@link java.util.Map} object.
      */
     Map<String, HashMap<Integer, HashMap<Integer, Integer>>> getUseData();
 
     /**
      * Retrieve data uses.
-     *
-     * @return a {@link java.util.Map} object.
      */
     Map<String, HashMap<Integer, HashMap<Integer, Object>>> getUseDataObjects();
 
     /**
      * Retrieve the data definitions for a given variable.
-     *
-     * @param variableName a {@link java.lang.String} object.
-     * @return a {@link java.util.Map} object.
      */
     Map<Integer, HashMap<Integer, Integer>> getPassedDefinitions(String variableName);
 
     /**
      * Retrieve the data uses for a given variable.
-     *
-     * @param variableName a {@link java.lang.String} object.
-     * @return a {@link java.util.Map} object.
      */
     Map<Integer, HashMap<Integer, Integer>> getPassedUses(String variableName);
 
     /**
      * Retrieve the exception thrown in this trace.
-     *
-     * @return a {@link java.lang.Throwable} object.
      */
     Throwable getExplicitException();
 
     /**
      * Retrieve all traced method calls.
-     *
-     * @return a {@link java.util.List} object.
      */
     List<MethodCall> getMethodCalls();
 
@@ -326,45 +238,31 @@ public interface ExecutionTrace {
 
     /**
      * Retrieve the names of all called methods.
-     *
-     * @return a {@link java.util.Set} object.
      */
     Set<String> getCoveredMethods();
 
     /**
      * Retrieve the names of all covered branchless methods.
-     *
-     * @return a {@link java.util.Set} object.
      */
     Set<String> getCoveredBranchlessMethods();
 
     /**
      * Retrieve the minimum infection distance for a mutant.
-     *
-     * @param mutationId a int.
-     * @return a double.
      */
     double getMutationDistance(int mutationId);
 
     /**
      * Retrieve all minimal infection distances.
-     *
-     * @return a {@link java.util.Map} object.
      */
     Map<Integer, Double> getMutationDistances();
 
     /**
      * Determine is a mutant was executed.
-     *
-     * @param mutationId a int.
-     * @return a boolean.
      */
     boolean wasMutationTouched(int mutationId);
 
     /**
      * Retrieve IDs of all executed mutants.
-     *
-     * @return a {@link java.util.Set} object.
      */
     Set<Integer> getTouchedMutants();
 
@@ -381,26 +279,16 @@ public interface ExecutionTrace {
      * currently active one for the definitionVariable in the
      * activeDefinitions-field Adds fake trace information to the currently
      * active MethodCall in this.stack.</p>
-     *
-     * @param caller a {@link java.lang.Object} object.
-     * @param defId  a int.
      */
     void definitionPassed(Object object, Object caller, int defId);
 
     /**
      * Add a new method call to stack.
-     *
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @param caller     a {@link java.lang.Object} object.
      */
     void enteredMethod(String className, String methodName, Object caller);
 
     /**
      * Pop last method call from stack.
-     *
-     * @param classname  a {@link java.lang.String} object.
-     * @param methodname a {@link java.lang.String} object.
      */
     void exitMethod(String classname, String methodname);
 
@@ -418,9 +306,6 @@ public interface ExecutionTrace {
      * <p>WARNING: this will not affect this.true_distances and other fields of
      * ExecutionTrace this only affects the finished_calls field (which should
      * suffice for BranchCoverageFitness-calculation).</p>
-     *
-     * @param objectId a int.
-     * @return a {@link org.evosuite.testcase.execution.ExecutionTrace} object.
      */
     ExecutionTrace getTraceForObject(int objectId);
 
@@ -447,39 +332,22 @@ public interface ExecutionTrace {
      * <p>WARNING: this will not affect this.true_distances and other fields of
      * ExecutionTrace this only affects the finished_calls field (which should
      * suffice for BranchCoverageFitness-calculation).</p>
-     *
-     * @param targetDU            a {@link org.evosuite.coverage.dataflow.DefUse} object.
-     * @param wantToCoverTargetDU a boolean.
-     * @param duCounterStart      a int.
-     * @param duCounterEnd        a int.
-     * @return a {@link org.evosuite.testcase.execution.ExecutionTrace} object.
      */
     ExecutionTrace getTraceInDUCounterRange(DefUse targetDU, boolean wantToCoverTargetDU, int duCounterStart,
                                             int duCounterEnd);
 
     /**
      * Add line to currently active method call.
-     *
-     * @param line       a int.
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
      */
     void linePassed(String className, String methodName, int line);
 
     /**
      * Record a mutant execution.
-     *
-     * @param mutationId a int.
-     * @param distance   a double.
      */
     void mutationPassed(int mutationId, double distance);
 
     /**
      * Record a return value.
-     *
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @param value      a int.
      */
     void returnValue(String className, String methodName, int value);
 
@@ -488,23 +356,16 @@ public interface ExecutionTrace {
      *
      * <p>Registers the given caller-Object Traces the occurrence of the given use
      * in the passedUses-field.</p>
-     *
-     * @param caller a {@link java.lang.Object} object.
-     * @param useId  a int.
      */
     void usePassed(Object object, Object caller, int useId);
 
     /**
      * Set the exception thrown in this trace.
-     *
-     * @param explicitException a {@link java.lang.Throwable} object.
      */
     void setExplicitException(Throwable explicitException);
 
     /**
      * Create a lazy copy.
-     *
-     * @return a {@link org.evosuite.testcase.execution.ExecutionTrace} object.
      */
     ExecutionTrace lazyClone();
 
@@ -523,8 +384,6 @@ public interface ExecutionTrace {
 
     /**
      * <p>getPassedUses.</p>
-     *
-     * @return a {@link java.util.Map} object.
      */
     Map<String, HashMap<Integer, HashMap<Integer, Integer>>> getPassedUses();
 

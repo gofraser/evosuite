@@ -33,12 +33,6 @@ public class AnnotatedMethodNode extends MethodNode {
 
     /**
      * Constructor for AnnotatedMethodNode.
-     *
-     * @param access     a int.
-     * @param name       a {@link java.lang.String} object.
-     * @param desc       a {@link java.lang.String} object.
-     * @param signature  a {@link java.lang.String} object.
-     * @param exceptions an array of {@link java.lang.String} objects.
      */
     public AnnotatedMethodNode(int access, String name, String desc, String signature,
                                String[] exceptions) {

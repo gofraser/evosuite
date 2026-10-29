@@ -72,7 +72,6 @@ public class StatementCoverageFactory extends
     /**
      * Determine if a bytecode instruction is usable for statement coverage.
      *
-     * @param ins a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      * @return true if the instruction is neither a label nor a line number.
      */
     private static boolean isUsable(BytecodeInstruction ins) {

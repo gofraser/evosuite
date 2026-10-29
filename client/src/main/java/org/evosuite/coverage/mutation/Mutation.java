@@ -58,14 +58,6 @@ public class Mutation implements Comparable<Mutation> {
      * <p>
      * Constructor for Mutation.
      * </p>
-     *
-     * @param className    a {@link java.lang.String} object.
-     * @param methodName   a {@link java.lang.String} object.
-     * @param mutationName a {@link java.lang.String} object.
-     * @param id           a int.
-     * @param original     a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @param mutation     a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
-     * @param distance     a {@link org.objectweb.asm.tree.InsnList} object.
      */
     public Mutation(String className, String methodName, String mutationName, int id,
                     BytecodeInstruction original, AbstractInsnNode mutation, InsnList distance) {
@@ -84,14 +76,6 @@ public class Mutation implements Comparable<Mutation> {
      * <p>
      * Constructor for Mutation.
      * </p>
-     *
-     * @param className    a {@link java.lang.String} object.
-     * @param methodName   a {@link java.lang.String} object.
-     * @param mutationName a {@link java.lang.String} object.
-     * @param id           a int.
-     * @param original     a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @param mutation     a {@link org.objectweb.asm.tree.InsnList} object.
-     * @param distance     a {@link org.objectweb.asm.tree.InsnList} object.
      */
     public Mutation(String className, String methodName, String mutationName, int id,
                     BytecodeInstruction original, InsnList mutation, InsnList distance) {
@@ -109,8 +93,6 @@ public class Mutation implements Comparable<Mutation> {
      * <p>
      * Getter for the field <code>id</code>.
      * </p>
-     *
-     * @return a int.
      */
     public int getId() {
         return id;
@@ -120,8 +102,6 @@ public class Mutation implements Comparable<Mutation> {
      * <p>
      * Getter for the field <code>className</code>.
      * </p>
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getClassName() {
         return className;
@@ -131,8 +111,6 @@ public class Mutation implements Comparable<Mutation> {
      * <p>
      * Getter for the field <code>methodName</code>.
      * </p>
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getMethodName() {
         return methodName;
@@ -146,8 +124,6 @@ public class Mutation implements Comparable<Mutation> {
      * <p>
      * Getter for the field <code>mutationName</code>.
      * </p>
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getMutationName() {
         return mutationName;
@@ -157,8 +133,6 @@ public class Mutation implements Comparable<Mutation> {
      * <p>
      * Returns a formatted description of the mutation.
      * </p>
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getDescription() {
         return mutationName + " (" + id + "): " + ", line " + original.getLineNumber();
@@ -168,8 +142,6 @@ public class Mutation implements Comparable<Mutation> {
      * <p>
      * getControlDependencies.
      * </p>
-     *
-     * @return a {@link java.util.Set} object.
      */
     public Set<BranchCoverageGoal> getControlDependencies() {
         Set<BranchCoverageGoal> goals = new HashSet<>();
@@ -184,8 +156,6 @@ public class Mutation implements Comparable<Mutation> {
      * <p>
      * getOriginalNode.
      * </p>
-     *
-     * @return a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
      */
     public AbstractInsnNode getOriginalNode() {
         return original.getASMNode();
@@ -195,8 +165,6 @@ public class Mutation implements Comparable<Mutation> {
      * <p>
      * Getter for the field <code>mutation</code>.
      * </p>
-     *
-     * @return a {@link org.objectweb.asm.tree.InsnList} object.
      */
     public InsnList getMutation() {
         return mutation;
@@ -206,8 +174,6 @@ public class Mutation implements Comparable<Mutation> {
      * <p>
      * getInfectionDistance.
      * </p>
-     *
-     * @return a {@link org.objectweb.asm.tree.InsnList} object.
      */
     public InsnList getInfectionDistance() {
         return infection;
@@ -217,8 +183,6 @@ public class Mutation implements Comparable<Mutation> {
      * <p>
      * getDefaultInfectionDistance.
      * </p>
-     *
-     * @return a {@link org.objectweb.asm.tree.InsnList} object.
      */
     public static InsnList getDefaultInfectionDistance() {
         InsnList defaultDistance = new InsnList();

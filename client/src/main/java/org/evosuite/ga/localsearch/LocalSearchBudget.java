@@ -93,8 +93,6 @@ public class LocalSearchBudget<T extends Chromosome<T>> implements SearchListene
 
     /**
      * Checks if the budget is exhausted.
-     *
-     * @return a boolean.
      */
     public boolean isFinished() {
         // If the global search is finished then we don't want local search either

@@ -58,10 +58,6 @@ public class ArrayIndex extends VariableReferenceImpl {
 
     /**
      * Constructor.
-     *
-     * @param testCase a {@link org.evosuite.testcase.TestCase} object.
-     * @param array    a {@link ArrayReference} object.
-     * @param index    a int.
      */
     public ArrayIndex(TestCase testCase, ArrayReference array, int index) {
         this(testCase, array, Collections.singletonList(index));
@@ -69,10 +65,6 @@ public class ArrayIndex extends VariableReferenceImpl {
 
     /**
      * Constructor for ArrayIndex.
-     *
-     * @param testCase a {@link org.evosuite.testcase.TestCase} object.
-     * @param array    a {@link ArrayReference} object.
-     * @param indices  a {@link java.util.List} object.
      */
     public ArrayIndex(TestCase testCase, ArrayReference array, List<Integer> indices) {
         super(testCase, GenericClassFactory.get(getReturnType(array, indices.size())));
@@ -93,8 +85,6 @@ public class ArrayIndex extends VariableReferenceImpl {
 
     /**
      * Getter for the field <code>array</code>.
-     *
-     * @return a {@link ArrayReference} object.
      */
     public ArrayReference getArray() {
         return array;
@@ -102,8 +92,6 @@ public class ArrayIndex extends VariableReferenceImpl {
 
     /**
      * Setter for the field <code>array</code>.
-     *
-     * @param r a {@link ArrayReference} object.
      */
     public void setArray(ArrayReference r) {
         array = r;
@@ -111,8 +99,6 @@ public class ArrayIndex extends VariableReferenceImpl {
 
     /**
      * Return true if variable is an array index.
-     *
-     * @return a boolean.
      */
     public boolean isArrayIndex() {
         return true;
@@ -120,8 +106,6 @@ public class ArrayIndex extends VariableReferenceImpl {
 
     /**
      * getArrayIndex.
-     *
-     * @return a int.
      */
     public int getArrayIndex() {
         assert indices.size() == 1;
@@ -130,8 +114,6 @@ public class ArrayIndex extends VariableReferenceImpl {
 
     /**
      * setArrayIndex.
-     *
-     * @param index a int.
      */
     public void setArrayIndex(int index) {
         assert indices.size() == 1;
@@ -520,8 +502,6 @@ public class ArrayIndex extends VariableReferenceImpl {
 
     /**
      * setArrayIndices.
-     *
-     * @param indices a {@link java.util.List} object.
      */
     public void setArrayIndices(List<Integer> indices) {
         this.indices = new ArrayList<>();
@@ -532,8 +512,6 @@ public class ArrayIndex extends VariableReferenceImpl {
 
     /**
      * getArrayIndices.
-     *
-     * @return a {@link java.util.List} object.
      */
     public List<Integer> getArrayIndices() {
         return indices;

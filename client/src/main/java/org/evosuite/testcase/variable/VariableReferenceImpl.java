@@ -69,9 +69,6 @@ public class VariableReferenceImpl implements VariableReference {
 
     /**
      * Constructor for VariableReferenceImpl.
-     *
-     * @param testCase a {@link org.evosuite.testcase.TestCase} object.
-     * @param type     a {@link java.lang.reflect.Type} object.
      */
     public VariableReferenceImpl(TestCase testCase, Type type) {
         this(testCase, GenericClassFactory.get(type));

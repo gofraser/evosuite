@@ -66,8 +66,6 @@ public class MutationFactory extends AbstractFitnessFactory<MutationTestFitness>
      * <p>
      * Constructor for MutationFactory.
      * </p>
-     *
-     * @param strongMutation a boolean.
      */
     public MutationFactory(boolean strongMutation) {
         this.strong = strongMutation;

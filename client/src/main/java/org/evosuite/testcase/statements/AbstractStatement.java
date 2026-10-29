@@ -149,9 +149,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
 
     /**
      * Constructor for AbstractStatement.
-     *
-     * @param tc     a {@link org.evosuite.testcase.TestCase} object.
-     * @param retval a {@link org.evosuite.testcase.variable.VariableReference} object.
      */
     protected AbstractStatement(TestCase tc, VariableReference retval) throws IllegalArgumentException {
         if (tc == null) {
@@ -166,9 +163,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
 
     /**
      * Constructor for AbstractStatement.
-     *
-     * @param tc   a {@link org.evosuite.testcase.TestCase} object.
-     * @param type a {@link java.lang.reflect.Type} object.
      */
     protected AbstractStatement(TestCase tc, Type type) throws IllegalArgumentException {
         if (tc == null) {
@@ -191,14 +185,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
      * This method abstracts the exception handling away from the concrete
      * statements. Thereby hopefully enabling us to have a more consistent
      * approach to exceptions.
-     *
-     * @param code a {@link org.evosuite.testcase.statements.AbstractStatement.Executer}
-     *             object.
-     * @return a {@link java.lang.Throwable} object.
-     * @throws java.lang.reflect.InvocationTargetException if any.
-     * @throws java.lang.IllegalArgumentException          if any.
-     * @throws java.lang.IllegalAccessException            if any.
-     * @throws java.lang.InstantiationException            if any.
      */
     protected Throwable exceptionHandler(Executer code) throws InvocationTargetException,
             IllegalArgumentException, IllegalAccessException, InstantiationException {
@@ -252,8 +238,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
 
     /**
      * getAssertionReferences.
-     *
-     * @return a {@link java.util.Set} object.
      */
     protected Set<VariableReference> getAssertionReferences() {
         Set<VariableReference> variables = new LinkedHashSet<>();
@@ -334,8 +318,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
      * Create copies of all attached assertions.
      *
      * @param newTestCase the testcase in which this statement will be inserted
-     * @param offset      a int.
-     * @return a {@link java.util.Set} object.
      */
     @Override
     public Set<Assertion> copyAssertions(TestCase newTestCase, int offset) {
@@ -397,9 +379,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
 
     /**
      * getExceptionClass.
-     *
-     * @param t a {@link java.lang.Throwable} object.
-     * @return a {@link java.lang.Class} object.
      */
     public static Class<?> getExceptionClass(Throwable t) {
         Class<?> clazz = t.getClass();

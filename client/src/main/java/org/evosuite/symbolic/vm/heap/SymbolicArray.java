@@ -31,8 +31,6 @@ public interface SymbolicArray {
 
     /**
      * Returns the array content type.
-     *
-     * @return a {@link org.objectweb.asm.Type} object
      */
     Type getContentType();
 
@@ -40,7 +38,6 @@ public interface SymbolicArray {
      * Returns an expression representing the symbolic value stored at the ith position.
      *
      * @param index the index to get
-     * @return a {@link org.evosuite.symbolic.expr.Expression} object
      */
     Expression get(Integer index);
 

@@ -29,8 +29,6 @@ public class CCFGCodeEdge extends CCFGEdge {
 
     /**
      * Constructor for CCFGCodeEdge.
-     *
-     * @param cfgEdge a {@link org.evosuite.graphs.cfg.ControlFlowEdge} object.
      */
     public CCFGCodeEdge(ControlFlowEdge cfgEdge) {
         this.cfgEdge = cfgEdge;

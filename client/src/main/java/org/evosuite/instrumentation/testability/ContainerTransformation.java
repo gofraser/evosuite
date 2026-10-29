@@ -44,8 +44,6 @@ public class ContainerTransformation {
 
     /**
      * <p>Constructor for ContainerTransformation.</p>
-     *
-     * @param cn a {@link org.objectweb.asm.tree.ClassNode} object.
      */
     public ContainerTransformation(ClassNode cn) {
         this.cn = cn;
@@ -53,8 +51,6 @@ public class ContainerTransformation {
 
     /**
      * <p>transform.</p>
-     *
-     * @return a {@link org.objectweb.asm.tree.ClassNode} object.
      */
     @SuppressWarnings("unchecked")
     public ClassNode transform() {

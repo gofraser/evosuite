@@ -55,10 +55,6 @@ public class MethodNoExceptionCoverageTestFitness extends AbstractMethodTestFitn
      * {@inheritDoc}
      *
      * <p>Calculate fitness.
-     *
-     * @param individual a {@link org.evosuite.testcase.ExecutableChromosome} object.
-     * @param result     a {@link org.evosuite.testcase.execution.ExecutionResult} object.
-     * @return a double.
      */
     @Override
     public double getFitness(TestChromosome individual, ExecutionResult result) {

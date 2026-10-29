@@ -36,22 +36,12 @@ public interface MutationOperator {
 
     /**
      * Insert the mutation into the bytecode.
-     *
-     * @param mn          a {@link org.objectweb.asm.tree.MethodNode} object.
-     * @param className   a {@link java.lang.String} object.
-     * @param methodName  a {@link java.lang.String} object.
-     * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @param frame       a {@link org.objectweb.asm.tree.analysis.Frame} object.
-     * @return a {@link java.util.List} object.
      */
     List<Mutation> apply(MethodNode mn, String className, String methodName,
                          BytecodeInstruction instruction, Frame frame);
 
     /**
      * Check if the mutation operator is applicable to the instruction.
-     *
-     * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a boolean.
      */
     boolean isApplicable(BytecodeInstruction instruction);
 

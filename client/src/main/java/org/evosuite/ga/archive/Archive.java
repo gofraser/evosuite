@@ -353,9 +353,7 @@ public abstract class Archive implements Serializable {
     /**
      * Creates a solution based on the best solutions in the archive and the parameter solution.
      *
-     * @param solution a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      * @param <C>      the type of the chromosome
-     * @return a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      */
     @SuppressWarnings("unchecked")
     public <C extends Chromosome<C>> C mergeArchiveAndSolution(C solution) {
@@ -423,7 +421,6 @@ public abstract class Archive implements Serializable {
      * {@link org.evosuite.testcase.TestCase} is penalised if it has functional mocks, or/and if it
      * accesses private fields/methods of the class under test.
      *
-     * @param testCase a {@link org.evosuite.testcase.TestCase} object.
      * @return number of penalty points
      */
     protected static int calculatePenalty(TestCase testCase) {

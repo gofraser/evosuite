@@ -78,7 +78,6 @@ public interface Statement {
      * clone.
      *
      * @param newTestCase the testcase in which this statement will be inserted
-     * @return a {@link Statement} object.
      */
     Statement clone(TestCase newTestCase);
 
@@ -86,8 +85,6 @@ public interface Statement {
      * copy.
      *
      * @param newTestCase the testcase in which this statement will be inserted
-     * @param offset      a int.
-     * @return a {@link Statement} object.
      */
     Statement copy(TestCase newTestCase, int offset);
 
@@ -95,8 +92,6 @@ public interface Statement {
      * copyAssertions.
      *
      * @param newTestCase the testcase in which this statement will be inserted
-     * @param offset      a int.
-     * @return a {@link java.util.Set} object.
      */
     Set<Assertion> copyAssertions(TestCase newTestCase, int offset);
 
@@ -112,13 +107,8 @@ public interface Statement {
      * Otherwise, the return value is {@code null}.
      *
      * @param scope the scope under which the statement is executed
-     * @param out   a {@link java.io.PrintStream} object.
      * @return the exception that was thrown during execution, or {@code null} if no exception
      *         was thrown
-     * @throws java.lang.reflect.InvocationTargetException if any.
-     * @throws java.lang.IllegalArgumentException          if any.
-     * @throws java.lang.IllegalAccessException            if any.
-     * @throws java.lang.InstantiationException            if any.
      */
     Throwable execute(Scope scope, PrintStream out)
             throws InvocationTargetException, IllegalArgumentException,
@@ -129,30 +119,21 @@ public interface Statement {
      * statement, e.g., the Field of a FieldStatement, the Method of a
      * MethodStatement and so on. MAY return NULL (for example for
      * NullStatements).
-     *
-     * @return a {@link java.lang.reflect.AccessibleObject} object.
      */
     GenericAccessibleObject<?> getAccessibleObject();
 
     /**
      * Return list of assertions.
-     *
-     * @return a {@link java.util.Set} object.
      */
     Set<Assertion> getAssertions();
 
     /**
      * Create a string representing the statement as Java code.
-     *
-     * @return a {@link java.lang.String} object.
      */
     String getCode();
 
     /**
      * Create a string representing the statement as Java code.
-     *
-     * @param exception a {@link java.lang.Throwable} object.
-     * @return a {@link java.lang.String} object.
      */
     String getCode(Throwable exception);
 
@@ -166,8 +147,6 @@ public interface Statement {
 
     /**
      * getDeclaredExceptions.
-     *
-     * @return a {@link java.util.Set} object.
      */
     Set<Class<?>> getDeclaredExceptions();
 
@@ -180,8 +159,6 @@ public interface Statement {
 
     /**
      * getPosition.
-     *
-     * @return a int.
      */
     int getPosition();
 
@@ -215,15 +192,11 @@ public interface Statement {
 
     /**
      * getUniqueVariableReferences.
-     *
-     * @return a {@link java.util.List} object.
      */
     List<VariableReference> getUniqueVariableReferences();
 
     /**
      * getVariableReferences.
-     *
-     * @return a {@link java.util.Set} object.
      */
     Set<VariableReference> getVariableReferences();
 
@@ -252,8 +225,6 @@ public interface Statement {
      * AssignmentStatement. This method was added to allow the wrapping of
      * AssignmentStatements (in which case "a instanceof AssignmentStatement" is
      * no longer working).
-     *
-     * @return a boolean.
      */
     boolean isAssignmentStatement();
 
@@ -273,9 +244,6 @@ public interface Statement {
      * Tests if the throwable defined by t is declared to be thrown by the
      * underlying type. Obviously this can only return true for methods and
      * constructors.
-     *
-     * @param t a {@link java.lang.Throwable} object.
-     * @return a boolean.
      */
     boolean isDeclaredException(Throwable t);
 
@@ -283,17 +251,11 @@ public interface Statement {
      * Various consistency checks. This method might also return with an
      * assertionError Functionality might depend on the status of
      * enableAssertions in this JVM.
-     *
-     * @return a boolean.
      */
     boolean isValid();
 
     /**
      * mutate.
-     *
-     * @param test    a {@link org.evosuite.testcase.TestCase} object.
-     * @param factory a {@link org.evosuite.testcase.TestFactory} object.
-     * @return a boolean.
      */
     boolean mutate(TestCase test, TestFactory factory);
 
@@ -307,8 +269,6 @@ public interface Statement {
 
     /**
      * Delete assertion attached to this statement.
-     *
-     * @param assertion a {@link org.evosuite.assertion.Assertion} object.
      */
     void removeAssertion(Assertion assertion);
 
@@ -352,23 +312,16 @@ public interface Statement {
      * semantic comparison than the one done by equals. E.g. two Variable are
      * equal if they are at the same position and they reference to objects of
      * the same type.
-     *
-     * @param s a {@link Statement} object.
-     * @return a boolean.
      */
     boolean same(Statement s);
 
     /**
      * Sets the set of assertions to statement.
-     *
-     * @param assertions a {@link java.util.Set} object.
      */
     void setAssertions(Set<Assertion> assertions);
 
     /**
      * setRetval.
-     *
-     * @param newRetVal a {@link org.evosuite.testcase.variable.VariableReference} object.
      */
     void setRetval(VariableReference newRetVal);
 

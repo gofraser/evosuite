@@ -52,8 +52,6 @@ public class DefUse extends BytecodeInstruction {
 
     /**
      * Constructor for DefUse.
-     *
-     * @param wrap a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      */
     protected DefUse(BytecodeInstruction wrap) {
         super(wrap);
@@ -119,9 +117,6 @@ public class DefUse extends BytecodeInstruction {
      *
      * <p>This is the case if the given Definition defines the same variable as
      * this DefUse So a Definition canBecomeActive for itself
-     *
-     * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a boolean.
      */
     public boolean canBecomeActiveDefinition(BytecodeInstruction instruction) {
         if (!instruction.isDefinition()) {
@@ -135,9 +130,6 @@ public class DefUse extends BytecodeInstruction {
     /**
      * Determines whether the given DefUse reads or writes the same variable as
      * this DefUse.
-     *
-     * @param du a {@link org.evosuite.coverage.dataflow.DefUse} object.
-     * @return a boolean.
      */
     public boolean sharesVariableWith(DefUse du) {
         return varName.equals(du.varName);
@@ -145,9 +137,6 @@ public class DefUse extends BytecodeInstruction {
 
     /**
      * sharesVariableWith.
-     *
-     * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a boolean.
      */
     public boolean sharesVariableWith(BytecodeInstruction instruction) {
         if (!instruction.isDefUse()) {
@@ -159,8 +148,6 @@ public class DefUse extends BytecodeInstruction {
 
     /**
      * getDUVariableType.
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getDUVariableType() {
         // TODO remember that in a flag
@@ -190,8 +177,6 @@ public class DefUse extends BytecodeInstruction {
 
     /**
      * getDefUseId.
-     *
-     * @return a int.
      */
     public int getDefUseId() {
         return defuseId;
@@ -199,8 +184,6 @@ public class DefUse extends BytecodeInstruction {
 
     /**
      * Getter for the field <code>useId</code>.
-     *
-     * @return a int.
      */
     public int getUseId() {
         return useId;
@@ -208,8 +191,6 @@ public class DefUse extends BytecodeInstruction {
 
     /**
      * Getter for the field <code>defId</code>.
-     *
-     * @return a int.
      */
     public int getDefId() {
         return defId;
@@ -217,8 +198,6 @@ public class DefUse extends BytecodeInstruction {
 
     /**
      * isParameterUse.
-     *
-     * @return a boolean.
      */
     public boolean isParameterUse() {
         return isParameterUse;
@@ -259,8 +238,6 @@ public class DefUse extends BytecodeInstruction {
      * <p>In non static methods the variable slot 0 holds the reference to "this".
      * Loading this reference is not seen as a Use for defuse purposes. This
      * method checks if this is the case
-     *
-     * @return a boolean.
      */
     @Override
     public boolean loadsReferenceToThis() {

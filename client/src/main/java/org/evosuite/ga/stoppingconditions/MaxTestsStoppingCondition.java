@@ -57,8 +57,6 @@ public class MaxTestsStoppingCondition<T extends Chromosome<T>> extends Stopping
 
     /**
      * <p>getNumExecutedTests.</p>
-     *
-     * @return a long.
      */
     public static long getNumExecutedTests() {
         return numTests.get();

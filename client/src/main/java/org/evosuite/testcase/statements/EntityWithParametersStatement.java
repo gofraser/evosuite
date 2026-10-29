@@ -243,9 +243,6 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
 
     /**
      * replaceParameterReference.
-     *
-     * @param var          a {@link org.evosuite.testcase.variable.VariableReference} object.
-     * @param numParameter a int.
      */
     public void replaceParameterReference(VariableReference var, int numParameter) throws IllegalArgumentException {
         Inputs.checkNull(var);

@@ -357,8 +357,6 @@ public final class TestChromosome extends ExecutableChromosome<TestChromosome> {
 
     /**
      * Sets the test case encoded in this chromosome.
-     *
-     * @param testCase a {@link org.evosuite.testcase.TestCase} object.
      */
     public void setTestCase(TestCase testCase) {
         test = Objects.requireNonNull(testCase, "TestChromosome.test must not be null");
@@ -369,8 +367,6 @@ public final class TestChromosome extends ExecutableChromosome<TestChromosome> {
 
     /**
      * Returns the test case encoded in this chromosome.
-     *
-     * @return a {@link org.evosuite.testcase.TestCase} object.
      */
     public TestCase getTestCase() {
         return test;
@@ -986,8 +982,6 @@ public final class TestChromosome extends ExecutableChromosome<TestChromosome> {
 
     /**
      * Add an additional secondary objective to the end of the list of objectives.
-     *
-     * @param objective a {@link org.evosuite.ga.SecondaryObjective} object.
      */
     public static void addSecondaryObjective(SecondaryObjective<TestChromosome> objective) {
         secondaryObjectives.add(objective);
@@ -995,8 +989,6 @@ public final class TestChromosome extends ExecutableChromosome<TestChromosome> {
 
     /**
      * Getter for the field <code>secondaryObjectives</code>.
-     *
-     * @return a {@link java.util.List} object.
      */
     public static List<SecondaryObjective<TestChromosome>> getSecondaryObjectives() {
         return secondaryObjectives;
@@ -1014,8 +1006,6 @@ public final class TestChromosome extends ExecutableChromosome<TestChromosome> {
 
     /**
      * Converts this chromosome to a test suite.
-     *
-     * @return a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      */
     public TestSuiteChromosome toSuite() {
         return Stream.of(this).collect(toTestSuiteCollector);

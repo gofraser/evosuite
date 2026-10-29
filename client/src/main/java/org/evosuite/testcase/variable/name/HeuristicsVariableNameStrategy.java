@@ -74,7 +74,6 @@ public class HeuristicsVariableNameStrategy extends AbstractVariableNameStrategy
      *
      * <p>Mainly used for Heuristic Renaming Strategy.
      *
-     * @param variableName a {@link java.lang.String} object.
      * @return String
      */
     private String getVariableWithIndexExcludingFirstAppearance(String variableName) {
@@ -112,8 +111,6 @@ public class HeuristicsVariableNameStrategy extends AbstractVariableNameStrategy
      * 2. Use method suggestion + reductions, if not possible
      * 3. Use type suggestion, traditional naming.
      *
-     * @param var          a {@link org.evosuite.testcase.variable.VariableReference} object.
-     * @param variableName a {@link java.lang.String} object.
      * @return String
      */
     private String getPrioritizedName(final VariableReference var, String variableName) {
@@ -134,7 +131,6 @@ public class HeuristicsVariableNameStrategy extends AbstractVariableNameStrategy
      * Returns the suggested method name controlling camel case and excluding some particles
      * of the method names.
      *
-     * @param methodCode a {@link java.lang.String} object.
      * @return String
      */
     private String analyzeMethodName(String methodCode) {

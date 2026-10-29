@@ -62,10 +62,6 @@ public class FieldStatement extends AbstractStatement {
 
     /**
      * Constructor for FieldStatement.
-     *
-     * @param tc     a {@link org.evosuite.testcase.TestCase} object.
-     * @param field  a {@link GenericField} object.
-     * @param source a {@link org.evosuite.testcase.variable.VariableReference} object.
      */
     public FieldStatement(TestCase tc, GenericField field, VariableReference source) {
         super(tc, new VariableReferenceImpl(tc, field.getFieldType()));
@@ -81,11 +77,6 @@ public class FieldStatement extends AbstractStatement {
      * as retvar. This should only be done, iff an old statement is replaced
      * with this statement. And already existing objects should in the future
      * reference this object.
-     *
-     * @param tc     a {@link org.evosuite.testcase.TestCase} object.
-     * @param field  a {@link GenericField} object.
-     * @param source a {@link org.evosuite.testcase.variable.VariableReference} object.
-     * @param retVar a {@link org.evosuite.testcase.variable.VariableReference} object.
      */
     public FieldStatement(TestCase tc, GenericField field, VariableReference source,
                           VariableReference retVar) {
@@ -97,8 +88,6 @@ public class FieldStatement extends AbstractStatement {
 
     /**
      * Getter for the field <code>source</code>.
-     *
-     * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
      */
     public VariableReference getSource() {
         return source;
@@ -136,8 +125,6 @@ public class FieldStatement extends AbstractStatement {
 
     /**
      * Setter for the field <code>source</code>.
-     *
-     * @param source a {@link org.evosuite.testcase.variable.VariableReference} object.
      */
     public void setSource(VariableReference source) {
         this.source = source;
@@ -154,8 +141,6 @@ public class FieldStatement extends AbstractStatement {
 
     /**
      * Checks if field is static.
-     *
-     * @return a boolean.
      */
     public boolean isStatic() {
         return field.isStatic();
@@ -357,8 +342,6 @@ public class FieldStatement extends AbstractStatement {
 
     /**
      * Getter for the field <code>field</code>.
-     *
-     * @return a {@link java.lang.reflect.Field} object.
      */
     public GenericField getField() {
         return field;
@@ -366,8 +349,6 @@ public class FieldStatement extends AbstractStatement {
 
     /**
      * Setter for the field <code>field</code>.
-     *
-     * @param field a {@link java.lang.reflect.Field} object.
      */
     public void setField(GenericField field) {
         // assert (this.field.getType().equals(field.getType()));

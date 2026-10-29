@@ -57,11 +57,6 @@ public class BytecodeAnalyzer extends Analyzer {
      * method in the given class.
      *
      * @param classLoader class loader
-     * @param owner  a {@link java.lang.String} object.
-     * @param method a {@link java.lang.String} object.
-     * @param node   a {@link org.objectweb.asm.tree.MethodNode} object.
-     * @return a {@link org.evosuite.graphs.cfg.CFGFrame} object.
-     * @throws org.objectweb.asm.tree.analysis.AnalyzerException if any.
      */
     public CFGFrame analyze(ClassLoader classLoader, String owner, String method,
                             MethodNode node) throws AnalyzerException {
@@ -82,8 +77,6 @@ public class BytecodeAnalyzer extends Analyzer {
      * After running analyze() this method yields the filled CFGGenerator for
      * further processing of the gathered information from analyze() within the
      * ByteCode representation of EvoSuite.
-     *
-     * @return a {@link org.evosuite.graphs.cfg.CFGGenerator} object.
      */
     public CFGGenerator retrieveCFGGenerator() {
         if (cfgGenerator == null) {

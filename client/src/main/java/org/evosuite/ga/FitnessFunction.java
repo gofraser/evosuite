@@ -40,9 +40,6 @@ public abstract class FitnessFunction<T extends Chromosome<T>> implements Serial
 
     /**
      * Make sure that the individual gets to know about its fitness.
-     *
-     * @param individual a {@link org.evosuite.ga.Chromosome} object.
-     * @param fitness    a double.
      */
     protected void updateIndividual(T individual, double fitness) {
         individual.setFitness(this, fitness);
@@ -65,17 +62,12 @@ public abstract class FitnessFunction<T extends Chromosome<T>> implements Serial
      * Calculate and set fitness function #TODO the 'set fitness' part should be
      * done by some abstract super class of all FitnessFunctions.
      *
-     * @param individual a {@link org.evosuite.ga.Chromosome} object.
      * @return new fitness
      */
     public abstract double getFitness(T individual);
 
     /**
      * Normalize a value using Andrea's normalization function.
-     *
-     * @param value a double.
-     * @return a double.
-     * @throws java.lang.IllegalArgumentException if any.
      */
     public static double normalize(double value) throws IllegalArgumentException {
         if (value < 0d) {
@@ -89,8 +81,6 @@ public abstract class FitnessFunction<T extends Chromosome<T>> implements Serial
 
     /**
      * Do we need to maximize, or minimize this function.
-     *
-     * @return a boolean.
      */
     public abstract boolean isMaximizationFunction();
 

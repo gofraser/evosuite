@@ -158,8 +158,6 @@ public class SimpleMutationAssertionGenerator extends AssertionGenerator {
 
     /**
      * Reinstruments the code to get the mutants now, if we are not doing mutation testing anyway.
-     *
-     * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      */
     @Override
     public void setupClassLoader(TestSuiteChromosome suite) {
@@ -177,8 +175,6 @@ public class SimpleMutationAssertionGenerator extends AssertionGenerator {
     /**
      * We send status about the mutation score when we're done, because we know
      * it.
-     *
-     * @param tkilled a {@link java.util.Set} object.
      */
     protected void calculateMutationScore(Set<Integer> tkilled) {
         if (MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
@@ -389,9 +385,6 @@ public class SimpleMutationAssertionGenerator extends AssertionGenerator {
 
     /**
      * Generate assertions to kill all the mutants defined in the pool.
-     *
-     * @param test   a {@link org.evosuite.testcase.TestCase} object.
-     * @param killed a {@link java.util.Set} object.
      */
     private void addAssertions(TestCase test, Set<Integer> killed) {
         addAssertions(test, killed, mutants);
@@ -400,10 +393,6 @@ public class SimpleMutationAssertionGenerator extends AssertionGenerator {
 
     /**
      * Add assertions to current test set for given set of mutants.
-     *
-     * @param test    a {@link org.evosuite.testcase.TestCase} object.
-     * @param killed  a {@link java.util.Set} object.
-     * @param mutants a {@link java.util.Map} object.
      */
     private void addAssertions(TestCase test, Set<Integer> killed,
                                Map<Integer, Mutation> mutants) {

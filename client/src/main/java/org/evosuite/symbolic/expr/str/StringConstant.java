@@ -42,8 +42,6 @@ public final class StringConstant extends AbstractExpression<String> implements
      * <p>
      * Constructor for StringConstant.
      * </p>
-     *
-     * @param stringValue a {@link java.lang.String} object.
      */
     public StringConstant(String stringValue) {
         super(stringValue, 1, false);

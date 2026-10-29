@@ -80,10 +80,6 @@ public class DiversityObserver implements SearchListener<TestSuiteChromosome> {
     /**
      * Naive similarity comparison between suites simply consists of merging all tests to a single test
      * for each suite, and then comparing these tests.
-     *
-     * @param suite1 a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
-     * @param suite2 a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
-     * @return a double.
      */
     public static double getSuiteSimilarity(TestSuiteChromosome suite1, TestSuiteChromosome suite2) {
         TestCase test1 = new DefaultTestCase();
@@ -108,10 +104,6 @@ public class DiversityObserver implements SearchListener<TestSuiteChromosome> {
 
     /**
      * Sequence alignment based distance.
-     *
-     * @param test1 a {@link org.evosuite.testcase.TestCase} object.
-     * @param test2 a {@link org.evosuite.testcase.TestCase} object.
-     * @return a double.
      */
     public static double getNeedlemanWunschScore(TestCase test1, TestCase test2) {
         int[][] matrix = new int[test1.size() + 1][test2.size() + 1];

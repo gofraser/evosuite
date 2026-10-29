@@ -179,9 +179,6 @@ public class TestClusterUtils {
 
     /**
      * Check if we can use the given class directly in a JUnit test.
-     *
-     * @param className a {@link String} object.
-     * @return a boolean.
      */
     public static boolean checkIfCanUse(final String className) {
         return checkIfCanUse(className, null);

@@ -529,9 +529,6 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
 
     /**
      * This function converts.
-     *
-     * @param limit a {@link PopulationLimit} object.
-     * @return a {@link PopulationLimit} object.
      */
     private static <T extends Chromosome<T>> PopulationLimit<T> mapPopulationLimit(PopulationLimit<?> limit) {
         if (limit instanceof IndividualPopulationLimit) {
@@ -575,7 +572,6 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
      *
      * @param stoppingCondition the stopping condition with "wrong" generic parameters.
      * @param <T>               the desired target chromosome type
-     * @return a {@link StoppingCondition} object.
      */
     private static <T extends Chromosome<T>> StoppingCondition<T> mapStoppingCondition(
             StoppingCondition<?> stoppingCondition) {

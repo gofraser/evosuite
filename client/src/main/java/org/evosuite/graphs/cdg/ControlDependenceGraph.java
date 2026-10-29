@@ -44,8 +44,6 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
 
     /**
      * Constructor for ControlDependenceGraph.
-     *
-     * @param cfg a {@link org.evosuite.graphs.cfg.ActualControlFlowGraph} object.
      */
     public ControlDependenceGraph(ActualControlFlowGraph cfg) {
         super(ControlFlowEdge.class);
@@ -60,9 +58,6 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
     /**
      * Checks whether this graph knows the given instruction. That is there is a
      * BasicBlock in this graph's vertexSet containing the given instruction.
-     *
-     * @param ins a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a boolean.
      */
     public boolean knowsInstruction(BytecodeInstruction ins) {
         return cfg.knowsInstruction(ins);
@@ -70,9 +65,6 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
 
     /**
      * getControlDependenceDepth.
-     *
-     * @param dependence a {@link org.evosuite.graphs.cfg.ControlDependency} object.
-     * @return a int.
      */
     public int getControlDependenceDepth(ControlDependency dependence) {
         int min = Integer.MAX_VALUE;
@@ -88,9 +80,6 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
 
     /**
      * getAlternativeBlocks.
-     *
-     * @param dependency a {@link org.evosuite.graphs.cfg.ControlDependency} object.
-     * @return a {@link java.util.Set} object.
      */
     public Set<BasicBlock> getAlternativeBlocks(ControlDependency dependency) {
         Set<BasicBlock> blocks = new LinkedHashSet<>();
@@ -127,9 +116,6 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
      * <p>This is for each incoming ControlFlowEdge of the given block within this
      * CDG, the branch instruction of that edge will be added to the returned
      * set.
-     *
-     * @param insBlock a {@link org.evosuite.graphs.cfg.BasicBlock} object.
-     * @return a {@link java.util.Set} object.
      */
     public Set<ControlDependency> getControlDependentBranches(BasicBlock insBlock) {
         if (insBlock == null) {
@@ -180,9 +166,6 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
 
     /**
      * getControlDependentBranchIds.
-     *
-     * @param ins a {@link org.evosuite.graphs.cfg.BasicBlock} object.
-     * @return a {@link java.util.Set} object.
      */
     public Set<Integer> getControlDependentBranchIds(BasicBlock ins) {
 
@@ -219,10 +202,6 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
      *
      * <p>If the given instruction is not known to this CDG an
      * IllegalArgumentException is thrown.
-     *
-     * @param ins a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @param b   a {@link org.evosuite.coverage.branch.Branch} object.
-     * @return a boolean.
      */
     public boolean isDirectlyControlDependentOn(BytecodeInstruction ins, Branch b) {
         if (ins == null) {
@@ -244,10 +223,6 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
      *
      * <p>If the given instruction is not known to this CDG an
      * IllegalArgumentException is thrown.
-     *
-     * @param insBlock a {@link org.evosuite.graphs.cfg.BasicBlock} object.
-     * @param b        a {@link org.evosuite.coverage.branch.Branch} object.
-     * @return a boolean.
      */
     public boolean isDirectlyControlDependentOn(BasicBlock insBlock, Branch b) {
         Set<ControlFlowEdge> incoming = incomingEdgesOf(insBlock);
@@ -303,9 +278,6 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
      *
      * <p>This is the case if the BasicBlock of the given instruction is directly
      * adjacent to the EntryBlock.
-     *
-     * @param ins a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a boolean.
      */
     public boolean isRootDependent(BytecodeInstruction ins) {
 
@@ -318,9 +290,6 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
      *
      * <p>This is the case if the BasicBlock of the given instruction is directly
      * adjacent to the EntryBlock.
-     *
-     * @param insBlock a {@link org.evosuite.graphs.cfg.BasicBlock} object.
-     * @return a boolean.
      */
     public boolean isRootDependent(BasicBlock insBlock) {
         if (isAdjacentToEntryBlock(insBlock)) {
@@ -348,9 +317,6 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
     /**
      * Returns true if the given BasicBlock has an incoming edge from this CDG's
      * EntryBlock or is itself the EntryBlock.
-     *
-     * @param insBlock a {@link org.evosuite.graphs.cfg.BasicBlock} object.
-     * @return a boolean.
      */
     public boolean isAdjacentToEntryBlock(BasicBlock insBlock) {
 
@@ -479,8 +445,6 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
 
     /**
      * <p>Getter for the field <code>className</code>.</p>
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getClassName() {
         return className;
@@ -488,8 +452,6 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
 
     /**
      * <p>Getter for the field <code>methodName</code>.</p>
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getMethodName() {
         return methodName;

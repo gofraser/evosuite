@@ -89,8 +89,6 @@ public class TransformationStatistics {
 
     /**
      * Insertion of pushDistance.
-     *
-     * @param opcode a int.
      */
     public static void insertPush(int opcode) {
         switch (opcode) {
@@ -209,8 +207,6 @@ public class TransformationStatistics {
 
     /**
      * <p>writeStatistics.</p>
-     *
-     * @param className a {@link java.lang.String} object.
      */
     public static void writeStatistics(String className) {
         String filename = Properties.REPORT_DIR + "/transformation.csv";

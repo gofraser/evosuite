@@ -261,8 +261,6 @@ public class TestCaseExecutor implements ThreadFactory {
 
     /**
      * <p>Getter for the field <code>instance</code>.</p>
-     *
-     * @return a {@link org.evosuite.testcase.execution.TestCaseExecutor} object.
      */
     public static synchronized TestCaseExecutor getInstance() {
         if (instance == null) {
@@ -485,9 +483,6 @@ public class TestCaseExecutor implements ThreadFactory {
      * <p>
      * addObserver.
      * </p>
-     *
-     * @param observer a {@link org.evosuite.testcase.execution.ExecutionObserver}
-     *                 object.
      */
     public void addObserver(ExecutionObserver observer) {
         if (observers.add(observer)) {
@@ -516,9 +511,6 @@ public class TestCaseExecutor implements ThreadFactory {
      * <p>
      * removeObserver.
      * </p>
-     *
-     * @param observer a {@link org.evosuite.testcase.execution.ExecutionObserver}
-     *                 object.
      */
     public void removeObserver(ExecutionObserver observer) {
         if (observers.remove(observer)) {
@@ -552,9 +544,6 @@ public class TestCaseExecutor implements ThreadFactory {
 
     /**
      * Execute a test case on a new scope.
-     *
-     * @param tc a {@link org.evosuite.testcase.TestCase} object.
-     * @return a {@link org.evosuite.testcase.execution.ExecutionResult} object.
      */
     public ExecutionResult execute(TestCase tc) {
         ExecutionResult result = execute(tc, Properties.TIMEOUT);
@@ -563,9 +552,6 @@ public class TestCaseExecutor implements ThreadFactory {
 
     /**
      * Execute a test case on a new scope.
-     *
-     * @param tc a {@link org.evosuite.testcase.TestCase} object.
-     * @return a {@link org.evosuite.testcase.execution.ExecutionResult} object.
      */
     public ExecutionResult execute(TestCase tc, int timeout) {
         synchronized (executionLock) {
@@ -642,10 +628,6 @@ public class TestCaseExecutor implements ThreadFactory {
 
     /**
      * Execute a test case on an existing scope.
-     *
-     * @param tc    a {@link org.evosuite.testcase.TestCase} object.
-     * @param scope a {@link org.evosuite.testcase.execution.Scope} object.
-     * @return a {@link org.evosuite.testcase.execution.ExecutionResult} object.
      */
     @SuppressWarnings({"deprecation", "removal"})
     private ExecutionResult execute(TestCase tc, Scope scope, int timeout) {
@@ -1515,8 +1497,6 @@ public class TestCaseExecutor implements ThreadFactory {
 
     /**
      * Returns the number of stalled threads.
-     *
-     * @return a int.
      */
     public int getNumStalledThreads() {
         reinterruptStalledThreads();

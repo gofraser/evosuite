@@ -148,9 +148,6 @@ public class ValueMinimizer extends TestVisitor {
 
     /**
      * Minimizes the given test chromosome using the specified objective.
-     *
-     * @param test      a {@link org.evosuite.testcase.TestChromosome} object.
-     * @param objective a {@link org.evosuite.testcase.TestFitnessFunction} object.
      */
     public void minimize(TestChromosome test, TestFitnessFunction objective) {
         this.objective = new TestMinimization(objective, test);
@@ -159,10 +156,6 @@ public class ValueMinimizer extends TestVisitor {
 
     /**
      * Minimizes the given test suite chromosome using the specified objective.
-     *
-     * @param suite     a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
-     * @param objective a {@link org.evosuite.testsuite.TestSuiteFitnessFunction}
-     *                  object.
      */
     public void minimize(TestSuiteChromosome suite, TestSuiteFitnessFunction objective) {
         int i = 0;

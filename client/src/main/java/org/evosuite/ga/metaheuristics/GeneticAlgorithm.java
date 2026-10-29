@@ -227,8 +227,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * Constructor.
-     *
-     * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object.
      */
     public GeneticAlgorithm(ChromosomeFactory<T> factory) {
         chromosomeFactory = factory;
@@ -246,8 +244,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * Local search is only applied every X generations.
-     *
-     * @return a boolean.
      */
     protected boolean shouldApplyLocalSearch() {
         // If local search is not set to a rate, then we don't use it at all
@@ -284,8 +280,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
     /**
      * enable and disable secondary criteria according to the strategy defined
      * in the Properties file.
-     *
-     * @param starvationCounter a int.
      */
     protected void updateSecondaryCriterion(int starvationCounter) {
 
@@ -806,8 +800,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
      *
      * <p>This method guarantees at least a proportion of
      * Properties.initially_enforeced_Randomness % of random chromosomes
-     *
-     * @param populationSize a int.
      */
     protected void generateInitialPopulation(int populationSize) {
         generateRandomPopulation(populationSize - population.size());
@@ -819,8 +811,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
      *
      * <p>Depending on the Property "starve_by_fitness" chromosome are either
      * kicked out randomly or according to their fitness.
-     *
-     * @param limit a int.
      */
     protected void starveToLimit(int limit) {
         if (Properties.STARVE_BY_FITNESS) {
@@ -833,8 +823,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
     /**
      * This method can be used to kick out random chromosomes in the current
      * population until the given limit is reached again.
-     *
-     * @param limit a int.
      */
     protected void starveRandomly(int limit) {
         while (population.size() > limit) {
@@ -851,8 +839,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
     /**
      * This method can be used to kick out the worst chromosomes in the current
      * population until the given limit is reached again.
-     *
-     * @param limit a int.
      */
     protected void starveByFitness(int limit) {
         calculateFitnessAndSortPopulation();
@@ -863,8 +849,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * Generate random population of given size.
-     *
-     * @param populationSize a int.
      */
     protected void generateRandomPopulation(int populationSize) {
         population.addAll(this.getRandomPopulation(populationSize));
@@ -899,8 +883,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * Add new fitness function (i.e., for new mutation).
-     *
-     * @param function a {@link org.evosuite.ga.FitnessFunction} object.
      */
     public void addFitnessFunction(FitnessFunction<T> function) {
         fitnessFunctions.add(function);
@@ -913,8 +895,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * Get currently used fitness function.
-     *
-     * @return a {@link org.evosuite.ga.FitnessFunction} object.
      */
     public FitnessFunction<T> getFitnessFunction() {
         return fitnessFunctions.get(0);
@@ -922,8 +902,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * Get all used fitness function.
-     *
-     * @return a {@link org.evosuite.ga.FitnessFunction} object.
      */
     public List<? extends FitnessFunction<T>> getFitnessFunctions() {
         return fitnessFunctions;
@@ -957,10 +935,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * Set new fitness function (i.e., for new mutation).
-     *
-     * @param function a
-     *     {@link org.evosuite.ga.operators.selection.SelectionFunction}
-     *     object.
      */
     public void setSelectionFunction(SelectionFunction<T> function) {
         selectionFunction = function;
@@ -968,9 +942,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * Get currently used fitness function.
-     *
-     * @return a {@link org.evosuite.ga.operators.selection.SelectionFunction}
-     *     object.
      */
     public SelectionFunction<T> getSelectionFunction() {
         return selectionFunction;
@@ -978,8 +949,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * Set the new ranking function (only used by MOO algorithms).
-     *
-     * @param function a {@link org.evosuite.ga.operators.ranking.RankingFunction} object
      */
     public void setRankingFunction(RankingFunction<T> function) {
         this.rankingFunction = function;
@@ -987,8 +956,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * Get currently used ranking function (only used by MOO algorithms).
-     *
-     * @return a {@link org.evosuite.ga.operators.ranking.RankingFunction} object
      */
     public RankingFunction<T> getRankingFunction() {
         return this.rankingFunction;
@@ -996,9 +963,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * Set new bloat control function.
-     *
-     * @param bloatControl a {@link org.evosuite.ga.bloatcontrol.BloatControlFunction}
-     *                      object.
      */
     public void setBloatControl(BloatControlFunction<T> bloatControl) {
         this.bloatControl.clear();
@@ -1007,9 +971,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * Set new bloat control function.
-     *
-     * @param bloatControl a {@link org.evosuite.ga.bloatcontrol.BloatControlFunction}
-     *                      object.
      */
     public void addBloatControl(BloatControlFunction<T> bloatControl) {
         this.bloatControl.add(bloatControl);
@@ -1017,9 +978,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * Check whether individual is suitable according to bloat control functions.
-     *
-     * @param chromosome a {@link org.evosuite.ga.Chromosome} object.
-     * @return a boolean.
      */
     public boolean isTooLong(T chromosome) {
         return bloatControl.stream().anyMatch(b -> b.isTooLong(chromosome));
@@ -1051,8 +1009,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * Calculate fitness for an individual.
-     *
-     * @param c a T object.
      */
     protected void calculateFitness(T c) {
         fitnessFunctions.forEach(ff -> {
@@ -1072,8 +1028,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * getPopulationSize.
-     *
-     * @return a int.
      */
     public int getPopulationSize() {
         return population.size();
@@ -1081,8 +1035,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * Copy best individuals.
-     *
-     * @return a {@link java.util.List} object.
      */
     protected List<T> elitism() {
         logger.debug("Elitism with ELITE = " + Properties.ELITE);
@@ -1098,8 +1050,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * Create random individuals.
-     *
-     * @return a {@link java.util.List} object.
      */
     protected List<T> randomism() {
         logger.debug("Randomism");
@@ -1129,8 +1079,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * Return the individual with the highest fitness.
-     *
-     * @return a {@link org.evosuite.ga.Chromosome} object.
      */
     public T getBestIndividual() {
 
@@ -1229,8 +1177,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * Set a new factory method.
-     *
-     * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object.
      */
     public void setChromosomeFactory(ChromosomeFactory<T> factory) {
         chromosomeFactory = factory;
@@ -1238,10 +1184,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * Set a new xover function.
-     *
-     * @param crossover a
-     *                  {@link org.evosuite.ga.operators.crossover.CrossOverFunction}
-     *                  object.
      */
     public void setCrossOverFunction(CrossOverFunction<T> crossover) {
         this.crossoverFunction = crossover;
@@ -1249,9 +1191,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * Add a new search listener.
-     *
-     * @param listener a {@link org.evosuite.ga.metaheuristics.SearchListener}
-     *                 object.
      */
     public void addListener(SearchListener<T> listener) {
         listeners.add(listener);
@@ -1259,9 +1198,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * Remove a search listener.
-     *
-     * @param listener a {@link org.evosuite.ga.metaheuristics.SearchListener}
-     *                 object.
      */
     public void removeListener(SearchListener<T> listener) {
         listeners.remove(listener);
@@ -1290,8 +1226,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * Notify all search listeners of fitness evaluation.
-     *
-     * @param chromosome a {@link org.evosuite.ga.Chromosome} object.
      */
     protected void notifyEvaluation(T chromosome) {
         listeners.forEach(l -> l.fitnessEvaluation(chromosome));
@@ -1299,8 +1233,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * Notify all search listeners of a modification (e.g. mutation).
-     *
-     * @param chromosome a {@link org.evosuite.ga.Chromosome} object.
      */
     protected void notifyMutation(T chromosome) {
         listeners.forEach(l -> l.modification(chromosome));
@@ -1326,8 +1258,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * Generates a view of the population List.
-     *
-     * @return a {@link java.util.List} object.
      */
     public List<T> getPopulation() {
         return Collections.unmodifiableList(population);
@@ -1335,9 +1265,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * Determine if the next generation has reached its size limit.
-     *
-     * @param nextGeneration a {@link java.util.List} object.
-     * @return a boolean.
      */
     public boolean isNextPopulationFull(List<T> nextGeneration) {
         return populationLimit.isPopulationFull(nextGeneration);
@@ -1345,9 +1272,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * Set a new population limit function.
-     *
-     * @param limit a {@link org.evosuite.ga.populationlimit.PopulationLimit}
-     *              object.
      */
     public void setPopulationLimit(PopulationLimit<T> limit) {
         this.populationLimit = limit;
@@ -1355,8 +1279,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * Determine whether any of the stopping conditions hold.
-     *
-     * @return a boolean.
      */
     public boolean isFinished() {
         // logger.error(c + " "+ c.getCurrentValue());
@@ -1365,9 +1287,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * addStoppingCondition.
-     *
-     * @param condition a {@link org.evosuite.ga.stoppingconditions.StoppingCondition}
-     *                  object.
      */
     public void addStoppingCondition(StoppingCondition<T> condition) {
         final boolean contained = stoppingConditions.stream()
@@ -1388,9 +1307,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * setStoppingCondition.
-     *
-     * @param condition a {@link org.evosuite.ga.stoppingconditions.StoppingCondition}
-     *                  object.
      */
     public void setStoppingCondition(StoppingCondition<T> condition) {
         stoppingConditions.forEach(this::removeListener);
@@ -1402,9 +1318,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * removeStoppingCondition.
-     *
-     * @param condition a {@link org.evosuite.ga.stoppingconditions.StoppingCondition}
-     *                  object.
      */
     public void removeStoppingCondition(StoppingCondition<T> condition) {
         stoppingConditions.removeIf(sc -> {
@@ -1425,8 +1338,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     /**
      * setStoppingConditionLimit.
-     *
-     * @param value a int.
      */
     public void setStoppingConditionLimit(int value) {
         stoppingConditions.forEach(c -> c.setLimit(value));
@@ -1448,10 +1359,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
     /**
      * Returns true if the <code>chromosome1</code> is better or equal than
      * <code>chromosome2</code> according to the compound fitness function.
-     *
-     * @param chromosome1 a {@link org.evosuite.ga.Chromosome} object.
-     * @param chromosome2 a {@link org.evosuite.ga.Chromosome} object.
-     * @return a boolean.
      */
     protected boolean isBetterOrEqual(T chromosome1, T chromosome2) {
         // if (fitnessFunction.isMaximizationFunction()) {

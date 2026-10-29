@@ -67,8 +67,6 @@ public abstract class AbstractTestSuiteChromosome<T extends AbstractTestSuiteChr
      * <p>
      * Constructor for AbstractTestSuiteChromosome.
      * </p>
-     *
-     * @param testChromosomeFactory a {@link org.evosuite.ga.ChromosomeFactory} object.
      */
     protected AbstractTestSuiteChromosome(ChromosomeFactory<E> testChromosomeFactory) {
         this.testChromosomeFactory = testChromosomeFactory;
@@ -78,8 +76,6 @@ public abstract class AbstractTestSuiteChromosome<T extends AbstractTestSuiteChr
      * <p>
      * Getter for the field <code>testChromosomeFactory</code>.
      * </p>
-     *
-     * @return a {@link org.evosuite.ga.ChromosomeFactory} object.
      */
     public ChromosomeFactory<? extends E> getTestChromosomeFactory() {
         return testChromosomeFactory;
@@ -87,8 +83,6 @@ public abstract class AbstractTestSuiteChromosome<T extends AbstractTestSuiteChr
 
     /**
      * Creates a deep copy of source.
-     *
-     * @param source a {@link org.evosuite.testsuite.AbstractTestSuiteChromosome} object.
      */
     protected AbstractTestSuiteChromosome(T source) {
         this(source.testChromosomeFactory);
@@ -118,8 +112,6 @@ public abstract class AbstractTestSuiteChromosome<T extends AbstractTestSuiteChr
      * <p>
      * addTest.
      * </p>
-     *
-     * @param test a T object.
      */
     public void addTest(E test) {
         tests.add(test);
@@ -144,8 +136,6 @@ public abstract class AbstractTestSuiteChromosome<T extends AbstractTestSuiteChr
      * <p>
      * addTests.
      * </p>
-     *
-     * @param tests a {@link java.util.Collection} object.
      */
     public void addTests(Collection<E> tests) {
         this.tests.addAll(tests);
@@ -164,8 +154,6 @@ public abstract class AbstractTestSuiteChromosome<T extends AbstractTestSuiteChr
      * <p>
      * addUnmodifiableTest.
      * </p>
-     *
-     * @param test a T object.
      */
     public void addUnmodifiableTest(E test) {
         tests.add(test);
@@ -307,9 +295,6 @@ public abstract class AbstractTestSuiteChromosome<T extends AbstractTestSuiteChr
      * <p>
      * getTestChromosome.
      * </p>
-     *
-     * @param index a int.
-     * @return a T object.
      */
     public E getTestChromosome(int index) {
         return tests.get(index);
@@ -319,8 +304,6 @@ public abstract class AbstractTestSuiteChromosome<T extends AbstractTestSuiteChr
      * <p>
      * getTestChromosomes.
      * </p>
-     *
-     * @return a {@link java.util.List} object.
      */
     public List<E> getTestChromosomes() {
         return tests;
@@ -361,9 +344,6 @@ public abstract class AbstractTestSuiteChromosome<T extends AbstractTestSuiteChr
      * <p>
      * setTestChromosome.
      * </p>
-     *
-     * @param index a int.
-     * @param test  a T object.
      */
     public void setTestChromosome(int index, E test) {
         tests.set(index, test);

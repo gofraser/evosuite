@@ -46,8 +46,6 @@ final class IntegerAVM extends VariableAVM {
 
     /**
      * Saves a new checkpoint for the current value and the current distance.
-     *
-     * @param newDist a double.
      */
     private void checkpointVar(double newDist) {
         checkpointedDistance = newDist;
@@ -58,8 +56,6 @@ final class IntegerAVM extends VariableAVM {
      * Increments the intVar with the specified value. If we are going out of
      * the bounds of the variable the new value is set to the the appropriate
      * bound.
-     *
-     * @param i a long.
      */
     private void incrementVar(long i) {
         long oldVal = intVar.getConcreteValue();
@@ -83,9 +79,6 @@ final class IntegerAVM extends VariableAVM {
     /**
      * Returns if the new distance is smaller than the checkpointing old
      * distance.
-     *
-     * @param newDistance a double.
-     * @return a boolean.
      */
     private boolean distImpr(double newDistance) {
         return newDistance < checkpointedDistance;
@@ -97,7 +90,6 @@ final class IntegerAVM extends VariableAVM {
      *
      * @return true iff a new value was found such that distance is smaller than
      *     before.
-     * @throws org.evosuite.symbolic.solver.SolverTimeoutException if any.
      */
     @Override
     public boolean applyAVM() throws SolverTimeoutException {
@@ -173,9 +165,6 @@ final class IntegerAVM extends VariableAVM {
 
     /**
      * AVM inner loop.
-     *
-     * @param delta a long.
-     * @throws org.evosuite.symbolic.solver.SolverTimeoutException if any.
      */
     private void iterateVar(long delta) throws SolverTimeoutException {
 

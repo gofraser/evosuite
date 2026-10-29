@@ -27,12 +27,6 @@ public class BytecodeInstructionFactory {
      * Creates a new BytecodeInstruction.
      *
      * @param classLoader    class loader
-     * @param className      a {@link java.lang.String} object.
-     * @param methodName     a {@link java.lang.String} object.
-     * @param instructionId  a int.
-     * @param bytecodeOffset a int.
-     * @param node           a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
-     * @return a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      */
     public static BytecodeInstruction createBytecodeInstruction(ClassLoader classLoader,
                                                                 String className, String methodName,

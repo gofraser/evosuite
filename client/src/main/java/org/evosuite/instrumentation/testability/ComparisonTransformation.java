@@ -35,8 +35,6 @@ public class ComparisonTransformation {
 
     /**
      * <p>Constructor for ComparisonTransformation.</p>
-     *
-     * @param cn a {@link org.objectweb.asm.tree.ClassNode} object.
      */
     public ComparisonTransformation(ClassNode cn) {
         this.cn = cn;
@@ -44,8 +42,6 @@ public class ComparisonTransformation {
 
     /**
      * <p>transform.</p>
-     *
-     * @return a {@link org.objectweb.asm.tree.ClassNode} object.
      */
     public ClassNode transform() {
         for (MethodNode mn : cn.methods) {
@@ -56,8 +52,6 @@ public class ComparisonTransformation {
 
     /**
      * <p>transformMethod.</p>
-     *
-     * @param mn a {@link org.objectweb.asm.tree.MethodNode} object.
      */
     public void transformMethod(MethodNode mn) {
         AbstractInsnNode node = mn.instructions.getFirst();

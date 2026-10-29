@@ -36,12 +36,6 @@ public final class ArrayAccessBranchCondition extends BranchCondition {
     /**
      * An array access condition is identified by the className, methodName and instructionIndex and the target
      * constraint.
-     *
-     * @param className a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @param instructionIndex a int.
-     * @param constraint a {@link org.evosuite.symbolic.expr.Constraint} object.
-     * @param isErrorBranch a boolean.
      */
     public ArrayAccessBranchCondition(String className, String methodName, int instructionIndex,
                                       Constraint<?> constraint, boolean isErrorBranch) {
@@ -51,8 +45,6 @@ public final class ArrayAccessBranchCondition extends BranchCondition {
 
     /**
      * Returns true if this is an error branch.
-     *
-     * @return a boolean.
      */
     public boolean isErrorBranch() {
         return isErrorBranch;

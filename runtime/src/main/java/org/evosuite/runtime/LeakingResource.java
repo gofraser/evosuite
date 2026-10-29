@@ -29,8 +29,6 @@ public interface LeakingResource {
 
     /**
      * Release this resource.
-     *
-     * @throws java.lang.Exception if any.
      */
     void release() throws Exception;
 

@@ -45,9 +45,6 @@ public final class MutationTimeouts {
 
     /**
      * <p>isDisabled.</p>
-     *
-     * @param mutation a {@link org.evosuite.coverage.mutation.Mutation} object.
-     * @return a boolean.
      */
     public static boolean isDisabled(Mutation mutation) {
         return disabled.contains(mutation);
@@ -55,8 +52,6 @@ public final class MutationTimeouts {
 
     /**
      * Records a timeout for the mutant and disables it once it has timed out too often.
-     *
-     * @param mutation a {@link org.evosuite.coverage.mutation.Mutation} object.
      */
     public static void timeOut(Mutation mutation) {
         int t = timeouts.merge(mutation, 1, Integer::sum);
@@ -67,8 +62,6 @@ public final class MutationTimeouts {
 
     /**
      * Disables the mutant because executing it raised an exception.
-     *
-     * @param mutation a {@link org.evosuite.coverage.mutation.Mutation} object.
      */
     public static void raisedException(Mutation mutation) {
         disabled.add(mutation);

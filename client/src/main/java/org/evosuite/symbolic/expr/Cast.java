@@ -28,8 +28,6 @@ public interface Cast<T> {
 
     /**
      * Returns the expression argument of the cast.
-     *
-     * @return a {@link org.evosuite.symbolic.expr.Expression} object.
      */
     Expression<T> getArgument();
 }

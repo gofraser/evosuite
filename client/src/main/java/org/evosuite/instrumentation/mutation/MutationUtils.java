@@ -37,9 +37,6 @@ public class MutationUtils {
 
     /**
      * Get the default value for a given type as an instruction.
-     *
-     * @param type a {@link org.objectweb.asm.Type} object.
-     * @return a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
      */
     public static AbstractInsnNode getDefault(Type type) {
         if (type.equals(Type.BOOLEAN_TYPE)) {
@@ -68,9 +65,6 @@ public class MutationUtils {
     /**
      * Get the name of the variable accessed by the given instruction.
      *
-     * @param mn   a {@link org.objectweb.asm.tree.MethodNode} object.
-     * @param node a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
-     * @return a {@link java.lang.String} object.
      * @throws VariableNotFoundException if the variable cannot be found.
      */
     public static String getName(MethodNode mn, AbstractInsnNode node)
@@ -92,10 +86,6 @@ public class MutationUtils {
     /**
      * Find the local variable corresponding to the given index at the position of the instruction.
      *
-     * @param mn    a {@link org.objectweb.asm.tree.MethodNode} object.
-     * @param node  a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
-     * @param index a int.
-     * @return a {@link org.objectweb.asm.tree.LocalVariableNode} object.
      * @throws VariableNotFoundException if the variable cannot be found.
      */
     public static LocalVariableNode getLocal(MethodNode mn, AbstractInsnNode node, int index)
@@ -119,9 +109,6 @@ public class MutationUtils {
 
     /**
      * Calculate the next free local variable index.
-     *
-     * @param mn a {@link org.objectweb.asm.tree.MethodNode} object.
-     * @return a int.
      */
     public static int getNextIndex(MethodNode mn) {
         Iterator<LocalVariableNode> it = mn.localVariables.iterator();
@@ -189,9 +176,6 @@ public class MutationUtils {
      * <p>
      * copy.
      * </p>
-     *
-     * @param orig a {@link org.objectweb.asm.tree.InsnList} object.
-     * @return a {@link org.objectweb.asm.tree.InsnList} object.
      */
     public static InsnList copy(InsnList orig) {
         Iterator<?> it = orig.iterator();
@@ -224,7 +208,6 @@ public class MutationUtils {
      *
      * @param from the type of the top stack value
      * @param to   the type into which this value must be cast.
-     * @return a {@link org.objectweb.asm.tree.InsnList} object.
      */
     public static InsnList cast(final Type from, final Type to) {
         InsnList list = new InsnList();
@@ -280,10 +263,6 @@ public class MutationUtils {
      * <p>
      * getDistance.
      * </p>
-     *
-     * @param val1 a double.
-     * @param val2 a double.
-     * @return a double.
      */
     public static double getDistance(double val1, double val2) {
         return val1 == val2 ? 1.0 : 0.0;
@@ -293,10 +272,6 @@ public class MutationUtils {
      * <p>
      * getDistance.
      * </p>
-     *
-     * @param obj1 a {@link java.lang.Object} object.
-     * @param obj2 a {@link java.lang.Object} object.
-     * @return a double.
      */
     public static double getDistance(Object obj1, Object obj2) {
         if (obj1 == obj2) {
@@ -310,10 +285,6 @@ public class MutationUtils {
      * <p>
      * addPrimitiveDistanceCheck.
      * </p>
-     *
-     * @param distance a {@link org.objectweb.asm.tree.InsnList} object.
-     * @param type     a {@link org.objectweb.asm.Type} object.
-     * @param mutant   a {@link org.objectweb.asm.tree.InsnList} object.
      */
     public static void addPrimitiveDistanceCheck(InsnList distance, Type type,
                                                  InsnList mutant) {
@@ -329,10 +300,6 @@ public class MutationUtils {
      * <p>
      * addReferenceDistanceCheck.
      * </p>
-     *
-     * @param distance a {@link org.objectweb.asm.tree.InsnList} object.
-     * @param type     a {@link org.objectweb.asm.Type} object.
-     * @param mutant   a {@link org.objectweb.asm.tree.InsnList} object.
      */
     public static void addReferenceDistanceCheck(InsnList distance, Type type,
                                                  InsnList mutant) {

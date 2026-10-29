@@ -32,8 +32,6 @@ public class ClassCallEdge extends DefaultEdge {
 
     /**
      * Constructor for ClassCallEdge.
-     *
-     * @param callInstruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      */
     public ClassCallEdge(BytecodeInstruction callInstruction) {
         this.callInstruction = callInstruction;
@@ -41,8 +39,6 @@ public class ClassCallEdge extends DefaultEdge {
 
     /**
      * Getter for the field <code>callInstruction</code>.
-     *
-     * @return a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      */
     public BytecodeInstruction getCallInstruction() {
         return callInstruction;

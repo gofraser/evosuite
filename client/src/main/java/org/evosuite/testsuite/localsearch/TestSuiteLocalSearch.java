@@ -102,9 +102,6 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
      * foo0.bar(int0);
      * foo1.bar(int1);
      * </code>
-     *
-     * @param suite a T object.
-     * @param objective a {@link org.evosuite.ga.localsearch.LocalSearchObjective} object.
      */
     private static void expandTestSuite(TestSuiteChromosome suite,
                                         LocalSearchObjective<TestSuiteChromosome> objective) {
@@ -235,9 +232,6 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
     /**
      * Returns the set of predicate indexes whose true branches were covered by
      * the suite.
-     *
-     * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
-     * @return a {@link java.util.Set} object.
      */
     private static Set<Integer> getCoveredTrueBranches(TestSuiteChromosome suite) {
         Set<Integer> covered = new LinkedHashSet<>();
@@ -254,7 +248,6 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
      * Returns the set of the predicate indexes whose false branch were covered
      * by the test suite.
      *
-     * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      * @return the set of predicate indexes whose false branch were covered
      */
     private static Set<Integer> getCoveredFalseBranches(TestSuiteChromosome suite) {
@@ -510,12 +503,6 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
 
     /**
      * Applies AVM on the test case in the suite.
-     *
-     * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
-     * @param testIndex a int.
-     * @param test a {@link org.evosuite.testcase.TestChromosome} object.
-     * @param objective a {@link org.evosuite.ga.localsearch.LocalSearchObjective} object.
-     * @return a boolean.
      */
     protected boolean applyAVM(TestSuiteChromosome suite,
                              int testIndex,
@@ -534,12 +521,6 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
 
     /**
      * Applies DSE on the test case of the suite.
-     *
-     * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
-     * @param testIndex a int.
-     * @param test a {@link org.evosuite.testcase.TestChromosome} object.
-     * @param objective a {@link org.evosuite.ga.localsearch.LocalSearchObjective} object.
-     * @return a boolean.
      */
     protected boolean applyDSE(TestSuiteChromosome suite, int testIndex, TestChromosome test,
                              LocalSearchObjective<TestSuiteChromosome> objective) {

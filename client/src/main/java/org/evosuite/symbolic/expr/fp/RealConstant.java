@@ -33,8 +33,6 @@ public final class RealConstant extends AbstractExpression<Double> implements Re
      * <p>
      * Constructor for RealConstant.
      * </p>
-     *
-     * @param doubleValue a double.
      */
     public RealConstant(double doubleValue) {
         super(doubleValue, 1, false);

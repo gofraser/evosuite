@@ -407,8 +407,6 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
     /**
      * countMostCoveredGoals.
-     *
-     * @return a int.
      */
     public static int countMostCoveredGoals() {
         return countGoalsIn(mostCoveredGoals);

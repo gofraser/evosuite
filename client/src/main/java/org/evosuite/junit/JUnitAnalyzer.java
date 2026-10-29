@@ -484,7 +484,6 @@ public abstract class JUnitAnalyzer {
      * Analyze if the given list of tests is sensitive to the execution order.
      *
      * @param tests the list of tests to analyze.
-     * @return an OrderSensitivityAnalysis object.
      */
     public static OrderSensitivityAnalysis analyzeOrderSensitivity(List<TestCase> tests) {
         if (tests == null || tests.size() < 2) {

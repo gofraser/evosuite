@@ -40,8 +40,6 @@ public class Random {
 
     /**
      * Replacement function for nextInt.
-     *
-     * @return a int.
      */
     public static int nextInt() {
         wasAccessed = true;
@@ -50,9 +48,6 @@ public class Random {
 
     /**
      * Replacement function for nextInt.
-     *
-     * @param max a int.
-     * @return a int.
      */
     public static int nextInt(int max) {
         wasAccessed = true;
@@ -130,8 +125,6 @@ public class Random {
 
     /**
      * Replacement function for nextFloat.
-     *
-     * @return a float.
      */
     public static float nextFloat() {
         wasAccessed = true;
@@ -160,8 +153,6 @@ public class Random {
 
     /**
      * Replacement function for nextDouble.
-     *
-     * @return a double.
      */
     public static double nextDouble() {
         wasAccessed = true;
@@ -170,8 +161,6 @@ public class Random {
 
     /**
      * Replacement function for nextGaussian.
-     *
-     * @return a double.
      */
     public static double nextGaussian() {
         wasAccessed = true;
@@ -180,8 +169,6 @@ public class Random {
 
     /**
      * Replacement function for nextBoolean.
-     *
-     * @return a boolean.
      */
     public static boolean nextBoolean() {
         wasAccessed = true;
@@ -191,8 +178,6 @@ public class Random {
 
     /**
      * Replacement function for nextLong.
-     *
-     * @return a long.
      */
     public static long nextLong() {
         wasAccessed = true;
@@ -201,8 +186,6 @@ public class Random {
 
     /**
      * Set the next random number to a value.
-     *
-     * @param number a int.
      */
     public static void setNextRandom(int number) {
         currentNumber = Math.abs(number);
@@ -219,8 +202,6 @@ public class Random {
     /**
      * Getter to check whether this runtime replacement was accessed during test
      * execution.
-     *
-     * @return a boolean.
      */
     public static boolean wasAccessed() {
         return wasAccessed;
@@ -228,8 +209,6 @@ public class Random {
 
     /**
      * Replacement for function java.util.UUID.randomUUID().
-     *
-     * @return a {@link java.util.UUID} object.
      */
     public static UUID randomUUID() {
         wasAccessed = true;
@@ -249,7 +228,6 @@ public class Random {
      * Replacement for creation of new UUID using byte[].
      *
      * @param data an array of bytes.
-     * @return a {@link java.util.UUID} object.
      */
     private static UUID buildNewUUID(byte[] data) {
         long msb = 0;

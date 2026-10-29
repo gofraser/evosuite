@@ -43,9 +43,6 @@ public class MultiMethodVisitor extends MethodVisitor {
 
     /**
      * <p>Constructor for MultiMethodVisitor.</p>
-     *
-     * @param mv1 a {@link org.objectweb.asm.MethodVisitor} object.
-     * @param mv2 a {@link org.objectweb.asm.MethodVisitor} object.
      */
     public MultiMethodVisitor(MethodVisitor mv1, MethodVisitor mv2) {
         super(Opcodes.ASM9);

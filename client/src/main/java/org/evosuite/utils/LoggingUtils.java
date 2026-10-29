@@ -107,8 +107,6 @@ public class LoggingUtils {
      * <p>
      * getEvoLogger.
      * </p>
-     *
-     * @return a {@link org.slf4j.Logger} object.
      */
     public static Logger getEvoLogger() {
         return LoggerFactory.getLogger(EVO_LOGGER);
@@ -143,8 +141,6 @@ public class LoggingUtils {
      * <p>
      * startLogServer.
      * </p>
-     *
-     * @return a boolean.
      */
     public boolean startLogServer() {
         try {
@@ -217,8 +213,6 @@ public class LoggingUtils {
      * <p>
      * isServerClosed.
      * </p>
-     *
-     * @return a boolean.
      */
     public boolean isServerClosed() {
         return serverSocket == null || serverSocket.isClosed() || !serverSocket.isBound();
@@ -228,8 +222,6 @@ public class LoggingUtils {
      * <p>
      * getLogServerPort.
      * </p>
-     *
-     * @return a {@link java.lang.Integer} object.
      */
     public Integer getLogServerPort() {
         if (isServerClosed()) {

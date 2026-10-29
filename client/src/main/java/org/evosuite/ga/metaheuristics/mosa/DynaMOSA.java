@@ -64,8 +64,6 @@ public class DynaMOSA extends AbstractMOSA {
 
     /**
      * Constructor based on the abstract class. {@link AbstractMOSA}.
-     *
-     * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object
      */
     public DynaMOSA(ChromosomeFactory<TestChromosome> factory) {
         super(factory);

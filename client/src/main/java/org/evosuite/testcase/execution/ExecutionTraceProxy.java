@@ -51,9 +51,6 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
      * <p>
      * Constructor for ExecutionTraceProxy.
      * </p>
-     *
-     * @param trace a {@link org.evosuite.testcase.execution.ExecutionTraceImpl}
-     *              object.
      */
     public ExecutionTraceProxy(ExecutionTraceImpl trace) {
         this.trace = trace;

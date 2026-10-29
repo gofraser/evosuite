@@ -111,8 +111,6 @@ public abstract class StoppingConditionImpl<T extends Chromosome<T>> implements 
 
     /**
      * <p>getType.</p>
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getType() {
         String type = getClass().toString();
@@ -131,8 +129,6 @@ public abstract class StoppingConditionImpl<T extends Chromosome<T>> implements 
 
     /**
      * <p>getValueString.</p>
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getValueString() {
         String value = NumberFormat.getIntegerInstance().format(getCurrentValue());

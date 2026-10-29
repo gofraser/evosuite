@@ -54,8 +54,6 @@ public class MaxGenerationStoppingCondition<T extends Chromosome<T>> extends Sto
 
     /**
      * <p>setMaxIterations.</p>
-     *
-     * @param max a int.
      */
     public void setMaxIterations(int max) {
         maxIterations = max;

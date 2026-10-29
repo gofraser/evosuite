@@ -39,8 +39,6 @@ public class ControlFlowEdge extends DefaultEdge {
 
     /**
      * Constructor for ControlFlowEdge.
-     *
-     * @param isExceptionEdge a boolean.
      */
     public ControlFlowEdge(boolean isExceptionEdge) {
         this.isExceptionEdge = isExceptionEdge;
@@ -48,9 +46,6 @@ public class ControlFlowEdge extends DefaultEdge {
 
     /**
      * Constructor for ControlFlowEdge.
-     *
-     * @param cd              a {@link org.evosuite.graphs.cfg.ControlDependency} object.
-     * @param isExceptionEdge a boolean.
      */
     public ControlFlowEdge(ControlDependency cd, boolean isExceptionEdge) {
         this.cd = cd;
@@ -60,8 +55,6 @@ public class ControlFlowEdge extends DefaultEdge {
 
     /**
      * Sort of a copy constructor.
-     *
-     * @param clone a {@link org.evosuite.graphs.cfg.ControlFlowEdge} object.
      */
     public ControlFlowEdge(ControlFlowEdge clone) {
         if (clone != null) {
@@ -72,8 +65,6 @@ public class ControlFlowEdge extends DefaultEdge {
 
     /**
      * getControlDependency.
-     *
-     * @return a {@link org.evosuite.graphs.cfg.ControlDependency} object.
      */
     public ControlDependency getControlDependency() {
         return cd;
@@ -81,8 +72,6 @@ public class ControlFlowEdge extends DefaultEdge {
 
     /**
      * hasControlDependency.
-     *
-     * @return a boolean.
      */
     public boolean hasControlDependency() {
         return cd != null;
@@ -90,8 +79,6 @@ public class ControlFlowEdge extends DefaultEdge {
 
     /**
      * getBranchInstruction.
-     *
-     * @return a {@link org.evosuite.coverage.branch.Branch} object.
      */
     public Branch getBranchInstruction() {
         if (cd == null) {
@@ -103,8 +90,6 @@ public class ControlFlowEdge extends DefaultEdge {
 
     /**
      * isExceptionEdge.
-     *
-     * @return a boolean.
      */
     public boolean isExceptionEdge() {
         return isExceptionEdge;
@@ -112,8 +97,6 @@ public class ControlFlowEdge extends DefaultEdge {
 
     /**
      * getBranchExpressionValue.
-     *
-     * @return a boolean.
      */
     public boolean getBranchExpressionValue() {
         if (hasControlDependency()) {

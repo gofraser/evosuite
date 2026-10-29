@@ -31,8 +31,6 @@ public class PassiveChangeListener<T> implements Listener<T>, Serializable {
      * Returns whether the listener received any event since the last call of
      * this method. Resets this listener such that another call of this method
      * without receiving an event in between will return false.
-     *
-     * @return a boolean.
      */
     public boolean hasChanged() {
         boolean result = changed;

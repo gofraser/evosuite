@@ -35,7 +35,6 @@ public class CharPrimitiveStatement extends NumericalPrimitiveStatement<Characte
     /**
      * Constructs a new CharPrimitiveStatement with the given value.
      *
-     * @param tc    a {@link org.evosuite.testcase.TestCase} object.
      * @param value the initial value.
      */
     public CharPrimitiveStatement(TestCase tc, Character value) {
@@ -44,8 +43,6 @@ public class CharPrimitiveStatement extends NumericalPrimitiveStatement<Characte
 
     /**
      * Constructs a new CharPrimitiveStatement with default value.
-     *
-     * @param tc a {@link org.evosuite.testcase.TestCase} object.
      */
     public CharPrimitiveStatement(TestCase tc) {
         super(tc, char.class, (char) 0);

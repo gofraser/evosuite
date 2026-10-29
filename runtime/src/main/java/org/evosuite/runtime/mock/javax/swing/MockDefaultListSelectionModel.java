@@ -32,8 +32,6 @@ public class MockDefaultListSelectionModel extends DefaultListSelectionModel imp
 
     /**
      * Returns a string representation of this object.
-     *
-     * @return a string representation of this object.
      */
     public String toString() {
         String s =  ((getValueIsAdjusting()) ? "~" : "=");

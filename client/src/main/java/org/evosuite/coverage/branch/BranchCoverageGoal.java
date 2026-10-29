@@ -75,11 +75,6 @@ public class BranchCoverageGoal implements Serializable, Comparable<BranchCovera
      *
      * <p>Otherwise this goal will try to reach the given branch and if value is
      * true, make the branchInstruction jump and visa versa.
-     *
-     * @param branch     a {@link org.evosuite.coverage.branch.Branch} object.
-     * @param value      a boolean.
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
      */
     public BranchCoverageGoal(Branch branch, boolean value, String className,
                               String methodName) {
@@ -115,10 +110,6 @@ public class BranchCoverageGoal implements Serializable, Comparable<BranchCovera
     /**
      * Constructor accepting line number as parameter.
      *
-     * @param branch     a {@link org.evosuite.coverage.branch.Branch} object.
-     * @param value      a boolean.
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
      * @param lineNumber an integer.
      */
     public BranchCoverageGoal(Branch branch, boolean value, String className,
@@ -143,10 +134,6 @@ public class BranchCoverageGoal implements Serializable, Comparable<BranchCovera
      * <p>
      * Constructor for BranchCoverageGoal.
      * </p>
-     *
-     * @param cd         a {@link org.evosuite.graphs.cfg.ControlDependency} object.
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
      */
     public BranchCoverageGoal(ControlDependency cd, String className, String methodName) {
         this(cd.getBranch(), cd.getBranchExpressionValue(), className, methodName);
@@ -155,9 +142,6 @@ public class BranchCoverageGoal implements Serializable, Comparable<BranchCovera
     /**
      * Methods that have no branches don't need a cfg, so we just set the cfg to
      * null.
-     *
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
      */
     public BranchCoverageGoal(String className, String methodName) {
         this.branch = null;
@@ -214,9 +198,6 @@ public class BranchCoverageGoal implements Serializable, Comparable<BranchCovera
      * <p>
      * getDistance.
      * </p>
-     *
-     * @param result a {@link org.evosuite.testcase.execution.ExecutionResult} object.
-     * @return a {@link org.evosuite.coverage.ControlFlowDistance} object.
      */
     public ControlFlowDistance getDistance(ExecutionResult result) {
 
@@ -227,8 +208,6 @@ public class BranchCoverageGoal implements Serializable, Comparable<BranchCovera
 
     /**
      * Hash code without value.
-     *
-     * @return a int.
      */
     public int hashCodeWithoutValue() {
         final int prime = 31;

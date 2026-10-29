@@ -83,12 +83,6 @@ public final class ConcolicMethodAdapter extends GeneratorAdapter {
 
     /**
      * Constructor.
-     *
-     * @param mv a {@link org.objectweb.asm.MethodVisitor} object.
-     * @param access a int.
-     * @param className a {@link java.lang.String} object.
-     * @param methName a {@link java.lang.String} object.
-     * @param desc a {@link java.lang.String} object.
      */
     ConcolicMethodAdapter(MethodVisitor mv, int access, String className, String methName,
                           String desc) {
@@ -210,8 +204,6 @@ public final class ConcolicMethodAdapter extends GeneratorAdapter {
     /**
      * Insert call to our method directly before the corresponding user
      * instruction.
-     *
-     * @param opcode a int.
      */
     @Override
     public void visitInsn(int opcode) {
@@ -317,9 +309,6 @@ public final class ConcolicMethodAdapter extends GeneratorAdapter {
 
     /**
      * Visit jump instruction.
-     *
-     * @param opcode a int.
-     * @param label a {@link org.objectweb.asm.Label} object.
      */
     @Override
     public void visitJumpInsn(int opcode, Label label) {
@@ -404,8 +393,6 @@ public final class ConcolicMethodAdapter extends GeneratorAdapter {
      * method's control flow graph. So hopefully we do not need to modify any
      * label and trust that ASM will recompute the concrete offsets correctly
      * for us.
-     *
-     * @param label a {@link org.objectweb.asm.Label} object.
      */
     @Override
     public void visitLabel(Label label) {
@@ -434,9 +421,6 @@ public final class ConcolicMethodAdapter extends GeneratorAdapter {
      * <li>
      * NEWARRAY</li>
      * </ol>
-     *
-     * @param opcode a int.
-     * @param operand a int.
      */
     @Override
     public void visitIntInsn(int opcode, int operand) {
@@ -480,7 +464,6 @@ public final class ConcolicMethodAdapter extends GeneratorAdapter {
      *
      * @see <a href="http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.doc8.html#ldc">ldc doc</a>
      * @see <a href="http://java.sun.com/docs/books/jvms/second_edition/html/Instructions2.doc8.html#ldc2_w">ldc2 doc</a>
-     * @param constant a {@link java.lang.Object} object.
      */
     @Override
     public void visitLdcInsn(Object constant) {
@@ -520,9 +503,6 @@ public final class ConcolicMethodAdapter extends GeneratorAdapter {
      * ILOAD, ISTORE, ILOAD_0, ILOAD_1, etc.
      *
      * <p>These may follow a WIDE instruction.
-     *
-     * @param opcode a int.
-     * @param var a int.
      */
     @Override
     public void visitVarInsn(int opcode, int var) {
@@ -554,11 +534,6 @@ public final class ConcolicMethodAdapter extends GeneratorAdapter {
      * doc5.html#getfield
      * http://java.sun.com/docs/books/jvms/second_edition/html
      * /Instructions2.doc11.html#putfield
-     *
-     * @param opcode a int.
-     * @param owner a {@link java.lang.String} object.
-     * @param name a {@link java.lang.String} object.
-     * @param desc a {@link java.lang.String} object.
      */
     @Override
     public void visitFieldInsn(int opcode, String owner, String name, String desc) {
@@ -603,10 +578,6 @@ public final class ConcolicMethodAdapter extends GeneratorAdapter {
      * <p>TODO: Add support for other InvokeDynamic based features.
      * (e.g. milling coin project, local variable type inference, dynalink, etc...)
      *
-     * @param name a {@link java.lang.String} object.
-     * @param methodDesc a {@link java.lang.String} object.
-     * @param bsm a {@link org.objectweb.asm.Handle} object.
-     * @param bsmArgs a {@link java.lang.Object} object.
      * @see <a href="https://docs.oracle.com/javase/specs/jvms/se9/html/jvms-6.html#jvms-6.5.invokedynamic">
      *     invokedynamic doc</a>
      */
@@ -676,12 +647,6 @@ public final class ConcolicMethodAdapter extends GeneratorAdapter {
      *
      * <p>http://java.sun.com/docs/books/jvms/second_edition/html/Concepts.doc.html
      * #16411
-     *
-     * @param opcode a int.
-     * @param owner a {@link java.lang.String} object.
-     * @param name a {@link java.lang.String} object.
-     * @param descriptor a {@link java.lang.String} object.
-     * @param isInterface a boolean.
      */
     @Override
     public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
@@ -790,9 +755,6 @@ public final class ConcolicMethodAdapter extends GeneratorAdapter {
      * <p>Increment i-th local (int) variable by constant (int) value.
      *
      * <p>May follow a WIDE instruction.
-     *
-     * @param i a int.
-     * @param value a int.
      */
     @Override
     public void visitIincInsn(int i, int value) {
@@ -811,9 +773,6 @@ public final class ConcolicMethodAdapter extends GeneratorAdapter {
      * boolean[][] b2 = new boolean[1][2]; // MULTIANEWARRAY [[Z 2
      * Boolean[][] B2 = new Boolean[1][2]; // MULTIANEWARRAY [[Ljava/lang/Boolean; 2
      * </pre>
-     *
-     * @param arrayTypeDesc a {@link java.lang.String} object.
-     * @param nrDimensions a int.
      */
     @Override
     public void visitMultiANewArrayInsn(String arrayTypeDesc, int nrDimensions) {
@@ -834,11 +793,6 @@ public final class ConcolicMethodAdapter extends GeneratorAdapter {
 
     /**
      * Visit table switch instruction.
-     *
-     * @param min a int.
-     * @param max a int.
-     * @param dflt a {@link org.objectweb.asm.Label} object.
-     * @param labels an array of {@link org.objectweb.asm.Label} objects.
      */
     @Override
     public void visitTableSwitchInsn(int min, int max, Label dflt, Label[] labels) {
@@ -865,10 +819,6 @@ public final class ConcolicMethodAdapter extends GeneratorAdapter {
      *
      * <p>TODO: Optimize this. Do we really need to create a new array every time
      * we execute this switch statement?
-     *
-     * @param dflt a {@link org.objectweb.asm.Label} object.
-     * @param keys an array of {@link int} objects.
-     * @param labels an array of {@link org.objectweb.asm.Label} objects.
      */
     @Override
     public void visitLookupSwitchInsn(Label dflt, int[] keys, Label[] labels) {
@@ -906,9 +856,6 @@ public final class ConcolicMethodAdapter extends GeneratorAdapter {
      * Visit type instruction.
      *
      * <p>CHECKCAST, INSTANCEOF, NEW, ANEWARRAY.
-     *
-     * @param opcode a int.
-     * @param type a {@link java.lang.String} object.
      */
     @Override
     public void visitTypeInsn(int opcode, String type) {
@@ -958,10 +905,6 @@ public final class ConcolicMethodAdapter extends GeneratorAdapter {
 
     /**
      * Insert a callback to org.evosuite.dse.VM.methodName(methodDesc).
-     *
-     * @param methodName a {@link java.lang.String} object.
-     * @param methodDesc a {@link java.lang.String} object.
-     * @param isInterface a boolean.
      */
     private void insertCallback(String methodName, String methodDesc, boolean isInterface) {
         mv.visitMethodInsn(INVOKESTATIC, VM_FQ, methodName, methodDesc, isInterface);

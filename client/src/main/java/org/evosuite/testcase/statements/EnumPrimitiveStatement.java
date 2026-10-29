@@ -50,9 +50,6 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
      * <p>
      * Constructor for EnumPrimitiveStatement.
      * </p>
-     *
-     * @param tc    a {@link org.evosuite.testcase.TestCase} object.
-     * @param clazz a {@link java.lang.Class} object.
      */
     @SuppressWarnings("unchecked")
     public EnumPrimitiveStatement(TestCase tc, Class<T> clazz) {
@@ -77,9 +74,6 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
      * <p>
      * Constructor for EnumPrimitiveStatement.
      * </p>
-     *
-     * @param tc    a {@link org.evosuite.testcase.TestCase} object.
-     * @param value a T object.
      */
     @SuppressWarnings("unchecked")
     public EnumPrimitiveStatement(TestCase tc, T value) {
@@ -108,8 +102,6 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
 
     /**
      * getEnumClass.
-     *
-     * @return a {@link java.lang.Class} object.
      */
     public Class<T> getEnumClass() {
         return enumClass;
@@ -117,8 +109,6 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
 
     /**
      * getEnumValues.
-     *
-     * @return a {@link java.util.List} object.
      */
     public List<T> getEnumValues() {
         return Arrays.asList(constants);

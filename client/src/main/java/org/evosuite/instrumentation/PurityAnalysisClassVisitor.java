@@ -40,10 +40,6 @@ public class PurityAnalysisClassVisitor extends ClassVisitor {
      * <p>
      * Constructor for StaticInitializationClassAdapter.
      * </p>
-     *
-     * @param visitor   a {@link org.objectweb.asm.ClassVisitor} object.
-     * @param className a {@link java.lang.String} object.
-     * @param purityAnalyzer a {@link CheapPurityAnalyzer} object.
      */
     public PurityAnalysisClassVisitor(ClassVisitor visitor, String className,
                                       CheapPurityAnalyzer purityAnalyzer) {

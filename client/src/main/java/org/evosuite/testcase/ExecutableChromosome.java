@@ -47,8 +47,6 @@ public abstract class ExecutableChromosome<E extends ExecutableChromosome<E>> ex
 
     /**
      * <p>Setter for the field <code>lastExecutionResult</code>.</p>
-     *
-     * @param lastExecutionResult a {@link org.evosuite.testcase.execution.ExecutionResult} object.
      */
     public void setLastExecutionResult(ExecutionResult lastExecutionResult) {
         this.lastExecutionResult = lastExecutionResult;
@@ -56,8 +54,6 @@ public abstract class ExecutableChromosome<E extends ExecutableChromosome<E>> ex
 
     /**
      * <p>Getter for the field <code>lastExecutionResult</code>.</p>
-     *
-     * @return a {@link org.evosuite.testcase.execution.ExecutionResult} object.
      */
     public ExecutionResult getLastExecutionResult() {
         return lastExecutionResult;
@@ -65,9 +61,6 @@ public abstract class ExecutableChromosome<E extends ExecutableChromosome<E>> ex
 
     /**
      * <p>Setter for the field <code>lastExecutionResult</code>.</p>
-     *
-     * @param lastExecutionResult a {@link org.evosuite.coverage.mutation.MutationExecutionResult} object.
-     * @param mutation            a {@link org.evosuite.coverage.mutation.Mutation} object.
      */
     public void setLastExecutionResult(MutationExecutionResult lastExecutionResult,
                                        Mutation mutation) {
@@ -76,9 +69,6 @@ public abstract class ExecutableChromosome<E extends ExecutableChromosome<E>> ex
 
     /**
      * <p>Getter for the field <code>lastExecutionResult</code>.</p>
-     *
-     * @param mutation a {@link org.evosuite.coverage.mutation.Mutation} object.
-     * @return a {@link org.evosuite.coverage.mutation.MutationExecutionResult} object.
      */
     public MutationExecutionResult getLastExecutionResult(Mutation mutation) {
         return lastMutationResult.get(mutation);

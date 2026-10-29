@@ -99,9 +99,6 @@ public class ClassPathHacker {
 
     /**
      * <p>addFile.</p>
-     *
-     * @param s a {@link java.lang.String} object.
-     * @throws java.io.IOException if any.
      */
     public static void addFile(String s) throws IOException {
         File f = new File(s);
@@ -110,9 +107,6 @@ public class ClassPathHacker {
 
     /**
      * <p>addFile.</p>
-     *
-     * @param f a {@link java.io.File} object.
-     * @throws java.io.IOException if any.
      */
     public static void addFile(File f) throws IOException {
         addURL(f.toURI().toURL());
@@ -120,9 +114,6 @@ public class ClassPathHacker {
 
     /**
      * <p>addURL.</p>
-     *
-     * @param u a {@link java.net.URL} object.
-     * @throws java.io.IOException if any.
      */
     public static void addURL(URL u) throws IOException {
         logger.info("Trying to add URL to class path: {}", u);

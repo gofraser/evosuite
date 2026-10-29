@@ -77,9 +77,6 @@ public class CFGGenerator {
      * MyMethodNode extended from BytecodeInstruction or something.
      *
      * @param classLoader class loader
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @param node       a {@link org.objectweb.asm.tree.MethodNode} object.
      */
     public CFGGenerator(ClassLoader classLoader, String className, String methodName,
                         MethodNode node) {
@@ -145,12 +142,6 @@ public class CFGGenerator {
      *
      * <p>Is called by the corresponding BytecodeAnalyzer whenever it detects a
      * control flow edge.
-     *
-     * @param src             a int.
-     * @param dst             a int.
-     * @param frames          an array of {@link org.objectweb.asm.tree.analysis.Frame}
-     *                        objects.
-     * @param isExceptionEdge a boolean.
      */
     public void registerControlFlowEdge(int src, int dst, Frame[] frames,
                                         boolean isExceptionEdge) {
@@ -222,8 +213,6 @@ public class CFGGenerator {
      * for this RawCFG.
      *
      * <p>See ActualControlFlowGraph and GraphPool for further details.
-     *
-     * @return a {@link org.evosuite.graphs.cfg.ActualControlFlowGraph} object.
      */
     public ActualControlFlowGraph computeActualCFG() {
         BytecodeInstructionPool.getInstance(classLoader).logInstructionsIn(className,
@@ -236,8 +225,6 @@ public class CFGGenerator {
 
     /**
      * Getter for the field <code>rawGraph</code>.
-     *
-     * @return a {@link org.evosuite.graphs.cfg.RawControlFlowGraph} object.
      */
     protected RawControlFlowGraph getRawGraph() {
         return rawGraph;
@@ -245,8 +232,6 @@ public class CFGGenerator {
 
     /**
      * Getter for the field <code>className</code>.
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getClassName() {
         return className;
@@ -254,8 +239,6 @@ public class CFGGenerator {
 
     /**
      * Getter for the field <code>methodName</code>.
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getMethodName() {
         return methodName;

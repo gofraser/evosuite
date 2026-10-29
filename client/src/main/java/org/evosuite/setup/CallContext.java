@@ -65,8 +65,6 @@ public class CallContext implements Serializable {
      * <p>
      * Constructor for CallContext.
      * </p>
-     *
-     * @param stackTrace an array of {@link java.lang.StackTraceElement} objects.
      */
     public CallContext(StackTraceElement[] stackTrace) {
         int startPos = stackTrace.length - 1;
@@ -363,8 +361,6 @@ public class CallContext implements Serializable {
      * <p>
      * getRootClassName.
      * </p>
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getRootClassName() {
         return calls().get(0).getClassName();
@@ -374,8 +370,6 @@ public class CallContext implements Serializable {
      * <p>
      * getRootMethodName.
      * </p>
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getRootMethodName() {
         return calls().get(0).getMethodName();

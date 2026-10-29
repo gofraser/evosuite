@@ -36,9 +36,6 @@ public class SinglePointCrossOver<T extends Chromosome<T>> extends CrossOverFunc
      * {@inheritDoc}
      *
      * <p>A different splitting point is selected for each individual
-     *
-     * @param parent1 a T object.
-     * @param parent2 a T object.
      */
     @Override
     public void crossOver(T parent1, T parent2)

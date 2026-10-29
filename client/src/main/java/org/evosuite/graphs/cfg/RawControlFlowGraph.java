@@ -65,9 +65,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
      * Constructor for RawControlFlowGraph.
      *
      * @param classLoader class loader
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @param access     a int.
      */
     public RawControlFlowGraph(ClassLoader classLoader, String className,
                                String methodName, int access) {
@@ -118,11 +115,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
 
     /**
      * addEdge.
-     *
-     * @param src             a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @param target          a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @param isExceptionEdge a boolean.
-     * @return a {@link org.evosuite.graphs.cfg.ControlFlowEdge} object.
      */
     protected ControlFlowEdge addEdge(BytecodeInstruction src,
                                       BytecodeInstruction target, boolean isExceptionEdge) {
@@ -237,9 +229,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
 
     /**
      * determineBasicBlockFor.
-     *
-     * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a {@link org.evosuite.graphs.cfg.BasicBlock} object.
      */
     public BasicBlock determineBasicBlockFor(BytecodeInstruction instruction) {
         if (instruction == null) {
@@ -350,8 +339,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
 
     /**
      * getInstructionWithSmallestId.
-     *
-     * @return a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      */
     public BytecodeInstruction getInstructionWithSmallestId() {
         return vertexSet().stream()
@@ -361,8 +348,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
 
     /**
      * getInstructionWithBiggestId.
-     *
-     * @return a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      */
     public BytecodeInstruction getInstructionWithBiggestId() {
         return vertexSet().stream()
@@ -375,8 +360,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
      * completely empty try-catch-finally. Since these nodes are not reachable
      * but cause trouble when determining the entry point of a CFG they get
      * removed.
-     *
-     * @return a int.
      */
     public int removeIsolatedNodes() {
         Set<BytecodeInstruction> candidates = determineEntryPoints();
@@ -401,9 +384,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
      * Returns the Set of BytecodeInstructions that can potentially be executed
      * from entering the method of this CFG until the given BytecodeInstruction
      * is reached.
-     *
-     * @param v a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a {@link java.util.Set} object.
      */
     public Set<BytecodeInstruction> getPreviousInstructionsInMethod(BytecodeInstruction v) {
         Set<BytecodeInstruction> visited = new HashSet<>();
@@ -432,9 +412,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
      * Returns the Set of BytecodeInstructions that can potentially be executed
      * from passing the given BytecodeInstruction until the end of the method of
      * this CFG is reached.
-     *
-     * @param v a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a {@link java.util.Set} object.
      */
     public Set<BytecodeInstruction> getLaterInstructionsInMethod(BytecodeInstruction v) {
         Set<BytecodeInstruction> visited = new HashSet<>();
@@ -465,9 +442,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
 
     /**
      * getUsesForDef.
-     *
-     * @param def a {@link org.evosuite.coverage.dataflow.Definition} object.
-     * @return a {@link java.util.Set} object.
      */
     public Set<Use> getUsesForDef(Definition def) {
         if (!graph.containsVertex(def)) {
@@ -510,9 +484,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
 
     /**
      * hasDefClearPathToMethodExit.
-     *
-     * @param duVertex a {@link org.evosuite.coverage.dataflow.Definition} object.
-     * @return a boolean.
      */
     public boolean hasDefClearPathToMethodExit(Definition duVertex) {
         if (!graph.containsVertex(duVertex)) {
@@ -528,9 +499,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
 
     /**
      * hasDefClearPathFromMethodEntry.
-     *
-     * @param duVertex a {@link org.evosuite.coverage.dataflow.Use} object.
-     * @return a boolean.
      */
     public boolean hasDefClearPathFromMethodEntry(Use duVertex) {
         if (!graph.containsVertex(duVertex)) {
@@ -646,10 +614,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
     /**
      * Checks if the given DefUse has a definition-clear path to its methods
      * exit.
-     *
-     * @param targetDU a {@link org.evosuite.coverage.dataflow.DefUse} object.
-     * @param handle   a {@link java.util.Set} object.
-     * @return a boolean.
      */
     public boolean hasDefClearPath(DefUse targetDU, Set<String> handle) {
         BytecodeInstruction entry = determineEntryPoint();
@@ -741,8 +705,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
 
     /**
      * determineMethodCalls.
-     *
-     * @return a {@link java.util.List} object.
      */
     public List<BytecodeInstruction> determineMethodCalls() {
         return graph.vertexSet().stream()
@@ -752,8 +714,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
 
     /**
      * determineMethodCallsToOwnClass.
-     *
-     * @return a {@link java.util.List} object.
      */
     public List<BytecodeInstruction> determineMethodCallsToOwnClass() {
         List<BytecodeInstruction> calls = new ArrayList<>();

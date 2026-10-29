@@ -43,8 +43,6 @@ public class InspectorTraceEntry implements OutputTraceEntry {
 
     /**
      * <p>Constructor for InspectorTraceEntry.</p>
-     *
-     * @param var a {@link org.evosuite.testcase.variable.VariableReference} object.
      */
     public InspectorTraceEntry(VariableReference var) {
         this.var = var;
@@ -52,9 +50,6 @@ public class InspectorTraceEntry implements OutputTraceEntry {
 
     /**
      * <p>addValue.</p>
-     *
-     * @param inspector a {@link org.evosuite.assertion.Inspector} object.
-     * @param value     a {@link java.lang.Object} object.
      */
     public void addValue(Inspector inspector, Object value) {
         inspectorMap.put(inspector, value);
@@ -63,8 +58,6 @@ public class InspectorTraceEntry implements OutputTraceEntry {
 
     /**
      * <p>size.</p>
-     *
-     * @return a int.
      */
     public int size() {
         return inspectorMap.size();

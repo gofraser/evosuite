@@ -43,8 +43,6 @@ public class CompareAssertion extends Assertion {
      * <p>
      * Getter for the field <code>dest</code>.
      * </p>
-     *
-     * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
      */
     public VariableReference getDest() {
         return dest;
@@ -54,8 +52,6 @@ public class CompareAssertion extends Assertion {
      * <p>
      * Setter for the field <code>dest</code>.
      * </p>
-     *
-     * @param dest a {@link org.evosuite.testcase.variable.VariableReference} object.
      */
     public void setDest(VariableReference dest) {
         this.dest = dest;

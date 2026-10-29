@@ -57,11 +57,7 @@ public class BranchCondition {
      * belonging to the class in the SUT, the target constraint and all the
      * supporting constraint for that particular branch (zero checks, etc).
      *
-     * @param className             a {@link java.lang.String} object.
-     * @param methodName            a {@link java.lang.String} object.
      * @param instructionIndex      an {@link int} value.
-     * @param constraint            a {@link org.evosuite.symbolic.expr.Constraint} object.
-     * @param supportingConstraints a {@link java.util.List} object.
      */
     public BranchCondition(String className, String methodName, int instructionIndex, Constraint<?> constraint,
                            List<Constraint<?>> supportingConstraints) {
@@ -87,8 +83,6 @@ public class BranchCondition {
 
     /**
      * Returns the class name.
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getClassName() {
         return className;
@@ -96,8 +90,6 @@ public class BranchCondition {
 
     /**
      * Returns the instruction index.
-     *
-     * @return a int.
      */
     public int getInstructionIndex() {
         return instructionIndex;
@@ -105,8 +97,6 @@ public class BranchCondition {
 
     /**
      * Returns the full name.
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getFullName() {
         return className + "." + methodName;
@@ -115,8 +105,6 @@ public class BranchCondition {
     /**
      * Returns the constraint for actual branch. This constraint has to be negated
      * to take another path.
-     *
-     * @return a {@link org.evosuite.symbolic.expr.Constraint} object.
      */
     public Constraint<?> getConstraint() {
         return constraint;
@@ -126,8 +114,6 @@ public class BranchCondition {
      * Returns a list of implicit constraints (nullity checks, zero division, index
      * within bounds, negative size array length, etc.) collected before the current
      * branch condition and after the last symbolic branch condition.
-     *
-     * @return a {@link java.util.List} object.
      */
     public List<Constraint<?>> getSupportingConstraints() {
         return supportingConstraints;
@@ -135,8 +121,6 @@ public class BranchCondition {
 
     /**
      * Returns the method name.
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getMethodName() {
         return methodName;
@@ -144,8 +128,6 @@ public class BranchCondition {
 
     /**
      * For simplicity we create this construction of the object to handle path conditions easily.
-     *
-     * @return a {@link org.evosuite.symbolic.BranchCondition} object.
      */
     public BranchCondition getNegatedVersion() {
         return new BranchCondition(className, methodName, instructionIndex, constraint.negate(), supportingConstraints);

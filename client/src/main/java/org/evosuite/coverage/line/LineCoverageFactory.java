@@ -118,11 +118,6 @@ public class LineCoverageFactory extends
     /**
      * Create a fitness function for line coverage aimed at covering the given line
      * in the given class and method.
-     *
-     * @param className a {@link java.lang.String} object.
-     * @param method    a {@link java.lang.String} object.
-     * @param line      a {@link java.lang.Integer} object.
-     * @return a {@link org.evosuite.coverage.line.LineCoverageTestFitness} object.
      */
     public static LineCoverageTestFitness createLineTestFitness(
             String className, String method, Integer line) {
@@ -137,9 +132,6 @@ public class LineCoverageFactory extends
     /**
      * Convenience method calling createLineTestFitness(class,method,line) with
      * the respective class, method, and line of the given BytecodeInstruction.
-     *
-     * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a {@link org.evosuite.coverage.line.LineCoverageTestFitness} object.
      */
     public static LineCoverageTestFitness createLineTestFitness(
             BytecodeInstruction instruction) {

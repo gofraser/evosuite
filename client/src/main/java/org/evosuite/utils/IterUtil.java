@@ -32,10 +32,6 @@ public class IterUtil {
 
     /**
      * <p>join.</p>
-     *
-     * @param iter      a {@link java.lang.Iterable} object.
-     * @param separator a {@link java.lang.String} object.
-     * @return a {@link java.lang.String} object.
      */
     public static String join(Iterable<?> iter, String separator) {
         StringBuilder result = new StringBuilder();
@@ -55,9 +51,6 @@ public class IterUtil {
 
     /**
      * <p>join.</p>
-     *
-     * @param iter a {@link java.lang.Iterable} object.
-     * @return a {@link java.lang.String} object.
      */
     public static String join(Iterable<?> iter) {
         return join(iter, DEFAULT_JOIN_SEPARATOR);

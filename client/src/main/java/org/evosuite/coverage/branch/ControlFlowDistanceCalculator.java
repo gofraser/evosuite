@@ -87,13 +87,6 @@ public class ControlFlowDistanceCalculator {
      * depending on the given value.
      *
      * <p>For more information look at this class's class comment
-     *
-     * @param result     a {@link org.evosuite.testcase.execution.ExecutionResult} object.
-     * @param branch     a {@link org.evosuite.coverage.branch.Branch} object.
-     * @param value      a boolean.
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @return a {@link org.evosuite.coverage.ControlFlowDistance} object.
      */
     public static ControlFlowDistance getDistance(ExecutionResult result, Branch branch,
                                                   boolean value, String className, String methodName) {
@@ -170,10 +163,6 @@ public class ControlFlowDistanceCalculator {
     /**
      * If there is an exception in a superconstructor, then the corresponding
      * constructor might not be included in the execution trace.
-     *
-     * @param result a {@link org.evosuite.testcase.execution.ExecutionResult} object.
-     * @param className a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
      */
     private static boolean hasConstructorException(ExecutionResult result,
                                                    String className, String methodName) {

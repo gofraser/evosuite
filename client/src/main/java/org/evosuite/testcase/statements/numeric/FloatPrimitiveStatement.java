@@ -40,7 +40,6 @@ public class FloatPrimitiveStatement extends NumericalPrimitiveStatement<Float> 
     /**
      * Constructs a new FloatPrimitiveStatement with the given value.
      *
-     * @param tc    a {@link org.evosuite.testcase.TestCase} object.
      * @param value the initial value.
      */
     public FloatPrimitiveStatement(TestCase tc, Float value) {
@@ -49,8 +48,6 @@ public class FloatPrimitiveStatement extends NumericalPrimitiveStatement<Float> 
 
     /**
      * Constructs a new FloatPrimitiveStatement with default value 0.0F.
-     *
-     * @param tc a {@link org.evosuite.testcase.TestCase} object.
      */
     public FloatPrimitiveStatement(TestCase tc) {
         super(tc, float.class, 0.0F);

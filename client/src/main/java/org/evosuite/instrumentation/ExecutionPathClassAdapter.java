@@ -54,9 +54,6 @@ public class ExecutionPathClassAdapter extends ClassVisitor {
      * <p>
      * Constructor for ExecutionPathClassAdapter.
      * </p>
-     *
-     * @param visitor   a {@link org.objectweb.asm.ClassVisitor} object.
-     * @param className a {@link java.lang.String} object.
      */
     public ExecutionPathClassAdapter(ClassVisitor visitor, String className) {
         super(Opcodes.ASM9, visitor);

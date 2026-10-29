@@ -26,22 +26,16 @@ public interface MultipleExpression<T extends Object> {
 
     /**
      * Returns the operator of the expression.
-     *
-     * @return a {@link org.evosuite.symbolic.expr.Operator} object.
      */
     Operator getOperator();
 
     /**
      * Returns the left operand of the expression.
-     *
-     * @return a {@link org.evosuite.symbolic.expr.Expression} object.
      */
     Expression<T> getLeftOperand();
 
     /**
      * Returns the right operand of the expression.
-     *
-     * @return a {@link org.evosuite.symbolic.expr.Expression} object.
      */
     Expression<?> getRightOperand();
 

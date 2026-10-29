@@ -45,12 +45,6 @@ public class LineNumberMethodAdapter extends AbstractEvoMethodAdapter {
 
     /**
      * <p>Constructor for LineNumberMethodAdapter.</p>
-     *
-     * @param mv         a {@link org.objectweb.asm.MethodVisitor} object.
-     * @param access     a int.
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @param desc       a {@link java.lang.String} object.
      */
     public LineNumberMethodAdapter(MethodVisitor mv, int access, String className, String methodName,
                                    String desc) {

@@ -46,9 +46,6 @@ public class DSEAlgorithmFactory {
 
     /**
      * Returns a DSE algorithm instance based on the provided type.
-     *
-     * @param dseAlgorithmType a {@link org.evosuite.symbolic.dse.algorithm.DSEAlgorithms} object.
-     * @return a {@link org.evosuite.symbolic.dse.algorithm.ExplorationAlgorithm} object.
      */
     public ExplorationAlgorithm getDSEAlgorithm(DSEAlgorithms dseAlgorithmType) {
         if (dseAlgorithmType == null) {

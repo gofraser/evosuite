@@ -216,9 +216,6 @@ public class TestSuiteWriterUtils {
 
     /**
      * Create subdirectory for package in test directory.
-     *
-     * @param directory a {@link java.lang.String} object.
-     * @return a {@link java.lang.String} object.
      */
     public static String makeDirectory(String directory) {
         String dirname = directory + File.separator

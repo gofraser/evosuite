@@ -154,8 +154,6 @@ public class TestSuiteMinimizer {
      * <p>
      * Constructor for TestSuiteMinimizer.
      * </p>
-     *
-     * @param factory a {@link org.evosuite.coverage.TestFitnessFactory} object.
      */
     public TestSuiteMinimizer(TestFitnessFactory<?> factory) {
         this(Collections.singletonList(factory), null, null);
@@ -186,7 +184,6 @@ public class TestSuiteMinimizer {
      * minimize.
      * </p>
      *
-     * @param suite           a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      * @param minimizePerTest true is to minimize tests, false is to minimize suites.
      */
     public MinimizationResult minimize(TestSuiteChromosome suite, boolean minimizePerTest) {
@@ -445,8 +442,6 @@ public class TestSuiteMinimizer {
     /**
      * Minimize test suite with respect to the isCovered Method of the goals
      * defined by the supplied TestFitnessFactory.
-     *
-     * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      */
     private MinimizationStatus minimizeTests(TestSuiteChromosome suite) {
 
@@ -879,8 +874,6 @@ public class TestSuiteMinimizer {
     /**
      * Minimize test suite with respect to the isCovered Method of the goals
      * defined by the supplied TestFitnessFactory.
-     *
-     * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      */
     private MinimizationStatus minimizeSuite(TestSuiteChromosome suite) {
 

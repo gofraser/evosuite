@@ -61,10 +61,6 @@ public abstract class ControlFlowGraph<V> extends
 
     /**
      * Creates a fresh and empty CFG for the given class and method.
-     *
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @param access     a int.
      */
     protected ControlFlowGraph(String className, String methodName, int access) {
         super(ControlFlowEdge.class);
@@ -81,11 +77,6 @@ public abstract class ControlFlowGraph<V> extends
     /**
      * Creates a CFG determined by the given jGraph for the given class and
      * method.
-     *
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @param access     a int.
-     * @param jgraph     a {@link org.jgrapht.graph.DefaultDirectedGraph} object.
      */
     protected ControlFlowGraph(String className, String methodName, int access,
                                DefaultDirectedGraph<V, ControlFlowEdge> jgraph) {
@@ -102,10 +93,6 @@ public abstract class ControlFlowGraph<V> extends
 
     /**
      * leadsToNode.
-     *
-     * @param e a {@link org.evosuite.graphs.cfg.ControlFlowEdge} object.
-     * @param b a V object.
-     * @return a boolean.
      */
     public boolean leadsToNode(ControlFlowEdge e, V b) {
 
@@ -146,17 +133,11 @@ public abstract class ControlFlowGraph<V> extends
      * by it's instructionId.
      *
      * <p>If no such instruction exists in this CFG, null is returned.
-     *
-     * @param instructionId a int.
-     * @return a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      */
     public abstract BytecodeInstruction getInstruction(int instructionId);
 
     /**
      * Determines, whether a given instruction is contained in this CFG.
-     *
-     * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a boolean.
      */
     public abstract boolean containsInstruction(BytecodeInstruction instruction);
 
@@ -181,8 +162,6 @@ public abstract class ControlFlowGraph<V> extends
      *
      * <p>If the diameter of this graph was not computed previously it is computed
      * first.
-     *
-     * @return a int.
      */
     public int getDiameter() {
         if (diameter == -1) {
@@ -217,8 +196,6 @@ public abstract class ControlFlowGraph<V> extends
 
     /**
      * determineEntryPoint.
-     *
-     * @return a V object.
      */
     public V determineEntryPoint() {
         Set<V> candidates = determineEntryPoints();
@@ -244,8 +221,6 @@ public abstract class ControlFlowGraph<V> extends
 
     /**
      * Getter for the field <code>className</code>.
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getClassName() {
         return className;
@@ -253,8 +228,6 @@ public abstract class ControlFlowGraph<V> extends
 
     /**
      * Getter for the field <code>methodName</code>.
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getMethodName() {
         return methodName;
@@ -262,8 +235,6 @@ public abstract class ControlFlowGraph<V> extends
 
     /**
      * getMethodAccess.
-     *
-     * @return a int.
      */
     public int getMethodAccess() {
         return access;
@@ -271,8 +242,6 @@ public abstract class ControlFlowGraph<V> extends
 
     /**
      * isPublicMethod.
-     *
-     * @return a boolean.
      */
     public boolean isPublicMethod() {
         return (access & Opcodes.ACC_PUBLIC) == Opcodes.ACC_PUBLIC;
@@ -280,8 +249,6 @@ public abstract class ControlFlowGraph<V> extends
 
     /**
      * isStaticMethod.
-     *
-     * @return a boolean.
      */
     public boolean isStaticMethod() {
         return (access & Opcodes.ACC_STATIC) == Opcodes.ACC_STATIC;
@@ -299,8 +266,6 @@ public abstract class ControlFlowGraph<V> extends
 
     /**
      * getCFGType.
-     *
-     * @return a {@link java.lang.String} object.
      */
     public abstract String getCFGType();
 }

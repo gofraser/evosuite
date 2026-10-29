@@ -41,11 +41,6 @@ public final class IntegerVariable extends AbstractExpression<Long> implements
      * <p>
      * Constructor for IntegerVariable.
      * </p>
-     *
-     * @param name     a {@link java.lang.String} object.
-     * @param conV     a long.
-     * @param minValue a long.
-     * @param maxValue a long.
      */
     public IntegerVariable(String name, long conV, long minValue, long maxValue) {
         super(conV, 1, true);
@@ -58,8 +53,6 @@ public final class IntegerVariable extends AbstractExpression<Long> implements
      * <p>
      * Setter for the field <code>concreteValue</code>.
      * </p>
-     *
-     * @param con a {@link java.lang.Long} object.
      */
     public void setConcreteValue(Long con) {
         this.concreteValue = con;

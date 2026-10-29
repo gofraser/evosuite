@@ -126,8 +126,6 @@ public abstract class AssertionGenerator {
      * <p>
      * addAssertions.
      * </p>
-     *
-     * @param test a {@link org.evosuite.testcase.TestCase} object.
      */
     public abstract void addAssertions(TestCase test);
 
@@ -153,7 +151,6 @@ public abstract class AssertionGenerator {
      * Execute a test case on the original unit.
      *
      * @param test The test case that should be executed
-     * @return a {@link org.evosuite.testcase.execution.ExecutionResult} object.
      */
     protected ExecutionResult runTest(TestCase test) {
         ExecutionResult result = new ExecutionResult(test);

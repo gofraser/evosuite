@@ -3325,8 +3325,6 @@ public class Properties {
 
     /**
      * Get all parameters that are available.
-     *
-     * @return a {@link java.util.Set} object.
      */
     public static Set<String> getParameters() {
         return parameterMap.keySet();
@@ -3470,7 +3468,6 @@ public class Properties {
     /**
      * Load and initialize a properties file from a given path.
      *
-     * @param propertiesPath a {@link java.lang.String} object.
      * @param silent         whether to suppress output
      */
     public void loadProperties(String propertiesPath, boolean silent) {
@@ -3481,7 +3478,6 @@ public class Properties {
     /**
      * Load a properties file.
      *
-     * @param propertiesPath a {@link java.lang.String} object.
      * @param silent         whether to suppress output
      */
     private void loadPropertiesFile(String propertiesPath, boolean silent) {
@@ -3549,12 +3545,6 @@ public class Properties {
     /**
      * Get parameter value as string (works for all types). Array values are joined with ':', the
      * separator {@link #setValue(String, String)} splits on, so that the result can be set again.
-     *
-     * @param key a {@link java.lang.String} object.
-     * @return a {@link java.lang.String} object.
-     * @throws org.evosuite.Properties.NoSuchParameterException if any.
-     * @throws java.lang.IllegalArgumentException               if any.
-     * @throws java.lang.IllegalAccessException                 if any.
      */
     public static String getStringValue(String key)
             throws NoSuchParameterException, IllegalArgumentException,
@@ -3569,8 +3559,6 @@ public class Properties {
      * @param separator what goes between the elements of an array value
      * @return the value as a string
      * @throws org.evosuite.Properties.NoSuchParameterException if there is no such parameter.
-     * @throws java.lang.IllegalArgumentException               if any.
-     * @throws java.lang.IllegalAccessException                 if any.
      */
     public static String getStringValue(String key, String separator)
             throws NoSuchParameterException, IllegalArgumentException,
@@ -3598,12 +3586,6 @@ public class Properties {
 
     /**
      * Set parameter to new value from String.
-     *
-     * @param key   a {@link java.lang.String} object.
-     * @param value a {@link java.lang.String} object.
-     * @throws org.evosuite.Properties.NoSuchParameterException if any.
-     * @throws java.lang.IllegalArgumentException               if any.
-     * @throws java.lang.IllegalAccessException                 if any.
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void setValue(String key, String value)
@@ -3811,8 +3793,6 @@ public class Properties {
 
     /**
      * Singleton accessor.
-     *
-     * @return a {@link org.evosuite.Properties} object.
      */
     public static Properties getInstance() {
         if (instance == null) {
@@ -3823,8 +3803,6 @@ public class Properties {
 
     /**
      * Singleton accessor.
-     *
-     * @return a {@link org.evosuite.Properties} object.
      */
     public static Properties getInstanceSilent() {
         if (instance == null) {
@@ -3900,7 +3878,6 @@ public class Properties {
      * Get class object of class under test.
      *
      * @param initialise whether to initialise the class
-     * @return a {@link java.lang.Class} object.
      */
     private static Class<?> getTargetClass(boolean initialise) {
 
@@ -3961,8 +3938,6 @@ public class Properties {
 
     /**
      * Update the evosuite.properties file with the current setting.
-     *
-     * @param fileName a {@link java.lang.String} object.
      */
     public void writeConfiguration(String fileName) {
         String classpathForConfig = ClassPathHandler.getInstance().getTargetProjectClasspath();

@@ -37,9 +37,6 @@ public class StaticAccessClassAdapter extends ClassVisitor {
      * <p>
      * Constructor for StaticInitializationClassAdapter.
      * </p>
-     *
-     * @param visitor   a {@link org.objectweb.asm.ClassVisitor} object.
-     * @param className a {@link java.lang.String} object.
      */
     public StaticAccessClassAdapter(ClassVisitor visitor, String className) {
         super(Opcodes.ASM9, visitor);

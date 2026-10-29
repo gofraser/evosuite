@@ -144,11 +144,6 @@ public class ReplaceBitwiseOperator implements MutationOperator {
 
     /**
      * <p>getInfectionDistance.</p>
-     *
-     * @param opcodeOrig a int.
-     * @param opcodeNew  a int.
-     * @param numVariable a int.
-     * @return a {@link org.objectweb.asm.tree.InsnList} object.
      */
     public InsnList getInfectionDistance(int opcodeOrig, int opcodeNew, int numVariable) {
         InsnList distance = new InsnList();
@@ -201,12 +196,6 @@ public class ReplaceBitwiseOperator implements MutationOperator {
 
     /**
      * <p>getInfectionDistanceInt.</p>
-     *
-     * @param x          a int.
-     * @param y          a int.
-     * @param opcodeOrig a int.
-     * @param opcodeNew  a int.
-     * @return a double.
      */
     public static double getInfectionDistanceInt(int x, int y, int opcodeOrig,
                                                  int opcodeNew) {
@@ -229,12 +218,6 @@ public class ReplaceBitwiseOperator implements MutationOperator {
 
     /**
      * <p>getInfectionDistanceLong.</p>
-     *
-     * @param x          a long.
-     * @param y          a int.
-     * @param opcodeOrig a int.
-     * @param opcodeNew  a int.
-     * @return a double.
      */
     public static double getInfectionDistanceLong(long x, int y, int opcodeOrig,
                                                   int opcodeNew) {
@@ -256,12 +239,6 @@ public class ReplaceBitwiseOperator implements MutationOperator {
 
     /**
      * <p>getInfectionDistanceLong.</p>
-     *
-     * @param x          a long.
-     * @param y          a long.
-     * @param opcodeOrig a int.
-     * @param opcodeNew  a int.
-     * @return a double.
      */
     public static double getInfectionDistanceLong(long x, long y, int opcodeOrig,
                                                   int opcodeNew) {
@@ -272,11 +249,6 @@ public class ReplaceBitwiseOperator implements MutationOperator {
 
     /**
      * <p>calculate.</p>
-     *
-     * @param x      a int.
-     * @param y      a int.
-     * @param opcode a int.
-     * @return a int.
      */
     public static int calculate(int x, int y, int opcode) {
         switch (opcode) {
@@ -300,11 +272,6 @@ public class ReplaceBitwiseOperator implements MutationOperator {
 
     /**
      * <p>calculate.</p>
-     *
-     * @param x      a long.
-     * @param y      a long.
-     * @param opcode a int.
-     * @return a long.
      */
     public static long calculate(long x, long y, int opcode) {
         switch (opcode) {

@@ -33,9 +33,6 @@ public class ControlDependency implements Serializable, Comparable<ControlDepend
 
     /**
      * Constructor for ControlDependency.
-     *
-     * @param branch                a {@link org.evosuite.coverage.branch.Branch} object.
-     * @param branchExpressionValue a boolean.
      */
     public ControlDependency(Branch branch, boolean branchExpressionValue) {
         if (branch == null) {
@@ -49,8 +46,6 @@ public class ControlDependency implements Serializable, Comparable<ControlDepend
 
     /**
      * Getter for the field <code>branch</code>.
-     *
-     * @return a {@link org.evosuite.coverage.branch.Branch} object.
      */
     public Branch getBranch() {
         return branch;
@@ -58,8 +53,6 @@ public class ControlDependency implements Serializable, Comparable<ControlDepend
 
     /**
      * Getter for the field <code>branchExpressionValue</code>.
-     *
-     * @return a boolean.
      */
     public boolean getBranchExpressionValue() {
         return branchExpressionValue;

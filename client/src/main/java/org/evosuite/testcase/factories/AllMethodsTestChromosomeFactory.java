@@ -152,8 +152,6 @@ public class AllMethodsTestChromosomeFactory implements ChromosomeFactory<TestCh
     /**
      * Provided so that subtypes of this factory type can modify the returned
      * TestCase.
-     *
-     * @return a {@link org.evosuite.testcase.TestCase} object.
      */
     protected TestCase getNewTestCase() {
         return new DefaultTestCase();
@@ -161,8 +159,6 @@ public class AllMethodsTestChromosomeFactory implements ChromosomeFactory<TestCh
 
     /**
      * How many methods do we still need to cover?.
-     *
-     * @return a int.
      */
     public int getNumUncoveredMethods() {
         return remainingMethods.size();

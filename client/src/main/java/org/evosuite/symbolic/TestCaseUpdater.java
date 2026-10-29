@@ -74,10 +74,6 @@ public class TestCaseUpdater {
 
     /**
      * Updates the test case with the provided updated values.
-     *
-     * @param test a {@link org.evosuite.testcase.TestCase} object.
-     * @param updatedValues a {@link java.util.Map} object.
-     * @return a {@link org.evosuite.testcase.TestCase} object.
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
     public static TestCase updateTest(TestCase test, Map<String, Object> updatedValues) {

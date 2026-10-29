@@ -27,8 +27,6 @@ public class CCFGMethodReturnNode extends CCFGNode {
 
     /**
      * Constructor for CCFGMethodReturnNode.
-     *
-     * @param callInstruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      */
     public CCFGMethodReturnNode(BytecodeInstruction callInstruction) {
         this.callInstruction = callInstruction;
@@ -36,8 +34,6 @@ public class CCFGMethodReturnNode extends CCFGNode {
 
     /**
      * getMethod.
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getMethod() {
         return callInstruction.getMethodName();
@@ -45,8 +41,6 @@ public class CCFGMethodReturnNode extends CCFGNode {
 
     /**
      * Getter for the field <code>callInstruction</code>.
-     *
-     * @return a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      */
     public BytecodeInstruction getCallInstruction() {
         return callInstruction;

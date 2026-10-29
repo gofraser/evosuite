@@ -161,8 +161,6 @@ public class TestCodeVisitor extends TestVisitor {
 
     /**
      * Returns the string representation of the test code.
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getCode() {
         return testCode.toString();
@@ -171,8 +169,6 @@ public class TestCodeVisitor extends TestVisitor {
     /**
      * Retrieve a list of classes that need to be imported to make this unit
      * test compile.
-     *
-     * @return a {@link java.util.Set} object.
      */
     public Set<Class<?>> getImports() {
         return classNames.keySet().stream()
@@ -212,8 +208,6 @@ public class TestCodeVisitor extends TestVisitor {
 
     /**
      * Sets the map of exceptions.
-     *
-     * @param exceptions a {@link java.util.Map} object.
      */
     public void setExceptions(Map<Integer, Throwable> exceptions) {
         this.exceptions.putAll(exceptions);
@@ -221,9 +215,6 @@ public class TestCodeVisitor extends TestVisitor {
 
     /**
      * Records an exception for a specific statement.
-     *
-     * @param statement a {@link org.evosuite.testcase.statements.Statement} object.
-     * @param exception a {@link java.lang.Throwable} object.
      */
     public void setException(Statement statement, Throwable exception) {
         exceptions.put(statement.getPosition(), exception);
@@ -231,9 +222,6 @@ public class TestCodeVisitor extends TestVisitor {
 
     /**
      * Returns the exception recorded for a specific statement.
-     *
-     * @param statement a {@link org.evosuite.testcase.statements.Statement} object.
-     * @return a {@link java.lang.Throwable} object.
      */
     protected Throwable getException(Statement statement) {
         return exceptions.getOrDefault(statement.getPosition(), null);
@@ -241,9 +229,6 @@ public class TestCodeVisitor extends TestVisitor {
 
     /**
      * Returns the class name of a variable.
-     *
-     * @param var a {@link org.evosuite.testcase.variable.VariableReference} object.
-     * @return a {@link java.lang.String} object.
      */
     public String getClassName(VariableReference var) {
         return getDeclarationTypeName(var.getType());
@@ -625,9 +610,6 @@ public class TestCodeVisitor extends TestVisitor {
 
     /**
      * Returns the class name of the given class.
-     *
-     * @param clazz a {@link java.lang.Class} object.
-     * @return a {@link java.lang.String} object.
      */
     public String getClassName(Class<?> clazz) {
         if (classNames.containsKey(clazz)) {
@@ -743,9 +725,6 @@ public class TestCodeVisitor extends TestVisitor {
 
     /**
      * Returns the variable name of a variable.
-     *
-     * @param var a {@link org.evosuite.testcase.variable.VariableReference} object.
-     * @return a {@link java.lang.String} object.
      */
     public String getVariableName(VariableReference var) {
         if (nameResolver != null) {
@@ -1101,8 +1080,6 @@ public class TestCodeVisitor extends TestVisitor {
 
     /**
      * Visits a primitive assertion.
-     *
-     * @param assertion a {@link org.evosuite.assertion.PrimitiveAssertion} object.
      */
     protected void visitPrimitiveAssertion(PrimitiveAssertion assertion) {
         VariableReference source = assertion.getSource();
@@ -1317,9 +1294,6 @@ public class TestCodeVisitor extends TestVisitor {
 
     /**
      * Visits a primitive field assertion.
-     *
-     * @param assertion a {@link org.evosuite.assertion.PrimitiveFieldAssertion}
-     *                  object.
      */
     protected void visitPrimitiveFieldAssertion(PrimitiveFieldAssertion assertion) {
         VariableReference source = assertion.getSource();
@@ -1369,8 +1343,6 @@ public class TestCodeVisitor extends TestVisitor {
 
     /**
      * Visits an inspector assertion.
-     *
-     * @param assertion a {@link org.evosuite.assertion.InspectorAssertion} object.
      */
     protected void visitInspectorAssertion(InspectorAssertion assertion) {
         VariableReference source = assertion.getSource();
@@ -1466,8 +1438,6 @@ public class TestCodeVisitor extends TestVisitor {
 
     /**
      * Visits a null assertion.
-     *
-     * @param assertion a {@link org.evosuite.assertion.NullAssertion} object.
      */
     protected void visitNullAssertion(NullAssertion assertion) {
         VariableReference source = assertion.getSource();
@@ -1481,8 +1451,6 @@ public class TestCodeVisitor extends TestVisitor {
 
     /**
      * Visits a compare assertion.
-     *
-     * @param assertion a {@link org.evosuite.assertion.CompareAssertion} object.
      */
     protected void visitCompareAssertion(CompareAssertion assertion) {
         VariableReference source = assertion.getSource();
@@ -1508,8 +1476,6 @@ public class TestCodeVisitor extends TestVisitor {
 
     /**
      * Visits an equals assertion.
-     *
-     * @param assertion a {@link org.evosuite.assertion.EqualsAssertion} object.
      */
     protected void visitEqualsAssertion(EqualsAssertion assertion) {
         VariableReference source = assertion.getSource();
@@ -1595,8 +1561,6 @@ public class TestCodeVisitor extends TestVisitor {
 
     /**
      * Visits a same assertion.
-     *
-     * @param assertion a {@link org.evosuite.assertion.SameAssertion} object.
      */
     protected void visitSameAssertion(SameAssertion assertion) {
         VariableReference source = assertion.getSource();
@@ -1925,8 +1889,6 @@ public class TestCodeVisitor extends TestVisitor {
 
     /**
      * Visits a field statement.
-     *
-     * @param statement a {@link org.evosuite.testcase.statements.FieldStatement} object.
      */
     @Override
     public void visitFieldStatement(FieldStatement statement) {

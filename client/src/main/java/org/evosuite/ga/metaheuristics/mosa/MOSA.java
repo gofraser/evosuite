@@ -58,8 +58,6 @@ public class MOSA extends AbstractMOSA {
 
     /**
      * Constructor based on the abstract class. {@link AbstractMOSA}
-     *
-     * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object
      */
     public MOSA(ChromosomeFactory<TestChromosome> factory) {
         super(factory);

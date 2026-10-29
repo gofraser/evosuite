@@ -55,25 +55,18 @@ public interface LocalSearchObjective<T extends Chromosome<T>> {
     /**
      * Returns true if the individual has improved due to the applied local
      * search.
-     *
-     * @param chromosome a {@link org.evosuite.ga.Chromosome} object.
-     * @return a boolean.
      */
     boolean hasImproved(T chromosome);
 
     /**
      * Returns true if the individual has not worsened due to the applied local
      * search.
-     *
-     * @param chromosome a {@link org.evosuite.ga.Chromosome} object.
-     * @return a boolean.
      */
     boolean hasNotWorsened(T chromosome);
 
     /**
      * Checks if the individual has changed since local search started.
      *
-     * @param chromosome a {@link org.evosuite.ga.Chromosome} object.
      * @return an integer indicating status: -1 if improved, 1 if worsened, 0 if unchanged.
      */
     int hasChanged(T chromosome);
@@ -83,8 +76,6 @@ public interface LocalSearchObjective<T extends Chromosome<T>> {
     /**
      * Returns a list with all the fitness functions stored in this local search
      * objective.
-     *
-     * @return a {@link org.evosuite.ga.FitnessFunction} object.
      */
     List<FitnessFunction<T>> getFitnessFunctions();
 

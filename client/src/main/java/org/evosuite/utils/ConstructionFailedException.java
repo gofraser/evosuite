@@ -30,8 +30,6 @@ public class ConstructionFailedException extends Exception {
 
     /**
      * <p>Constructor for ConstructionFailedException.</p>
-     *
-     * @param reason a {@link java.lang.String} object.
      */
     public ConstructionFailedException(String reason) {
         super(reason);

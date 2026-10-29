@@ -40,7 +40,6 @@ public class DoublePrimitiveStatement extends NumericalPrimitiveStatement<Double
     /**
      * Constructs a new DoublePrimitiveStatement with the given value.
      *
-     * @param tc    a {@link org.evosuite.testcase.TestCase} object.
      * @param value the initial value.
      */
     public DoublePrimitiveStatement(TestCase tc, Double value) {
@@ -49,8 +48,6 @@ public class DoublePrimitiveStatement extends NumericalPrimitiveStatement<Double
 
     /**
      * Constructs a new DoublePrimitiveStatement with default value 0.0.
-     *
-     * @param tc a {@link org.evosuite.testcase.TestCase} object.
      */
     public DoublePrimitiveStatement(TestCase tc) {
         super(tc, double.class, 0.0);

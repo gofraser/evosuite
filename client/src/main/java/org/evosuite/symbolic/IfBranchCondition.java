@@ -37,13 +37,6 @@ public final class IfBranchCondition extends BranchCondition {
      * A branch condition is identified by the className, methodName and branchIndex
      * belonging to the class in the SUT, the target constraint and all the
      * suporting constraint for that particular branch (zero checks, etc).
-     *
-     * @param className a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @param instructionIndex a int.
-     * @param constraint a {@link org.evosuite.symbolic.expr.Constraint} object.
-     * @param supportingConstraints a {@link java.util.List} object.
-     * @param isTrueBranch a boolean.
      */
     public IfBranchCondition(String className, String methodName, int instructionIndex, Constraint<?> constraint,
                              List<Constraint<?>> supportingConstraints, boolean isTrueBranch) {

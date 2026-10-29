@@ -83,8 +83,6 @@ public class FitnessProportionateSelection<T extends Chromosome<T>> extends Sele
 
     /**
      * Calculate total sum of fitnesses.
-     *
-     * @param population a {@link java.util.List} object.
      */
     private void setSum(List<T> population) {
         DoubleStream fitnessValues = population.stream().mapToDouble(Chromosome::getFitness);

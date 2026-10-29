@@ -81,10 +81,6 @@ public class DeleteField implements MutationOperator {
      * <p>
      * getInfectionDistance.
      * </p>
-     *
-     * @param original a {@link org.objectweb.asm.tree.FieldInsnNode} object.
-     * @param mutant   a {@link org.objectweb.asm.tree.InsnList} object.
-     * @return a {@link org.objectweb.asm.tree.InsnList} object.
      */
     public InsnList getInfectionDistance(FieldInsnNode original, InsnList mutant) {
         InsnList distance = new InsnList();

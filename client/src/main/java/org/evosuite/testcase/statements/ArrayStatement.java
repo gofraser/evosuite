@@ -83,9 +83,6 @@ public class ArrayStatement extends AbstractStatement {
      * {@code X[]} is just the generic value type of {@code Property} and contributes nothing to
      * this array's own dimensionality), wildly overcounting dimensions and causing the statement
      * to allocate a far larger (or wrongly shaped) array than {@code type} actually describes.
-     *
-     * @param type a {@link java.lang.reflect.Type} object.
-     * @return a int.
      */
     public static int determineDimensions(java.lang.reflect.Type type) {
         int count = 0;
@@ -110,9 +107,6 @@ public class ArrayStatement extends AbstractStatement {
      * <p>
      * Constructor for ArrayStatement.
      * </p>
-     *
-     * @param tc             a {@link org.evosuite.testcase.TestCase} object.
-     * @param arrayReference a {@link org.evosuite.testcase.variable.ArrayReference} object.
      */
     public ArrayStatement(TestCase tc, ArrayReference arrayReference) {
         this(tc, arrayReference,
@@ -123,10 +117,6 @@ public class ArrayStatement extends AbstractStatement {
      * <p>
      * Constructor for ArrayStatement.
      * </p>
-     *
-     * @param tc             a {@link org.evosuite.testcase.TestCase} object.
-     * @param arrayReference a {@link org.evosuite.testcase.variable.ArrayReference} object.
-     * @param length         an array of int.
      */
     public ArrayStatement(TestCase tc, ArrayReference arrayReference, int[] length) {
         super(tc, arrayReference);
@@ -138,9 +128,6 @@ public class ArrayStatement extends AbstractStatement {
      * <p>
      * Constructor for ArrayStatement.
      * </p>
-     *
-     * @param tc   a {@link org.evosuite.testcase.TestCase} object.
-     * @param type a {@link java.lang.reflect.Type} object.
      */
     public ArrayStatement(TestCase tc, java.lang.reflect.Type type) {
         this(tc, type, createRandom(determineDimensions(type)));
@@ -150,10 +137,6 @@ public class ArrayStatement extends AbstractStatement {
      * <p>
      * Constructor for ArrayStatement.
      * </p>
-     *
-     * @param tc     a {@link org.evosuite.testcase.TestCase} object.
-     * @param type   a {@link java.lang.reflect.Type} object.
-     * @param length a int.
      */
     public ArrayStatement(TestCase tc, java.lang.reflect.Type type, int length) {
         this(tc, type, new int[]{length});
@@ -163,10 +146,6 @@ public class ArrayStatement extends AbstractStatement {
      * <p>
      * Constructor for ArrayStatement.
      * </p>
-     *
-     * @param tc     a {@link org.evosuite.testcase.TestCase} object.
-     * @param type   a {@link java.lang.reflect.Type} object.
-     * @param length an array of int.
      */
     public ArrayStatement(TestCase tc, java.lang.reflect.Type type, int[] length) {
         this(tc, new ArrayReference(tc, GenericClassFactory.get(type), length), length);
@@ -233,8 +212,6 @@ public class ArrayStatement extends AbstractStatement {
 
     /**
      * Getter for the field <code>lengths</code>.
-     *
-     * @return an array of int.
      */
     public List<Integer> getLengths() {
         return Arrays.asList(ArrayUtils.toObject(lengths));
@@ -355,8 +332,6 @@ public class ArrayStatement extends AbstractStatement {
      * <p>
      * Setter for the field <code>lengths</code>.
      * </p>
-     *
-     * @param lengths an array of int.
      */
     public void setLengths(int[] lengths) {
         this.lengths = new int[lengths.length];
@@ -368,9 +343,6 @@ public class ArrayStatement extends AbstractStatement {
      * <p>
      * Setter for the field <code>lengths</code>.
      * </p>
-     *
-     * @param length an array of int.
-     * @param index  an int.
      */
     public void setLength(int length, int index) {
         lengths[index] = length;
@@ -380,8 +352,6 @@ public class ArrayStatement extends AbstractStatement {
 
     /**
      * setSize.
-     *
-     * @param size a int.
      */
     public void setSize(int size) {
         /// assert lengths.length == 1;
@@ -391,8 +361,6 @@ public class ArrayStatement extends AbstractStatement {
 
     /**
      * size.
-     *
-     * @return a int.
      */
     public int size() {
         // assert lengths.length == 1;

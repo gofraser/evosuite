@@ -27,10 +27,6 @@ import java.util.Random;
 public abstract class ListUtil {
     /**
      * <p>tail.</p>
-     *
-     * @param list a {@link java.util.List} object.
-     * @param <T>  a T object.
-     * @return a {@link java.util.List} object.
      */
     public static <T> List<T> tail(List<T> list) {
         return list.subList(1, list.size());
@@ -38,11 +34,6 @@ public abstract class ListUtil {
 
     /**
      * <p>anyEquals.</p>
-     *
-     * @param list a {@link java.util.List} object.
-     * @param obj  a T object.
-     * @param <T>  a T object.
-     * @return a boolean.
      */
     public static <T> boolean anyEquals(List<T> list, T obj) {
         return list.contains(obj);
@@ -50,10 +41,6 @@ public abstract class ListUtil {
 
     /**
      * <p>shuffledList.</p>
-     *
-     * @param list a {@link java.util.List} object.
-     * @param <T>  a T object.
-     * @return a {@link java.util.List} object.
      */
     public static <T> List<T> shuffledList(List<T> list) {
         ArrayList<T> result = new ArrayList<>(list);
@@ -63,11 +50,6 @@ public abstract class ListUtil {
 
     /**
      * <p>shuffledList.</p>
-     *
-     * @param list a {@link java.util.List} object.
-     * @param rnd  a {@link java.util.Random} object.
-     * @param <T>  a T object.
-     * @return a {@link java.util.List} object.
      */
     public static <T> List<T> shuffledList(List<T> list, Random rnd) {
         ArrayList<T> result = new ArrayList<>(list);

@@ -48,8 +48,6 @@ public class BreederGA<T extends Chromosome<T>> extends StandardGA<T> {
 
     /**
      * Constructor.
-     *
-     * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object.
      */
     public BreederGA(ChromosomeFactory<T> factory) {
         super(factory);

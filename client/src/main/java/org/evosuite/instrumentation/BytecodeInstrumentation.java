@@ -102,9 +102,6 @@ public class BytecodeInstrumentation {
 
     /**
      * Check if we can instrument the given class.
-     *
-     * @param className a {@link java.lang.String} object.
-     * @return a boolean.
      */
     public static boolean checkIfCanInstrument(String className) {
         return RuntimeInstrumentation.checkIfCanInstrument(className);
@@ -113,9 +110,6 @@ public class BytecodeInstrumentation {
     /**
      * Check if the class belongs to an EvoSuite package.
      * This includes the current EvoSuite package and legacy packages from previous versions.
-     *
-     * @param className a {@link java.lang.String} object.
-     * @return a boolean.
      */
     public static boolean checkIfEvoSuitePackage(String className) {
         for (String s : BytecodeInstrumentation.getEvoSuitePackages()) {
@@ -130,9 +124,6 @@ public class BytecodeInstrumentation {
      * <p>
      * shouldTransform.
      * </p>
-     *
-     * @param className a {@link java.lang.String} object.
-     * @return a boolean.
      */
     public boolean shouldTransform(String className) {
         if (!config.ttEnabled()) {
@@ -396,11 +387,6 @@ public class BytecodeInstrumentation {
      *
      * <p>Starts with {@link Profile#FULL} and, as long as the failures are ones a smaller
      * instrumentation can avoid, falls back along the ladder given by {@link #next}.
-     *
-     * @param classLoader a {@link java.lang.ClassLoader} object.
-     * @param className a {@link java.lang.String} object.
-     * @param reader    a {@link org.objectweb.asm.ClassReader} object.
-     * @return an array of byte.
      */
     public byte[] transformBytes(ClassLoader classLoader, String className, ClassReader reader) {
 
@@ -952,11 +938,8 @@ public class BytecodeInstrumentation {
      * __STATIC_RESET() methods, inserting callbacks for PUTSTATIC and GETSTATIC
      * instructions.
      *
-     * @param className a {@link java.lang.String} object.
-     * @param cv a {@link org.objectweb.asm.ClassVisitor} object.
      * @param reader a fresh {@link org.objectweb.asm.ClassReader} over the original,
      *               uninstrumented bytecode, used to decide whether {@code <clinit>} is safe to replay.
-     * @return a {@link org.objectweb.asm.ClassVisitor} object.
      */
     private ClassVisitor handleStaticReset(String className, ClassVisitor cv, ClassReader reader) {
         // Create a __STATIC_RESET() cloning the original <clinit> method or

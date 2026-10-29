@@ -97,7 +97,6 @@ public class DefUsePool {
      * hand however.
      *
      * @param d CFGVertex corresponding to a Definition in the CUT
-     * @return a boolean.
      */
     public static boolean addAsDefinition(BytecodeInstruction d) {
         if (!(d.isDefinition() || d.isMethodCallOfField())) {
@@ -145,7 +144,6 @@ public class DefUsePool {
      * for the instruction at hand however.
      *
      * @param u CFGVertex corresponding to a Use in the CUT
-     * @return a boolean.
      */
     public static boolean addAsUse(BytecodeInstruction u) {
         if (!(u.isUse() || u.isMethodCallOfField())) {
@@ -202,7 +200,6 @@ public class DefUsePool {
      * for the instruction at hand however.
      *
      * @param f CFGVertex corresponding to a Use in the CUT
-     * @return a boolean.
      */
     public static boolean addAsFieldMethodCall(BytecodeInstruction f) {
         if (!f.isMethodCallOfField()) {
@@ -354,9 +351,6 @@ public class DefUsePool {
 
     /**
      * knowsDefinitionForVariableOf.
-     *
-     * @param du a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a boolean.
      */
     public static boolean knowsDefinitionForVariableOf(BytecodeInstruction du) {
         if (!du.isDefUse()) {
@@ -377,9 +371,6 @@ public class DefUsePool {
 
     /**
      * isKnown.
-     *
-     * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a boolean.
      */
     public static boolean isKnown(BytecodeInstruction instruction) {
 
@@ -388,9 +379,6 @@ public class DefUsePool {
 
     /**
      * isKnownAsDefinition.
-     *
-     * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a boolean.
      */
     public static boolean isKnownAsDefinition(BytecodeInstruction instruction) {
         return registeredDefs.containsKey(instruction);
@@ -406,9 +394,6 @@ public class DefUsePool {
 
     /**
      * isKnownAsUse.
-     *
-     * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a boolean.
      */
     public static boolean isKnownAsUse(BytecodeInstruction instruction) {
         return registeredUses.containsKey(instruction);
@@ -416,9 +401,6 @@ public class DefUsePool {
 
     /**
      * isKnownAsFieldMethodCall.
-     *
-     * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a boolean.
      */
     public static boolean isKnownAsFieldMethodCall(BytecodeInstruction instruction) {
         return knownFieldMethodCalls.contains(instruction);
@@ -426,9 +408,6 @@ public class DefUsePool {
 
     /**
      * isKnownAsParameterUse.
-     *
-     * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a boolean.
      */
     public static boolean isKnownAsParameterUse(BytecodeInstruction instruction) {
         return knownParameterUses.contains(instruction);
@@ -436,8 +415,6 @@ public class DefUsePool {
 
     /**
      * retrieveRegisteredDefinitions.
-     *
-     * @return a {@link java.util.Set} object.
      */
     public static Set<Definition> retrieveRegisteredDefinitions() {
         Set<Definition> r = new HashSet<>();
@@ -449,8 +426,6 @@ public class DefUsePool {
 
     /**
      * retrieveRegisteredUses.
-     *
-     * @return a {@link java.util.Set} object.
      */
     public static Set<Use> retrieveRegisteredUses() {
         Set<Use> r = new HashSet<>();
@@ -467,8 +442,6 @@ public class DefUsePool {
 
     /**
      * retrieveRegisteredParameterUses.
-     *
-     * @return a {@link java.util.Set} object.
      */
     public static Set<Use> retrieveRegisteredParameterUses() {
         Set<Use> r = new HashSet<>();
@@ -480,9 +453,6 @@ public class DefUsePool {
 
     /**
      * getDefinitionByInstruction.
-     *
-     * @param def a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a {@link org.evosuite.coverage.dataflow.Definition} object.
      */
     public static Definition getDefinitionByInstruction(BytecodeInstruction def) {
         if (!isKnownAsDefinition(def)) {
@@ -494,9 +464,6 @@ public class DefUsePool {
 
     /**
      * getUseByInstruction.
-     *
-     * @param use a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a {@link org.evosuite.coverage.dataflow.Use} object.
      */
     public static Use getUseByInstruction(BytecodeInstruction use) {
         if (!isKnownAsUse(use)) {
@@ -540,9 +507,6 @@ public class DefUsePool {
 
     /**
      * getUseByUseId.
-     *
-     * @param useId a int.
-     * @return a {@link org.evosuite.coverage.dataflow.Use} object.
      */
     public static Use getUseByUseId(int useId) {
         return useIdsToUses.get(useId);
@@ -550,9 +514,6 @@ public class DefUsePool {
 
     /**
      * getDefinitionByDefId.
-     *
-     * @param defId a int.
-     * @return a {@link org.evosuite.coverage.dataflow.Definition} object.
      */
     public static Definition getDefinitionByDefId(int defId) {
         return defIdsToDefs.get(defId);
@@ -560,9 +521,6 @@ public class DefUsePool {
 
     /**
      * getRegisteredDefUseId.
-     *
-     * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a int.
      */
     public static int getRegisteredDefUseId(BytecodeInstruction instruction) {
         if (registeredDUs.containsKey(instruction)) {
@@ -574,9 +532,6 @@ public class DefUsePool {
 
     /**
      * getRegisteredDefId.
-     *
-     * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a int.
      */
     public static int getRegisteredDefId(BytecodeInstruction instruction) {
         if (registeredDefs.containsKey(instruction)) {
@@ -588,9 +543,6 @@ public class DefUsePool {
 
     /**
      * getRegisteredUseId.
-     *
-     * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a int.
      */
     public static int getRegisteredUseId(BytecodeInstruction instruction) {
         if (registeredUses.containsKey(instruction)) {

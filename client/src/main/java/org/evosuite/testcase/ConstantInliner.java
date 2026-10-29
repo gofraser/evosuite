@@ -47,8 +47,6 @@ public class ConstantInliner extends ExecutionObserver {
 
     /**
      * Inlines constants in the given test case.
-     *
-     * @param test a {@link org.evosuite.testcase.TestCase} object.
      */
     public void inline(TestCase test) {
         this.test = test;
@@ -63,8 +61,6 @@ public class ConstantInliner extends ExecutionObserver {
 
     /**
      * Inlines constants in the given test chromosome.
-     *
-     * @param test a {@link org.evosuite.testcase.TestChromosome} object.
      */
     public void inline(TestChromosome test) {
         inline(test.test);
@@ -72,8 +68,6 @@ public class ConstantInliner extends ExecutionObserver {
 
     /**
      * Inlines constants in the given test suite chromosome.
-     *
-     * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      */
     public void inline(TestSuiteChromosome suite) {
         // Inlining re-executes every test, and this phase has no timeout of its

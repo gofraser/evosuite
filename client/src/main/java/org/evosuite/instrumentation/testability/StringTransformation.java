@@ -52,8 +52,6 @@ public class StringTransformation {
      * <p>
      * Constructor for StringTransformation.
      * </p>
-     *
-     * @param cn a {@link org.objectweb.asm.tree.ClassNode} object.
      */
     public StringTransformation(ClassNode cn) {
         this.cn = cn;
@@ -63,8 +61,6 @@ public class StringTransformation {
      * <p>
      * transform.
      * </p>
-     *
-     * @return a {@link org.objectweb.asm.tree.ClassNode} object.
      */
     public ClassNode transform() {
         for (MethodNode mn : cn.methods) {
@@ -184,9 +180,6 @@ public class StringTransformation {
      * <p>
      * transformMethod.
      * </p>
-     *
-     * @param mn a {@link org.objectweb.asm.tree.MethodNode} object.
-     * @return a boolean.
      */
     public boolean transformMethod(MethodNode mn) {
         boolean changed = transformStrings(mn);

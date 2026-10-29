@@ -122,8 +122,6 @@ public abstract class Assertion implements Serializable {
 
     /**
      * Setter for statement to which assertion is added.
-     *
-     * @param statement a {@link org.evosuite.testcase.statements.Statement} object.
      */
     public void setStatement(Statement statement) {
         this.statement = statement;
@@ -131,8 +129,6 @@ public abstract class Assertion implements Serializable {
 
     /**
      * Getter for statement to which assertion is added.
-     *
-     * @return a {@link org.evosuite.testcase.statements.Statement} object.
      */
     public Statement getStatement() {
         return statement;
@@ -140,8 +136,6 @@ public abstract class Assertion implements Serializable {
 
     /**
      * Getter for source variable.
-     *
-     * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
      */
     public VariableReference getSource() {
         return source;
@@ -153,8 +147,6 @@ public abstract class Assertion implements Serializable {
 
     /**
      * Getter for value object.
-     *
-     * @return a {@link java.lang.Object} object.
      */
     public Object getValue() {
         return value;
@@ -168,8 +160,6 @@ public abstract class Assertion implements Serializable {
      * Translates this assertion into Java code on its own, as it appears in logs and LLM prompts.
      * A generated test renders its assertions through {@link TestCodeVisitor}, the same rendering
      * with the test's variable names.
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getCode() {
         return TestCodeVisitor.getStandaloneAssertionCode(this);
@@ -187,9 +177,6 @@ public abstract class Assertion implements Serializable {
 
     /**
      * Return a copy of the assertion, which is valid in newTestCase.
-     *
-     * @param newTestCase a {@link org.evosuite.testcase.TestCase} object.
-     * @return a {@link org.evosuite.assertion.Assertion} object.
      */
     public Assertion clone(TestCase newTestCase) {
         return copy(newTestCase, 0);
@@ -197,10 +184,6 @@ public abstract class Assertion implements Serializable {
 
     /**
      * Return a copy of the assertion, which is valid in newTestCase.
-     *
-     * @param newTestCase a {@link org.evosuite.testcase.TestCase} object.
-     * @param offset      a int.
-     * @return a {@link org.evosuite.assertion.Assertion} object.
      */
     public abstract Assertion copy(TestCase newTestCase, int offset);
 
@@ -208,14 +191,11 @@ public abstract class Assertion implements Serializable {
      * Determines if the assertion holds in the given scope.
      *
      * @param scope The scope of the test case execution
-     * @return a boolean.
      */
     public abstract boolean evaluate(Scope scope);
 
     /**
      * Return all the variables that are part of this assertion.
-     *
-     * @return a {@link java.util.Set} object.
      */
     public Set<VariableReference> getReferencedVariables() {
         Set<VariableReference> vars = new LinkedHashSet<>();
@@ -225,8 +205,6 @@ public abstract class Assertion implements Serializable {
 
     /**
      * Self-check.
-     *
-     * @return a boolean.
      */
     public boolean isValid() {
         return source != null && value != null;

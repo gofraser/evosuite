@@ -33,8 +33,6 @@ public class MutationObserver {
 
     /**
      * <p>mutationTouched.</p>
-     *
-     * @param mutationId a int.
      */
     public static void mutationTouched(int mutationId) {
 
@@ -42,8 +40,6 @@ public class MutationObserver {
 
     /**
      * <p>activateMutation.</p>
-     *
-     * @param mutation a {@link org.evosuite.coverage.mutation.Mutation} object.
      */
     public static void activateMutation(Mutation mutation) {
         if (mutation != null) {
@@ -53,8 +49,6 @@ public class MutationObserver {
 
     /**
      * <p>activateMutation.</p>
-     *
-     * @param id a int.
      */
     public static void activateMutation(int id) {
         activeMutation = id;
@@ -69,8 +63,6 @@ public class MutationObserver {
 
     /**
      * <p>deactivateMutation.</p>
-     *
-     * @param mutation a {@link org.evosuite.coverage.mutation.Mutation} object.
      */
     public static void deactivateMutation(Mutation mutation) {
         activeMutation = -1;

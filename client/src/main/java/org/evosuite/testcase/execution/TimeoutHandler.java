@@ -67,8 +67,6 @@ public class TimeoutHandler<T> {
      * <p>
      * getLastTask.
      * </p>
-     *
-     * @return a {@link java.util.concurrent.FutureTask} object.
      */
     public FutureTask<T> getLastTask() {
         return task;
@@ -78,15 +76,6 @@ public class TimeoutHandler<T> {
      * <p>
      * execute.
      * </p>
-     *
-     * @param testcase             a {@link java.util.concurrent.Callable} object.
-     * @param executor             a {@link java.util.concurrent.ExecutorService} object.
-     * @param timeout              a long.
-     * @param timeoutBasedOnCpu a boolean.
-     * @return a T object.
-     * @throws java.util.concurrent.TimeoutException   if any.
-     * @throws java.lang.InterruptedException          if any.
-     * @throws java.util.concurrent.ExecutionException if any.
      */
     public T execute(final Callable<T> testcase, ExecutorService executor, long timeout,
                      boolean timeoutBasedOnCpu) throws TimeoutException, InterruptedException,

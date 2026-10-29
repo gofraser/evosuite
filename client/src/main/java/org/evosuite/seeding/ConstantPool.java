@@ -33,50 +33,36 @@ public interface ConstantPool {
 
     /**
      * Returns a random string.
-     *
-     * @return a {@link java.lang.String} object.
      */
     String getRandomString();
 
     /**
      * Returns a random type.
-     *
-     * @return a {@link org.objectweb.asm.Type} object.
      */
     Type getRandomType();
 
     /**
      * Returns a random int.
-     *
-     * @return a int.
      */
     int getRandomInt();
 
     /**
      * Returns a random float.
-     *
-     * @return a float.
      */
     float getRandomFloat();
 
     /**
      * Returns a random double.
-     *
-     * @return a double.
      */
     double getRandomDouble();
 
     /**
      * Returns a random long.
-     *
-     * @return a long.
      */
     long getRandomLong();
 
     /**
      * Adds an object to the pool.
-     *
-     * @param object a {@link java.lang.Object} object.
      */
     void add(Object object);
 

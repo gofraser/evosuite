@@ -90,7 +90,6 @@ public class FileIOUtils {
      * Write string to file.
      *
      * @param fileName - name of the file to write to
-     * @param data     a {@link java.lang.Object} object.
      */
     public static void writeXML(Object data, String fileName) {
         try {
@@ -110,8 +109,6 @@ public class FileIOUtils {
      * Write string to file.
      *
      * @param fileName - name of the file to write to
-     * @param <T>      a T object.
-     * @return a T object.
      */
     @SuppressWarnings("unchecked")
     public static <T> T readXML(String fileName) {

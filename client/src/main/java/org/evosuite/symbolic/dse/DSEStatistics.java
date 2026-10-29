@@ -87,8 +87,6 @@ public class DSEStatistics {
 
     /**
      * Returns the singleton instance of the statistics.
-     *
-     * @return a {@link org.evosuite.symbolic.dse.DSEStatistics} object.
      */
     public static DSEStatistics getInstance() {
         if (instance == null) {
@@ -480,8 +478,6 @@ public class DSEStatistics {
 
     /**
      * Reports a new set of constraints.
-     *
-     * @param constraints a {@link java.util.Collection} object.
      */
     public void reportNewConstraints(Collection<Constraint<?>> constraints) {
 
@@ -607,8 +603,6 @@ public class DSEStatistics {
 
     /**
      * Reports a constraint that was too long to be solved.
-     *
-     * @param size a int.
      */
     public void reportConstraintTooLong(int size) {
         constraintTooLongCounter++;

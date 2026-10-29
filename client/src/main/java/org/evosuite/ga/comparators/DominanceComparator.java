@@ -67,8 +67,6 @@ public class DominanceComparator<T extends Chromosome<T>> implements Comparator<
      *
      * <p>http://en.wikipedia.org/wiki/Multi-objective_optimization#Introduction
      *
-     * @param c1 a {@link org.evosuite.ga.Chromosome} object
-     * @param c2 a {@link org.evosuite.ga.Chromosome} object
      * @return -1 if c1 dominates c2, +1 if c2 dominates c1, 0 if both are non-dominated
      */
     @Override

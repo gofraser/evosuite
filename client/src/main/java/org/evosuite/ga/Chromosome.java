@@ -132,8 +132,6 @@ public abstract class Chromosome<T extends Chromosome<T>>
 
     /**
      * Return current fitness value.
-     *
-     * @return a double.
      */
     public double getFitness() {
         return fitnessValues.values().stream()
@@ -246,8 +244,6 @@ public abstract class Chromosome<T extends Chromosome<T>>
 
     /**
      * Sets new fitness value.
-     *
-     * @param value a double.
      */
     public void setFitness(FitnessFunction<T> ff, double value) throws IllegalArgumentException {
         // Infinite fitness values are invalid
@@ -308,9 +304,6 @@ public abstract class Chromosome<T extends Chromosome<T>>
 
     /**
      * Secondary Objectives are specific to chromosome types.
-     *
-     * @param o a {@link org.evosuite.ga.Chromosome} object.
-     * @return a int.
      */
     public abstract int compareSecondaryObjective(T o);
 
@@ -321,10 +314,6 @@ public abstract class Chromosome<T extends Chromosome<T>>
 
     /**
      * Fixed single point cross over.
-     *
-     * @param other    a {@link org.evosuite.ga.Chromosome} object.
-     * @param position a int.
-     * @throws org.evosuite.utils.ConstructionFailedException if any.
      */
     public void crossOver(T other, int position) throws ConstructionFailedException {
         crossOver(other, position, position);
@@ -332,35 +321,23 @@ public abstract class Chromosome<T extends Chromosome<T>>
 
     /**
      * Single point cross over.
-     *
-     * @param other     a {@link org.evosuite.ga.Chromosome} object.
-     * @param position1 a int.
-     * @param position2 a int.
-     * @throws org.evosuite.utils.ConstructionFailedException if any.
      */
     public abstract void crossOver(T other, int position1, int position2)
             throws ConstructionFailedException;
 
     /**
      * Apply the local search.
-     *
-     * @param objective a {@link org.evosuite.ga.localsearch.LocalSearchObjective}
-     *                  object.
      */
     public abstract boolean localSearch(LocalSearchObjective<T> objective);
 
     /**
      * Return length of individual.
-     *
-     * @return a int.
      */
     public abstract int size();
 
     /**
      * Return whether the chromosome has changed since the fitness value was
      * computed last.
-     *
-     * @return a boolean.
      */
     public boolean isChanged() {
         return changed;
@@ -372,8 +349,6 @@ public abstract class Chromosome<T extends Chromosome<T>>
      * <p>Note: If changed is set to true, it also resets {@code localSearchApplied} to false,
      * implying local search can be applied again.
      * </p>
-     *
-     * @param changed a boolean.
      */
     public void setChanged(boolean changed) {
         this.changed = changed;
@@ -394,8 +369,6 @@ public abstract class Chromosome<T extends Chromosome<T>>
      *
      * <p>Returns a single coverage value calculated as the average of
      * coverage values for all fitness functions.
-     *
-     * @return a double.
      */
     public double getCoverage() {
         final double cov = coverageValues.values().stream().collect(averagingDouble(Double::doubleValue));

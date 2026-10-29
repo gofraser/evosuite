@@ -123,11 +123,6 @@ public class ReplaceVariable implements MutationOperator {
      * <p>
      * getInfectionDistance.
      * </p>
-     *
-     * @param type     a {@link org.objectweb.asm.Type} object.
-     * @param original a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
-     * @param mutant   a {@link org.objectweb.asm.tree.InsnList} object.
-     * @return a {@link org.objectweb.asm.tree.InsnList} object.
      */
     public InsnList getInfectionDistance(Type type, AbstractInsnNode original,
                                          InsnList mutant) {

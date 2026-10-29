@@ -60,7 +60,6 @@ public class ClassCallGraph extends EvoSuiteGraph<ClassCallNode, ClassCallEdge> 
      * Constructor for ClassCallGraph.
      *
      * @param classLoader class loader
-     * @param className a {@link java.lang.String} object.
      */
     public ClassCallGraph(ClassLoader classLoader, String className) {
         super(ClassCallEdge.class);
@@ -108,9 +107,6 @@ public class ClassCallGraph extends EvoSuiteGraph<ClassCallNode, ClassCallEdge> 
 
     /**
      * getNodeByMethodName.
-     *
-     * @param methodName a {@link java.lang.String} object.
-     * @return a {@link org.evosuite.graphs.ccg.ClassCallNode} object.
      */
     public ClassCallNode getNodeByMethodName(String methodName) {
         return methodToNodeMap.get(methodName);
@@ -118,8 +114,6 @@ public class ClassCallGraph extends EvoSuiteGraph<ClassCallNode, ClassCallEdge> 
 
     /**
      * Getter for the field <code>className</code>.
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getClassName() {
         return className;

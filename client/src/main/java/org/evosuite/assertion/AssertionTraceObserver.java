@@ -59,9 +59,6 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
      * <p>
      * visitDependencies.
      * </p>
-     *
-     * @param statement a {@link org.evosuite.testcase.statements.Statement} object.
-     * @param scope     a {@link org.evosuite.testcase.execution.Scope} object.
      */
     protected void visitDependencies(Statement statement, Scope scope) {
         visitDependencies(statement, scope, (VariableReference[]) null);
@@ -126,9 +123,6 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
      * <p>
      * visitReturnValue.
      * </p>
-     *
-     * @param statement a {@link org.evosuite.testcase.statements.Statement} object.
-     * @param scope     a {@link org.evosuite.testcase.execution.Scope} object.
      */
     protected void visitReturnValue(Statement statement, Scope scope) {
         if (statement.getReturnClass().equals(void.class)) {
@@ -152,11 +146,6 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
      * <p>
      * visit.
      * </p>
-     *
-     * @param statement a {@link org.evosuite.testcase.statements.Statement} object.
-     * @param scope     a {@link org.evosuite.testcase.execution.Scope} object.
-     * @param var       a {@link org.evosuite.testcase.variable.VariableReference} object.
-     * @throws org.evosuite.testcase.execution.CodeUnderTestException if any.
      */
     protected abstract void visit(Statement statement, Scope scope,
                                   VariableReference var) throws CodeUnderTestException;
@@ -214,8 +203,6 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
      * <p>
      * Getter for the field <code>trace</code>.
      * </p>
-     *
-     * @return a {@link org.evosuite.assertion.OutputTrace} object.
      */
     public synchronized OutputTrace<T> getTrace() {
         return trace.clone();

@@ -47,9 +47,6 @@ public class PrimitiveClassAdapter extends ClassVisitor {
 
     /**
      * Constructor for PrimitiveClassAdapter.
-     *
-     * @param visitor   a {@link org.objectweb.asm.ClassVisitor} object.
-     * @param className a {@link java.lang.String} object.
      */
     public PrimitiveClassAdapter(ClassVisitor visitor, String className) {
         super(Opcodes.ASM9, visitor);

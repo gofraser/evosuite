@@ -32,7 +32,6 @@ public class BooleanPrimitiveStatement extends NumericalPrimitiveStatement<Boole
     /**
      * Constructs a new BooleanPrimitiveStatement with the given value.
      *
-     * @param tc    a {@link org.evosuite.testcase.TestCase} object.
      * @param value the initial value.
      */
     public BooleanPrimitiveStatement(TestCase tc, Boolean value) {
@@ -41,8 +40,6 @@ public class BooleanPrimitiveStatement extends NumericalPrimitiveStatement<Boole
 
     /**
      * Constructs a new BooleanPrimitiveStatement with default value false.
-     *
-     * @param tc a {@link org.evosuite.testcase.TestCase} object.
      */
     public BooleanPrimitiveStatement(TestCase tc) {
         super(tc, boolean.class, false);

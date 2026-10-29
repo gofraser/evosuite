@@ -40,8 +40,6 @@ public class SteadyStateGA<T extends Chromosome<T>> extends MonotonicGA<T> {
 
     /**
      * Generate a new search object.
-     *
-     * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object.
      */
     public SteadyStateGA(ChromosomeFactory<T> factory) {
         super(factory);

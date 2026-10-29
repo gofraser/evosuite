@@ -36,9 +36,6 @@ public class DefUseFactory {
     /**
      * Returns a Use instance given a BytecodeInstruction for which isUse() is
      * true.
-     *
-     * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a {@link org.evosuite.coverage.dataflow.Use} object.
      */
     public static Use makeUse(BytecodeInstruction instruction) {
         if (!instruction.isUse()) {
@@ -56,9 +53,6 @@ public class DefUseFactory {
     /**
      * Returns a Definition instance given a BytecodeInstruction for which
      * isDefinition() is true.
-     *
-     * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a {@link org.evosuite.coverage.dataflow.Definition} object.
      */
     public static Definition makeDefinition(BytecodeInstruction instruction) {
         if (!instruction.isDefinition()) {

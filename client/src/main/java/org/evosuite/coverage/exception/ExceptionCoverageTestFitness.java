@@ -93,8 +93,6 @@ public class ExceptionCoverageTestFitness extends TestFitnessFunction {
 
     /**
      * getMethod.
-     *
-     * @return a {@link String} object.
      */
     public String getMethod() {
         return methodIdentifier;
@@ -108,10 +106,6 @@ public class ExceptionCoverageTestFitness extends TestFitnessFunction {
      * {@inheritDoc}
      *
      * <p>Calculate fitness.
-     *
-     * @param individual a {@link org.evosuite.testcase.ExecutableChromosome} object.
-     * @param result     a {@link org.evosuite.testcase.execution.ExecutionResult} object.
-     * @return a double.
      */
     @Override
     public double getFitness(TestChromosome individual, ExecutionResult result) {

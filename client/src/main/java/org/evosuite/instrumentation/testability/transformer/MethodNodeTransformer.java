@@ -30,8 +30,6 @@ public class MethodNodeTransformer {
 
     /**
      * <p>transform.</p>
-     *
-     * @param mn a {@link org.objectweb.asm.tree.MethodNode} object.
      */
     public void transform(MethodNode mn) {
         if (mn.instructions == null || mn.instructions.size() == 0) {
@@ -72,10 +70,6 @@ public class MethodNodeTransformer {
 
     /**
      * <p>transformMethodInsnNode.</p>
-     *
-     * @param mn         a {@link org.objectweb.asm.tree.MethodNode} object.
-     * @param methodNode a {@link org.objectweb.asm.tree.MethodInsnNode} object.
-     * @return a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
      */
     protected AbstractInsnNode transformMethodInsnNode(MethodNode mn,
                                                        MethodInsnNode methodNode) {
@@ -84,10 +78,6 @@ public class MethodNodeTransformer {
 
     /**
      * <p>transformVarInsnNode.</p>
-     *
-     * @param mn      a {@link org.objectweb.asm.tree.MethodNode} object.
-     * @param varNode a {@link org.objectweb.asm.tree.VarInsnNode} object.
-     * @return a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
      */
     protected AbstractInsnNode transformVarInsnNode(MethodNode mn, VarInsnNode varNode) {
         return varNode;
@@ -95,10 +85,6 @@ public class MethodNodeTransformer {
 
     /**
      * <p>transformFieldInsnNode.</p>
-     *
-     * @param mn        a {@link org.objectweb.asm.tree.MethodNode} object.
-     * @param fieldNode a {@link org.objectweb.asm.tree.FieldInsnNode} object.
-     * @return a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
      */
     protected AbstractInsnNode transformFieldInsnNode(MethodNode mn,
                                                       FieldInsnNode fieldNode) {
@@ -107,10 +93,6 @@ public class MethodNodeTransformer {
 
     /**
      * <p>transformInsnNode.</p>
-     *
-     * @param mn       a {@link org.objectweb.asm.tree.MethodNode} object.
-     * @param insnNode a {@link org.objectweb.asm.tree.InsnNode} object.
-     * @return a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
      */
     protected AbstractInsnNode transformInsnNode(MethodNode mn, InsnNode insnNode) {
         return insnNode;
@@ -118,10 +100,6 @@ public class MethodNodeTransformer {
 
     /**
      * <p>transformTypeInsnNode.</p>
-     *
-     * @param mn       a {@link org.objectweb.asm.tree.MethodNode} object.
-     * @param typeNode a {@link org.objectweb.asm.tree.TypeInsnNode} object.
-     * @return a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
      */
     protected AbstractInsnNode transformTypeInsnNode(MethodNode mn, TypeInsnNode typeNode) {
         return typeNode;
@@ -129,10 +107,6 @@ public class MethodNodeTransformer {
 
     /**
      * <p>transformJumpInsnNode.</p>
-     *
-     * @param mn       a {@link org.objectweb.asm.tree.MethodNode} object.
-     * @param jumpNode a {@link org.objectweb.asm.tree.JumpInsnNode} object.
-     * @return a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
      */
     protected AbstractInsnNode transformJumpInsnNode(MethodNode mn, JumpInsnNode jumpNode) {
         return jumpNode;
@@ -140,10 +114,6 @@ public class MethodNodeTransformer {
 
     /**
      * <p>transformLabelNode.</p>
-     *
-     * @param mn        a {@link org.objectweb.asm.tree.MethodNode} object.
-     * @param labelNode a {@link org.objectweb.asm.tree.LabelNode} object.
-     * @return a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
      */
     protected AbstractInsnNode transformLabelNode(MethodNode mn, LabelNode labelNode) {
         return labelNode;
@@ -151,10 +121,6 @@ public class MethodNodeTransformer {
 
     /**
      * <p>transformIntInsnNode.</p>
-     *
-     * @param mn          a {@link org.objectweb.asm.tree.MethodNode} object.
-     * @param intInsnNode a {@link org.objectweb.asm.tree.IntInsnNode} object.
-     * @return a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
      */
     protected AbstractInsnNode transformIntInsnNode(MethodNode mn, IntInsnNode intInsnNode) {
         return intInsnNode;
@@ -162,10 +128,6 @@ public class MethodNodeTransformer {
 
     /**
      * <p>transformMultiANewArrayInsnNode.</p>
-     *
-     * @param mn            a {@link org.objectweb.asm.tree.MethodNode} object.
-     * @param arrayInsnNode a {@link org.objectweb.asm.tree.MultiANewArrayInsnNode} object.
-     * @return a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
      */
     protected AbstractInsnNode transformMultiANewArrayInsnNode(MethodNode mn,
                                                                MultiANewArrayInsnNode arrayInsnNode) {

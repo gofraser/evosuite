@@ -47,8 +47,6 @@ public class ConcolicInstrumentingClassLoader extends TransformingClassLoader {
 
     /**
      * Constructor.
-     *
-     * @param instrumentation a {@link org.evosuite.symbolic.instrument.ConcolicBytecodeInstrumentation} object.
      */
     public ConcolicInstrumentingClassLoader(ConcolicBytecodeInstrumentation instrumentation) {
         super(ConcolicInstrumentingClassLoader.class.getClassLoader(),
@@ -95,7 +93,6 @@ public class ConcolicInstrumentingClassLoader extends TransformingClassLoader {
      * Loads class named className, without initializing it.
      *
      * @param className either as p/q/MyClass or as p.q.MyClass.
-     * @return a {@link java.lang.Class} object.
      */
     public Class<?> getClassForName(String className) {
         notNull(className);
@@ -113,9 +110,6 @@ public class ConcolicInstrumentingClassLoader extends TransformingClassLoader {
 
     /**
      * Loads class whose type is type, without initializing it.
-     *
-     * @param type a {@link org.objectweb.asm.Type} object.
-     * @return a {@link java.lang.Class} object.
      */
     public Class<?> getClassForType(Type type) {
         switch (type.getSort()) {

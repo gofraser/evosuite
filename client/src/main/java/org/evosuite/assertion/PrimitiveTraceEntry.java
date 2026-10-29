@@ -38,9 +38,6 @@ public class PrimitiveTraceEntry implements OutputTraceEntry {
 
     /**
      * <p>Constructor for PrimitiveTraceEntry.</p>
-     *
-     * @param var   a {@link org.evosuite.testcase.variable.VariableReference} object.
-     * @param value a {@link java.lang.Object} object.
      */
     public PrimitiveTraceEntry(VariableReference var, Object value) {
         this.var = var;

@@ -97,15 +97,6 @@ public class CFGMethodAdapter extends MethodVisitor {
 
     /**
      * Constructor for CFGMethodAdapter.
-     *
-     * @param classLoader a {@link java.lang.ClassLoader} object.
-     * @param className   a {@link java.lang.String} object.
-     * @param access      a int.
-     * @param name        a {@link java.lang.String} object.
-     * @param desc        a {@link java.lang.String} object.
-     * @param signature   a {@link java.lang.String} object.
-     * @param exceptions  an array of {@link java.lang.String} objects.
-     * @param mv          a {@link org.objectweb.asm.MethodVisitor} object.
      */
     public CFGMethodAdapter(ClassLoader classLoader, String className, int access,
                             String name, String desc, String signature, String[] exceptions,

@@ -34,9 +34,6 @@ public class NullReference extends VariableReferenceImpl {
 
     /**
      * Constructor for NullReference.
-     *
-     * @param type     a {@link java.lang.reflect.Type} object.
-     * @param testCase a {@link org.evosuite.testcase.TestCase} object.
      */
     public NullReference(TestCase testCase, Type type) {
         super(testCase, type);

@@ -35,8 +35,6 @@ public class RandomSearch<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
     /**
      * Constructor for RandomSearch.
-     *
-     * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object.
      */
     public RandomSearch(ChromosomeFactory<T> factory) {
         super(factory);

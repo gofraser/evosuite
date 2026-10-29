@@ -54,10 +54,7 @@ public class PrivateAccess {
     /**
      * Use reflection to set the given field.
      *
-     * @param klass a {@link java.lang.Class} object.
      * @param instance  null if field is static
-     * @param fieldName a {@link java.lang.String} object.
-     * @param value a {@link java.lang.Object} object.
      * @param <T>       the class type
      * @throws java.lang.IllegalArgumentException if klass or fieldName are null
      * @throws org.evosuite.runtime.FalsePositiveException   if the the field does not exist
@@ -106,9 +103,7 @@ public class PrivateAccess {
     /**
      * Use reflection to read the given field.
      *
-     * @param klass a {@link java.lang.Class} object.
      * @param instance null if field is static
-     * @param fieldName a {@link java.lang.String} object.
      * @param <T> the class type
      * @return the field value
      * @throws java.lang.IllegalArgumentException if klass or fieldName are null
@@ -150,9 +145,6 @@ public class PrivateAccess {
      * This is useful to avoid low coverage due to private constructors in final
      * classes used to prevent instantiating them (eg those classes only have
      * static methods)
-     *
-     * @return a {@link java.lang.Object} object.
-     * @throws java.lang.Throwable if any.
      */
     public static Object callDefaultConstructorOfTheClassUnderTest() throws Throwable {
 
@@ -166,10 +158,7 @@ public class PrivateAccess {
      * classes used to prevent instantiating them (eg those classes only have
      * static methods)
      *
-     * @param klass a {@link java.lang.Class} object.
      * @param <T> type of the class
-     * @return a {@link java.lang.Object} object.
-     * @throws java.lang.Throwable if any.
      */
     public static <T> T callDefaultConstructor(Class<T> klass) throws Throwable {
 
@@ -209,9 +198,7 @@ public class PrivateAccess {
     /**
      * Use reflection to call the given method.
      *
-     * @param klass a {@link java.lang.Class} object.
      * @param instance   null for static methods
-     * @param methodName a {@link java.lang.String} object.
      * @param inputs     arrays of inputs
      * @param types      types for the inputs
      * @param <T> type of the class

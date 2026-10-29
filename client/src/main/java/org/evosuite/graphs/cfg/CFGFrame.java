@@ -29,9 +29,6 @@ public class CFGFrame extends Frame {
 
     /**
      * Constructor for CFGFrame.
-     *
-     * @param numLocals a int.
-     * @param numStack  a int.
      */
     public CFGFrame(int numLocals, int numStack) {
         super(numLocals, numStack);
@@ -39,8 +36,6 @@ public class CFGFrame extends Frame {
 
     /**
      * Constructor for CFGFrame.
-     *
-     * @param src a {@link org.objectweb.asm.tree.analysis.Frame} object.
      */
     public CFGFrame(Frame src) {
         super(src);

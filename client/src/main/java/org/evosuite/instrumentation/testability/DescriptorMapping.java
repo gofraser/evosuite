@@ -55,8 +55,6 @@ public class DescriptorMapping {
 
     /**
      * <p>Getter for the field <code>instance</code>.</p>
-     *
-     * @return a {@link DescriptorMapping} object.
      */
     public static DescriptorMapping getInstance() {
         if (instance == null) {
@@ -74,9 +72,6 @@ public class DescriptorMapping {
 
     /**
      * <p>shouldTransform.</p>
-     *
-     * @param classNameUnknown a {@link java.lang.String} object.
-     * @return a boolean.
      */
     public static boolean shouldTransform(String classNameUnknown) {
         String className = classNameUnknown.replace('/', '.');
@@ -103,11 +98,6 @@ public class DescriptorMapping {
 
     /**
      * <p>isTransformedMethod.</p>
-     *
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @param desc       a {@link java.lang.String} object.
-     * @return a boolean.
      */
     public boolean isTransformedMethod(String className, String methodName, String desc) {
         logger.info("Initiating transformation of " + methodName);
@@ -118,11 +108,6 @@ public class DescriptorMapping {
 
     /**
      * <p>isTransformedField.</p>
-     *
-     * @param className a {@link java.lang.String} object.
-     * @param fieldName a {@link java.lang.String} object.
-     * @param desc      a {@link java.lang.String} object.
-     * @return a boolean.
      */
     public boolean isTransformedField(String className, String fieldName, String desc) {
         getFieldDesc(className, fieldName, desc);
@@ -132,11 +117,6 @@ public class DescriptorMapping {
 
     /**
      * <p>isTransformedOrBooleanMethod.</p>
-     *
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @param desc       a {@link java.lang.String} object.
-     * @return a boolean.
      */
     public boolean isTransformedOrBooleanMethod(String className, String methodName,
                                                 String desc) {
@@ -152,11 +132,6 @@ public class DescriptorMapping {
 
     /**
      * <p>isTransformedOrBooleanReturnMethod.</p>
-     *
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @param desc       a {@link java.lang.String} object.
-     * @return a boolean.
      */
     public boolean isTransformedOrBooleanReturnMethod(String className,
                                                       String methodName, String desc) {
@@ -173,11 +148,6 @@ public class DescriptorMapping {
 
     /**
      * <p>isTransformedOrBooleanField.</p>
-     *
-     * @param className a {@link java.lang.String} object.
-     * @param fieldName a {@link java.lang.String} object.
-     * @param desc      a {@link java.lang.String} object.
-     * @return a boolean.
      */
     public boolean isTransformedOrBooleanField(String className, String fieldName,
                                                String desc) {
@@ -193,9 +163,6 @@ public class DescriptorMapping {
 
     /**
      * <p>isBooleanMethod.</p>
-     *
-     * @param desc a {@link java.lang.String} object.
-     * @return a boolean.
      */
     public boolean isBooleanMethod(String desc) {
         Type[] types = Type.getArgumentTypes(desc);
@@ -217,9 +184,6 @@ public class DescriptorMapping {
 
     /**
      * <p>hasBooleanParameters.</p>
-     *
-     * @param desc a {@link java.lang.String} object.
-     * @return a boolean.
      */
     public boolean hasBooleanParameters(String desc) {
         for (Type t : Type.getArgumentTypes(desc)) {
@@ -484,11 +448,6 @@ public class DescriptorMapping {
 
     /**
      * <p>getMethodName.</p>
-     *
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @param desc       a {@link java.lang.String} object.
-     * @return a {@link java.lang.String} object.
      */
     public String getMethodName(String className, String methodName, String desc) {
         if (!shouldTransform(className)) {
@@ -511,11 +470,6 @@ public class DescriptorMapping {
 
     /**
      * <p>getMethodDesc.</p>
-     *
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @param desc       a {@link java.lang.String} object.
-     * @return a {@link java.lang.String} object.
      */
     public String getMethodDesc(String className, String methodName, String desc) {
         if (!shouldTransform(className)) {
@@ -563,11 +517,6 @@ public class DescriptorMapping {
 
     /**
      * <p>getFieldDesc.</p>
-     *
-     * @param className a {@link java.lang.String} object.
-     * @param fieldName a {@link java.lang.String} object.
-     * @param desc      a {@link java.lang.String} object.
-     * @return a {@link java.lang.String} object.
      */
     public String getFieldDesc(String className, String fieldName, String desc) {
         if (!shouldTransform(className)) {
@@ -593,11 +542,6 @@ public class DescriptorMapping {
 
     /**
      * <p>Getter for the field <code>originalName</code>.</p>
-     *
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @param desc       a {@link java.lang.String} object.
-     * @return a {@link java.lang.String} object.
      */
     public String getOriginalName(String className, String methodName, String desc) {
         String key = className.replace('.', '/') + "/" + methodName + desc;

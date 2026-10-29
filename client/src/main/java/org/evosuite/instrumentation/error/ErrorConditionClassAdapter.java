@@ -44,9 +44,6 @@ public class ErrorConditionClassAdapter extends ClassVisitor {
      * <p>
      * Constructor for ErrorConditionClassAdapter.
      * </p>
-     *
-     * @param cv        a {@link org.objectweb.asm.ClassVisitor} object.
-     * @param className a {@link java.lang.String} object.
      */
     public ErrorConditionClassAdapter(ClassVisitor cv, String className) {
         super(Opcodes.ASM9, cv);

@@ -46,11 +46,7 @@ public class LoopCounterMethodAdapter extends MethodVisitor {
     /**
      * <p>Constructor for LoopCounterMethodAdapter.</p>
      *
-     * @param mv         a {@link org.objectweb.asm.MethodVisitor} object.
-     * @param className  a {@link java.lang.String} object.
      * @param access     method modifiers.
-     * @param methodName a {@link java.lang.String} object.
-     * @param desc       a {@link java.lang.String} object.
      */
     public LoopCounterMethodAdapter(MethodVisitor mv, String className, int access, String methodName, String desc) {
         this(new AnalyzerAdapter(className, access, methodName, desc, mv));

@@ -55,9 +55,6 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
 
     /**
      * Constructor for AllDefsCoverageTestFitness.
-     *
-     * @param def  a {@link org.evosuite.coverage.dataflow.Definition} object.
-     * @param uses a {@link java.util.Map} object.
      */
     public AllDefsCoverageTestFitness(Definition def,
                                       Map<Use, DefUseCoverageTestFitness> uses) {

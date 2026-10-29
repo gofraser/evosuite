@@ -178,8 +178,6 @@ public class BranchPool {
      *
      * @param methodName Unique methodName - consisting of &lt;className&gt;.&lt;methodName&gt; -
      *                   of a method without Branches
-     * @param className  a {@link java.lang.String} object.
-     * @param lineNumber a int.
      */
     public void addBranchlessMethod(String className, String methodName,
                                     int lineNumber) {
@@ -193,8 +191,6 @@ public class BranchPool {
      * Called by the BytecodeInstructionPool whenever it detects an instruction
      * that corresponds to a Branch in the class under test as defined by
      * BytecodeInstruction.isActualBranch().
-     *
-     * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      */
     public void registerAsBranch(BytecodeInstruction instruction) {
         if (!(instruction.isActualBranch())) {
@@ -430,9 +426,6 @@ public class BranchPool {
      * Returns true if the given BytecodeInstruction previously passed a call to
      * registerAsBranch(instruction), false otherwise.
      * </p>
-     *
-     * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a boolean.
      */
     public boolean isKnownAsBranch(BytecodeInstruction instruction) {
         return isKnownAsNormalBranchInstruction(instruction)
@@ -443,9 +436,6 @@ public class BranchPool {
      * <p>
      * isKnownAsNormalBranchInstruction.
      * </p>
-     *
-     * @param ins a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a boolean.
      */
     public boolean isKnownAsNormalBranchInstruction(BytecodeInstruction ins) {
 
@@ -456,9 +446,6 @@ public class BranchPool {
      * <p>
      * isKnownAsSwitchBranchInstruction.
      * </p>
-     *
-     * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a boolean.
      */
     public boolean isKnownAsSwitchBranchInstruction(BytecodeInstruction instruction) {
 
@@ -469,9 +456,6 @@ public class BranchPool {
      * <p>
      * getActualBranchIdForNormalBranchInstruction.
      * </p>
-     *
-     * @param ins a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a int.
      */
     public int getActualBranchIdForNormalBranchInstruction(BytecodeInstruction ins) {
         if (!isKnownAsNormalBranchInstruction(ins)) {
@@ -491,9 +475,6 @@ public class BranchPool {
      * <p>
      * getCaseBranchesForSwitch.
      * </p>
-     *
-     * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a {@link java.util.List} object.
      */
     public List<Branch> getCaseBranchesForSwitch(BytecodeInstruction instruction) {
         if (instruction == null) {
@@ -513,9 +494,6 @@ public class BranchPool {
      * <p>
      * getBranchForInstruction.
      * </p>
-     *
-     * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a {@link org.evosuite.coverage.branch.Branch} object.
      */
     public Branch getBranchForInstruction(BytecodeInstruction instruction) {
         if (instruction == null) {
@@ -533,9 +511,6 @@ public class BranchPool {
      * <p>
      * getBranchForLabel.
      * </p>
-     *
-     * @param label a {@link org.objectweb.asm.tree.LabelNode} object.
-     * @return a {@link java.util.List} object.
      */
     public List<Branch> getBranchForLabel(LabelNode label) {
 
@@ -548,8 +523,6 @@ public class BranchPool {
      * Returns the number of known Branches for a given methodName in a given
      * class.
      *
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
      * @return The number of currently known Branches inside the given method.
      */
     public int getBranchCountForMethod(String className, String methodName) {
@@ -592,7 +565,6 @@ public class BranchPool {
     /**
      * Returns the number of known Branches for a given class.
      *
-     * @param className a {@link java.lang.String} object.
      * @return The number of currently known Branches inside the given class.
      */
     public int getBranchCountForClass(String className) {
@@ -609,7 +581,6 @@ public class BranchPool {
     /**
      * Returns the number of known Branches for a given class.
      *
-     * @param prefix a {@link java.lang.String} object.
      * @return The number of currently known Branches inside the given class.
      */
     public int getBranchCountForPrefix(String prefix) {
@@ -669,7 +640,6 @@ public class BranchPool {
     /**
      * Returns a set with all unique methodNames of methods without Branches.
      *
-     * @param className a {@link java.lang.String} object.
      * @return A set with all unique methodNames of methods without Branches.
      */
     public Set<String> getBranchlessMethods(String className) {
@@ -683,7 +653,6 @@ public class BranchPool {
     /**
      * Returns a set with all unique methodNames of methods without Branches.
      *
-     * @param className a {@link java.lang.String} object.
      * @return A set with all unique methodNames of methods without Branches.
      */
     public Set<String> getBranchlessMethodsPrefix(String className) {
@@ -731,7 +700,6 @@ public class BranchPool {
     /**
      * Returns the number of methods without Branches for class className.
      *
-     * @param className a {@link java.lang.String} object.
      * @return The number of methods without Branches.
      */
     public int getNumBranchlessMethods(String className) {
@@ -744,8 +712,6 @@ public class BranchPool {
     /**
      * Returns the total number of methods without branches in the instrumented
      * classes.
-     *
-     * @return a int.
      */
     public int getNumBranchlessMethods() {
         int num = 0;
@@ -758,8 +724,6 @@ public class BranchPool {
     /**
      * Returns a Set containing all classes for which this pool knows Branches
      * for as Strings.
-     *
-     * @return a {@link java.util.Set} object.
      */
     public Set<String> knownClasses() {
         Set<String> r = new LinkedHashSet<>();
@@ -772,9 +736,6 @@ public class BranchPool {
     /**
      * Returns a Set containing all methods in the class represented by the
      * given String for which this pool knows Branches for as Strings.
-     *
-     * @param className a {@link java.lang.String} object.
-     * @return a {@link java.util.Set} object.
      */
     public Set<String> knownMethods(String className) {
         Set<String> r = new LinkedHashSet<>();
@@ -791,10 +752,6 @@ public class BranchPool {
      * <p>
      * Should no such Branch exist an empty List is returned.
      * </p>
-     *
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @return a {@link java.util.List} object.
      */
     public List<Branch> retrieveBranchesInMethod(String className,
                                                  String methodName) {
@@ -813,9 +770,6 @@ public class BranchPool {
      * <p>
      * getDefaultBranchForSwitch.
      * </p>
-     *
-     * @param v a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a {@link org.evosuite.coverage.branch.Branch} object.
      */
     public Branch getDefaultBranchForSwitch(BytecodeInstruction v) {
         if (!v.isSwitch()) {
@@ -852,8 +806,6 @@ public class BranchPool {
      * <p>
      * clear.
      * </p>
-     *
-     * @param className a {@link java.lang.String} object.
      */
     public void clear(String className) {
         branchMap.remove(className);
@@ -864,9 +816,6 @@ public class BranchPool {
      * <p>
      * clear.
      * </p>
-     *
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
      */
     public void clear(String className, String methodName) {
         int numBranches = 0;

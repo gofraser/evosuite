@@ -68,8 +68,6 @@ final class OperandStack {
 
     /**
      * Push i onto our operand stack.
-     *
-     * @param i a int.
      */
     void pushInt(int i) {
         switch (i) {
@@ -133,8 +131,6 @@ final class OperandStack {
      * ...
      * ==&gt;
      * ..., s[0], s[1], ..., s[n].
-     *
-     * @param strings an array of {@link java.lang.String} objects.
      */
     void pushStrings(String... strings) {
         for (String string : strings) {
@@ -248,10 +244,6 @@ final class OperandStack {
 
     /**
      * Pass a single parameter.
-     *
-     * @param argType a {@link org.objectweb.asm.Type} object.
-     * @param paramNr a int.
-     * @param calleeLocalsIndex a int.
      */
     void passCallerStackParam(Type argType, int paramNr, int calleeLocalsIndex) {
         /* Replace concrete complex type by java.lang.Object */
@@ -269,9 +261,6 @@ final class OperandStack {
     /**
      * Pass non-receiver-parameters one at a time,
      * right to left, downwards the operand stack.
-     *
-     * @param argTypes an array of {@link org.objectweb.asm.Type} objects.
-     * @param needThis a boolean.
      */
     void passCallerStackParams(Type[] argTypes, boolean needThis) {
         if (argTypes == null || argTypes.length == 0) {

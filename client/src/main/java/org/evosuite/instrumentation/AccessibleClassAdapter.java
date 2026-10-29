@@ -46,9 +46,6 @@ public class AccessibleClassAdapter extends ClassVisitor {
 
     /**
      * <p>Constructor for AccessibleClassAdapter.</p>
-     *
-     * @param cv        a {@link org.objectweb.asm.ClassVisitor} object.
-     * @param className a {@link java.lang.String} object.
      */
     public AccessibleClassAdapter(ClassVisitor cv, String className) {
         this(cv, className, null, false);

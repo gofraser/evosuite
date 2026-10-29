@@ -45,12 +45,6 @@ public final class SwitchBranchCondition extends BranchCondition {
 
     /**
      * Constructor for a default switch branch condition.
-     *
-     * @param className a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @param instructionIndex a int.
-     * @param constraint a {@link org.evosuite.symbolic.expr.Constraint} object.
-     * @param supportingConstraints a {@link java.util.List} object.
      */
     public SwitchBranchCondition(String className, String methodName, int instructionIndex, Constraint<?> constraint,
                                  List<Constraint<?>> supportingConstraints) {
@@ -61,13 +55,6 @@ public final class SwitchBranchCondition extends BranchCondition {
 
     /**
      * Constructor for a non-default switch branch condition.
-     *
-     * @param className a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @param instructionIndex a int.
-     * @param constraint a {@link org.evosuite.symbolic.expr.Constraint} object.
-     * @param supportingConstraints a {@link java.util.List} object.
-     * @param goalValue a int.
      */
     public SwitchBranchCondition(String className, String methodName, int instructionIndex, Constraint<?> constraint,
                                  List<Constraint<?>> supportingConstraints, int goalValue) {
@@ -79,8 +66,6 @@ public final class SwitchBranchCondition extends BranchCondition {
     /**
      * Indicates if the current switch branch condition is the default branch
      * condition.
-     *
-     * @return a boolean.
      */
     public boolean isDefaultGoal() {
         return isDefaultGoal;
@@ -89,8 +74,6 @@ public final class SwitchBranchCondition extends BranchCondition {
     /**
      * Returns the goal of the switch branch condition. The switch branch
      * condition needs to be a non-default switch branch condition.
-     *
-     * @return a int.
      */
     public int getGoalValue() throws IllegalStateException {
         if (!isDefaultGoal()) {

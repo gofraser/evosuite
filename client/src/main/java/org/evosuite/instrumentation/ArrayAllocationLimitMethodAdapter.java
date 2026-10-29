@@ -57,12 +57,6 @@ public class ArrayAllocationLimitMethodAdapter extends ArrayAllocationMethodAdap
 
     /**
      * <p>Constructor for ArrayAllocationLimitMethodAdapter.</p>
-     *
-     * @param mv         a {@link org.objectweb.asm.MethodVisitor} object.
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @param access     a int.
-     * @param desc       a {@link java.lang.String} object.
      */
     public ArrayAllocationLimitMethodAdapter(MethodVisitor mv, String className,
                                              String methodName, int access, String desc) {

@@ -58,8 +58,6 @@ public class MIO extends AbstractMOSA {
 
     /**
      * Constructor.
-     *
-     * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object.
      */
     public MIO(ChromosomeFactory<TestChromosome> factory) {
         super(factory);

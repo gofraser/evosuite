@@ -37,7 +37,6 @@ public class LongPrimitiveStatement extends NumericalPrimitiveStatement<Long> {
     /**
      * Constructs a new LongPrimitiveStatement with the given value.
      *
-     * @param tc    a {@link org.evosuite.testcase.TestCase} object.
      * @param value the initial value.
      */
     public LongPrimitiveStatement(TestCase tc, Long value) {
@@ -46,8 +45,6 @@ public class LongPrimitiveStatement extends NumericalPrimitiveStatement<Long> {
 
     /**
      * Constructs a new LongPrimitiveStatement with default value 0L.
-     *
-     * @param tc a {@link org.evosuite.testcase.TestCase} object.
      */
     public LongPrimitiveStatement(TestCase tc) {
         super(tc, long.class, (long) 0);

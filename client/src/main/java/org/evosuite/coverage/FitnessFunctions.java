@@ -243,9 +243,6 @@ public class FitnessFunctions {
      * <p>
      * getFitnessFunction.
      * </p>
-     *
-     * @param criterion a {@link org.evosuite.Properties.Criterion} object.
-     * @return a {@link org.evosuite.testsuite.TestSuiteFitnessFunction} object.
      */
     public static TestSuiteFitnessFunction getFitnessFunction(Criterion criterion) {
         FitnessRegistryEntry entry = registry.get(criterion);
@@ -270,9 +267,6 @@ public class FitnessFunctions {
      * <p>
      * getFitnessFactory.
      * </p>
-     *
-     * @param crit a {@link org.evosuite.Properties.Criterion} object.
-     * @return a {@link org.evosuite.coverage.TestFitnessFactory} object.
      */
     public static TestFitnessFactory<? extends TestFitnessFunction> getFitnessFactory(
             Criterion crit) {
@@ -287,9 +281,6 @@ public class FitnessFunctions {
     /**
      * Converts a {@link org.evosuite.Properties.Criterion} object to a
      * {@link org.evosuite.testcase.TestFitnessFunction} class.
-     *
-     * @param criterion a {@link org.evosuite.Properties.Criterion} object.
-     * @return a {@link java.lang.Class} object.
      */
     public static Class<?> getTestFitnessFunctionClass(Criterion criterion) {
         FitnessRegistryEntry entry = registry.get(criterion);
@@ -302,7 +293,6 @@ public class FitnessFunctions {
     /**
      * Returns the human-readable name of a criterion, as printed in the logs and reports.
      *
-     * @param criterion a {@link org.evosuite.Properties.Criterion} object.
      * @return the display name
      */
     public static String displayName(Criterion criterion) {
@@ -312,7 +302,6 @@ public class FitnessFunctions {
     /**
      * Returns the runtime variable holding the coverage of a criterion.
      *
-     * @param criterion a {@link org.evosuite.Properties.Criterion} object.
      * @return the coverage variable
      */
     public static RuntimeVariable coverageVariable(Criterion criterion) {
@@ -322,7 +311,6 @@ public class FitnessFunctions {
     /**
      * Returns the runtime variable holding the coverage bit string of a criterion.
      *
-     * @param criterion a {@link org.evosuite.Properties.Criterion} object.
      * @return the bit string variable, or null if the criterion reports none
      */
     public static RuntimeVariable bitStringVariable(Criterion criterion) {

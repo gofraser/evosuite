@@ -67,10 +67,6 @@ public class ContractViolation {
      * <p>
      * Constructor for ContractViolation.
      * </p>
-     *
-     * @param contract  a {@link org.evosuite.contracts.Contract} object.
-     * @param statement a {@link org.evosuite.testcase.statements.Statement} object.
-     * @param exception a {@link java.lang.Throwable} object.
      */
     public ContractViolation(Contract contract, Statement statement,
                              Throwable exception, VariableReference... variables) {
@@ -91,8 +87,6 @@ public class ContractViolation {
 
     /**
      * Getter for test case.
-     *
-     * @return a {@link org.evosuite.testcase.TestCase} object.
      */
     public TestCase getTestCase() {
         return test;
@@ -100,8 +94,6 @@ public class ContractViolation {
 
     /**
      * Getter for contract that was violated.
-     *
-     * @return a {@link org.evosuite.contracts.Contract} object.
      */
     public Contract getContract() {
         return contract;
@@ -226,9 +218,6 @@ public class ContractViolation {
 
     /**
      * Determine if we have already seen an instance of this violation.
-     *
-     * @param other a {@link org.evosuite.contracts.ContractViolation} object.
-     * @return a boolean.
      */
     public boolean same(ContractViolation other) {
 

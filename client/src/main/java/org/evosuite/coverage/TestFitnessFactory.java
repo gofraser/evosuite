@@ -40,8 +40,6 @@ public interface TestFitnessFactory<T extends TestFitnessFunction> {
 
     /**
      * Generate a list of goals to cover.
-     *
-     * @return a {@link java.util.List} object.
      */
     List<T> getCoverageGoals();
 
@@ -49,9 +47,6 @@ public interface TestFitnessFactory<T extends TestFitnessFunction> {
      * Gets the fitness for suite if the goals from this TestFitnessFactory are
      * applied. Note that some parts of TestSuiteMinimizer assume, that a
      * smaller Fitness (e.g. 0.1) is better than a larger fitness (e.g. 2.0)
-     *
-     * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
-     * @return a double.
      */
     double getFitness(TestSuiteChromosome suite);
 }

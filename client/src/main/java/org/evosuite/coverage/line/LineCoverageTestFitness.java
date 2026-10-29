@@ -75,8 +75,6 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
      * <p>
      * getClassName.
      * </p>
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getClassName() {
         return className;
@@ -86,8 +84,6 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
      * <p>
      * getMethod.
      * </p>
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getMethod() {
         return methodName;
@@ -97,8 +93,6 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
      * <p>
      * getLine.
      * </p>
-     *
-     * @return a {@link java.lang.Integer} object.
      */
     public Integer getLine() {
         return line;
@@ -155,10 +149,6 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
      * {@inheritDoc}
      *
      * <p>Calculate fitness.
-     *
-     * @param individual a {@link org.evosuite.testcase.TestChromosome} object.
-     * @param result     a {@link org.evosuite.testcase.execution.ExecutionResult} object.
-     * @return a double.
      */
     @Override
     public double getFitness(TestChromosome individual, ExecutionResult result) {

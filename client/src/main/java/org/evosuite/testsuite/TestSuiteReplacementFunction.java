@@ -37,8 +37,6 @@ public class TestSuiteReplacementFunction extends ReplacementFunction<TestSuiteC
      * <p>
      * Constructor for TestSuiteReplacementFunction.
      * </p>
-     *
-     * @param maximize a boolean.
      */
     public TestSuiteReplacementFunction(boolean maximize) {
         super(maximize);
@@ -57,12 +55,6 @@ public class TestSuiteReplacementFunction extends ReplacementFunction<TestSuiteC
      * <p>
      * getLengthSum.
      * </p>
-     *
-     * @param chromosome1 a {@link org.evosuite.testsuite.AbstractTestSuiteChromosome}
-     *                    object.
-     * @param chromosome2 a {@link org.evosuite.testsuite.AbstractTestSuiteChromosome}
-     *                    object.
-     * @return a int.
      */
     public int getLengthSum(TestSuiteChromosome chromosome1, TestSuiteChromosome chromosome2) {
         return chromosome1.totalLengthOfTestCases() + chromosome2.totalLengthOfTestCases();

@@ -36,10 +36,6 @@ public class StringHelper {
      * <p>
      * editDistance.
      * </p>
-     *
-     * @param s a {@link java.lang.String} object.
-     * @param t a {@link java.lang.String} object.
-     * @return a int.
      */
     public static int editDistance(String s, String t) {
         // if (s == null || t == null) {
@@ -118,10 +114,6 @@ public class StringHelper {
      * <p>
      * StringEquals.
      * </p>
-     *
-     * @param first  a {@link java.lang.String} object.
-     * @param second a {@link java.lang.Object} object.
-     * @return a int.
      */
     @SuppressWarnings("checkstyle:methodname")
     public static int StringEquals(String first, Object second) {
@@ -149,10 +141,6 @@ public class StringHelper {
 
     /**
      * Returns the character distance between two strings for equality.
-     *
-     * @param first  a {@link java.lang.String} object.
-     * @param second a {@link java.lang.Object} object.
-     * @return a double.
      */
     @SuppressWarnings("checkstyle:methodname")
     public static double StringEqualsCharacterDistance(String first, Object second) {
@@ -183,7 +171,6 @@ public class StringHelper {
      *
      * @param str the string to check.
      * @param regex the regex to match against.
-     * @return a int.
      */
     @SuppressWarnings("checkstyle:methodname")
     public static int StringMatches(String str, String regex) {
@@ -211,7 +198,6 @@ public class StringHelper {
      *
      * @param regex the regex to match against.
      * @param input the input to check.
-     * @return a int.
      */
     @SuppressWarnings("checkstyle:methodname")
     public static int StringMatchRegex(String regex, CharSequence input) {
@@ -238,7 +224,6 @@ public class StringHelper {
      * Checks if a matcher matches.
      *
      * @param matcher the matcher to check.
-     * @return a int.
      */
     @SuppressWarnings("checkstyle:methodname")
     public static int StringMatchRegex(Matcher matcher) {
@@ -276,10 +261,6 @@ public class StringHelper {
      * <p>
      * getDistanceBasedOnLeftAlignment.
      * </p>
-     *
-     * @param a a {@link java.lang.String} object.
-     * @param b a {@link java.lang.String} object.
-     * @return a int.
      */
     protected static int getDistanceBasedOnLeftAlignment(String a, String b) {
         int differences = 0;
@@ -302,10 +283,6 @@ public class StringHelper {
 
     /**
      * Returns the distance based on left alignment character distance.
-     *
-     * @param a a {@link java.lang.String} object.
-     * @param b a {@link java.lang.String} object.
-     * @return a double.
      */
     public static double getDistanceBasedOnLeftAlignmentCharacterDistance(String a,
                                                                           String b) {
@@ -339,10 +316,6 @@ public class StringHelper {
      * <p>
      * StringEqualsIgnoreCase.
      * </p>
-     *
-     * @param first  a {@link java.lang.String} object.
-     * @param second a {@link java.lang.String} object.
-     * @return a int.
      */
     @SuppressWarnings("checkstyle:methodname")
     public static int StringEqualsIgnoreCase(String first, String second) {
@@ -366,11 +339,6 @@ public class StringHelper {
      * <p>
      * StringStartsWith.
      * </p>
-     *
-     * @param value  a {@link java.lang.String} object.
-     * @param prefix a {@link java.lang.String} object.
-     * @param start  a int.
-     * @return a int.
      */
     @SuppressWarnings("checkstyle:methodname")
     public static int StringStartsWith(String value, String prefix, int start) {
@@ -383,10 +351,6 @@ public class StringHelper {
      * <p>
      * StringEndsWith.
      * </p>
-     *
-     * @param value  a {@link java.lang.String} object.
-     * @param suffix a {@link java.lang.String} object.
-     * @return a int.
      */
     @SuppressWarnings("checkstyle:methodname")
     public static int StringEndsWith(String value, String suffix) {
@@ -400,9 +364,6 @@ public class StringHelper {
      * <p>
      * StringIsEmpty.
      * </p>
-     *
-     * @param value a {@link java.lang.String} object.
-     * @return a int.
      */
     @SuppressWarnings("checkstyle:methodname")
     public static int StringIsEmpty(String value) {
@@ -418,14 +379,6 @@ public class StringHelper {
      * <p>
      * StringRegionMatches.
      * </p>
-     *
-     * @param value      a {@link java.lang.String} object.
-     * @param thisStart  a int.
-     * @param string     a {@link java.lang.String} object.
-     * @param start      a int.
-     * @param length     a int.
-     * @param ignoreCase a boolean.
-     * @return a int.
      */
     @SuppressWarnings("checkstyle:methodname")
     public static int StringRegionMatches(String value, boolean ignoreCase,
@@ -479,7 +432,6 @@ public class StringHelper {
      * @param string the other string.
      * @param start the start index in the other string.
      * @param length the length of the region to match.
-     * @return a int.
      */
     @SuppressWarnings("checkstyle:methodname")
     public static int StringRegionMatches(String value, int thisStart, String string,

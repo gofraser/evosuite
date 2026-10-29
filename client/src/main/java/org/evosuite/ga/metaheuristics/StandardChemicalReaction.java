@@ -57,8 +57,6 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
 
     /**
      * Constructor.
-     *
-     * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object.
      */
     public StandardChemicalReaction(ChromosomeFactory<T> factory) {
         super(factory);
@@ -274,7 +272,6 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
      * An on-wall ineffective collision represents the situation when a molecule collides with a wall
      * of the container and then bounces away remaining in one single unit.
      *
-     * @param molecule a {@link org.evosuite.ga.Chromosome} object
      * @return a {@link org.evosuite.ga.Chromosome} object if new solution is found, null otherwise
      */
     private T onwallIneffectiveCollision(T molecule) {
@@ -327,7 +324,6 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
      * Decomposition refers to the situation when a molecule hits a wall and then breaks into several
      * parts.
      *
-     * @param molecule a {@link org.evosuite.ga.Chromosome} object
      * @return a {@link java.util.List} object with two offspring if new solutions are found, null
      *     otherwise
      */
@@ -432,8 +428,6 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
      * Inter-molecular ineffective collision takes place when multiple molecules collide with each
      * other and then bounce away.
      *
-     * @param molecule1 a {@link org.evosuite.ga.Chromosome} object
-     * @param molecule2 a {@link org.evosuite.ga.Chromosome} object
      * @return a pair of a {@link org.evosuite.ga.Chromosome} object if new solutions are found, null
      *     otherwise
      */
@@ -502,8 +496,6 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
      * Synthesis does the opposite of decomposition. A synthesis happens when multiple (assume two)
      * molecules hit against each other and fuse together.
      *
-     * @param molecule1 a {@link org.evosuite.ga.Chromosome} object
-     * @param molecule2 a {@link org.evosuite.ga.Chromosome} object
      * @return a {@link org.evosuite.ga.Chromosome} object if a new solution is found, null otherwise
      */
     private T synthesis(T molecule1, T molecule2) {
@@ -586,7 +578,6 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
     /**
      * Given a certain amount of energy, it checks whether energy has been conserved in the system.
      *
-     * @param energy a double.
      * @return true if energy has been conserved in the system, false otherwise
      */
     private boolean hasEnergyBeenConserved(double energy) {

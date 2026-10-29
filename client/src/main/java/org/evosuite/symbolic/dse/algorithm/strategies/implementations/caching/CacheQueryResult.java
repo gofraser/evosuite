@@ -38,8 +38,6 @@ public class CacheQueryResult {
 
     /**
      * Constructor for non-SAT cache checking results.
-     *
-     * @param cacheQueryState a {@link CacheQueryStatus} object.
      */
     public CacheQueryResult(CacheQueryStatus cacheQueryState) {
         this.cacheQueryStatus = cacheQueryState;
@@ -47,9 +45,6 @@ public class CacheQueryResult {
 
     /**
      * Constructor for SAT cache checking results.
-     *
-     * @param smtSolution a {@link java.util.Map} object.
-     * @param cacheQueryState a {@link CacheQueryStatus} object.
      */
     public CacheQueryResult(Map<String, Object> smtSolution, CacheQueryStatus cacheQueryState) {
         this.smtSolution = smtSolution;
@@ -58,8 +53,6 @@ public class CacheQueryResult {
 
     /**
      * Returns the SMT solution.
-     *
-     * @return a {@link java.util.Map} object.
      */
     public Map<String, Object> getSmtSolution() {
         if (!cacheQueryStatus.equals(CacheQueryStatus.HIT_SAT)) {
@@ -71,8 +64,6 @@ public class CacheQueryResult {
 
     /**
      * Returns true if the result is a SAT hit.
-     *
-     * @return a boolean.
      */
     public boolean hitSat() {
         return this.cacheQueryStatus.equals(CacheQueryStatus.HIT_SAT);
@@ -80,8 +71,6 @@ public class CacheQueryResult {
 
     /**
      * Returns true if the result is a UNSAT hit.
-     *
-     * @return a boolean.
      */
     public boolean hitUnSat() {
         return this.cacheQueryStatus.equals(CacheQueryStatus.HIT_UNSAT);
@@ -89,8 +78,6 @@ public class CacheQueryResult {
 
     /**
      * Returns true if the result is a miss.
-     *
-     * @return a boolean.
      */
     public boolean missed() {
         return this.cacheQueryStatus.equals(CacheQueryStatus.MISS);

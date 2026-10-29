@@ -58,8 +58,6 @@ public class PreferenceSortingComparator<T extends Chromosome<T>> implements Com
 
     /**
      * Constructor.
-     *
-     * @param goal a {@link org.evosuite.ga.FitnessFunction} object
      */
     public PreferenceSortingComparator(FitnessFunction<T> goal) {
         this.objective = goal;
@@ -68,8 +66,6 @@ public class PreferenceSortingComparator<T extends Chromosome<T>> implements Com
     /**
      * Compare the fitness value of two chromosome objects focusing only on one goal.
      *
-     * @param solution1 a {@link org.evosuite.ga.Chromosome} object
-     * @param solution2 a {@link org.evosuite.ga.Chromosome} object
      * @return -1 if fitness value of solution1 is lower than the fitness value of solution2, 0 if the fitness
      *     value of both objects is equal, or 1 if fitness value of solution1 is higher than the fitness
      *     value of solution2.

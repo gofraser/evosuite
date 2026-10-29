@@ -236,8 +236,6 @@ public class MasterNodeImpl implements MasterNodeRemote, MasterNodeLocal {
      * <p>
      * fireEvent.
      * </p>
-     *
-     * @param event a T object.
      */
     public void fireEvent(ClientStateInformation event) {
         for (Listener<ClientStateInformation> listener : listeners) {

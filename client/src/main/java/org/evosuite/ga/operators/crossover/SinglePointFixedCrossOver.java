@@ -37,9 +37,6 @@ public class SinglePointFixedCrossOver<T extends Chromosome<T>> extends CrossOve
      *
      * <p>The splitting point for to individuals p1, p2 is selected within
      * min(length(p1),length(p2))
-     *
-     * @param parent1 a T object.
-     * @param parent2 a T object.
      */
     @Override
     public void crossOver(T parent1, T parent2)

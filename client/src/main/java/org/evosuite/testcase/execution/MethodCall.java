@@ -69,12 +69,6 @@ public class MethodCall implements Cloneable {
 
     /**
      * <p>Constructor for MethodCall.</p>
-     *
-     * @param className       a {@link java.lang.String} object.
-     * @param methodName      a {@link java.lang.String} object.
-     * @param methodId        a int.
-     * @param callingObjectId a int.
-     * @param callDepth       a int.
      */
     public MethodCall(String className, String methodName, int methodId,
                       int callingObjectId, int callDepth) {
@@ -121,8 +115,6 @@ public class MethodCall implements Cloneable {
 
     /**
      * <p>explain.</p>
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String explain() {
         // TODO StringBuilder-explain() functions to construct string templates like explainList()

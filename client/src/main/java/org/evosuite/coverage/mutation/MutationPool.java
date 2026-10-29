@@ -117,10 +117,6 @@ public class MutationPool {
      * Returns a List containing all mutants in the given class and method.
      *
      * <p>Should no such mutant exist an empty List is returned.
-     *
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @return a {@link java.util.List} object.
      */
     public synchronized List<Mutation> retrieveMutationsInMethod(String className,
                                                     String methodName) {
@@ -139,8 +135,6 @@ public class MutationPool {
 
     /**
      * <p>getMutants.</p>
-     *
-     * @return a {@link java.util.List} object.
      */
     public synchronized List<Mutation> getMutants() {
         return new ArrayList<>(mutationIdMap.values());

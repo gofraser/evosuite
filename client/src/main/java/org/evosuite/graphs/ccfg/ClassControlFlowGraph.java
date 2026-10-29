@@ -118,8 +118,6 @@ public class ClassControlFlowGraph extends EvoSuiteGraph<CCFGNode, CCFGEdge> {
     /**
      * Given the ClassCallGraph of a class this constructor will build up the
      * corresponding CCFG using the RCFGs from the GraphPool.
-     *
-     * @param ccg a {@link org.evosuite.graphs.ccg.ClassCallGraph} object.
      */
     public ClassControlFlowGraph(ClassCallGraph ccg) {
         super(CCFGEdge.class);
@@ -358,9 +356,6 @@ public class ClassControlFlowGraph extends EvoSuiteGraph<CCFGNode, CCFGEdge> {
 
     /**
      * getMethodExitOf.
-     *
-     * @param methodEntry a {@link org.evosuite.graphs.ccfg.CCFGMethodEntryNode} object.
-     * @return a {@link org.evosuite.graphs.ccfg.CCFGMethodExitNode} object.
      */
     public CCFGMethodExitNode getMethodExitOf(CCFGMethodEntryNode methodEntry) {
         if (methodEntry == null) {
@@ -372,9 +367,6 @@ public class ClassControlFlowGraph extends EvoSuiteGraph<CCFGNode, CCFGEdge> {
 
     /**
      * getMethodEntryOf.
-     *
-     * @param methodExit a {@link org.evosuite.graphs.ccfg.CCFGMethodExitNode} object.
-     * @return a {@link org.evosuite.graphs.ccfg.CCFGMethodEntryNode} object.
      */
     public CCFGMethodEntryNode getMethodEntryOf(CCFGMethodExitNode methodExit) {
         if (methodExit == null) {
@@ -565,11 +557,6 @@ public class ClassControlFlowGraph extends EvoSuiteGraph<CCFGNode, CCFGEdge> {
 
     /**
      * getFrameNode.
-     *
-     * @param type a
-     *             {@link org.evosuite.graphs.ccfg.ClassControlFlowGraph.FrameNodeType}
-     *             object.
-     * @return a {@link org.evosuite.graphs.ccfg.CCFGFrameNode} object.
      */
     public CCFGFrameNode getFrameNode(FrameNodeType type) {
         return frameNodes.get(type);

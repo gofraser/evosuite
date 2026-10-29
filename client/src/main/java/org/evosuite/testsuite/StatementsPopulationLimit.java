@@ -51,8 +51,6 @@ public class StatementsPopulationLimit<T extends Chromosome<T>>
      * <p>
      * This constructor shall preserve the current state of the StatementsPopulationLimit (if existing).
      * </p>
-     *
-     * @param other a {@link org.evosuite.testsuite.StatementsPopulationLimit} object.
      */
     public StatementsPopulationLimit(StatementsPopulationLimit<?> other) {
     }

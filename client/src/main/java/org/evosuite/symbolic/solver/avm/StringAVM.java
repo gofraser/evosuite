@@ -52,8 +52,6 @@ final class StringAVM extends VariableAVM {
 
     /**
      * Applies AVM to the string variable.
-     *
-     * @return a boolean.
      */
     @Override
     public boolean applyAVM() throws SolverTimeoutException {
@@ -202,10 +200,6 @@ final class StringAVM extends VariableAVM {
 
     /**
      * Apply AVM to an individual character within a string.
-     *
-     * @param position a int.
-     * @return a boolean.
-     * @throws org.evosuite.symbolic.solver.SolverTimeoutException if any.
      */
     private boolean doCharacterAVM(int position) throws SolverTimeoutException {
         checkpointVar(DistanceEstimator.getDistance(cnstr));
@@ -311,10 +305,6 @@ final class StringAVM extends VariableAVM {
 
     /**
      * Apply AVM to all characters in a string.
-     *
-     * @param oldString a {@link java.lang.String} object.
-     * @return a boolean.
-     * @throws org.evosuite.symbolic.solver.SolverTimeoutException if any.
      */
     private boolean doStringAVM(String oldString) throws SolverTimeoutException {
 
@@ -383,10 +373,6 @@ final class StringAVM extends VariableAVM {
 
     /**
      * This method avoids overflow when computing the next char.
-     *
-     * @param oldChar a char.
-     * @param delta a int.
-     * @return a char.
      */
     private char nextChar(char oldChar, int delta) {
         char nextChar = (char) (oldChar + delta);

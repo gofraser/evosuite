@@ -96,9 +96,6 @@ public class CoverageCrossOver extends CrossOverFunction<TestSuiteChromosome> {
 
     /**
      * Create a map from coverage goal to tests that cover this goal.
-     *
-     * @param goalMap a {@link java.util.Map} object.
-     * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      */
     private void populateCoverageMap(
             Map<TestFitnessFunction, Set<TestChromosome>> goalMap,

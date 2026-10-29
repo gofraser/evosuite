@@ -42,10 +42,6 @@ public abstract class CrossOverFunction<T extends Chromosome<T>> implements Seri
 
     /**
      * Replace parents with crossed over individuals.
-     *
-     * @param parent1 a {@link Chromosome} object.
-     * @param parent2 a {@link Chromosome} object.
-     * @throws org.evosuite.utils.ConstructionFailedException if any.
      */
     public abstract void crossOver(T parent1, T parent2)
             throws ConstructionFailedException;

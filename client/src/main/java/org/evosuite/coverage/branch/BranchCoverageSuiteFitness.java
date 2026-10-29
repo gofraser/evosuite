@@ -91,8 +91,6 @@ public class BranchCoverageSuiteFitness extends TestSuiteFitnessFunction {
      * <p>
      * Constructor for BranchCoverageSuiteFitness.
      * </p>
-     *
-     * @param classLoader a {@link java.lang.ClassLoader} object.
      */
     public BranchCoverageSuiteFitness(ClassLoader classLoader) {
         String prefix = Properties.TARGET_CLASS_PREFIX;
@@ -134,8 +132,6 @@ public class BranchCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
     /**
      * Initialize the set of known coverage goals.
-     *
-     * @param updateArchive a boolean.
      */
     protected void determineCoverageGoals(boolean updateArchive) {
         List<BranchCoverageTestFitness> goals = new BranchCoverageFactory().getCoverageGoals();
@@ -167,10 +163,6 @@ public class BranchCoverageSuiteFitness extends TestSuiteFitnessFunction {
     /**
      * If there is an exception in a superconstructor, then the corresponding
      * constructor might not be included in the execution trace.
-     *
-     * @param test a {@link org.evosuite.testcase.TestChromosome} object.
-     * @param result a {@link org.evosuite.testcase.execution.ExecutionResult} object.
-     * @param callCount a {@link java.util.Map} object.
      */
     private void handleConstructorExceptions(TestChromosome test, ExecutionResult result,
                                              Map<String, Integer> callCount) {
@@ -312,14 +304,6 @@ public class BranchCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
     /**
      * Iterate over all execution results and summarize statistics.
-     *
-     * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
-     * @param results a {@link java.util.List} object.
-     * @param predicateCount a {@link java.util.Map} object.
-     * @param callCount a {@link java.util.Map} object.
-     * @param trueDistance a {@link java.util.Map} object.
-     * @param falseDistance a {@link java.util.Map} object.
-     * @return a boolean.
      */
     private boolean analyzeTraces(TestSuiteChromosome suite,
                                   List<ExecutionResult> results,
@@ -526,11 +510,6 @@ public class BranchCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
     /**
      * Some useful debug information.
-     *
-     * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
-     * @param coveredBranches a int.
-     * @param coveredMethods a int.
-     * @param fitness a double.
      */
     private void printStatusMessages(TestSuiteChromosome suite,
                                      int coveredBranches, int coveredMethods, double fitness) {

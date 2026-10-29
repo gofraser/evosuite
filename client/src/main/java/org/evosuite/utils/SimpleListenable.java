@@ -40,8 +40,6 @@ public class SimpleListenable<T> implements Listenable<T> {
 
     /**
      * <p>fireEvent.</p>
-     *
-     * @param event a T object.
      */
     public void fireEvent(T event) {
         for (Listener<T> listener : listeners) {

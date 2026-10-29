@@ -55,8 +55,6 @@ public class OnlyCrowdingComparator<T extends Chromosome<T>> implements Comparat
     /**
      * Compare the crowd distance value of two chromosome objects.
      *
-     * @param c1 a {@link Chromosome} object
-     * @param c2 a {@link Chromosome} object
      * @return -1 if crowd distance value of c1 is higher than the crowd distance of c2, 0 if the crowd
      *     distance of both objects is equal, or 1 if crowd distance value of c1 is lower than the
      *     crowd distance of c2.

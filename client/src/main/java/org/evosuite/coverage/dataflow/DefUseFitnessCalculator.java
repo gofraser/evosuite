@@ -58,12 +58,6 @@ public class DefUseFitnessCalculator {
 
     /**
      * Constructor for DefUseFitnessCalculator.
-     *
-     * @param goal       a
-     *                   {@link org.evosuite.coverage.dataflow.DefUseCoverageTestFitness}
-     *                   object.
-     * @param individual a {@link org.evosuite.testcase.TestChromosome} object.
-     * @param result     a {@link org.evosuite.testcase.execution.ExecutionResult} object.
      */
     public DefUseFitnessCalculator(DefUseCoverageTestFitness goal,
                                    TestChromosome individual, ExecutionResult result) {
@@ -122,8 +116,6 @@ public class DefUseFitnessCalculator {
      * <p>If this goals definition is not a static variable the trace information
      * of all constructed objects of the CUT are handled separately and the
      * minimum over all individually calculated fitness is returned.
-     *
-     * @return a double.
      */
     public double calculateDUFitness() {
 
@@ -563,9 +555,6 @@ public class DefUseFitnessCalculator {
 
     /**
      * normalize.
-     *
-     * @param value a double.
-     * @return a double.
      */
     public static double normalize(double value) {
         // TODO just copied this from FitnessFunction because it was not visible
@@ -575,10 +564,6 @@ public class DefUseFitnessCalculator {
 
     /**
      * hasEntryLowerThan.
-     *
-     * @param list   a {@link java.util.List} object.
-     * @param border a {@link java.lang.Integer} object.
-     * @return a boolean.
      */
     public static boolean hasEntryLowerThan(List<Integer> list, Integer border) {
         for (Integer pos : list) {
@@ -591,11 +576,6 @@ public class DefUseFitnessCalculator {
 
     /**
      * hasEntryInBetween.
-     *
-     * @param list  a {@link java.util.List} object.
-     * @param start a {@link java.lang.Integer} object.
-     * @param end   a {@link java.lang.Integer} object.
-     * @return a boolean.
      */
     public static boolean hasEntryInBetween(List<Integer> list, Integer start, Integer end) {
         for (Integer pos : list) {
@@ -608,10 +588,6 @@ public class DefUseFitnessCalculator {
 
     /**
      * getMaxEntryLowerThan.
-     *
-     * @param list   a {@link java.util.List} object.
-     * @param border a {@link java.lang.Integer} object.
-     * @return a {@link java.lang.Integer} object.
      */
     public static Integer getMaxEntryLowerThan(List<Integer> list, Integer border) {
         int lastPos = -1;
@@ -625,10 +601,6 @@ public class DefUseFitnessCalculator {
 
     /**
      * hasEntriesForId.
-     *
-     * @param objectDUMap a {@link java.util.Map} object.
-     * @param targetId    a int.
-     * @return a boolean.
      */
     public static boolean hasEntriesForId(
             Map<Integer, HashMap<Integer, Integer>> objectDUMap, int targetId) {
@@ -646,11 +618,6 @@ public class DefUseFitnessCalculator {
 
     /**
      * hasEntriesForId.
-     *
-     * @param objectDUMap a {@link java.util.Map} object.
-     * @param objectId    a {@link java.lang.Integer} object.
-     * @param targetId    a int.
-     * @return a boolean.
      */
     public static boolean hasEntriesForId(
             Map<Integer, HashMap<Integer, Integer>> objectDUMap, Integer objectId,
@@ -671,13 +638,6 @@ public class DefUseFitnessCalculator {
 
     /**
      * Only a sanity check function for testing purposes.
-     *
-     * @param goal       a
-     *                   {@link org.evosuite.coverage.dataflow.DefUseCoverageTestFitness}
-     *                   object.
-     * @param individual a {@link org.evosuite.ga.Chromosome} object.
-     * @param trace      a {@link org.evosuite.testcase.execution.ExecutionTrace} object.
-     * @return a boolean.
      */
     public static boolean traceCoversGoal(DefUseCoverageTestFitness goal,
                                           Chromosome<?> individual, ExecutionTrace trace) {

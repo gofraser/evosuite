@@ -47,9 +47,6 @@ public class StaticAccessMethodAdapter extends MethodVisitor {
      * <p>
      * Constructor for StaticAccessMethodAdapter.
      * </p>
-     *
-     * @param mv        a {@link org.objectweb.asm.MethodVisitor} object.
-     * @param className a {@link java.lang.String} object.
      */
     public StaticAccessMethodAdapter(String className, String methodName, MethodVisitor mv) {
         super(Opcodes.ASM9, mv);

@@ -25,8 +25,6 @@ public class CCFGFrameNode extends CCFGNode {
 
     /**
      * Constructor for CCFGFrameNode.
-     *
-     * @param type a {@link org.evosuite.graphs.ccfg.ClassControlFlowGraph.FrameNodeType} object.
      */
     public CCFGFrameNode(ClassControlFlowGraph.FrameNodeType type) {
         this.type = type;
@@ -34,8 +32,6 @@ public class CCFGFrameNode extends CCFGNode {
 
     /**
      * Getter for the field <code>type</code>.
-     *
-     * @return a {@link org.evosuite.graphs.ccfg.ClassControlFlowGraph.FrameNodeType} object.
      */
     public ClassControlFlowGraph.FrameNodeType getType() {
         return type;

@@ -135,8 +135,6 @@ public class InspectorManager {
      * <p>
      * Getter for the field <code>instance</code>.
      * </p>
-     *
-     * @return a {@link org.evosuite.assertion.InspectorManager} object.
      */
     public static InspectorManager getInstance() {
         if (instance == null) {
@@ -278,9 +276,6 @@ public class InspectorManager {
      * <p>
      * Getter for the field <code>inspectors</code>.
      * </p>
-     *
-     * @param clazz a {@link java.lang.Class} object.
-     * @return a {@link java.util.List} object.
      */
     public List<Inspector> getInspectors(Class<?> clazz) {
         if (!inspectors.containsKey(clazz)) {
@@ -293,9 +288,6 @@ public class InspectorManager {
      * <p>
      * removeInspector.
      * </p>
-     *
-     * @param clazz     a {@link java.lang.Class} object.
-     * @param inspector a {@link org.evosuite.assertion.Inspector} object.
      */
     public void removeInspector(Class<?> clazz, Inspector inspector) {
         if (inspectors.containsKey(clazz)) {

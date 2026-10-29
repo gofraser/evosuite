@@ -80,10 +80,6 @@ public class OnlyBranchCoverageFactory extends
     /**
      * Create a fitness function for branch coverage aimed at executing the
      * given ControlDependency.
-     *
-     * @param cd a {@link org.evosuite.graphs.cfg.ControlDependency} object.
-     * @return a {@link org.evosuite.coverage.branch.BranchCoverageTestFitness}
-     *     object.
      */
     public static OnlyBranchCoverageTestFitness createOnlyBranchCoverageTestFitness(
             ControlDependency cd) {
@@ -94,11 +90,6 @@ public class OnlyBranchCoverageFactory extends
     /**
      * Create a fitness function for branch coverage aimed at executing the
      * Branch identified by b as defined by branchExpressionValue.
-     *
-     * @param b                     a {@link org.evosuite.coverage.branch.Branch} object.
-     * @param branchExpressionValue a boolean.
-     * @return a {@link org.evosuite.coverage.branch.BranchCoverageTestFitness}
-     *     object.
      */
     public static OnlyBranchCoverageTestFitness createOnlyBranchCoverageTestFitness(
             Branch b, boolean branchExpressionValue) {

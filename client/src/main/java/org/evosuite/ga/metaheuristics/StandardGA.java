@@ -42,8 +42,6 @@ public class StandardGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
     /**
      * Constructor.
-     *
-     * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object.
      */
     public StandardGA(ChromosomeFactory<T> factory) {
         super(factory);

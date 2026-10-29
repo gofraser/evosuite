@@ -98,8 +98,6 @@ public class TestSuiteLocalSearchObjective implements LocalSearchObjective<TestC
      * @param suite   the original test suite
      * @param index   the index (between 0 and the suite length) that will be
      *                replaced with a new test case
-     * @param <T>     a T object.
-     * @return a {@link org.evosuite.testsuite.localsearch.TestSuiteLocalSearchObjective} object.
      */
     public static <T extends Chromosome<T>> TestSuiteLocalSearchObjective
             buildNewTestSuiteLocalSearchObjective(
@@ -217,8 +215,6 @@ public class TestSuiteLocalSearchObjective implements LocalSearchObjective<TestC
      * Since the fitness is computed by the underlying test suite associated to
      * this local search objective, this function should not belong. TODO: Why
      * not simply returning the fitness functions of the suite?
-     *
-     * @return a {@link java.util.List} object.
      */
     @Override
     public List<FitnessFunction<TestChromosome>> getFitnessFunctions() {

@@ -56,10 +56,6 @@ public class DSETestCase implements Comparable<DSETestCase>, Cloneable {
 
     /**
      * Constructor.
-     *
-     * @param testCase a {@link org.evosuite.testcase.TestCase} object.
-     * @param originalPathCondition a {@link GenerationalSearchPathCondition} object.
-     * @param score a double.
      */
     public DSETestCase(TestCase testCase, GenerationalSearchPathCondition originalPathCondition, double score) {
         this.score = score;
@@ -69,8 +65,6 @@ public class DSETestCase implements Comparable<DSETestCase>, Cloneable {
 
     /**
      * Returns the score.
-     *
-     * @return a double.
      */
     public double getScore() {
         return score;
@@ -78,8 +72,6 @@ public class DSETestCase implements Comparable<DSETestCase>, Cloneable {
 
     /**
      * Returns the test case.
-     *
-     * @return a {@link org.evosuite.testcase.TestCase} object.
      */
     public TestCase getTestCase() {
         return testCase;
@@ -87,8 +79,6 @@ public class DSETestCase implements Comparable<DSETestCase>, Cloneable {
 
     /**
      * Returns the original path condition.
-     *
-     * @return a {@link org.evosuite.symbolic.dse.algorithm.GenerationalSearchPathCondition} object.
      */
     public GenerationalSearchPathCondition getOriginalPathCondition() {
         return originalPathCondition;

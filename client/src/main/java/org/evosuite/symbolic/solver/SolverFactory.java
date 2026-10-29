@@ -32,8 +32,6 @@ public class SolverFactory {
 
     /**
      * Returns the singleton instance of the factory.
-     *
-     * @return a {@link org.evosuite.symbolic.solver.SolverFactory} object.
      */
     public static SolverFactory getInstance() {
         return instance;
@@ -41,8 +39,6 @@ public class SolverFactory {
 
     /**
      * Builds a new solver instance.
-     *
-     * @return a {@link org.evosuite.symbolic.solver.Solver} object.
      */
     public Solver buildNewSolver() {
         return new EvoSuiteSolver();

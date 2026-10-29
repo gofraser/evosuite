@@ -50,9 +50,6 @@ public class Definition extends DefUse {
      *
      * <p>Not to be confused with DefUse.canBecomeActiveDefinitionFor, which is
      * sort of the dual to this method
-     *
-     * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a boolean.
      */
     public boolean canBeActiveFor(BytecodeInstruction instruction) {
         if (!instruction.isUse()) {

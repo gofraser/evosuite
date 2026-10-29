@@ -243,8 +243,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
     /**
      * Generate a generic class by setting all generic parameters to their
      * parameter types.
-     *
-     * @param clazz a {@link java.lang.Class} object.
      */
     public GenericClassImpl(Class<?> clazz) {
         if (clazz == null) {
@@ -269,8 +267,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
 
     /**
      * Generate a generic class by from a type.
-     *
-     * @param type a {@link java.lang.reflect.Type} object.
      */
     public GenericClassImpl(Type type) {
         if (type instanceof Class<?>) {
@@ -377,7 +373,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      * changeClassLoader.
      * </p>
      *
-     * @param loader a {@link ClassLoader} object.
      * @return boolean
      */
     public boolean changeClassLoader(ClassLoader loader) {
@@ -498,8 +493,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      * <p>
      * getClassName.
      * </p>
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getClassName() {
         return rawClass.getName();
@@ -525,8 +518,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      * <p>
      * getComponentName.
      * </p>
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getComponentName() {
         return rawClass.getComponentType().getSimpleName();
@@ -536,8 +527,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      * <p>
      * getComponentType.
      * </p>
-     *
-     * @return a {@link java.lang.reflect.Type} object.
      */
     public Type getComponentType() {
         return GenericTypeReflector.getArrayComponentType(type);
@@ -1069,8 +1058,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      * <p>
      * getRawClass.
      * </p>
-     *
-     * @return a {@link java.lang.Class} object.
      */
     public Class<?> getRawClass() {
         return rawClass;
@@ -1080,8 +1067,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      * <p>
      * getComponentClass.
      * </p>
-     *
-     * @return a {@link java.lang.reflect.Type} object.
      */
     public Type getRawComponentClass() {
         return GenericTypeReflector.erase(rawClass.getComponentType());
@@ -1095,8 +1080,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      * <p>
      * getSimpleName.
      * </p>
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getSimpleName() {
         // return raw_class.getSimpleName();
@@ -1137,8 +1120,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      * <p>
      * Getter for the field <code>type</code>.
      * </p>
-     *
-     * @return a {@link java.lang.reflect.Type} object.
      */
     public Type getType() {
         return type;
@@ -1148,8 +1129,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      * <p>
      * getTypeName.
      * </p>
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getTypeName() {
         String cached = cachedTypeName;
@@ -1576,8 +1555,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
 
     /**
      * Return true if variable is an array.
-     *
-     * @return a boolean.
      */
     public boolean isArray() {
         return rawClass.isArray();
@@ -1587,9 +1564,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      * <p>
      * isAssignableFrom.
      * </p>
-     *
-     * @param rhsType a {@link GenericClass} object.
-     * @return a boolean.
      */
     public boolean isAssignableFrom(GenericClass<?> rhsType) {
         return isAssignable(type, rhsType.getType());
@@ -1599,9 +1573,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      * <p>
      * isAssignableFrom.
      * </p>
-     *
-     * @param rhsType a {@link java.lang.reflect.Type} object.
-     * @return a boolean.
      */
     public boolean isAssignableFrom(Type rhsType) {
         return isAssignable(type, rhsType);
@@ -1611,9 +1582,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      * <p>
      * isAssignableTo.
      * </p>
-     *
-     * @param lhsType a {@link GenericClass} object.
-     * @return a boolean.
      */
     public boolean isAssignableTo(GenericClass<?> lhsType) {
         return isAssignable(lhsType.getType(), type);
@@ -1623,9 +1591,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      * <p>
      * isAssignableTo.
      * </p>
-     *
-     * @param lhsType a {@link java.lang.reflect.Type} object.
-     * @return a boolean.
      */
     public boolean isAssignableTo(Type lhsType) {
         return isAssignable(lhsType, type);
@@ -1642,8 +1607,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
 
     /**
      * Return true if variable is an enumeration.
-     *
-     * @return a boolean.
      */
     public boolean isEnum() {
         return rawClass.isEnum();
@@ -1703,8 +1666,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
 
     /**
      * Return true if variable is a primitive type.
-     *
-     * @return a boolean.
      */
     public boolean isPrimitive() {
         return rawClass.isPrimitive();
@@ -1739,8 +1700,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
 
     /**
      * True if this represents java.lang.String.
-     *
-     * @return a boolean.
      */
     public boolean isString() {
         return rawClass.equals(String.class);
@@ -1748,8 +1707,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
 
     /**
      * Return true if variable is void.
-     *
-     * @return a boolean.
      */
     public boolean isVoid() {
         return rawClass.equals(Void.class) || rawClass.equals(void.class);
@@ -1757,8 +1714,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
 
     /**
      * Return true if type of variable is a primitive wrapper.
-     *
-     * @return a boolean.
      */
     public boolean isWrapperType() {
         return rawClass == Void.class || ClassUtils.isPrimitiveWrapper(rawClass);

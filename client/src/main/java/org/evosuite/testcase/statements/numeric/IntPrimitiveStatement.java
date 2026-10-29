@@ -37,7 +37,6 @@ public class IntPrimitiveStatement extends NumericalPrimitiveStatement<Integer> 
     /**
      * Constructs a new IntPrimitiveStatement with the given value.
      *
-     * @param tc    a {@link org.evosuite.testcase.TestCase} object.
      * @param value the initial value.
      */
     public IntPrimitiveStatement(TestCase tc, Integer value) {
@@ -46,8 +45,6 @@ public class IntPrimitiveStatement extends NumericalPrimitiveStatement<Integer> 
 
     /**
      * Constructs a new IntPrimitiveStatement with default value 0.
-     *
-     * @param tc a {@link org.evosuite.testcase.TestCase} object.
      */
     public IntPrimitiveStatement(TestCase tc) {
         super(tc, int.class, 0);

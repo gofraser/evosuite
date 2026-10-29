@@ -48,9 +48,6 @@ public class DFSExplorationAlgorithm extends ExplorationAlgorithm {
 
     /**
      * Constructor.
-     *
-     * @param statistics a {@link org.evosuite.symbolic.dse.DSEStatistics} object.
-     * @param showProgress a boolean.
      */
     public DFSExplorationAlgorithm(DSEStatistics statistics, boolean showProgress) {
         super(statistics, showProgress);

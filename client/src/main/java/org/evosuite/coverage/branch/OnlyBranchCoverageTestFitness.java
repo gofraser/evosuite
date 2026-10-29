@@ -33,9 +33,6 @@ public class OnlyBranchCoverageTestFitness extends BranchCoverageTestFitness {
 
     /**
      * Constructor - fitness is specific to a branch.
-     *
-     * @param goal a {@link org.evosuite.coverage.branch.BranchCoverageGoal}
-     *             object.
      */
     public OnlyBranchCoverageTestFitness(BranchCoverageGoal goal) {
         super(goal);

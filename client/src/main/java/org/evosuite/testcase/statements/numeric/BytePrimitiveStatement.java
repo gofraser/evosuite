@@ -37,7 +37,6 @@ public class BytePrimitiveStatement extends NumericalPrimitiveStatement<Byte> {
     /**
      * Constructs a new BytePrimitiveStatement with the given value.
      *
-     * @param tc    a {@link org.evosuite.testcase.TestCase} object.
      * @param value the initial value.
      */
     public BytePrimitiveStatement(TestCase tc, Byte value) {
@@ -46,8 +45,6 @@ public class BytePrimitiveStatement extends NumericalPrimitiveStatement<Byte> {
 
     /**
      * Constructs a new BytePrimitiveStatement with default value 0.
-     *
-     * @param tc a {@link org.evosuite.testcase.TestCase} object.
      */
     public BytePrimitiveStatement(TestCase tc) {
         super(tc, byte.class, (byte) 0);
@@ -56,7 +53,6 @@ public class BytePrimitiveStatement extends NumericalPrimitiveStatement<Byte> {
     /**
      * Constructs a new BytePrimitiveStatement with default value 0 and given type.
      *
-     * @param tc   a {@link org.evosuite.testcase.TestCase} object.
      * @param type the type of the value.
      */
     public BytePrimitiveStatement(TestCase tc, Type type) {

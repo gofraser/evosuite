@@ -550,8 +550,6 @@ public class DependencyAnalysis {
 
     /**
      * logClasspathAnalysisSummary.
-     *
-     * @param classPath a {@link java.util.List} object.
      */
     @SuppressWarnings("deprecation")
     public static void logClasspathAnalysisSummary(List<String> classPath) {

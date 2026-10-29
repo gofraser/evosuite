@@ -75,8 +75,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * Constructor for EvoSuiteGraph.
-     *
-     * @param edgeClass a {@link java.lang.Class} object.
      */
     protected EvoSuiteGraph(Class<E> edgeClass) {
 
@@ -88,9 +86,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * Constructor for EvoSuiteGraph.
-     *
-     * @param graph     a {@link org.jgrapht.DirectedGraph} object.
-     * @param edgeClass a {@link java.lang.Class} object.
      */
     protected EvoSuiteGraph(DirectedGraph<V, E> graph, Class<E> edgeClass) {
         if (graph == null || edgeClass == null) {
@@ -112,9 +107,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * getEdgeSource.
-     *
-     * @param e a E object.
-     * @return a V object.
      */
     public V getEdgeSource(E e) {
         if (!containsEdge(e)) {
@@ -126,9 +118,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * getEdgeTarget.
-     *
-     * @param e a E object.
-     * @return a V object.
      */
     public V getEdgeTarget(E e) {
         if (!containsEdge(e)) {
@@ -140,9 +129,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * outgoingEdgesOf.
-     *
-     * @param node a V object.
-     * @return a {@link java.util.Set} object.
      */
     public Set<E> outgoingEdgesOf(V node) {
         if (!containsVertex(node)) { // should this just return null?
@@ -154,9 +140,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * incomingEdgesOf.
-     *
-     * @param node a V object.
-     * @return a {@link java.util.Set} object.
      */
     public Set<E> incomingEdgesOf(V node) {
         if (!containsVertex(node)) { // should this just return null?
@@ -167,9 +150,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * getChildren.
-     *
-     * @param node a V object.
-     * @return a {@link java.util.Set} object.
      */
     public Set<V> getChildren(V node) {
         if (!containsVertex(node)) {
@@ -192,9 +172,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * getParents.
-     *
-     * @param node a V object.
-     * @return a {@link java.util.Set} object.
      */
     public Set<V> getParents(V node) {
         if (!containsVertex(node)) { // should this just return null?
@@ -217,8 +194,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * vertexSet.
-     *
-     * @return a {@link java.util.Set} object.
      */
     public Set<V> vertexSet() {
         return new LinkedHashSet<>(graph.vertexSet());
@@ -226,8 +201,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * edgeSet.
-     *
-     * @return a {@link java.util.Set} object.
      */
     public Set<E> edgeSet() {
         return new LinkedHashSet<>(graph.edgeSet());
@@ -236,9 +209,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
     /**
      * If the given node is contained within this graph and has exactly one
      * child v this method will return v. Otherwise it will return null
-     *
-     * @param node a V object.
-     * @return a V object.
      */
     public V getSingleChild(V node) {
         if (node == null) {
@@ -262,8 +232,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * addVertices.
-     *
-     * @param other a {@link org.evosuite.graphs.EvoSuiteGraph} object.
      */
     protected void addVertices(EvoSuiteGraph<V, E> other) {
 
@@ -272,8 +240,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * addVertices.
-     *
-     * @param vs a {@link java.util.Collection} object.
      */
     protected void addVertices(Collection<V> vs) {
         if (vs == null) {
@@ -290,9 +256,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * addVertex.
-     *
-     * @param v a V object.
-     * @return a boolean.
      */
     protected boolean addVertex(V v) {
         return graph.addVertex(v);
@@ -300,10 +263,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * addEdge.
-     *
-     * @param src    a V object.
-     * @param target a V object.
-     * @return a E object.
      */
     protected E addEdge(V src, V target) {
 
@@ -312,11 +271,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * addEdge.
-     *
-     * @param src    a V object.
-     * @param target a V object.
-     * @param e      a E object.
-     * @return a boolean.
      */
     protected boolean addEdge(V src, V target, E e) {
 
@@ -329,11 +283,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
      *
      * <p>All three edges have to be present in the graph prior to a call to this
      * method.
-     *
-     * @param from     a V object.
-     * @param newStart a V object.
-     * @param newEnd   a V object.
-     * @return a boolean.
      */
     protected boolean redirectEdges(V from, V newStart, V newEnd) {
         if (!(containsVertex(from) && containsVertex(newStart) && containsVertex(newEnd))) {
@@ -352,10 +301,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
     /**
      * Redirects all incoming edges to oldNode to node newNode by calling
      * redirectEdgeTarget for each incoming edge of oldNode.
-     *
-     * @param oldNode a V object.
-     * @param newNode a V object.
-     * @return a boolean.
      */
     protected boolean redirectIncomingEdges(V oldNode, V newNode) {
         return incomingEdgesOf(oldNode).stream()
@@ -365,10 +310,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
     /**
      * Redirects all outgoing edges to oldNode to node newNode by calling
      * redirectEdgeSource for each outgoing edge of oldNode.
-     *
-     * @param oldNode a V object.
-     * @param newNode a V object.
-     * @return a boolean.
      */
     protected boolean redirectOutgoingEdges(V oldNode, V newNode) {
         return outgoingEdgesOf(oldNode).stream()
@@ -379,10 +320,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
      * Redirects the edge target of the given edge to the given node by removing
      * the given edge from the graph and reinserting it from the original source
      * node to the given node.
-     *
-     * @param edge a E object.
-     * @param node a V object.
-     * @return a boolean.
      */
     protected boolean redirectEdgeTarget(E edge, V node) {
         if (!(containsVertex(node) && containsEdge(edge))) {
@@ -402,10 +339,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
      * Redirects the edge source of the given edge to the given node by removing
      * the given edge from the graph and reinserting it from the given node to
      * the original target node.
-     *
-     * @param edge a E object.
-     * @param node a V object.
-     * @return a boolean.
      */
     protected boolean redirectEdgeSource(E edge, V node) {
         if (!(containsVertex(node) && containsEdge(edge))) {
@@ -425,8 +358,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * vertexCount.
-     *
-     * @return a int.
      */
     public int vertexCount() {
         return graph.vertexSet().size();
@@ -434,8 +365,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * edgeCount.
-     *
-     * @return a int.
      */
     public int edgeCount() {
         return graph.edgeSet().size();
@@ -443,9 +372,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * outDegreeOf.
-     *
-     * @param node a V object.
-     * @return a int.
      */
     public int outDegreeOf(V node) { // TODO rename to sth. like childCount()
         if (node == null || !containsVertex(node)) {
@@ -457,9 +383,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * inDegreeOf.
-     *
-     * @param node a V object.
-     * @return a int.
      */
     public int inDegreeOf(V node) { // TODO rename sth. like parentCount()
         if (node == null || !containsVertex(node)) {
@@ -473,10 +396,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * getEdge.
-     *
-     * @param v1 a V object.
-     * @param v2 a V object.
-     * @return a E object.
      */
     public E getEdge(V v1, V v2) {
         return graph.getEdge(v1, v2);
@@ -484,9 +403,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * containsVertex.
-     *
-     * @param v a V object.
-     * @return a boolean.
      */
     public boolean containsVertex(V v) {
         // documentation says containsVertex() returns false on when given null
@@ -495,10 +411,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * containsEdge.
-     *
-     * @param v1 a V object.
-     * @param v2 a V object.
-     * @return a boolean.
      */
     public boolean containsEdge(V v1, V v2) {
         return graph.containsEdge(v1, v2);
@@ -506,9 +418,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * containsEdge.
-     *
-     * @param e a E object.
-     * @return a boolean.
      */
     public boolean containsEdge(E e) {
         return graph.containsEdge(e);
@@ -516,8 +425,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * isEmpty.
-     *
-     * @return a boolean.
      */
     public boolean isEmpty() {
         return graph.vertexSet().isEmpty();
@@ -526,8 +433,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
     /**
      * Checks whether each vertex inside this graph is reachable from some other
      * vertex.
-     *
-     * @return a boolean.
      */
     public boolean isConnected() {
         if (vertexCount() < 2) {
@@ -577,9 +482,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
     /**
      * Follows all edges adjacent to the given vertex v ignoring edge directions
      * and returns a set containing all vertices visited that way.
-     *
-     * @param v a V object.
-     * @return a {@link java.util.Set} object.
      */
     public Set<V> determineConnectedVertices(V v) {
 
@@ -604,11 +506,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
     /**
      * Returns true iff whether the given node is not null, in this graph and
      * has exactly n parents and m children.
-     *
-     * @param node a V object.
-     * @param n    a int.
-     * @param m    a int.
-     * @return a boolean.
      */
     public boolean hasNPartentsMChildren(V node, int n, int m) {
         if (node == null || !containsVertex(node)) {
@@ -622,8 +519,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * getRandomVertex.
-     *
-     * @return a V object.
      */
     public V getRandomVertex() {
         // TODO that's not really random
@@ -636,10 +531,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * getDistance.
-     *
-     * @param v1 a V object.
-     * @param v2 a V object.
-     * @return a int.
      */
     public int getDistance(V v1, V v2) {
         DijkstraShortestPath<V, E> d = new DijkstraShortestPath<>(graph, v1, v2);
@@ -648,10 +539,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * isDirectSuccessor.
-     *
-     * @param v1 a V object.
-     * @param v2 a V object.
-     * @return a boolean.
      */
     public boolean isDirectSuccessor(V v1, V v2) {
 
@@ -662,8 +549,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * determineBranches.
-     *
-     * @return a {@link java.util.Set} object.
      */
     public Set<V> determineBranches() {
         return graph.vertexSet().stream()
@@ -673,8 +558,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * determineJoins.
-     *
-     * @return a {@link java.util.Set} object.
      */
     public Set<V> determineJoins() {
         return vertexSet().stream()
@@ -693,8 +576,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
      *
      * <p>This is used to revert CFGs in order to determine control dependencies
      * for example.
-     *
-     * @return a {@link org.jgrapht.graph.DefaultDirectedGraph} object.
      */
     protected DefaultDirectedGraph<V, E> computeReverseJGraph() {
 
@@ -741,8 +622,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
     /**
      * Subclasses can overwrite this method in order to separate their .dot and
      * .png export to a special folder.
-     *
-     * @return a {@link java.lang.String} object.
      */
     protected String dotSubFolder() {
         return "";
@@ -750,9 +629,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * toFileString.
-     *
-     * @param name a {@link java.lang.String} object.
-     * @return a {@link java.lang.String} object.
      */
     protected String toFileString(String name) {
 
@@ -798,8 +674,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * getName.
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getName() {
         return "EvoSuiteGraph_" + graphId;
@@ -807,8 +681,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * registerVertexAttributeProvider.
-     *
-     * @param vertexAttributeProvider a {@link org.jgrapht.ext.ComponentAttributeProvider} object.
      */
     public void registerVertexAttributeProvider(
             ComponentAttributeProvider<V> vertexAttributeProvider) {
@@ -817,8 +689,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * registerEdgeAttributeProvider.
-     *
-     * @param edgeAttributeProvider a {@link org.jgrapht.ext.ComponentAttributeProvider} object.
      */
     public void registerEdgeAttributeProvider(
             ComponentAttributeProvider<E> edgeAttributeProvider) {

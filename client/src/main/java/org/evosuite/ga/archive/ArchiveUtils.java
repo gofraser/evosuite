@@ -33,7 +33,6 @@ public final class ArchiveUtils {
      * object) is of an enabled criterion. A criterion is considered enabled if and only if defined in
      * {@link org.evosuite.Properties.CRITERION}.
      *
-     * @param goal a {@link org.evosuite.testcase.TestFitnessFunction} object
      * @return true if criterion of goal is enabled, false otherwise
      */
     public static boolean isCriterionEnabled(FitnessFunction<TestChromosome> goal) {

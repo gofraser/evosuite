@@ -46,9 +46,6 @@ public class StringPrimitiveStatement extends PrimitiveStatement<String> {
      * <p>
      * Constructor for StringPrimitiveStatement.
      * </p>
-     *
-     * @param tc    a {@link org.evosuite.testcase.TestCase} object.
-     * @param value a {@link java.lang.String} object.
      */
     public StringPrimitiveStatement(TestCase tc, String value) {
         super(tc, String.class, value);
@@ -58,8 +55,6 @@ public class StringPrimitiveStatement extends PrimitiveStatement<String> {
      * <p>
      * Constructor for StringPrimitiveStatement.
      * </p>
-     *
-     * @param tc a {@link org.evosuite.testcase.TestCase} object.
      */
     public StringPrimitiveStatement(TestCase tc) {
         super(tc, String.class, "");

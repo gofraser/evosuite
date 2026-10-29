@@ -169,8 +169,6 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
 
     /**
      * Provided so that subtypes of this factory type can modify the returned TestCase.
-     *
-     * @return a {@link org.evosuite.testcase.TestCase} object.
      */
     protected TestCase getNewTestCase() {
         return new DefaultTestCase(); // empty test case

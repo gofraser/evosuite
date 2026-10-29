@@ -72,10 +72,6 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
      * <p>
      * Constructor for PrimitiveStatement.
      * </p>
-     *
-     * @param tc     a {@link org.evosuite.testcase.TestCase} object.
-     * @param varRef a {@link org.evosuite.testcase.variable.VariableReference} object.
-     * @param value  a T object.
      */
     public PrimitiveStatement(TestCase tc, VariableReference varRef, T value) {
         super(tc, varRef);
@@ -84,10 +80,6 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
 
     /**
      * Constructor.
-     *
-     * @param value a T object.
-     * @param tc    a {@link org.evosuite.testcase.TestCase} object.
-     * @param type  a {@link java.lang.reflect.Type} object.
      */
     public PrimitiveStatement(TestCase tc, Type type, T value) {
         super(tc, new VariableReferenceImpl(tc, type));
@@ -101,8 +93,6 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
 
     /**
      * Access the value.
-     *
-     * @return a T object.
      */
     public T getValue() {
         return value;
@@ -110,8 +100,6 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
 
     /**
      * Set the value.
-     *
-     * @param val a T object.
      */
     public void setValue(T val) {
         this.value = val;
@@ -138,10 +126,6 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
     /**
      * Generate a primitive statement for given type initialized with default
      * value (0).
-     *
-     * @param tc           a {@link org.evosuite.testcase.TestCase} object.
-     * @param genericClass a {@link java.lang.reflect.Type} object.
-     * @return a {@link org.evosuite.testcase.statements.PrimitiveStatement} object.
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
     public static PrimitiveStatement<?> getPrimitiveStatement(TestCase tc,
@@ -227,10 +211,7 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
     /**
      * Create random primitive statement.
      *
-     * @param tc       a {@link org.evosuite.testcase.TestCase} object.
-     * @param clazz    a {@link java.lang.reflect.Type} object.
      * @param position an integer.
-     * @return a {@link org.evosuite.testcase.statements.PrimitiveStatement} object.
      */
     public static PrimitiveStatement<?> getRandomStatement(TestCase tc,
                                                            GenericClass<?> clazz, int position) {

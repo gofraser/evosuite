@@ -43,145 +43,102 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
     /**
      * The position of the statement, defining this VariableReference, in the
      * testcase.
-     *
-     * @return a int.
      */
     int getStPosition();
 
     /**
      * Distance metric used to select variables for mutation based on how close
      * they are to the SUT.
-     *
-     * @return a int.
      */
     int getDistance();
 
     /**
      * Set the distance metric.
-     *
-     * @param distance a int.
      */
     void setDistance(int distance);
 
     /**
      * Create a copy of the current variable.
-     *
-     * @return a {@link VariableReference} object.
      */
     VariableReference clone();
 
     /**
      * Create a copy of the current variable for new test.
-     *
-     * @param newTest a {@link org.evosuite.testcase.TestCase} object.
-     * @return a {@link VariableReference} object.
      */
     VariableReference clone(TestCase newTest);
 
     /**
      * Create a copy of the current variable for new test.
-     *
-     * @param newTest a {@link org.evosuite.testcase.TestCase} object.
-     * @param offset  a int.
-     * @return a {@link VariableReference} object.
      */
     VariableReference copy(TestCase newTest, int offset);
 
     /**
      * Return simple class name.
-     *
-     * @return a {@link java.lang.String} object.
      */
     String getSimpleClassName();
 
     /**
      * Return class name.
-     *
-     * @return a {@link java.lang.String} object.
      */
     String getClassName();
 
     /**
      * getComponentName.
-     *
-     * @return a {@link java.lang.String} object.
      */
     String getComponentName();
 
     /**
      * getComponentType.
-     *
-     * @return a {@link java.lang.reflect.Type} object.
      */
     Type getComponentType();
 
     /**
      * getGenericClass.
-     *
-     * @return a {@link GenericClassImpl} object.
      */
     GenericClass<?> getGenericClass();
 
     /**
      * getTestCase.
-     *
-     * @return a {@link org.evosuite.testcase.TestCase} object.
      */
     TestCase getTestCase();
 
     /**
      * Return true if variable is an enumeration.
-     *
-     * @return a boolean.
      */
     boolean isEnum();
 
     /**
      * Return true if variable is a primitive type.
-     *
-     * @return a boolean.
      */
     boolean isPrimitive();
 
     /**
      * Return true if variable is void.
-     *
-     * @return a boolean.
      */
     boolean isVoid();
 
     /**
      * Return true if variable is an array.
-     *
-     * @return a boolean.
      */
     boolean isArray();
 
     /**
      * Return true if this is an index into an array variable.
-     *
-     * @return a boolean.
      */
     boolean isArrayIndex();
 
     /**
      * Return true if this is a reference to a public field.
-     *
-     * @return a boolean.
      */
     boolean isFieldReference();
 
     /**
      * Return true if variable is a string.
-     *
-     * @return a boolean.
      */
     boolean isString();
 
     /**
      * Return true if type of variable is a primitive wrapper.
-     *
-     * @return a boolean.
      */
     boolean isWrapperType();
 
@@ -198,7 +155,6 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
      * Return true if other type can be assigned to this variable.
      *
      * @param other Right hand side of the assignment.
-     * @return a boolean.
      */
     boolean isAssignableFrom(Type other);
 
@@ -206,7 +162,6 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
      * Return true if this variable can by assigned to a variable of other type.
      *
      * @param other Left hand side of the assignment.
-     * @return a boolean.
      */
     boolean isAssignableTo(Type other);
 
@@ -214,7 +169,6 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
      * Return true if other type can be assigned to this variable.
      *
      * @param other Right hand side of the assignment.
-     * @return a boolean.
      */
     boolean isAssignableFrom(VariableReference other);
 
@@ -222,35 +176,26 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
      * Return true if this variable can by assigned to a variable of other type.
      *
      * @param other Left hand side of the assignment.
-     * @return a boolean.
      */
     boolean isAssignableTo(VariableReference other);
 
     /**
      * Return type of this variable.
-     *
-     * @return a {@link java.lang.reflect.Type} object.
      */
     Type getType();
 
     /**
      * Set type of this variable.
-     *
-     * @param type a {@link java.lang.reflect.Type} object.
      */
     void setType(Type type);
 
     /**
      * Return raw class of this variable.
-     *
-     * @return a {@link java.lang.Class} object.
      */
     Class<?> getVariableClass();
 
     /**
      * Return raw class of this variable's component.
-     *
-     * @return a {@link java.lang.Class} object.
      */
     Class<?> getComponentClass();
 
@@ -258,7 +203,6 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
      * Return the actual object represented by this variable for a given scope.
      *
      * @param scope The scope of the test case execution.
-     * @return a {@link java.lang.Object} object.
      * @throws org.evosuite.testcase.execution.CodeUnderTestException if code from the class
      *                                                                under test throws an
      *                                                                exception. (E.g. the
@@ -303,22 +247,16 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
 
     /**
      * Return name for source code representation.
-     *
-     * @return a {@link java.lang.String} object.
      */
     String getName();
 
     /**
      * getAdditionalVariableReference.
-     *
-     * @return a {@link VariableReference} object.
      */
     VariableReference getAdditionalVariableReference();
 
     /**
      * setAdditionalVariableReference.
-     *
-     * @param var a {@link VariableReference} object.
      */
     void setAdditionalVariableReference(VariableReference var);
 
@@ -345,38 +283,26 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
 
     /**
      * loadBytecode.
-     *
-     * @param mg     a {@link org.objectweb.asm.commons.GeneratorAdapter} object.
-     * @param locals a {@link java.util.Map} object.
      */
     void loadBytecode(GeneratorAdapter mg, Map<Integer, Integer> locals);
 
     /**
      * storeBytecode.
-     *
-     * @param mg     a {@link org.objectweb.asm.commons.GeneratorAdapter} object.
-     * @param locals a {@link java.util.Map} object.
      */
     void storeBytecode(GeneratorAdapter mg, Map<Integer, Integer> locals);
 
     /**
      * changeClassLoader.
-     *
-     * @param loader a {@link java.lang.ClassLoader} object.
      */
     void changeClassLoader(ClassLoader loader);
 
     /**
      * getDefaultValue.
-     *
-     * @return a {@link java.lang.Object} object.
      */
     Object getDefaultValue();
 
     /**
      * getDefaultValueString.
-     *
-     * @return a {@link java.lang.String} object.
      */
     String getDefaultValueString();
 
@@ -385,9 +311,6 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
 
     /**
      * same.
-     *
-     * @param r a {@link VariableReference} object.
-     * @return a boolean.
      */
     boolean same(VariableReference r);
 }

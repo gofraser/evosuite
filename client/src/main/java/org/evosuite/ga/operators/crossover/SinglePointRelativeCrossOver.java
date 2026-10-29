@@ -39,9 +39,6 @@ public class SinglePointRelativeCrossOver<T extends Chromosome<T>> extends Cross
      * position 70% of n). For example, if n1=10 and n2=20 and splitting point
      * is 70%, we would have position 7 in the first and 14 in the second.
      * Therefore, the offspring d have n&lt;=max(n1,n2)
-     *
-     * @param parent1 a T object.
-     * @param parent2 a T object.
      */
     @Override
     public void crossOver(T parent1, T parent2)

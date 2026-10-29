@@ -54,9 +54,6 @@ public class MethodCallReplacementClassAdapter extends ClassVisitor {
 
     /**
      * <p>Constructor for MethodCallReplacementClassAdapter.</p>
-     *
-     * @param cv        a {@link org.objectweb.asm.ClassVisitor} object.
-     * @param className a {@link java.lang.String} object.
      */
     public MethodCallReplacementClassAdapter(ClassVisitor cv, String className) {
         this(cv, className, true);
@@ -64,10 +61,6 @@ public class MethodCallReplacementClassAdapter extends ClassVisitor {
 
     /**
      * <p>Constructor for MethodCallReplacementClassAdapter.</p>
-     *
-     * @param cv            a {@link org.objectweb.asm.ClassVisitor} object.
-     * @param className     a {@link java.lang.String} object.
-     * @param canAddMethods a boolean.
      */
     public MethodCallReplacementClassAdapter(ClassVisitor cv, String className, boolean canAddMethods) {
         super(Opcodes.ASM9, cv);

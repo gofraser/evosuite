@@ -46,9 +46,6 @@ public class VariableNameStrategyFactory {
 
     /**
      * Get the variable naming strategy.
-     *
-     * @param identifierNamingStrategy a {@link org.evosuite.Properties.VariableNamingStrategy} object.
-     * @return a {@link org.evosuite.testcase.variable.name.VariableNameStrategy} object.
      */
     public static VariableNameStrategy get(Properties.VariableNamingStrategy identifierNamingStrategy) {
         if (Properties.VariableNamingStrategy.TYPE_BASED.equals(identifierNamingStrategy)) {
@@ -75,8 +72,6 @@ public class VariableNameStrategyFactory {
 
     /**
      * gatherInformation.
-     *
-     * @return a boolean.
      */
     public static boolean gatherInformation() {
         return Properties.VariableNamingStrategy.HEURISTICS_BASED.equals(Properties.VARIABLE_NAMING_STRATEGY);

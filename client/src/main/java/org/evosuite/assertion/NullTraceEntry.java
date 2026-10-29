@@ -38,9 +38,6 @@ public class NullTraceEntry implements OutputTraceEntry {
 
     /**
      * <p>Constructor for NullTraceEntry.</p>
-     *
-     * @param var    a {@link org.evosuite.testcase.variable.VariableReference} object.
-     * @param result a boolean.
      */
     public NullTraceEntry(VariableReference var, boolean result) {
         this.var = var;

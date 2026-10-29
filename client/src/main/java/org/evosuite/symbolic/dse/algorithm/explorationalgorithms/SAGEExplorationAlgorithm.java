@@ -42,9 +42,6 @@ public class SAGEExplorationAlgorithm extends ExplorationAlgorithm {
 
     /**
      * Constructor.
-     *
-     * @param statistics a {@link org.evosuite.symbolic.dse.DSEStatistics} object.
-     * @param showProgress a boolean.
      */
     public SAGEExplorationAlgorithm(DSEStatistics statistics, boolean showProgress) {
         super(statistics, showProgress);

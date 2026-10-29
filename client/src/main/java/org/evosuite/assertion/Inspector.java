@@ -44,9 +44,6 @@ public class Inspector implements Serializable {
      * <p>
      * Constructor for Inspector.
      * </p>
-     *
-     * @param clazz a {@link java.lang.Class} object.
-     * @param m     a {@link java.lang.reflect.Method} object.
      */
     public Inspector(Class<?> clazz, Method m) {
         this.clazz = clazz;
@@ -75,12 +72,6 @@ public class Inspector implements Serializable {
      * <p>
      * getValue.
      * </p>
-     *
-     * @param object a {@link java.lang.Object} object.
-     * @return a {@link java.lang.Object} object.
-     * @throws java.lang.IllegalArgumentException          if any.
-     * @throws java.lang.IllegalAccessException            if any.
-     * @throws java.lang.reflect.InvocationTargetException if any.
      */
     public Object getValue(Object object) throws IllegalArgumentException,
             IllegalAccessException, InvocationTargetException {
@@ -119,8 +110,6 @@ public class Inspector implements Serializable {
      * <p>
      * Getter for the field <code>method</code>.
      * </p>
-     *
-     * @return a {@link java.lang.reflect.Method} object.
      */
     public Method getMethod() {
         return method;
@@ -130,8 +119,6 @@ public class Inspector implements Serializable {
      * <p>
      * getMethodCall.
      * </p>
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getMethodCall() {
         return method.getName();
@@ -141,8 +128,6 @@ public class Inspector implements Serializable {
      * <p>
      * getClassName.
      * </p>
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getClassName() {
         return clazz.getName();
@@ -152,8 +137,6 @@ public class Inspector implements Serializable {
      * <p>
      * getReturnType.
      * </p>
-     *
-     * @return a {@link java.lang.Class} object.
      */
     public Class<?> getReturnType() {
         return method.getReturnType();

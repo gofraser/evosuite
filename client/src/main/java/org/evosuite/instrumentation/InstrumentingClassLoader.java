@@ -87,9 +87,6 @@ public class InstrumentingClassLoader extends ClassLoader {
      * <p>
      * Constructor for InstrumentingClassLoader.
      * </p>
-     *
-     * @param instrumentation a {@link org.evosuite.instrumentation.BytecodeInstrumentation}
-     *                        object.
      */
     public InstrumentingClassLoader(BytecodeInstrumentation instrumentation) {
         this(instrumentation, getDefaultParentClassLoader());
@@ -102,8 +99,6 @@ public class InstrumentingClassLoader extends ClassLoader {
 
     /**
      * Returns a view of the instrumented classes.
-     *
-     * @return a {@link java.util.List} object.
      */
     public List<String> getViewOfInstrumentedClasses() {
         return new ArrayList<>(classes.keySet());
@@ -482,8 +477,6 @@ public class InstrumentingClassLoader extends ClassLoader {
 
     /**
      * Before a new class is defined, we need to create a package definition for it.
-     *
-     * @param className a {@link java.lang.String} object.
      */
     private void createPackageDefinition(String className) {
         int i = className.lastIndexOf('.');

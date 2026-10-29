@@ -61,9 +61,6 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
 
     /**
      * <p>Constructor for GenericMethod.</p>
-     *
-     * @param method a {@link java.lang.reflect.Method} object.
-     * @param clazz  a {@link org.evosuite.utils.generic.GenericClass} object.
      */
     public GenericMethod(Method method, GenericClass<?> clazz) {
         super(clazz);
@@ -73,9 +70,6 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
 
     /**
      * <p>Constructor for GenericMethod.</p>
-     *
-     * @param method a {@link java.lang.reflect.Method} object.
-     * @param clazz  a {@link org.evosuite.utils.generic.GenericClass} object.
      */
     public GenericMethod(Method method, Class<?> clazz) {
         this(method, GenericClassFactory.get(clazz));
@@ -83,9 +77,6 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
 
     /**
      * <p>Constructor for GenericMethod.</p>
-     *
-     * @param method a {@link java.lang.reflect.Method} object.
-     * @param type   a {@link java.lang.reflect.Type} object.
      */
     public GenericMethod(Method method, Type type) {
         this(method, GenericClassFactory.get(type));
@@ -93,8 +84,6 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
 
     /**
      * <p>Getter for the field <code>method</code>.</p>
-     *
-     * @return a {@link java.lang.reflect.Method} object.
      */
     public Method getMethod() {
         return method;

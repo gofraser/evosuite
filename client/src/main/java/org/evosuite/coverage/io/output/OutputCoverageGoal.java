@@ -60,9 +60,6 @@ public class OutputCoverageGoal implements Serializable, IOGoal<OutputCoverageGo
      * Otherwise this goal will try to reach the given branch and if value is
      * true, make the branchInstruction jump and visa versa
      *
-     * @param className       a {@link java.lang.String} object.
-     * @param methodName      a {@link java.lang.String} object.
-     * @param type            a {@link Type} object.
      * @param valueDescriptor a value descriptor.
      */
     public OutputCoverageGoal(String className, String methodName, Type type, String valueDescriptor) {
@@ -72,11 +69,7 @@ public class OutputCoverageGoal implements Serializable, IOGoal<OutputCoverageGo
     /**
      * Creates an output coverage goal.
      *
-     * @param className       a {@link java.lang.String} object.
-     * @param methodName      a {@link java.lang.String} object.
-     * @param type            a {@link org.objectweb.asm.Type} object.
      * @param valueDescriptor a value descriptor.
-     * @param numericValue    a {@link java.lang.Number} object.
      */
     public OutputCoverageGoal(String className, String methodName, Type type, String valueDescriptor,
                               Number numericValue) {

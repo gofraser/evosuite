@@ -41,11 +41,6 @@ public class CreateClassResetMethodAdapter extends MethodVisitor {
 
     /**
      * <p>Constructor for CreateClassResetMethodAdapter.</p>
-     *
-     * @param mv           a {@link org.objectweb.asm.MethodVisitor} object.
-     * @param className    a {@link java.lang.String} object.
-     * @param staticFields a {@link java.util.List} object.
-     * @param finalFields  a {@link java.util.List} object.
      */
     public CreateClassResetMethodAdapter(MethodVisitor mv, String className,
                                          List<StaticField> staticFields, List<String> finalFields) {

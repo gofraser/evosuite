@@ -54,8 +54,6 @@ public class TestSuiteChromosomeFactory implements ChromosomeFactory<TestSuiteCh
 
     /**
      * <p>Constructor for TestSuiteChromosomeFactory.</p>
-     *
-     * @param testFactory a {@link org.evosuite.ga.ChromosomeFactory} object.
      */
     public TestSuiteChromosomeFactory(ChromosomeFactory<TestChromosome> testFactory) {
         testChromosomeFactory = testFactory;
@@ -63,8 +61,6 @@ public class TestSuiteChromosomeFactory implements ChromosomeFactory<TestSuiteCh
 
     /**
      * <p>setTestFactory.</p>
-     *
-     * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object.
      */
     public void setTestFactory(ChromosomeFactory<TestChromosome> factory) {
         testChromosomeFactory = factory;

@@ -334,8 +334,6 @@ public class CellularGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
     /**
      * Sets the replacement function.
-     *
-     * @param replacementFunction a {@link org.evosuite.ga.ReplacementFunction} object.
      */
     public void setReplacementFunction(ReplacementFunction<T> replacementFunction) {
         this.replacementFunction = replacementFunction;
@@ -343,8 +341,6 @@ public class CellularGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
     /**
      * Gets the replacement function.
-     *
-     * @return a {@link org.evosuite.ga.ReplacementFunction} object.
      */
     public ReplacementFunction<T> getReplacementFunction() {
         return replacementFunction;

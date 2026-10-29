@@ -37,8 +37,6 @@ public class EvoSuiteFile implements Serializable {
 
     /**
      * <p>Constructor for EvoSuiteFile.</p>
-     *
-     * @param path a {@link java.lang.String} object.
      */
     public EvoSuiteFile(String path) {
 
@@ -51,8 +49,6 @@ public class EvoSuiteFile implements Serializable {
 
     /**
      * <p>Getter for the field <code>path</code>.</p>
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getPath() {
         return path;

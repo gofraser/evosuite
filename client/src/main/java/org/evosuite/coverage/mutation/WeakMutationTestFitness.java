@@ -38,8 +38,6 @@ public class WeakMutationTestFitness extends MutationTestFitness {
      * <p>
      * Constructor for WeakMutationTestFitness.
      * </p>
-     *
-     * @param mutation a {@link org.evosuite.coverage.mutation.Mutation} object.
      */
     public WeakMutationTestFitness(Mutation mutation) {
         super(mutation);

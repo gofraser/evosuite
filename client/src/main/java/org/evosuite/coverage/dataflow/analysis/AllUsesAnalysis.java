@@ -60,8 +60,6 @@ public class AllUsesAnalysis {
     /**
      * Given the ClassControlFlowGraph of a class this constructor will build up the
      * corresponding CCFG using the RCFGs from the GraphPool.
-     *
-     * @param ccfg a {@link org.evosuite.graphs.ccfg.ClassControlFlowGraph} object.
      */
     public AllUsesAnalysis(ClassControlFlowGraph ccfg) {
         this.ccfg = ccfg;
@@ -76,8 +74,6 @@ public class AllUsesAnalysis {
      * activeDefs after each run then create intra-class pairs from these uses
      * and defs and during each single run we detect intra and inter method
      * pairs.
-     *
-     * @return a {@link java.util.Set} object.
      */
     public Set<DefUseCoverageTestFitness> determineDefUsePairs() {
 

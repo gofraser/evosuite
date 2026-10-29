@@ -57,8 +57,6 @@ public class FailingTestSet {
 
     /**
      * Adds a failing test to the set of violations.
-     *
-     * @param violation a {@link org.evosuite.contracts.ContractViolation} object.
      */
     public static void addFailingTest(ContractViolation violation) {
         violationCount++;
@@ -69,8 +67,6 @@ public class FailingTestSet {
 
     /**
      * How many violations have we observed in total.
-     *
-     * @return a int.
      */
     public static int getNumberOfViolations() {
         return violationCount;
@@ -78,9 +74,6 @@ public class FailingTestSet {
 
     /**
      * How many violations of this contract have we observed in total.
-     *
-     * @param contract a {@link org.evosuite.contracts.Contract} object.
-     * @return a int.
      */
     public static int getNumberOfViolations(Contract contract) {
         int num = 0;
@@ -94,9 +87,6 @@ public class FailingTestSet {
 
     /**
      * How many violations of this contract have we observed in total.
-     *
-     * @param contractClass a {@link java.lang.Class} object.
-     * @return a int.
      */
     public static int getNumberOfViolations(Class<?> contractClass) {
         int num = 0;
@@ -110,8 +100,6 @@ public class FailingTestSet {
 
     /**
      * How many unique violations have we observed.
-     *
-     * @return a int.
      */
     public static int getNumberOfUniqueViolations() {
         return violations.size();
@@ -176,9 +164,6 @@ public class FailingTestSet {
 
     /**
      * Determine if we already have an instance of this violation.
-     *
-     * @param violation a {@link org.evosuite.contracts.ContractViolation} object.
-     * @return a boolean.
      */
     public static boolean hasViolation(ContractViolation violation) {
         for (ContractViolation oldViolation : violations) {

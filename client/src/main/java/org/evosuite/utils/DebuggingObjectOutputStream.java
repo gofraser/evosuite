@@ -54,9 +54,6 @@ public class DebuggingObjectOutputStream extends ObjectOutputStream {
 
     /**
      * <p>Constructor for DebuggingObjectOutputStream.</p>
-     *
-     * @param out a {@link java.io.OutputStream} object.
-     * @throws java.io.IOException if any.
      */
     public DebuggingObjectOutputStream(OutputStream out) throws IOException {
         super(out);
@@ -114,8 +111,6 @@ public class DebuggingObjectOutputStream extends ObjectOutputStream {
     /**
      * Returns the path to the last object serialized. If an exception occurred,
      * this should be the path to the non-serializable object.
-     *
-     * @return a {@link java.util.List} object.
      */
     public List<Object> getStack() {
         return stack;

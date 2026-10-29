@@ -151,9 +151,6 @@ public abstract class ExplorationAlgorithm extends ExplorationAlgorithmBase {
 
     /**
      * Constructor with statistics logger and show progress flag.
-     *
-     * @param statisticsLogger a {@link org.evosuite.symbolic.dse.DSEStatistics} object.
-     * @param showProgress a boolean.
      */
     public ExplorationAlgorithm(
             DSEStatistics statisticsLogger,
@@ -169,11 +166,6 @@ public abstract class ExplorationAlgorithm extends ExplorationAlgorithmBase {
 
     /**
      * Constructor with all parameters.
-     *
-     * @param showProgress a boolean.
-     * @param dseStatistics a {@link org.evosuite.symbolic.dse.DSEStatistics} object.
-     * @param engine a {@link org.evosuite.symbolic.dse.ConcolicExecutor} object.
-     * @param solver a {@link org.evosuite.symbolic.solver.Solver} object.
      */
     public ExplorationAlgorithm(
             boolean showProgress,

@@ -33,8 +33,6 @@ public class LoopCounterClassAdapter extends ClassVisitor {
 
     /**
      * <p>Constructor for LoopCounterClassAdapter.</p>
-     *
-     * @param cv a {@link org.objectweb.asm.ClassVisitor} object.
      */
     public LoopCounterClassAdapter(ClassVisitor cv) {
         super(Opcodes.ASM9, cv);

@@ -46,9 +46,6 @@ public class ControlFlowDistance implements Comparable<ControlFlowDistance> {
      * Can be used to create an arbitrary ControlFlowDistance.
      *
      * <p>However approachLevel and branchDistance are expected to be positive.
-     *
-     * @param approachLevel  a int.
-     * @param branchDistance a double.
      */
     public ControlFlowDistance(int approachLevel, double branchDistance) {
         if (approachLevel < 0 || branchDistance < 0.0) {
@@ -81,8 +78,6 @@ public class ControlFlowDistance implements Comparable<ControlFlowDistance> {
 
     /**
      * <p>Getter for the field <code>approachLevel</code>.</p>
-     *
-     * @return a int.
      */
     public int getApproachLevel() {
         return approachLevel;
@@ -90,8 +85,6 @@ public class ControlFlowDistance implements Comparable<ControlFlowDistance> {
 
     /**
      * <p>Setter for the field <code>approachLevel</code>.</p>
-     *
-     * @param approachLevel a int.
      */
     public void setApproachLevel(int approachLevel) {
         if (approachLevel < 0) {
@@ -104,8 +97,6 @@ public class ControlFlowDistance implements Comparable<ControlFlowDistance> {
 
     /**
      * <p>Getter for the field <code>branchDistance</code>.</p>
-     *
-     * @return a double.
      */
     public double getBranchDistance() {
         return branchDistance;
@@ -113,8 +104,6 @@ public class ControlFlowDistance implements Comparable<ControlFlowDistance> {
 
     /**
      * <p>Setter for the field <code>branchDistance</code>.</p>
-     *
-     * @param branchDistance a double.
      */
     public void setBranchDistance(double branchDistance) {
         if (branchDistance < 0.0) {
@@ -126,8 +115,6 @@ public class ControlFlowDistance implements Comparable<ControlFlowDistance> {
 
     /**
      * <p>getResultingBranchFitness.</p>
-     *
-     * @return a double.
      */
     public double getResultingBranchFitness() {
         return approachLevel + FitnessFunction.normalize(branchDistance);

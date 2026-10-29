@@ -43,8 +43,6 @@ public abstract class TestFitnessFunction
     /**
      * Calculates the fitness of the given individual based on its execution result.
      *
-     * @param individual a {@link org.evosuite.testcase.TestChromosome} object.
-     * @param result     a {@link org.evosuite.testcase.execution.ExecutionResult} object.
      * @return the fitness value
      */
     public abstract double getFitness(TestChromosome individual, ExecutionResult result);
@@ -90,9 +88,6 @@ public abstract class TestFitnessFunction
 
     /**
      * Determine if there is an existing test case covering this goal.
-     *
-     * @param tests a {@link java.util.List} object.
-     * @return a boolean.
      */
     public boolean isCovered(List<TestCase> tests) {
         return tests.stream().anyMatch(this::isCovered);
@@ -100,9 +95,6 @@ public abstract class TestFitnessFunction
 
     /**
      * Determine if there is an existing test case covering this goal.
-     *
-     * @param tests a {@link java.util.List} object.
-     * @return a boolean.
      */
     public boolean isCoveredByResults(List<ExecutionResult> tests) {
         return tests.stream().anyMatch(this::isCovered);
@@ -128,9 +120,6 @@ public abstract class TestFitnessFunction
 
     /**
      * Checks if the given test case covers this goal.
-     *
-     * @param test a {@link org.evosuite.testcase.TestCase} object.
-     * @return a boolean.
      */
     public boolean isCovered(TestCase test) {
         TestChromosome c = new TestChromosome();
@@ -140,9 +129,6 @@ public abstract class TestFitnessFunction
 
     /**
      * Checks if the given test chromosome covers this goal.
-     *
-     * @param tc a {@link org.evosuite.testcase.TestChromosome} object.
-     * @return a boolean.
      */
     public boolean isCovered(TestChromosome tc) {
         if (tc.getTestCase().isGoalCovered(this)) {
@@ -162,10 +148,6 @@ public abstract class TestFitnessFunction
 
     /**
      * Checks if the given test chromosome covers this goal based on the execution result.
-     *
-     * @param individual a {@link org.evosuite.testcase.TestChromosome} object.
-     * @param result     a {@link org.evosuite.testcase.execution.ExecutionResult} object.
-     * @return a boolean.
      */
     public boolean isCovered(TestChromosome individual, ExecutionResult result) {
         boolean covered = getFitness(individual, result) == 0.0;

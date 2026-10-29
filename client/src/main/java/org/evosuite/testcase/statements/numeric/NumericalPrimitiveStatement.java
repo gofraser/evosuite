@@ -40,8 +40,6 @@ public abstract class NumericalPrimitiveStatement<T> extends PrimitiveStatement<
     /**
      * Constructs a new NumericalPrimitiveStatement.
      *
-     * @param tc    a {@link org.evosuite.testcase.TestCase} object.
-     * @param type  a {@link java.lang.reflect.Type} object.
      * @param value the initial value.
      */
     public NumericalPrimitiveStatement(TestCase tc, Type type, T value) {
@@ -50,15 +48,11 @@ public abstract class NumericalPrimitiveStatement<T> extends PrimitiveStatement<
 
     /**
      * Changes value by delta.
-     *
-     * @param delta a long.
      */
     public abstract void increment(long delta);
 
     /**
      * Changes value by delta.
-     *
-     * @param delta a double.
      */
     public void increment(double delta) {
         increment((long) delta);

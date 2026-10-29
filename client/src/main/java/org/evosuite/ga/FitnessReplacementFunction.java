@@ -32,8 +32,6 @@ public class FitnessReplacementFunction<T extends Chromosome<T>> extends Replace
 
     /**
      * <p>Constructor for FitnessReplacementFunction.</p>
-     *
-     * @param maximize a boolean.
      */
     public FitnessReplacementFunction(boolean maximize) {
         super(maximize);

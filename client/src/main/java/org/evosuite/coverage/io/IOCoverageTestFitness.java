@@ -82,8 +82,6 @@ public abstract class IOCoverageTestFitness<G extends IOGoal<G>> extends TestFit
      * <p>
      * getClassName.
      * </p>
-     *
-     * @return a {@link String} object.
      */
     public String getClassName() {
         return goal.getClassName();
@@ -93,8 +91,6 @@ public abstract class IOCoverageTestFitness<G extends IOGoal<G>> extends TestFit
      * <p>
      * getMethod.
      * </p>
-     *
-     * @return a {@link String} object.
      */
     public String getMethod() {
         return goal.getMethodName();
@@ -104,8 +100,6 @@ public abstract class IOCoverageTestFitness<G extends IOGoal<G>> extends TestFit
      * <p>
      * getType.
      * </p>
-     *
-     * @return a {@link org.objectweb.asm.Type} object.
      */
     public Type getType() {
         return goal.getType();
@@ -115,8 +109,6 @@ public abstract class IOCoverageTestFitness<G extends IOGoal<G>> extends TestFit
      * <p>
      * getValueDescriptor.
      * </p>
-     *
-     * @return a {@link String} object.
      */
     public String getValueDescriptor() {
         return goal.getValueDescriptor();
@@ -126,10 +118,6 @@ public abstract class IOCoverageTestFitness<G extends IOGoal<G>> extends TestFit
      * {@inheritDoc}
      * <p/>
      * Calculate fitness.
-     *
-     * @param individual a {@link org.evosuite.testcase.ExecutableChromosome} object.
-     * @param result     a {@link ExecutionResult} object.
-     * @return a double.
      */
     @Override
     public double getFitness(TestChromosome individual, ExecutionResult result) {

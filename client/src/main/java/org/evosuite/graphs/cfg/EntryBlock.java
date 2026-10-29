@@ -25,9 +25,6 @@ public class EntryBlock extends BasicBlock {
 
     /**
      * <p>Constructor for EntryBlock.</p>
-     *
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
      */
     public EntryBlock(String className, String methodName) {
         super(className, methodName, -1);

@@ -60,9 +60,6 @@ public class BooleanHelper {
 
     /**
      * Keep track of the distance for this predicate.
-     *
-     * @param branchId a int.
-     * @param distance a int.
      */
     public static void pushPredicate(int distance, int branchId) {
         lastDistance.put(branchId, Math.abs(distance));
@@ -70,11 +67,6 @@ public class BooleanHelper {
 
     /**
      * Retrieve the distance of a predicate with its given approximation level.
-     *
-     * @param branchId           a int.
-     * @param approximationLevel a int.
-     * @param value              a int.
-     * @return a int.
      */
     public static int getDistance(int branchId, int approximationLevel, int value) {
         int distance = Integer.MAX_VALUE;
@@ -112,10 +104,6 @@ public class BooleanHelper {
 
     /**
      * Replacement function for double comparison.
-     *
-     * @param d1 a double.
-     * @param d2 a double.
-     * @return a int.
      */
     public static int doubleSubG(double d1, double d2) {
         if (d1 == d2) {
@@ -133,10 +121,6 @@ public class BooleanHelper {
 
     /**
      * Replacement function for double comparison.
-     *
-     * @param d1 a double.
-     * @param d2 a double.
-     * @return a int.
      */
     public static int doubleSubL(double d1, double d2) {
         if (d1 == d2) {
@@ -174,10 +158,6 @@ public class BooleanHelper {
 
     /**
      * Replacement function for float comparison.
-     *
-     * @param f1 a float.
-     * @param f2 a float.
-     * @return a int.
      */
     public static int floatSubG(float f1, float f2) {
         if (f1 == f2) {
@@ -195,10 +175,6 @@ public class BooleanHelper {
 
     /**
      * Replacement function for float comparison.
-     *
-     * @param f1 a float.
-     * @param f2 a float.
-     * @return a int.
      */
     public static int floatSubL(float f1, float f2) {
         if (f1 == f2) {
@@ -234,10 +210,6 @@ public class BooleanHelper {
      * <p>
      * intSub.
      * </p>
-     *
-     * @param a a int.
-     * @param b a int.
-     * @return a int.
      */
     public static int intSub(int a, int b) {
         long sub = (long) a - (long) b;
@@ -251,10 +223,6 @@ public class BooleanHelper {
 
     /**
      * Replacement function for long comparison.
-     *
-     * @param l1 a long.
-     * @param l2 a long.
-     * @return a int.
      */
     public static int longSub(long l1, long l2) {
         if (l1 == l2) {
@@ -274,9 +242,6 @@ public class BooleanHelper {
      * <p>
      * fromDouble.
      * </p>
-     *
-     * @param d a double.
-     * @return a int.
      */
     @Deprecated
     public static int fromDouble(double d) {
@@ -303,9 +268,6 @@ public class BooleanHelper {
      * <p>
      * fromFloat.
      * </p>
-     *
-     * @param d a float.
-     * @return a int.
      */
     @Deprecated
     public static int fromFloat(float d) {
@@ -331,9 +293,6 @@ public class BooleanHelper {
      * <p>
      * fromLong.
      * </p>
-     *
-     * @param d a long.
-     * @return a int.
      */
     @Deprecated
     public static int fromLong(long d) {
@@ -357,9 +316,6 @@ public class BooleanHelper {
      * <p>
      * booleanToInt.
      * </p>
-     *
-     * @param b a boolean.
-     * @return a int.
      */
     public static int booleanToInt(boolean b) {
         if (b) {
@@ -373,9 +329,6 @@ public class BooleanHelper {
      * <p>
      * intToBoolean.
      * </p>
-     *
-     * @param x a int.
-     * @return a boolean.
      */
     public static boolean intToBoolean(int x) {
         return x > 0;
@@ -385,10 +338,6 @@ public class BooleanHelper {
     /**
      * Replacement function for the Java instanceof instruction, which returns a
      * distance integer.
-     *
-     * @param o a {@link java.lang.Object} object.
-     * @param c a {@link java.lang.Class} object.
-     * @return a int.
      */
     public static int instanceOf(Object o, Class<?> c) {
         if (o == null) {
@@ -403,7 +352,6 @@ public class BooleanHelper {
      *
      * @param o      the object to check.
      * @param opcode the opcode of the instruction.
-     * @return a int.
      */
     public static int isNull(Object o, int opcode) {
         if (opcode == Opcodes.IFNULL) {
@@ -417,10 +365,6 @@ public class BooleanHelper {
      * <p>
      * IOR.
      * </p>
-     *
-     * @param a a int.
-     * @param b a int.
-     * @return a int.
      */
     @SuppressWarnings("checkstyle:methodname")
     public static int IOR(int a, int b) {
@@ -448,10 +392,6 @@ public class BooleanHelper {
      * <p>
      * IAND.
      * </p>
-     *
-     * @param a a int.
-     * @param b a int.
-     * @return a int.
      */
     @SuppressWarnings("checkstyle:methodname")
     public static int IAND(int a, int b) {
@@ -462,10 +402,6 @@ public class BooleanHelper {
      * <p>
      * IXOR.
      * </p>
-     *
-     * @param a a int.
-     * @param b a int.
-     * @return a int.
      */
     @SuppressWarnings("checkstyle:methodname")
     public static int IXOR(int a, int b) {
@@ -487,11 +423,6 @@ public class BooleanHelper {
      * <p>
      * isEqual.
      * </p>
-     *
-     * @param o1     a {@link java.lang.Object} object.
-     * @param o2     a {@link java.lang.Object} object.
-     * @param opcode a int.
-     * @return a int.
      */
     public static int isEqual(Object o1, Object o2, int opcode) {
         if (opcode == Opcodes.IF_ACMPEQ) {
@@ -515,8 +446,6 @@ public class BooleanHelper {
      * <p>
      * popParameterBooleanFromInt.
      * </p>
-     *
-     * @return a boolean.
      */
     public static boolean popParameterBooleanFromInt() {
         int i = parametersInteger.pop();
@@ -528,8 +457,6 @@ public class BooleanHelper {
      * <p>
      * popParameterIntFromBoolean.
      * </p>
-     *
-     * @return a int.
      */
     public static int popParameterIntFromBoolean() {
         boolean i = parametersBoolean.pop();
@@ -544,8 +471,6 @@ public class BooleanHelper {
      * <p>
      * popParameterBoolean.
      * </p>
-     *
-     * @return a boolean.
      */
     public static boolean popParameterBoolean() {
         return parametersBoolean.pop();
@@ -555,8 +480,6 @@ public class BooleanHelper {
      * <p>
      * popParameterChar.
      * </p>
-     *
-     * @return a char.
      */
     public static char popParameterChar() {
         return parametersChar.pop();
@@ -566,8 +489,6 @@ public class BooleanHelper {
      * <p>
      * popParameterByte.
      * </p>
-     *
-     * @return a byte.
      */
     public static byte popParameterByte() {
         return parametersByte.pop();
@@ -577,8 +498,6 @@ public class BooleanHelper {
      * <p>
      * popParameterShort.
      * </p>
-     *
-     * @return a short.
      */
     public static short popParameterShort() {
         return parametersShort.pop();
@@ -588,8 +507,6 @@ public class BooleanHelper {
      * <p>
      * popParameterInt.
      * </p>
-     *
-     * @return a int.
      */
     public static int popParameterInt() {
         return parametersInteger.pop();
@@ -599,8 +516,6 @@ public class BooleanHelper {
      * <p>
      * popParameterFloat.
      * </p>
-     *
-     * @return a float.
      */
     public static float popParameterFloat() {
         return parametersFloat.pop();
@@ -610,8 +525,6 @@ public class BooleanHelper {
      * <p>
      * popParameterLong.
      * </p>
-     *
-     * @return a long.
      */
     public static long popParameterLong() {
         return parametersLong.pop();
@@ -621,8 +534,6 @@ public class BooleanHelper {
      * <p>
      * popParameterDouble.
      * </p>
-     *
-     * @return a double.
      */
     public static double popParameterDouble() {
         return parametersDouble.pop();
@@ -632,8 +543,6 @@ public class BooleanHelper {
      * <p>
      * popParameterObject.
      * </p>
-     *
-     * @return a {@link java.lang.Object} object.
      */
     public static Object popParameterObject() {
         return parametersObject.pop();
@@ -643,9 +552,6 @@ public class BooleanHelper {
      * <p>
      * popParameter.
      * </p>
-     *
-     * @param o a {@link java.lang.Object} object.
-     * @return a {@link java.lang.Object} object.
      */
     public static Object popParameter(Object o) {
         return parametersObject.pop();
@@ -655,8 +561,6 @@ public class BooleanHelper {
      * <p>
      * pushParameter.
      * </p>
-     *
-     * @param o a boolean.
      */
     public static void pushParameter(boolean o) {
         parametersBoolean.push(o);
@@ -666,8 +570,6 @@ public class BooleanHelper {
      * <p>
      * pushParameter.
      * </p>
-     *
-     * @param o a char.
      */
     public static void pushParameter(char o) {
         parametersChar.push(o);
@@ -677,8 +579,6 @@ public class BooleanHelper {
      * <p>
      * pushParameter.
      * </p>
-     *
-     * @param o a byte.
      */
     public static void pushParameter(byte o) {
         parametersByte.push(o);
@@ -688,8 +588,6 @@ public class BooleanHelper {
      * <p>
      * pushParameter.
      * </p>
-     *
-     * @param o a short.
      */
     public static void pushParameter(short o) {
         parametersShort.push(o);
@@ -699,8 +597,6 @@ public class BooleanHelper {
      * <p>
      * pushParameter.
      * </p>
-     *
-     * @param o a int.
      */
     public static void pushParameter(int o) {
         parametersInteger.push(o);
@@ -710,8 +606,6 @@ public class BooleanHelper {
      * <p>
      * pushParameter.
      * </p>
-     *
-     * @param o a float.
      */
     public static void pushParameter(float o) {
         parametersFloat.push(o);
@@ -721,8 +615,6 @@ public class BooleanHelper {
      * <p>
      * pushParameter.
      * </p>
-     *
-     * @param o a long.
      */
     public static void pushParameter(long o) {
         parametersLong.push(o);
@@ -732,8 +624,6 @@ public class BooleanHelper {
      * <p>
      * pushParameter.
      * </p>
-     *
-     * @param o a double.
      */
     public static void pushParameter(double o) {
         parametersDouble.push(o);
@@ -743,8 +633,6 @@ public class BooleanHelper {
      * <p>
      * pushParameter.
      * </p>
-     *
-     * @param o a {@link java.lang.Object} object.
      */
     public static void pushParameter(Object o) {
         parametersObject.push(o);

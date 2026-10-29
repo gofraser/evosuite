@@ -48,9 +48,6 @@ public class NullStatement extends PrimitiveStatement<Void> {
      * <p>
      * Constructor for NullStatement.
      * </p>
-     *
-     * @param tc   a {@link org.evosuite.testcase.TestCase} object.
-     * @param type a {@link java.lang.reflect.Type} object.
      */
     public NullStatement(TestCase tc, java.lang.reflect.Type type) {
         super(tc, new NullReference(tc, type), null);

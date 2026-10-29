@@ -73,8 +73,6 @@ public class Randomness implements Serializable {
      * <p>
      * Getter for the field <code>instance</code>.
      * </p>
-     *
-     * @return a {@link org.evosuite.utils.Randomness} object.
      */
     public static Randomness getInstance() {
         return instance;
@@ -84,8 +82,6 @@ public class Randomness implements Serializable {
      * <p>
      * nextBoolean.
      * </p>
-     *
-     * @return a boolean.
      */
     public static boolean nextBoolean() {
         return random.nextBoolean();
@@ -123,8 +119,6 @@ public class Randomness implements Serializable {
      * <p>
      * nextInt.
      * </p>
-     *
-     * @return a int.
      */
     public static int nextInt() {
         return random.nextInt();
@@ -134,8 +128,6 @@ public class Randomness implements Serializable {
      * <p>
      * nextChar.
      * </p>
-     *
-     * @return a char.
      */
     public static char nextChar() {
         return (char) (nextInt(32, 128));
@@ -145,8 +137,6 @@ public class Randomness implements Serializable {
      * <p>
      * nextShort.
      * </p>
-     *
-     * @return a short.
      */
     public static short nextShort() {
         return (short) (random.nextInt(2 * 32767) - 32767);
@@ -156,8 +146,6 @@ public class Randomness implements Serializable {
      * <p>
      * nextLong.
      * </p>
-     *
-     * @return a long.
      */
     public static long nextLong() {
         return random.nextLong();
@@ -167,8 +155,6 @@ public class Randomness implements Serializable {
      * <p>
      * nextByte.
      * </p>
-     *
-     * @return a byte.
      */
     public static byte nextByte() {
         return (byte) (random.nextInt(256) - 128);
@@ -189,10 +175,6 @@ public class Randomness implements Serializable {
      * <p>
      * nextDouble.
      * </p>
-     *
-     * @param min a double.
-     * @param max a double.
-     * @return a double.
      */
     public static double nextDouble(double min, double max) {
         return min + (random.nextDouble() * (max - min));
@@ -202,8 +184,6 @@ public class Randomness implements Serializable {
      * <p>
      * nextFloat.
      * </p>
-     *
-     * @return a float.
      */
     public static float nextFloat() {
         return random.nextFloat();
@@ -213,8 +193,6 @@ public class Randomness implements Serializable {
      * <p>
      * Setter for the field <code>seed</code>.
      * </p>
-     *
-     * @param seed a long.
      */
     public static void setSeed(long seed) {
         Randomness.seed = seed;
@@ -225,8 +203,6 @@ public class Randomness implements Serializable {
      * <p>
      * Getter for the field <code>seed</code>.
      * </p>
-     *
-     * @return a long.
      */
     public static long getSeed() {
         return seed;
@@ -265,8 +241,6 @@ public class Randomness implements Serializable {
      * choice.
      * </p>
      *
-     * @param list a {@link java.util.List} object.
-     * @param <T>  a T object.
      * @return a T object or <code>null</code> if <code>list</code> is empty.
      */
     public static <T> T choice(List<T> list) {
@@ -283,8 +257,6 @@ public class Randomness implements Serializable {
      * choice.
      * </p>
      *
-     * @param set a {@link java.util.Collection} object.
-     * @param <T> a T object.
      * @return a T object or <code>null</code> if <code>set</code> is empty.
      */
     @SuppressWarnings("unchecked")
@@ -371,8 +343,6 @@ public class Randomness implements Serializable {
      * choice.
      * </p>
      *
-     * @param elements a T object.
-     * @param <T>      a T object.
      * @return a T object or <code>null</code> if <code>elements.length</code> is zero.
      */
     public static <T> T choice(T... elements) {
@@ -388,8 +358,6 @@ public class Randomness implements Serializable {
      * <p>
      * shuffle.
      * </p>
-     *
-     * @param list a {@link java.util.List} object.
      */
     public static void shuffle(List<?> list) {
         Collections.shuffle(list, random);
@@ -399,9 +367,6 @@ public class Randomness implements Serializable {
      * <p>
      * nextString.
      * </p>
-     *
-     * @param length a int.
-     * @return a {@link java.lang.String} object.
      */
     public static String nextString(int length) {
         char[] characters = new char[length];

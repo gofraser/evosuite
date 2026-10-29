@@ -40,9 +40,6 @@ public class AnnotatedLabel extends Label {
 
     /**
      * <p>Constructor for AnnotatedLabel.</p>
-     *
-     * @param ignore a boolean.
-     * @param start  a boolean.
      */
     public AnnotatedLabel(boolean ignore, boolean start) {
         this.ignore = ignore;
@@ -51,10 +48,6 @@ public class AnnotatedLabel extends Label {
 
     /**
      * <p>Constructor for AnnotatedLabel.</p>
-     *
-     * @param ignore a boolean.
-     * @param start  a boolean.
-     * @param parent a {@link org.objectweb.asm.tree.LabelNode} object.
      */
     public AnnotatedLabel(boolean ignore, boolean start, LabelNode parent) {
         this.ignore = ignore;
@@ -64,8 +57,6 @@ public class AnnotatedLabel extends Label {
 
     /**
      * <p>isStartTag.</p>
-     *
-     * @return a boolean.
      */
     public boolean isStartTag() {
         return isStart;
@@ -73,8 +64,6 @@ public class AnnotatedLabel extends Label {
 
     /**
      * <p>shouldIgnore.</p>
-     *
-     * @return a boolean.
      */
     public boolean shouldIgnore() {
         return ignore;
@@ -82,8 +71,6 @@ public class AnnotatedLabel extends Label {
 
     /**
      * <p>setIgnoreFalse.</p>
-     *
-     * @param value a boolean.
      */
     public void setIgnoreFalse(boolean value) {
         ignoreFalse = value;
@@ -91,8 +78,6 @@ public class AnnotatedLabel extends Label {
 
     /**
      * <p>shouldIgnoreFalse.</p>
-     *
-     * @return a boolean.
      */
     public boolean shouldIgnoreFalse() {
         return ignoreFalse;
@@ -100,8 +85,6 @@ public class AnnotatedLabel extends Label {
 
     /**
      * <p>getParent.</p>
-     *
-     * @return a {@link org.objectweb.asm.tree.LabelNode} object.
      */
     public LabelNode getParent() {
         return parent;
@@ -109,8 +92,6 @@ public class AnnotatedLabel extends Label {
 
     /**
      * <p>setParent.</p>
-     *
-     * @param parent a {@link org.objectweb.asm.tree.LabelNode} object.
      */
     public void setParent(LabelNode parent) {
         this.parent = parent;

@@ -58,10 +58,6 @@ public class AssignmentStatement extends AbstractStatement {
      * <p>
      * Constructor for AssignmentStatement.
      * </p>
-     *
-     * @param tc    a {@link org.evosuite.testcase.TestCase} object.
-     * @param var   a {@link org.evosuite.testcase.variable.VariableReference} object.
-     * @param value a {@link org.evosuite.testcase.variable.VariableReference} object.
      */
     public AssignmentStatement(TestCase tc, VariableReference var, VariableReference value) {
         super(tc, var);
@@ -195,8 +191,6 @@ public class AssignmentStatement extends AbstractStatement {
 
     /**
      * getValue.
-     *
-     * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
      */
     public VariableReference getValue() {
         return this.parameter;

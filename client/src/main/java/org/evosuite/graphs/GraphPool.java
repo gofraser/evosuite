@@ -155,9 +155,6 @@ public class GraphPool {
 
     /**
      * Returns the raw control flow graphs for the specified class.
-     *
-     * @param className a {@link java.lang.String} object.
-     * @return a {@link java.util.Map} object.
      */
     public Map<String, RawControlFlowGraph> getRawCFGs(String className) {
         Map<String, RawControlFlowGraph> methods = rawCFGs.get(className);
@@ -172,10 +169,6 @@ public class GraphPool {
 
     /**
      * Returns the actual control flow graph for the given class and method.
-     *
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @return a {@link org.evosuite.graphs.cfg.ActualControlFlowGraph} object.
      */
     public ActualControlFlowGraph getActualCFG(String className, String methodName) {
 
@@ -189,10 +182,6 @@ public class GraphPool {
 
     /**
      * Returns the control dependence graph for the given class and method.
-     *
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @return a {@link org.evosuite.graphs.cdg.ControlDependenceGraph} object.
      */
     public ControlDependenceGraph getCDG(String className, String methodName) {
 
@@ -208,8 +197,6 @@ public class GraphPool {
 
     /**
      * Registers a raw control flow graph.
-     *
-     * @param cfg a {@link org.evosuite.graphs.cfg.RawControlFlowGraph} object.
      */
     public void registerRawCFG(RawControlFlowGraph cfg) {
         String className = cfg.getClassName();
@@ -232,9 +219,6 @@ public class GraphPool {
 
     /**
      * Registers an actual control flow graph.
-     *
-     * @param cfg a {@link org.evosuite.graphs.cfg.ActualControlFlowGraph}
-     *            object.
      */
     public void registerActualCFG(ActualControlFlowGraph cfg) {
         registerActualCFG(cfg, false);
@@ -372,9 +356,6 @@ public class GraphPool {
      *
      * <p>If no CFG is known for the given class, an IllegalArgumentException is
      * thrown.
-     *
-     * @param className a {@link java.lang.String} object.
-     * @return a {@link org.evosuite.graphs.ccfg.ClassControlFlowGraph} object.
      */
     private ClassControlFlowGraph computeCCFG(String className) {
         if (rawCFGs.get(className) == null) {
@@ -407,8 +388,6 @@ public class GraphPool {
 
     /**
      * Clears graphs for the specified class.
-     *
-     * @param className a {@link java.lang.String} object.
      */
     public void clear(String className) {
         rawCFGs.remove(className);
@@ -419,9 +398,6 @@ public class GraphPool {
 
     /**
      * Clears graphs for the specified class and method.
-     *
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
      */
     public void clear(String className, String methodName) {
         if (rawCFGs.containsKey(className)) {

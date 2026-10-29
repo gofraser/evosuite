@@ -132,9 +132,6 @@ public class ExternalProcessGroupHandler {
      * <p>
      * startProcess.
      * </p>
-     *
-     * @param commands an array of {@link java.lang.String} objects.
-     * @return a boolean.
      */
     public boolean startProcess(String[] commands) {
         List<String[]> commandsList = new ArrayList<>();
@@ -255,9 +252,7 @@ public class ExternalProcessGroupHandler {
      * startProcess.
      * </p>
      *
-     * @param command         an array of {@link java.lang.String} objects.
      * @param processIndex    index of process
-     * @return a boolean.
      */
     protected boolean startProcess(String[] command, int processIndex) {
         if (processGroup[processIndex] != null) {
@@ -393,8 +388,6 @@ public class ExternalProcessGroupHandler {
      * <p>
      * getServerPort.
      * </p>
-     *
-     * @return a int.
      */
     public int getServerPort() {
         return MasterServices.getInstance().getRegistryPort();
@@ -404,8 +397,6 @@ public class ExternalProcessGroupHandler {
      * <p>
      * openServer.
      * </p>
-     *
-     * @return a int.
      */
     public int openServer() {
         boolean started = MasterServices.getInstance().startRegistry();
@@ -596,8 +587,6 @@ public class ExternalProcessGroupHandler {
      * <p>
      * waitForResult.
      * </p>
-     *
-     * @param timeout a int.
      */
     public void waitForResult(int timeout) {
         clientFailureDetected = false;

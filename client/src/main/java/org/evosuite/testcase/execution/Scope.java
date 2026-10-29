@@ -288,7 +288,6 @@ public class Scope {
     /**
      * Get all objects of a given type in scope.
      *
-     * @param type a {@link java.lang.reflect.Type} object.
      * @return Collection of all Objects
      */
     // TODO: Need to add all fields and stuff as well?

@@ -37,8 +37,6 @@ public class TestCaseReplacementFunction extends ReplacementFunction<TestChromos
      * <p>
      * Constructor for TestCaseReplacementFunction.
      * </p>
-     *
-     * @param maximize a boolean.
      */
     public TestCaseReplacementFunction(boolean maximize) {
         super(maximize);
@@ -56,8 +54,6 @@ public class TestCaseReplacementFunction extends ReplacementFunction<TestChromos
     /**
      * Calculates the sum of the lengths of two chromosomes.
      *
-     * @param chromosome1 a {@link org.evosuite.testcase.ExecutableChromosome} object.
-     * @param chromosome2 a {@link org.evosuite.testcase.ExecutableChromosome} object.
      * @return the sum of the sizes of the two chromosomes.
      */
     public int getLengthSum(TestChromosome chromosome1,

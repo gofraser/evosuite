@@ -26,9 +26,6 @@ public class CCFGMethodEntryNode extends CCFGNode {
 
     /**
      * Constructor for CCFGMethodEntryNode.
-     *
-     * @param method           a {@link java.lang.String} object.
-     * @param entryInstruction a {@link org.evosuite.graphs.ccfg.CCFGCodeNode} object.
      */
     public CCFGMethodEntryNode(String method, CCFGCodeNode entryInstruction) {
         this.method = method;
@@ -37,8 +34,6 @@ public class CCFGMethodEntryNode extends CCFGNode {
 
     /**
      * getMethod.
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getMethod() {
         return method;
@@ -46,8 +41,6 @@ public class CCFGMethodEntryNode extends CCFGNode {
 
     /**
      * getEntryInstruction.
-     *
-     * @return a {@link org.evosuite.graphs.ccfg.CCFGCodeNode} object.
      */
     public CCFGCodeNode getEntryInstruction() {
         return entryInstruction;

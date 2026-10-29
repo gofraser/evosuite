@@ -59,8 +59,6 @@ public class MaxStatementsStoppingCondition<T extends Chromosome<T>> extends Sto
 
     /**
      * Add a given number of executed statements.
-     *
-     * @param num a int.
      */
     public static void statementsExecuted(int num) {
         currentStatement.addAndGet(num);
@@ -88,8 +86,6 @@ public class MaxStatementsStoppingCondition<T extends Chromosome<T>> extends Sto
 
     /**
      * <p>getNumExecutedStatements.</p>
-     *
-     * @return a long.
      */
     public static long getNumExecutedStatements() {
         return currentStatement.get();
@@ -97,8 +93,6 @@ public class MaxStatementsStoppingCondition<T extends Chromosome<T>> extends Sto
 
     /**
      * <p>setNumExecutedStatements.</p>
-     *
-     * @param value a long.
      */
     public static void setNumExecutedStatements(long value) {
         currentStatement.set(value);

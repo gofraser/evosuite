@@ -45,9 +45,6 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
 
     /**
      * Constructor for GenericConstructor.
-     *
-     * @param constructor a {@link java.lang.reflect.Constructor} object.
-     * @param clazz       a {@link java.lang.Class} object.
      */
     public GenericConstructor(Constructor<?> constructor, Class<?> clazz) {
         super(GenericClassFactory.get(clazz));
@@ -57,9 +54,6 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
 
     /**
      * Constructor for GenericConstructor.
-     *
-     * @param constructor a {@link java.lang.reflect.Constructor} object.
-     * @param owner       a {@link org.evosuite.utils.generic.GenericClass} object.
      */
     public GenericConstructor(Constructor<?> constructor, GenericClass<?> owner) {
         super(GenericClassFactory.get(owner));
@@ -69,9 +63,6 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
 
     /**
      * Constructor for GenericConstructor.
-     *
-     * @param constructor a {@link java.lang.reflect.Constructor} object.
-     * @param type        a {@link java.lang.reflect.Type} object.
      */
     public GenericConstructor(Constructor<?> constructor, Type type) {
         super(GenericClassFactory.get(type));

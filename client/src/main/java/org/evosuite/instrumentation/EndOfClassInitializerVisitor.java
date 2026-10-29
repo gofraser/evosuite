@@ -55,10 +55,6 @@ public class EndOfClassInitializerVisitor extends ClassVisitor {
          * <p>
          * Constructor for EndOfClassInitializerMethodVisitor.
          * </p>
-         *
-         * @param className   a {@link java.lang.String} object.
-         * @param methodName  a {@link java.lang.String} object.
-         * @param mv          a {@link org.objectweb.asm.MethodVisitor} object.
          */
         public EndOfClassInitializerMethodVisitor(String className, String methodName, MethodVisitor mv) {
             super(Opcodes.ASM9, mv);

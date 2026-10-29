@@ -36,8 +36,6 @@ public abstract class ReplacementFunction<T extends Chromosome<T>> implements Se
      * <p>
      * Constructor for ReplacementFunction.
      * </p>
-     *
-     * @param maximize a boolean.
      */
     public ReplacementFunction(boolean maximize) {
         this.maximize = maximize;
@@ -45,10 +43,6 @@ public abstract class ReplacementFunction<T extends Chromosome<T>> implements Se
 
     /**
      * isBetter.
-     *
-     * @param chromosome1 a {@link org.evosuite.ga.Chromosome} object.
-     * @param chromosome2 a {@link org.evosuite.ga.Chromosome} object.
-     * @return a boolean.
      */
     protected boolean isBetter(T chromosome1, T chromosome2) {
         if (maximize) {
@@ -60,10 +54,6 @@ public abstract class ReplacementFunction<T extends Chromosome<T>> implements Se
 
     /**
      * isBetterOrEqual.
-     *
-     * @param chromosome1 a {@link org.evosuite.ga.Chromosome} object.
-     * @param chromosome2 a {@link org.evosuite.ga.Chromosome} object.
-     * @return a boolean.
      */
     protected boolean isBetterOrEqual(T chromosome1, T chromosome2) {
         if (maximize) {
@@ -75,10 +65,6 @@ public abstract class ReplacementFunction<T extends Chromosome<T>> implements Se
 
     /**
      * getBest.
-     *
-     * @param chromosome1 a {@link org.evosuite.ga.Chromosome} object.
-     * @param chromosome2 a {@link org.evosuite.ga.Chromosome} object.
-     * @return a {@link org.evosuite.ga.Chromosome} object.
      */
     protected T getBest(T chromosome1, T chromosome2) {
         if (isBetter(chromosome1, chromosome2)) {
@@ -90,12 +76,6 @@ public abstract class ReplacementFunction<T extends Chromosome<T>> implements Se
 
     /**
      * Decide whether to keep the offspring or the parents.
-     *
-     * @param parent1    a {@link org.evosuite.ga.Chromosome} object.
-     * @param parent2    a {@link org.evosuite.ga.Chromosome} object.
-     * @param offspring1 a {@link org.evosuite.ga.Chromosome} object.
-     * @param offspring2 a {@link org.evosuite.ga.Chromosome} object.
-     * @return a boolean.
      */
     public boolean keepOffspring(T parent1, T parent2,
                                  T offspring1, T offspring2) {
@@ -110,12 +90,6 @@ public abstract class ReplacementFunction<T extends Chromosome<T>> implements Se
 
     /**
      * Check how the best offspring compares with best parent.
-     *
-     * @param parent1    a {@link org.evosuite.ga.Chromosome} object.
-     * @param parent2    a {@link org.evosuite.ga.Chromosome} object.
-     * @param offspring1 a {@link org.evosuite.ga.Chromosome} object.
-     * @param offspring2 a {@link org.evosuite.ga.Chromosome} object.
-     * @return a int.
      */
     protected int compareBestOffspringToBestParent(T parent1,
                                                    T parent2, T offspring1, T offspring2) {

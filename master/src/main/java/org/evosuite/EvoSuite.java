@@ -112,8 +112,6 @@ public class EvoSuite {
      * <p>
      * main.
      * </p>
-     *
-     * @param args an array of {@link java.lang.String} objects.
      */
     public static void main(String[] args) {
         if (System.getProperty("java.rmi.server.RMIClassLoaderSpi") == null) {
@@ -191,9 +189,6 @@ public class EvoSuite {
      * <p>
      * parseCommandLine.
      * </p>
-     *
-     * @param args an array of {@link java.lang.String} objects.
-     * @return a {@link java.lang.Object} object.
      */
     public Object parseCommandLine(String[] args) {
         Options options = CommandLineParameters.getCommandLineOptions();

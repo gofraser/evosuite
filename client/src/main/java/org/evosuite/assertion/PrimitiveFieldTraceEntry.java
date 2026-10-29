@@ -41,8 +41,6 @@ public class PrimitiveFieldTraceEntry implements OutputTraceEntry {
 
     /**
      * <p>Constructor for PrimitiveFieldTraceEntry.</p>
-     *
-     * @param var a {@link org.evosuite.testcase.variable.VariableReference} object.
      */
     public PrimitiveFieldTraceEntry(VariableReference var) {
         this.var = var;
@@ -50,9 +48,6 @@ public class PrimitiveFieldTraceEntry implements OutputTraceEntry {
 
     /**
      * Insert a new value into the map.
-     *
-     * @param field a {@link java.lang.reflect.Field} object.
-     * @param value a {@link java.lang.Object} object.
      */
     public void addValue(Field field, Object value) {
         fieldMap.put(field, value);

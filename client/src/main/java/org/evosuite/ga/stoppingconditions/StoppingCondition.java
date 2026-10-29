@@ -33,8 +33,6 @@ public interface StoppingCondition<T extends Chromosome<T>> extends SearchListen
 
     /**
      * How much of the budget have we used up.
-     *
-     * @return a long.
      */
     long getCurrentValue();
 
@@ -49,8 +47,6 @@ public interface StoppingCondition<T extends Chromosome<T>> extends SearchListen
 
     /**
      * <p>isFinished.</p>
-     *
-     * @return a boolean.
      */
     boolean isFinished();
 
@@ -61,8 +57,6 @@ public interface StoppingCondition<T extends Chromosome<T>> extends SearchListen
 
     /**
      * Set new upper limit of resources.
-     *
-     * @param limit a long.
      */
     void setLimit(long limit);
 }

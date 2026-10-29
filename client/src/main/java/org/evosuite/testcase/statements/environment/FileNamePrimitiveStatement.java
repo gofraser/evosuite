@@ -44,9 +44,6 @@ public class FileNamePrimitiveStatement extends EnvironmentDataStatement<EvoSuit
 
     /**
      * Constructor.
-     *
-     * @param tc    a {@link org.evosuite.testcase.TestCase} object.
-     * @param value a {@link org.evosuite.runtime.testdata.EvoSuiteFile} object.
      */
     public FileNamePrimitiveStatement(TestCase tc, EvoSuiteFile value) {
         super(tc, EvoSuiteFile.class, value);

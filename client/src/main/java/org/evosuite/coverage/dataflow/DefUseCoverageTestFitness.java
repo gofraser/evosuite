@@ -82,12 +82,6 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 
     /**
      * Creates a Definition-Use-Coverage goal for the given Definition and Use.
-     *
-     * @param def  a {@link org.evosuite.coverage.dataflow.Definition} object.
-     * @param use  a {@link org.evosuite.coverage.dataflow.Use} object.
-     * @param type a
-     *             {@link org.evosuite.coverage.dataflow.DefUseCoverageTestFitness.DefUsePairType}
-     *             object.
      */
     public DefUseCoverageTestFitness(Definition def, Use use, DefUsePairType type) {
         Objects.requireNonNull(def, "null given for definition. type: " + type.toString());
@@ -100,8 +94,6 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
      * Used for Parameter-Uses.
      *
      * <p>Creates a goal that tries to cover the given Use.
-     *
-     * @param use a {@link org.evosuite.coverage.dataflow.Use} object.
      */
     public DefUseCoverageTestFitness(Use use) {
         if (!use.isParameterUse()) {
@@ -200,9 +192,6 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
      * <p>Simply call getFitness(TestChromosome,ExecutionResult) with a dummy
      * TestChromosome. The chromosome is used only for updateIndividual()
      * anyways.
-     *
-     * @param result a {@link org.evosuite.testcase.execution.ExecutionResult} object.
-     * @return a double.
      */
     public double getFitness(ExecutionResult result) {
         TestChromosome dummy = new TestChromosome();
@@ -213,10 +202,6 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 
     /**
      * setCovered.
-     *
-     * @param individual a {@link org.evosuite.ga.Chromosome} object.
-     * @param trace      a {@link org.evosuite.testcase.execution.ExecutionTrace} object.
-     * @param objectId   a {@link java.lang.Integer} object.
      */
     public void setCovered(TestChromosome individual, ExecutionTrace trace,
                            Integer objectId) {
@@ -252,8 +237,6 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 
     /**
      * Getter for the field <code>goalVariable</code>.
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getGoalVariable() {
         return goalVariable;
@@ -261,8 +244,6 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 
     /**
      * Getter for the field <code>goalDefinition</code>.
-     *
-     * @return a {@link org.evosuite.coverage.dataflow.Definition} object.
      */
     public Definition getGoalDefinition() {
         return goalDefinition;
@@ -270,8 +251,6 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 
     /**
      * Getter for the field <code>goalUse</code>.
-     *
-     * @return a {@link org.evosuite.coverage.dataflow.Use} object.
      */
     public Use getGoalUse() {
         return goalUse;
@@ -279,8 +258,6 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 
     /**
      * Getter for the field <code>goalUseFitness</code>.
-     *
-     * @return a {@link org.evosuite.testcase.TestFitnessFunction} object.
      */
     public TestFitnessFunction getGoalUseFitness() {
         return goalUseFitness;
@@ -288,8 +265,6 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 
     /**
      * Getter for the field <code>goalDefinitionFitness</code>.
-     *
-     * @return a {@link org.evosuite.testcase.TestFitnessFunction} object.
      */
     public TestFitnessFunction getGoalDefinitionFitness() {
         return goalDefinitionFitness;
@@ -297,8 +272,6 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 
     /**
      * isInterMethodPair.
-     *
-     * @return a boolean.
      */
     public boolean isInterMethodPair() {
         return type.equals(DefUsePairType.INTER_METHOD);
@@ -306,8 +279,6 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 
     /**
      * isIntraClassPair.
-     *
-     * @return a boolean.
      */
     public boolean isIntraClassPair() {
         return type.equals(DefUsePairType.INTRA_CLASS);
@@ -315,10 +286,6 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 
     /**
      * Getter for the field <code>type</code>.
-     *
-     * @return a
-     *         {@link org.evosuite.coverage.dataflow.DefUseCoverageTestFitness.DefUsePairType}
-     *         object.
      */
     public DefUsePairType getType() {
         return type;
@@ -326,8 +293,6 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 
     /**
      * isParameterGoal.
-     *
-     * @return a boolean.
      */
     public boolean isParameterGoal() {
         return goalDefinition == null;

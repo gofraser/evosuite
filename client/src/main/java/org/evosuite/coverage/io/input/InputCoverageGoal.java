@@ -57,10 +57,7 @@ public class InputCoverageGoal implements Serializable, IOGoal<InputCoverageGoal
      * Otherwise this goal will try to reach the given branch and if value is
      * true, make the branchInstruction jump and visa versa
      *
-     * @param className       a {@link String} object.
-     * @param methodName      a {@link String} object.
      * @param argIndex        an argument index.
-     * @param type            a {@link Type} object.
      * @param valueDescriptor a value descriptor.
      */
     public InputCoverageGoal(String className, String methodName, int argIndex, Type type, String valueDescriptor) {

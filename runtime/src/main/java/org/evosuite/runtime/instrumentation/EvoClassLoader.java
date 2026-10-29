@@ -46,9 +46,6 @@ public class EvoClassLoader extends TransformingClassLoader {
      * <p>
      * Constructor for InstrumentingClassLoader.
      * </p>
-     *
-     * @param instrumentation a {@link org.evosuite.runtime.instrumentation.RuntimeInstrumentation}
-     *                        object.
      */
     public EvoClassLoader(RuntimeInstrumentation instrumentation) {
         super(EvoClassLoader.class.getClassLoader(), EvoClassLoader.class.getClassLoader());

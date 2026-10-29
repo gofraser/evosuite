@@ -95,8 +95,6 @@ public class ArraySymbolicLengthName {
 
     /**
      * Getter for the field <code>dimension</code>.
-     *
-     * @return a int.
      */
     public int getDimension() {
         return dimension;
@@ -104,8 +102,6 @@ public class ArraySymbolicLengthName {
 
     /**
      * Getter for the field <code>symbolicName</code>.
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getSymbolicName() {
         return symbolicName;
@@ -113,8 +109,6 @@ public class ArraySymbolicLengthName {
 
     /**
      * Getter for the field <code>arrayReferenceName</code>.
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getArrayReferenceName() {
         return arrayReferenceName;

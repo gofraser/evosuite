@@ -51,9 +51,6 @@ public abstract class StringUtil {
 
     /**
      * <p>escapeQuotes.</p>
-     *
-     * @param str a {@link java.lang.String} object.
-     * @return a {@link java.lang.String} object.
      */
     public static String escapeQuotes(String str) {
         return str.replaceAll("['\"\\\\]", "\\\\$0");

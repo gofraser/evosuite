@@ -50,10 +50,6 @@ public class EvoAssertions {
 
     /**
      * Check if the given exception was thrown in the given class.
-     *
-     * @param sourceClass a {@link java.lang.String} object.
-     * @param t a {@link java.lang.Throwable} object.
-     * @throws java.lang.AssertionError if any.
      */
     public static void assertThrownBy(String sourceClass, Throwable t) throws AssertionError {
         StackTraceElement[] stackTrace = t.getStackTrace();

@@ -42,10 +42,6 @@ public class ChainedInspector extends Inspector {
 
     /**
      * <p>Constructor for ChainedInspector.</p>
-     *
-     * @param clazz a {@link java.lang.Class} object.
-     * @param outerMethod a {@link java.lang.reflect.Method} object.
-     * @param innerInspector a {@link org.evosuite.assertion.Inspector} object.
      */
     public ChainedInspector(Class<?> clazz, Method outerMethod, Inspector innerInspector) {
         // Pass the outer class and outer method to the superclass.

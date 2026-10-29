@@ -381,9 +381,6 @@ public class SPEA2<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
     /**
      * Returns a matrix with the euclidean distance between each pair of solutions in the population.
-     *
-     * @param solution a {@link List} object.
-     * @return an array of {@link double} objects.
      */
     protected double[][] euclideanDistanceMatrix(List<T> solution) {
         double[][] distance = new double[solution.size()][solution.size()];
@@ -401,10 +398,6 @@ public class SPEA2<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
     /**
      * Returns the euclidean distance between a pair of solutions in the objective space.
-     *
-     * @param t1 a T object.
-     * @param t2 a T object.
-     * @return a double.
      */
     protected double distanceBetweenObjectives(T t1, T t2) {
         double distance = 0.0;

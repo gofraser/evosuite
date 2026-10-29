@@ -59,9 +59,6 @@ public abstract class Contract {
      * <p>
      * getAllObjects.
      * </p>
-     *
-     * @param scope a {@link org.evosuite.testcase.execution.Scope} object.
-     * @return a {@link java.util.Collection} object.
      */
     protected Collection<Object> getAllObjects(Scope scope) {
         final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
@@ -83,9 +80,6 @@ public abstract class Contract {
      * <p>
      * getAllObjectPairs.
      * </p>
-     *
-     * @param scope a {@link org.evosuite.testcase.execution.Scope} object.
-     * @return a {@link java.util.Collection} object.
      */
     protected Collection<Pair<Object>> getAllObjectPairs(Scope scope) {
         Set<Pair<Object>> pairs = new HashSet<>();
@@ -118,9 +112,6 @@ public abstract class Contract {
 
     /**
      * Check if this statement is related to the unit under test.
-     *
-     * @param statement a {@link org.evosuite.testcase.statements.Statement} object.
-     * @return a boolean.
      */
     protected boolean isTargetStatement(Statement statement) {
         final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
@@ -145,9 +136,6 @@ public abstract class Contract {
     /**
      * Run the test against this contract and determine whether it reports a
      * failure.
-     *
-     * @param test a {@link org.evosuite.testcase.TestCase} object.
-     * @return a boolean.
      */
     public boolean fails(TestCase test) {
         ContractChecker.setActive(false);
@@ -162,11 +150,6 @@ public abstract class Contract {
 
     /**
      * Check the contract on the current statement in the current scope.
-     *
-     * @param statement a {@link org.evosuite.testcase.statements.Statement} object.
-     * @param scope     a {@link org.evosuite.testcase.execution.Scope} object.
-     * @param exception a {@link java.lang.Throwable} object.
-     * @return a boolean.
      */
     public abstract ContractViolation check(Statement statement, Scope scope,
                                             Throwable exception);

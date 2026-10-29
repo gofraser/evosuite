@@ -71,10 +71,6 @@ public abstract class TestSuiteFitnessFunction extends FitnessFunction<TestSuite
      * <p>
      * runTestSuite.
      * </p>
-     *
-     * @param suite a {@link org.evosuite.testsuite.AbstractTestSuiteChromosome}
-     *              object.
-     * @return a {@link java.util.List} object.
      */
     protected List<ExecutionResult> runTestSuite(TestSuiteChromosome suite) {
         List<ExecutionResult> results = new ArrayList<>();

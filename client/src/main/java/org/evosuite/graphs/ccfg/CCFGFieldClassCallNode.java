@@ -35,7 +35,6 @@ public class CCFGFieldClassCallNode extends CCFGCodeNode {
     /**
      * Constructor for CCFGFieldClassCallNode.
      *
-     * @param code a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      * @param className class name
      * @param methodName method name
      * @param methodParameters method parameters

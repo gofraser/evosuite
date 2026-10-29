@@ -68,8 +68,6 @@ public class NSGAII<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
     /**
      * Constructor.
-     *
-     * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object
      */
     public NSGAII(ChromosomeFactory<T> factory) {
         super(factory);

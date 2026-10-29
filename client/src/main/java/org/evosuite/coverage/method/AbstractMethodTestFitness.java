@@ -47,8 +47,6 @@ public abstract class AbstractMethodTestFitness extends TestFitnessFunction {
      * <p>
      * getClassName.
      * </p>
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getClassName() {
         return className;
@@ -58,8 +56,6 @@ public abstract class AbstractMethodTestFitness extends TestFitnessFunction {
      * <p>
      * getMethod.
      * </p>
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getMethod() {
         return methodName;

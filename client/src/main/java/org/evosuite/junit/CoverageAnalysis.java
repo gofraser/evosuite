@@ -424,9 +424,6 @@ public class CoverageAnalysis {
 
     /**
      * Analyze all classes that can be found in a given directory.
-     *
-     * @param directory a {@link java.io.File} object.
-     * @return a {@link java.util.List} object.
      */
     private static List<Class<?>> getTestClasses(File directory) {
 
@@ -456,9 +453,6 @@ public class CoverageAnalysis {
 
     /**
      * getClassesJar.
-     *
-     * @param file a {@link java.io.File} object.
-     * @return a {@link java.util.List} object.
      */
     private static List<Class<?>> getTestClassesJar(File file) {
 

@@ -33,8 +33,6 @@ public class OnePlusOneEA<T extends Chromosome<T>> extends MuPlusLambdaEA<T> {
 
     /**
      * Constructor.
-     *
-     * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object.
      */
     public OnePlusOneEA(ChromosomeFactory<T> factory) {
         super(factory, 1, 1);

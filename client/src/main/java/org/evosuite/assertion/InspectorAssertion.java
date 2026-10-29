@@ -53,8 +53,6 @@ public class InspectorAssertion extends Assertion {
 
     /**
      * <p>Getter for the field <code>inspector</code>.</p>
-     *
-     * @return a {@link org.evosuite.assertion.Inspector} object.
      */
     public Inspector getInspector() {
         return inspector;

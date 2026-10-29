@@ -58,8 +58,6 @@ public interface VariableNameStrategy {
 
     /**
      * Allows to add information on dictionaries for variable naming.
-     *
-     * @param information a {@link java.util.Map} object.
      */
     void addVariableInformation(Map<String, Map<VariableReference, String>> information);
 

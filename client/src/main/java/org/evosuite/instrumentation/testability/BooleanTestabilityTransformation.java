@@ -73,9 +73,6 @@ public class BooleanTestabilityTransformation {
      * <p>
      * Constructor for BooleanTestabilityTransformation.
      * </p>
-     *
-     * @param cn a {@link org.objectweb.asm.tree.ClassNode} object.
-     * @param classLoader a {@link java.lang.ClassLoader} object.
      */
     public BooleanTestabilityTransformation(ClassNode cn, ClassLoader classLoader) {
         this.cn = cn;
@@ -98,8 +95,6 @@ public class BooleanTestabilityTransformation {
 
     /**
      * Transform all methods and fields.
-     *
-     * @return a {@link org.objectweb.asm.tree.ClassNode} object.
      */
     public ClassNode transform() {
 
@@ -168,11 +163,6 @@ public class BooleanTestabilityTransformation {
      * <p>
      * getOriginalNameDesc.
      * </p>
-     *
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @param desc       a {@link java.lang.String} object.
-     * @return a {@link java.lang.String} object.
      */
     public static String getOriginalNameDesc(String className, String methodName,
                                              String desc) {
@@ -192,11 +182,6 @@ public class BooleanTestabilityTransformation {
      * <p>
      * getOriginalDesc.
      * </p>
-     *
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @param desc       a {@link java.lang.String} object.
-     * @return a {@link java.lang.String} object.
      */
     public static String getOriginalDesc(String className, String methodName, String desc) {
         String key = className.replace('.', '/') + "/" + methodName + desc;
@@ -213,11 +198,6 @@ public class BooleanTestabilityTransformation {
      * <p>
      * hasTransformedParameters.
      * </p>
-     *
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @param desc       a {@link java.lang.String} object.
-     * @return a boolean.
      */
     public static boolean hasTransformedParameters(String className, String methodName,
                                                    String desc) {
@@ -237,11 +217,6 @@ public class BooleanTestabilityTransformation {
      * <p>
      * isTransformedField.
      * </p>
-     *
-     * @param className a {@link java.lang.String} object.
-     * @param fieldName a {@link java.lang.String} object.
-     * @param desc      a {@link java.lang.String} object.
-     * @return a boolean.
      */
     public static boolean isTransformedField(String className, String fieldName,
                                              String desc) {

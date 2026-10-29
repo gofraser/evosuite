@@ -34,11 +34,6 @@ public class RegisterObjectForDeterministicHashCodeVisitor extends AdviceAdapter
 
     /**
      * <p>Constructor for RegisterObjectForDeterministicHashCodeVisitor.</p>
-     *
-     * @param mv     a {@link org.objectweb.asm.MethodVisitor} object.
-     * @param access a int.
-     * @param name   a {@link java.lang.String} object.
-     * @param desc   a {@link java.lang.String} object.
      */
     protected RegisterObjectForDeterministicHashCodeVisitor(MethodVisitor mv, int access, String name, String desc) {
         super(Opcodes.ASM9, mv, access, name, desc);

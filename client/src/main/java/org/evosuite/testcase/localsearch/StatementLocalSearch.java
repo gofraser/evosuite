@@ -50,22 +50,12 @@ public abstract class StatementLocalSearch {
 
     /**
      * <p>doSearch.</p>
-     *
-     * @param test      a {@link org.evosuite.testcase.TestChromosome} object.
-     * @param statement a int.
-     * @param objective a {@link org.evosuite.ga.localsearch.LocalSearchObjective} object.
-     * @return a boolean.
      */
     public abstract boolean doSearch(TestChromosome test, int statement,
                                      LocalSearchObjective<TestChromosome> objective);
 
     /**
      * <p>doSearch.</p>
-     *
-     * @param test      a {@link org.evosuite.testcase.TestChromosome} object.
-     * @param statements a {@link java.util.Set} object.
-     * @param objective a {@link org.evosuite.ga.localsearch.LocalSearchObjective} object.
-     * @return a boolean.
      */
     public boolean doSearch(TestChromosome test, Set<Integer> statements,
                             LocalSearchObjective<TestChromosome> objective) {
@@ -91,9 +81,6 @@ public abstract class StatementLocalSearch {
 
     /**
      * <p>getLocalSearchFor.</p>
-     *
-     * @param statement a {@link org.evosuite.testcase.statements.Statement} object.
-     * @return a {@link org.evosuite.testcase.localsearch.StatementLocalSearch} object.
      */
     public static StatementLocalSearch getLocalSearchFor(Statement statement) {
 

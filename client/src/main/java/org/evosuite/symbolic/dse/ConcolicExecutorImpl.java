@@ -71,9 +71,6 @@ public class ConcolicExecutorImpl implements ConcolicExecutor {
 
     /**
      * Executes the test case and returns the path condition.
-     *
-     * @param defaultTestCase a {@link org.evosuite.testcase.DefaultTestCase} object.
-     * @return a {@link org.evosuite.symbolic.PathCondition} object.
      */
     public PathCondition execute(DefaultTestCase defaultTestCase) {
         logger.debug("Preparing concolic execution");
@@ -134,10 +131,6 @@ public class ConcolicExecutorImpl implements ConcolicExecutor {
 
     /**
      * Executes the test case.
-     *
-     * @param defaultTestCase a {@link org.evosuite.testcase.DefaultTestCase} object.
-     * @return a {@link org.evosuite.testcase.execution.ExecutionResult} object.
-     * @throws java.lang.Exception if any.
      */
     private ExecutionResult executeTestCase(DefaultTestCase defaultTestCase) throws Exception {
         logger.debug("Executing test");

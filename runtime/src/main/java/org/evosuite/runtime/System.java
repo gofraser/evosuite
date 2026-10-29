@@ -233,8 +233,6 @@ public class System {
 
     /**
      * Replacement function for System.exit.
-     *
-     * @param status a int.
      */
     public static void exit(int status) {
         wasTimeAccessed = true;
@@ -261,8 +259,6 @@ public class System {
 
     /**
      * Replacement function for System.currentTimeMillis.
-     *
-     * @return a long.
      */
     public static synchronized long currentTimeMillis() {
         wasTimeAccessed = true;
@@ -452,8 +448,6 @@ public class System {
 
     /**
      * Replacement function for System.currentTimeMillis.
-     *
-     * @return a long.
      */
     public static synchronized long nanoTime() {
         wasTimeAccessed = true;
@@ -462,8 +456,6 @@ public class System {
 
     /**
      * Replacement function for for Runtime.freeMemory().
-     *
-     * @return a long.
      */
     public static long freeMemory() {
         return 0L;
@@ -471,8 +463,6 @@ public class System {
 
     /**
      * Replacement function for for Runtime.maxMemory().
-     *
-     * @return a long.
      */
     public static long maxMemory() {
         return 0L;
@@ -480,8 +470,6 @@ public class System {
 
     /**
      * Replacement function for for Runtime.totalMemory().
-     *
-     * @return a long.
      */
     public static long totalMemory() {
         return 0L;
@@ -489,8 +477,6 @@ public class System {
 
     /**
      * Replacement function for for Runtime.availableProcessors().
-     *
-     * @return a int.
      */
     public static int availableProcessors() {
         return 0;
@@ -502,8 +488,6 @@ public class System {
      * so any value must be accepted: a SUT comparing the time against a small
      * constant is only reachable by setting the clock below where it started. Time
      * moves forward on its own only through {@link #advanceCurrentTimeMillis(long)}.
-     *
-     * @param time a long.
      */
     public static synchronized void setCurrentTimeMillis(long time) {
         currentTime = time;
@@ -512,8 +496,6 @@ public class System {
     /**
      * TODO: Reflection and class initialisation may cause setSecurityManager to be called by the SUT.
      * Until this is resolved, we avoid this using instrumentation.
-     *
-     * @param manager a {@link java.lang.SecurityManager} object.
      */
     public static void setSecurityManager(SecurityManager manager) {
         throw new SecurityException("Permission Denied");
@@ -555,8 +537,6 @@ public class System {
     /**
      * Getter to check whether the runtime replacement for time was accessed during test
      * execution.
-     *
-     * @return a boolean.
      */
     public static boolean wasTimeAccessed() {
         return wasTimeAccessed;

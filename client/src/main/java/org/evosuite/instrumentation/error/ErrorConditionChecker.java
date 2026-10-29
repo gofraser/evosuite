@@ -40,9 +40,6 @@ public class ErrorConditionChecker {
      * <p>
      * scale.
      * </p>
-     *
-     * @param value a float.
-     * @return a int.
      */
     public static int scale(float value) {
         return (int) (Math.ceil((Integer.MAX_VALUE - 2) * (value / (value + 1.0F))));
@@ -52,9 +49,6 @@ public class ErrorConditionChecker {
      * <p>
      * scale.
      * </p>
-     *
-     * @param value a double.
-     * @return a int.
      */
     public static int scale(double value) {
         return (int) (Math.ceil((Integer.MAX_VALUE - 2) * (value / (value + 1.0))));
@@ -64,9 +58,6 @@ public class ErrorConditionChecker {
      * <p>
      * scale.
      * </p>
-     *
-     * @param value a long.
-     * @return a int.
      */
     public static int scale(long value) {
         return (int) (Math.ceil((Integer.MAX_VALUE - 2) * (value / (value + 1.0))));
@@ -90,11 +81,6 @@ public class ErrorConditionChecker {
      * <p>
      * overflowDistance.
      * </p>
-     *
-     * @param op1    a int.
-     * @param op2    a int.
-     * @param opcode a int.
-     * @return a int.
      */
     public static int overflowDistance(int op1, int op2, int opcode) {
         switch (opcode) {

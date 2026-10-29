@@ -55,9 +55,6 @@ public class BooleanValueInterpreter extends BasicInterpreter {
 
     /**
      * <p>Constructor for BooleanValueInterpreter.</p>
-     *
-     * @param desc     a {@link java.lang.String} object.
-     * @param isStatic a boolean.
      */
     public BooleanValueInterpreter(String desc, boolean isStatic) {
         super(ASM9);

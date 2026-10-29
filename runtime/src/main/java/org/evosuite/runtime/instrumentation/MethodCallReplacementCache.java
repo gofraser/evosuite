@@ -225,8 +225,6 @@ public class MethodCallReplacementCache {
 
     /**
      * <p>Getter for the field <code>instance</code>.</p>
-     *
-     * @return a {@link org.evosuite.runtime.instrumentation.MethodCallReplacementCache} object.
      */
     public static MethodCallReplacementCache getInstance() {
         int current = RuntimeSettings.mockingFingerprint();
@@ -273,10 +271,6 @@ public class MethodCallReplacementCache {
 
     /**
      * <p>hasReplacementCall.</p>
-     *
-     * @param className              a {@link java.lang.String} object.
-     * @param methodNameWithDesc a {@link java.lang.String} object.
-     * @return a boolean.
      */
     public boolean hasReplacementCall(String className, String methodNameWithDesc) {
         if (!replacementCalls.containsKey(className)) {
@@ -288,10 +282,6 @@ public class MethodCallReplacementCache {
 
     /**
      * <p>getReplacementCall.</p>
-     *
-     * @param className              a {@link java.lang.String} object.
-     * @param methodNameWithDesc a {@link java.lang.String} object.
-     * @return a {@link org.evosuite.runtime.instrumentation.MethodCallReplacement} object.
      */
     public MethodCallReplacement getReplacementCall(String className, String methodNameWithDesc) {
         return replacementCalls.get(className).get(methodNameWithDesc);
@@ -299,10 +289,6 @@ public class MethodCallReplacementCache {
 
     /**
      * <p>hasSpecialReplacementCall.</p>
-     *
-     * @param className              a {@link java.lang.String} object.
-     * @param methodNameWithDesc a {@link java.lang.String} object.
-     * @return a boolean.
      */
     public boolean hasSpecialReplacementCall(String className, String methodNameWithDesc) {
         if (!specialReplacementCalls.containsKey(className)) {
@@ -314,10 +300,6 @@ public class MethodCallReplacementCache {
 
     /**
      * <p>getSpecialReplacementCall.</p>
-     *
-     * @param className              a {@link java.lang.String} object.
-     * @param methodNameWithDesc a {@link java.lang.String} object.
-     * @return a {@link org.evosuite.runtime.instrumentation.MethodCallReplacement} object.
      */
     public MethodCallReplacement getSpecialReplacementCall(String className, String methodNameWithDesc) {
         return specialReplacementCalls.get(className).get(methodNameWithDesc);
@@ -326,8 +308,6 @@ public class MethodCallReplacementCache {
     /**
      * All registered replacement calls, ie the ones dispatched with INVOKESTATIC. Exposed so that
      * consistency of the table can be checked.
-     *
-     * @return a {@link java.util.Collection} object.
      */
     Collection<MethodCallReplacement> getAllReplacementCalls() {
         List<MethodCallReplacement> all = new ArrayList<>();

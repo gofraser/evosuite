@@ -38,11 +38,6 @@ public final class RealVariable extends AbstractExpression<Double> implements Re
      * <p>
      * Constructor for RealVariable.
      * </p>
-     *
-     * @param name     a {@link java.lang.String} object.
-     * @param conV     a double.
-     * @param minValue a double.
-     * @param maxValue a double.
      */
     public RealVariable(String name, double conV, double minValue, double maxValue) {
         super(conV, 1, true);
@@ -55,8 +50,6 @@ public final class RealVariable extends AbstractExpression<Double> implements Re
      * <p>
      * Setter for the field <code>concreteValue</code>.
      * </p>
-     *
-     * @param conV a double.
      */
     public final void setConcreteValue(double conV) {
         this.concreteValue = conV;

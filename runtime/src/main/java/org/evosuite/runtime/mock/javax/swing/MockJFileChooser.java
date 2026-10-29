@@ -419,8 +419,6 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
 
     /**
      * Makes sure that the specified file is visible and not hidden.
-     *
-     * @param f a File object
      */
     public void ensureFileIsVisible(File f) {
         getUI().ensureFileIsVisible(this, f);

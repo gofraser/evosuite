@@ -105,8 +105,6 @@ public class ListenableList<E> extends SimpleListenable<Void> implements List<E>
 
     /**
      * <p>Constructor for ListenableList.</p>
-     *
-     * @param delegate a {@link java.util.List} object.
      */
     public ListenableList(List<E> delegate) {
         super();

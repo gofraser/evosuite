@@ -118,10 +118,6 @@ public abstract class MutationSuiteFitness extends TestSuiteFitnessFunction {
      * <p>
      * runTest.
      * </p>
-     *
-     * @param test   a {@link org.evosuite.testcase.TestCase} object.
-     * @param mutant a {@link org.evosuite.coverage.mutation.Mutation} object.
-     * @return a {@link org.evosuite.testcase.execution.ExecutionResult} object.
      */
     public ExecutionResult runTest(TestCase test, Mutation mutant) {
 

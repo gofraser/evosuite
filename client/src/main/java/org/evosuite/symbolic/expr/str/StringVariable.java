@@ -46,9 +46,6 @@ public final class StringVariable extends AbstractExpression<String>
      * <p>
      * Constructor for StringVariable.
      * </p>
-     *
-     * @param name     a {@link java.lang.String} object.
-     * @param concVal  a {@link java.lang.String} object.
      */
     public StringVariable(String name, String concVal) {
         super(concVal, 1, true);

@@ -50,10 +50,6 @@ public class ReferenceConstraint extends Constraint<Object> {
      * <p>
      * Constructor for ReferenceConstraint.
      * </p>
-     *
-     * @param left  a {@link org.evosuite.symbolic.expr.Expression} object.
-     * @param cmp   a {@link org.evosuite.symbolic.expr.Comparator} object.
-     * @param right a {@link org.evosuite.symbolic.expr.Expression} object.
      */
     public ReferenceConstraint(Expression<Object> left, Comparator cmp,
                                Expression<Object> right) {

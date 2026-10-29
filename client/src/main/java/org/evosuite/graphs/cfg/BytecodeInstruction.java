@@ -79,11 +79,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
      * class.
      *
      * @param classLoader    class loader
-     * @param className      a {@link java.lang.String} object.
-     * @param methodName     a {@link java.lang.String} object.
-     * @param instructionId  a int.
-     * @param bytecodeOffset a int.
-     * @param asmNode        a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
      */
     public BytecodeInstruction(ClassLoader classLoader, String className,
                                String methodName, int instructionId, int bytecodeOffset, AbstractInsnNode asmNode) {
@@ -108,8 +103,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 
     /**
      * Can represent any byteCode instruction.
-     *
-     * @param wrap a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      */
     public BytecodeInstruction(BytecodeInstruction wrap) {
 
@@ -122,13 +115,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
      * Constructor for BytecodeInstruction.
      *
      * @param classLoader    class loader
-     * @param className      a {@link java.lang.String} object.
-     * @param methodName     a {@link java.lang.String} object.
-     * @param instructionId  a int.
-     * @param bytecodeOffset a int.
-     * @param asmNode        a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
-     * @param lineNumber     a int.
-     * @param basicBlock     a {@link org.evosuite.graphs.cfg.BasicBlock} object.
      */
     public BytecodeInstruction(ClassLoader classLoader, String className,
                                String methodName, int instructionId, int bytecodeOffset, AbstractInsnNode asmNode,
@@ -144,12 +130,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
      * Constructor for BytecodeInstruction.
      *
      * @param classLoader    class loader
-     * @param className      a {@link java.lang.String} object.
-     * @param methodName     a {@link java.lang.String} object.
-     * @param instructionId  a int.
-     * @param bytecodeOffset a int.
-     * @param asmNode        a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
-     * @param lineNumber     a int.
      */
     public BytecodeInstruction(ClassLoader classLoader, String className,
                                String methodName, int instructionId, int bytecodeOffset, AbstractInsnNode asmNode,
@@ -182,8 +162,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 
     /**
      * setCFGFrame.
-     *
-     * @param frame a {@link org.evosuite.graphs.cfg.CFGFrame} object.
      */
     public void setCFGFrame(CFGFrame frame) {
         this.frame = frame;
@@ -198,8 +176,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 
     /**
      * getBytecodeOffset.
-     *
-     * @return a int.
      */
     public int getBytecodeOffset() {
         return bytecodeOffset;
@@ -212,8 +188,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 
     /**
      * Getter for the field <code>className</code>.
-     *
-     * @return a {@link java.lang.String} object.
      */
     @Override
     public String getClassName() {
@@ -222,8 +196,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 
     /**
      * getName.
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getName() {
         return "BytecodeInstruction " + instructionId + " in " + methodName;
@@ -234,8 +206,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
      *
      * <p>If no BasicBlock containing this instruction was created yet, null is
      * returned.
-     *
-     * @return a {@link org.evosuite.graphs.cfg.BasicBlock} object.
      */
     public BasicBlock getBasicBlock() {
         if (!hasBasicBlockSet()) {
@@ -254,8 +224,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
     /**
      * Once the CFG has been asked for this instruction's BasicBlock it sets
      * this instance's internal basicBlock field.
-     *
-     * @param block a {@link org.evosuite.graphs.cfg.BasicBlock} object.
      */
     public void setBasicBlock(BasicBlock block) {
         if (block == null) {
@@ -277,8 +245,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 
     /**
      * Checks whether this instance's basicBlock has already been set by the CFG.
-     *
-     * @return a boolean.
      */
     public boolean hasBasicBlockSet() {
         return basicBlock != null;
@@ -296,8 +262,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 
     /**
      * Setter for the field <code>lineNumber</code>.
-     *
-     * @param lineNumber a int.
      */
     public void setLineNumber(int lineNumber) {
         if (lineNumber <= 0) {
@@ -333,8 +297,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
      *
      * <p>After that, if the lineNumber field is still not initialized, this method
      * returns false Otherwise it returns true.
-     *
-     * @return a boolean.
      */
     public boolean hasLineNumberSet() {
         retrieveLineNumber();
@@ -368,8 +330,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
      * Returns the ActualControlFlowGraph of this instructions method.
      *
      * <p>Convenience method. Redirects the call to GraphPool.getActualCFG().
-     *
-     * @return a {@link org.evosuite.graphs.cfg.ActualControlFlowGraph} object.
      */
     public ActualControlFlowGraph getActualCFG() {
 
@@ -387,8 +347,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
      * Returns the RawControlFlowGraph of this instructions method.
      *
      * <p>Convenience method. Redirects the call to GraphPool.getRawCFG().
-     *
-     * @return a {@link org.evosuite.graphs.cfg.RawControlFlowGraph} object.
      */
     public RawControlFlowGraph getRawCFG() {
 
@@ -406,8 +364,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
      * Returns the ControlDependenceGraph of this instructions method.
      *
      * <p>Convenience method. Redirects the call to GraphPool.getCDG().
-     *
-     * @return a {@link org.evosuite.graphs.cdg.ControlDependenceGraph} object.
      */
     public ControlDependenceGraph getCDG() {
 
@@ -434,8 +390,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
      * happen in loops for example - the returned set WILL contain this. If you
      * do not need the full set in order to avoid loops, call
      * getAllControlDependentBranches instead.
-     *
-     * @return a {@link java.util.Set} object.
      */
     public Set<ControlDependency> getControlDependencies() {
 
@@ -456,8 +410,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
      * <p>Since EvoSuite was previously unable to detect multiple control
      * dependencies for one instruction this method serves as a backwards
      * compatibility bridge.
-     *
-     * @return a {@link org.evosuite.coverage.branch.Branch} object.
      */
     public Branch getControlDependentBranch() {
 
@@ -477,8 +429,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
      *
      * <p>If this instruction is control dependent on the root branch the id -1
      * will be contained in this set.
-     *
-     * @return a {@link java.util.Set} object.
      */
     public Set<Integer> getControlDependentBranchIds() {
 
@@ -491,8 +441,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
      * Determines whether or not this instruction is control dependent on the
      * root branch of it's method by calling getControlDependentBranchIds() to
      * see if the return contains -1.
-     *
-     * @return a boolean.
      */
     public boolean isRootBranchDependent() {
         return getControlDependencies().isEmpty();
@@ -511,8 +459,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
      * <p>Since EvoSuite was previously unable to detect multiple control
      * dependencies for one instruction this method serves as a backwards
      * compatibility bridge.
-     *
-     * @return a int.
      */
     public int getControlDependentBranchId() {
 
@@ -537,8 +483,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
      * <p>Since EvoSuite was previously unable to detect multiple control
      * dependencies for one instruction this method serves as a backwards
      * compatibility bridge.
-     *
-     * @return a boolean.
      */
     public boolean getControlDependentBranchExpressionValue() {
 
@@ -548,9 +492,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 
     /**
      * getBranchExpressionValue.
-     *
-     * @param b a {@link org.evosuite.coverage.branch.Branch} object.
-     * @return a boolean.
      */
     public boolean getBranchExpressionValue(Branch b) {
         if (!isDirectlyControlDependentOn(b)) {
@@ -574,9 +515,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
      *
      * <p>If the given Branch is null, this method checks whether the this
      * instruction is control dependent on the root branch of it's method.
-     *
-     * @param branch a {@link org.evosuite.coverage.branch.Branch} object.
-     * @return a boolean.
      */
     public boolean isDirectlyControlDependentOn(Branch branch) {
         if (branch == null) {
@@ -594,9 +532,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 
     /**
      * getControlDependency.
-     *
-     * @param branch a {@link org.evosuite.coverage.branch.Branch} object.
-     * @return a {@link org.evosuite.graphs.cfg.ControlDependency} object.
      */
     public ControlDependency getControlDependency(Branch branch) {
         if (!isDirectlyControlDependentOn(branch)) {
@@ -617,8 +552,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 
     /**
      * getCDGDepth.
-     *
-     * @return a int.
      */
     public int getCDGDepth() {
         int min = Integer.MAX_VALUE;
@@ -639,8 +572,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 
     /**
      * explain.
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String explain() {
         if (isBranch()) {
@@ -664,8 +595,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 
     /**
      * getASMNodeString.
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getASMNodeString() {
         String type = getType();
@@ -800,8 +729,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
      * registered within the BranchPool.
      *
      * <p>Otherwise this method will return null.
-     *
-     * @return a {@link org.evosuite.coverage.branch.Branch} object.
      */
     public Branch toBranch() {
 
@@ -814,8 +741,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 
     /**
      * proceedsOwnConstructorInvocation.
-     *
-     * @return a boolean.
      */
     public boolean proceedsOwnConstructorInvocation() {
 
@@ -834,8 +759,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 
     /**
      * isWithinConstructor.
-     *
-     * @return a boolean.
      */
     public boolean isWithinConstructor() {
         return getMethodName().startsWith("<init>");
@@ -843,8 +766,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 
     /**
      * isLastInstructionInMethod.
-     *
-     * @return a boolean.
      */
     public boolean isLastInstructionInMethod() {
         return equals(getRawCFG().getInstructionWithBiggestId());
@@ -852,8 +773,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 
     /**
      * canBeExitPoint.
-     *
-     * @return a boolean.
      */
     public boolean canBeExitPoint() {
         return canReturnFromMethod() || isLastInstructionInMethod();
@@ -861,8 +780,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 
     /**
      * Returns the RawCFG of the method called by this instruction.
-     *
-     * @return a {@link org.evosuite.graphs.cfg.RawControlFlowGraph} object.
      */
     public RawControlFlowGraph getCalledCFG() {
         if (!isMethodCall()) {
@@ -879,8 +796,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
      *
      * <p>This is done using the getSourceOfMethodInvocationInstruction() method
      * and checking if the return of that method loads this using loadsReferenceToThis().
-     *
-     * @return a boolean.
      */
     public boolean isMethodCallOnSameObject() {
         BytecodeInstruction srcInstruction = getSourceOfMethodInvocationInstruction();
@@ -895,8 +810,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
      *
      * <p>This is done using the getSourceOfMethodInvocationInstruction() method
      * and checking if the return of that method is a field use instruction.
-     *
-     * @return a boolean.
      */
     public boolean isMethodCallOfField() {
         if (!this.isMethodCall()) {
@@ -943,8 +856,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
      *
      * <p>This is done using the getSourceOfMethodInvocationInstruction() method
      * and returning its variable name.
-     *
-     * @return a {@link java.lang.String} object.
      */
     @Override
     public String getFieldMethodCallName() {
@@ -1099,8 +1010,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 
     /**
      * isCallToPublicMethod.
-     *
-     * @return a boolean.
      */
     public boolean isCallToPublicMethod() {
         if (!isMethodCall()) {
@@ -1118,8 +1027,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 
     /**
      * isCallToStaticMethod.
-     *
-     * @return a boolean.
      */
     public boolean isCallToStaticMethod() {
         if (!isMethodCall()) {
@@ -1137,8 +1044,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 
     /**
      * canBeInstrumented.
-     *
-     * @return a boolean.
      */
     public boolean canBeInstrumented() {
         return !isWithinConstructor() || !proceedsOwnConstructorInvocation();

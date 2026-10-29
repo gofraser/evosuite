@@ -26,22 +26,16 @@ public interface Expression<T extends Object> extends Serializable {
 
     /**
      * Returns the parent expression.
-     *
-     * @return a {@link org.evosuite.symbolic.expr.Expression} object.
      */
     Expression<?> getParent();
 
     /**
      * Sets the parent expression.
-     *
-     * @param expr a {@link org.evosuite.symbolic.expr.Expression} object.
      */
     void setParent(Expression<?> expr);
 
     /**
      * Returns the concrete value of the expression.
-     *
-     * @return a {@link java.lang.Object} object.
      */
     T getConcreteValue();
 

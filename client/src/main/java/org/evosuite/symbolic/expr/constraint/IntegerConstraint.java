@@ -38,10 +38,6 @@ public final class IntegerConstraint extends Constraint<Long> {
      * <p>
      * Constructor for IntegerConstraint.
      * </p>
-     *
-     * @param left  a {@link org.evosuite.symbolic.expr.Expression} object.
-     * @param cmp   a {@link org.evosuite.symbolic.expr.Comparator} object.
-     * @param right a {@link org.evosuite.symbolic.expr.Expression} object.
      */
     public IntegerConstraint(Expression<Long> left, Comparator cmp,
                              Expression<Long> right) {

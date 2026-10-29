@@ -76,8 +76,6 @@ public class PermissionStatistics {
      * <p>
      * Getter for the field <code>instance</code>.
      * </p>
-     *
-     * @return a {@link org.evosuite.runtime.sandbox.PermissionStatistics} object.
      */
     public static PermissionStatistics getInstance() {
         return instance;
@@ -87,8 +85,6 @@ public class PermissionStatistics {
      * <p>
      * getRecentFileReadPermissions.
      * </p>
-     *
-     * @return an array of {@link java.lang.String} objects.
      */
     public String[] getRecentFileReadPermissions() {
         return recentAccess.toArray(new String[0]);
@@ -119,8 +115,6 @@ public class PermissionStatistics {
      * <p>
      * permissionAllowed.
      * </p>
-     *
-     * @param permission a {@link java.security.Permission} object.
      */
     public void permissionAllowed(Permission permission) {
         rememberRecentReadFilePermissions(permission);
@@ -158,8 +152,6 @@ public class PermissionStatistics {
      * <p>
      * permissionDenied.
      * </p>
-     *
-     * @param permission a {@link java.security.Permission} object.
      */
     public void permissionDenied(Permission permission) {
         incCurrentCount(permission.getClass());
@@ -183,9 +175,6 @@ public class PermissionStatistics {
 
     /**
      * Retrieve the number of times a particular permission was denied.
-     *
-     * @param permission a {@link java.security.Permission} object.
-     * @return a int.
      */
     public int getPermissionDeniedCount(Permission permission) {
         String name = permission.getClass().getName();
@@ -202,8 +191,6 @@ public class PermissionStatistics {
      * <p>
      * getNumAllPermission.
      * </p>
-     *
-     * @return a int.
      */
     public int getNumAllPermission() {
         return getCurrentCount(java.security.AllPermission.class);
@@ -213,8 +200,6 @@ public class PermissionStatistics {
      * <p>
      * getNumSecurityPermission.
      * </p>
-     *
-     * @return a int.
      */
     public int getNumSecurityPermission() {
         return getCurrentCount(java.security.SecurityPermission.class);
@@ -224,8 +209,6 @@ public class PermissionStatistics {
      * <p>
      * getNumUnresolvedPermission.
      * </p>
-     *
-     * @return a int.
      */
     public int getNumUnresolvedPermission() {
         return getCurrentCount(java.security.UnresolvedPermission.class);
@@ -235,8 +218,6 @@ public class PermissionStatistics {
      * <p>
      * getNumAWTPermission.
      * </p>
-     *
-     * @return a int.
      */
     public int getNumAWTPermission() {
         return getCurrentCount(java.awt.AWTPermission.class);
@@ -246,8 +227,6 @@ public class PermissionStatistics {
      * <p>
      * getNumFilePermission.
      * </p>
-     *
-     * @return a int.
      */
     public int getNumFilePermission() {
         return getCurrentCount(java.io.FilePermission.class);
@@ -257,8 +236,6 @@ public class PermissionStatistics {
      * <p>
      * getNumSerializablePermission.
      * </p>
-     *
-     * @return a int.
      */
     public int getNumSerializablePermission() {
         return getCurrentCount(java.io.SerializablePermission.class);
@@ -268,8 +245,6 @@ public class PermissionStatistics {
      * <p>
      * getNumReflectPermission.
      * </p>
-     *
-     * @return a int.
      */
     public int getNumReflectPermission() {
         return getCurrentCount(java.lang.reflect.ReflectPermission.class);
@@ -279,8 +254,6 @@ public class PermissionStatistics {
      * <p>
      * getNumRuntimePermission.
      * </p>
-     *
-     * @return a int.
      */
     public int getNumRuntimePermission() {
         return getCurrentCount(java.lang.RuntimePermission.class);
@@ -290,8 +263,6 @@ public class PermissionStatistics {
      * <p>
      * getNumNetPermission.
      * </p>
-     *
-     * @return a int.
      */
     public int getNumNetPermission() {
         return getCurrentCount(java.net.NetPermission.class);
@@ -301,8 +272,6 @@ public class PermissionStatistics {
      * <p>
      * getNumSocketPermission.
      * </p>
-     *
-     * @return a int.
      */
     public int getNumSocketPermission() {
         return getCurrentCount(java.net.SocketPermission.class);
@@ -312,8 +281,6 @@ public class PermissionStatistics {
      * <p>
      * getNumSQLPermission.
      * </p>
-     *
-     * @return a int.
      */
     public int getNumSQLPermission() {
         return getCurrentCount(java.sql.SQLPermission.class);
@@ -323,8 +290,6 @@ public class PermissionStatistics {
      * <p>
      * getNumPropertyPermission.
      * </p>
-     *
-     * @return a int.
      */
     public int getNumPropertyPermission() {
         return getCurrentCount(java.util.PropertyPermission.class);
@@ -334,8 +299,6 @@ public class PermissionStatistics {
      * <p>
      * getNumLoggingPermission.
      * </p>
-     *
-     * @return a int.
      */
     public int getNumLoggingPermission() {
         return getCurrentCount(java.util.logging.LoggingPermission.class);
@@ -345,8 +308,6 @@ public class PermissionStatistics {
      * <p>
      * getNumSSLPermission.
      * </p>
-     *
-     * @return a int.
      */
     public int getNumSSLPermission() {
         return getCurrentCount(javax.net.ssl.SSLPermission.class);
@@ -356,8 +317,6 @@ public class PermissionStatistics {
      * <p>
      * getNumAuthPermission.
      * </p>
-     *
-     * @return a int.
      */
     public int getNumAuthPermission() {
         return getCurrentCount(javax.security.auth.AuthPermission.class)
@@ -370,8 +329,6 @@ public class PermissionStatistics {
      * <p>
      * getNumAudioPermission.
      * </p>
-     *
-     * @return a int.
      */
     public int getNumAudioPermission() {
         return getCurrentCount(javax.sound.sampled.AudioPermission.class);
@@ -381,8 +338,6 @@ public class PermissionStatistics {
      * <p>
      * getNumOtherPermission.
      * </p>
-     *
-     * @return a int.
      */
     public int getNumOtherPermission() {
         int sum = getNumAllPermission() + getNumSecurityPermission()
@@ -406,8 +361,6 @@ public class PermissionStatistics {
      * <p>
      * hasDeniedPermissions.
      * </p>
-     *
-     * @return a boolean.
      */
     public boolean hasDeniedPermissions() {
         return !deniedCount.isEmpty();
@@ -482,8 +435,6 @@ public class PermissionStatistics {
      * far. Note: this is used to check if the SUT is multi-threading, but it is
      * not a 100% bullet-proof solution, as this method is only called any now
      * and then.
-     *
-     * @param numThreads a int.
      */
     public void countThreads(int numThreads) {
         if (threadGroupToMonitor != null
@@ -496,8 +447,6 @@ public class PermissionStatistics {
      * <p>
      * Getter for the field <code>maxThreads</code>.
      * </p>
-     *
-     * @return a int.
      */
     public int getMaxThreads() {
         return maxThreads;

@@ -30,9 +30,6 @@ public class LambdaUtils {
 
     /**
      * Checks if the current class is a magic lambda instance.
-     *
-     * @param claz a {@link java.lang.Class} object.
-     * @return a boolean.
      */
     public static boolean isLambda(Class<?> claz) {
         return claz.isSynthetic() && claz.getSimpleName().contains(LAMBDA_CLASS_NAME_FRAGMENT);

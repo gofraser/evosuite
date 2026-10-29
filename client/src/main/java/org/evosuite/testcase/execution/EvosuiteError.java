@@ -36,8 +36,6 @@ public class EvosuiteError extends Error {
      * <p>
      * Constructor for EvosuiteError.
      * </p>
-     *
-     * @param cause a {@link java.lang.Throwable} object.
      */
     public EvosuiteError(Throwable cause) {
         super(cause);
@@ -47,8 +45,6 @@ public class EvosuiteError extends Error {
      * <p>
      * Constructor for EvosuiteError.
      * </p>
-     *
-     * @param msg a {@link java.lang.String} object.
      */
     public EvosuiteError(String msg) {
         super(msg);

@@ -92,11 +92,6 @@ public class MethodCallReplacement {
 
     /**
      * <p>isTarget.</p>
-     *
-     * @param owner a {@link java.lang.String} object.
-     * @param name  a {@link java.lang.String} object.
-     * @param desc  a {@link java.lang.String} object.
-     * @return a boolean.
      */
     public boolean isTarget(String owner, String name, String desc) {
         return className.equals(owner) && methodName.equals(name)
@@ -106,8 +101,6 @@ public class MethodCallReplacement {
     /**
      * <p>insertMethodCall.</p>
      *
-     * @param mv                  a {@link org.evosuite.runtime.instrumentation.MethodCallReplacementMethodAdapter}
-     *                            object.
      * @param opcode              the opcode used to invoke the replacement method.
      * @param originalOpcode      the opcode ASM reported for the call being replaced. This is used
      *                            to re-emit the original call in the "mocking disabled" branch.
@@ -200,8 +193,6 @@ public class MethodCallReplacement {
 
     /**
      * <p>insertInvokeSpecialForMockedSuperclass.</p>
-     *
-     * @param mv a {@link org.evosuite.runtime.instrumentation.MethodCallReplacementMethodAdapter} object.
      */
     public void insertInvokeSpecialForMockedSuperclass(MethodCallReplacementMethodAdapter mv) {
         int numArguments = Type.getArgumentTypes(replacementDesc).length;
@@ -233,10 +224,6 @@ public class MethodCallReplacement {
 
     /**
      * <p>insertConstructorCall.</p>
-     *
-     * @param mv          a {@link org.evosuite.runtime.instrumentation.MethodCallReplacementMethodAdapter} object.
-     * @param replacement a {@link org.evosuite.runtime.instrumentation.MethodCallReplacement} object.
-     * @param isSelf      a boolean.
      */
     public void insertConstructorCall(MethodCallReplacementMethodAdapter mv,
                                       MethodCallReplacement replacement, boolean isSelf) {
@@ -282,8 +269,6 @@ public class MethodCallReplacement {
 
     /**
      * <p>Getter for the field <code>className</code>.</p>
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getClassName() {
         return className;
@@ -291,8 +276,6 @@ public class MethodCallReplacement {
 
     /**
      * <p>Getter for the field <code>methodName</code>.</p>
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getMethodName() {
         return methodName;
@@ -300,8 +283,6 @@ public class MethodCallReplacement {
 
     /**
      * <p>getMethodNameWithDesc.</p>
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getMethodNameWithDesc() {
         return methodName + desc;
@@ -309,8 +290,6 @@ public class MethodCallReplacement {
 
     /**
      * <p>Getter for the field <code>desc</code>.</p>
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getDesc() {
         return desc;
@@ -318,8 +297,6 @@ public class MethodCallReplacement {
 
     /**
      * <p>Getter for the field <code>origOpcode</code>.</p>
-     *
-     * @return a int.
      */
     public int getOrigOpcode() {
         return origOpcode;

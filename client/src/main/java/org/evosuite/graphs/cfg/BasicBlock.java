@@ -79,9 +79,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
      * Constructor for BasicBlock.
      *
      * @param classLoader class loader
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
-     * @param blockNodes a {@link java.util.List} object.
      */
     public BasicBlock(ClassLoader classLoader, String className, String methodName,
                       List<BytecodeInstruction> blockNodes) {
@@ -105,8 +102,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
     /**
      * Used by Entry- and ExitBlocks.
      *
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
      * @param id block ID
      */
     protected BasicBlock(String className, String methodName, int id) {
@@ -126,8 +121,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
      * Returns the ControlDependenceGraph of this instructions method.
      *
      * <p>Convenience method. Redirects the call to GraphPool.getCDG().
-     *
-     * @return a {@link org.evosuite.graphs.cdg.ControlDependenceGraph} object.
      */
     public ControlDependenceGraph getCDG() {
 
@@ -148,8 +141,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
      *
      * <p>If this instruction is control dependent on the root branch the id -1
      * will be contained in this set.
-     *
-     * @return a {@link java.util.Set} object.
      */
     public Set<Integer> getControlDependentBranchIds() {
 
@@ -175,8 +166,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
      * happen in loops for example - the returned set WILL contain this. If you
      * do not need the full set in order to avoid loops, call
      * getAllControlDependentBranches instead.
-     *
-     * @return a {@link java.util.Set} object.
      */
     public Set<ControlDependency> getControlDependencies() {
 
@@ -189,8 +178,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
 
     /**
      * hasControlDependenciesSet.
-     *
-     * @return a boolean.
      */
     public boolean hasControlDependenciesSet() {
         return controlDependencies != null;
@@ -241,9 +228,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
 
     /**
      * containsInstruction.
-     *
-     * @param instruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @return a boolean.
      */
     public boolean containsInstruction(BytecodeInstruction instruction) {
         if (instruction == null) {
@@ -255,9 +239,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
 
     /**
      * containsInstruction.
-     *
-     * @param insnNode a {@link org.objectweb.asm.tree.AbstractInsnNode} object.
-     * @return a boolean.
      */
     public boolean containsInstruction(AbstractInsnNode insnNode) {
         for (BytecodeInstruction instruction : instructions) {
@@ -270,8 +251,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
 
     /**
      * getFirstInstruction.
-     *
-     * @return a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      */
     public BytecodeInstruction getFirstInstruction() {
         if (instructions.isEmpty()) {
@@ -282,8 +261,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
 
     /**
      * getLastInstruction.
-     *
-     * @return a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      */
     public BytecodeInstruction getLastInstruction() {
         if (instructions.isEmpty()) {
@@ -294,8 +271,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
 
     /**
      * getFirstLine.
-     *
-     * @return a int.
      */
     public int getFirstLine() {
         for (BytecodeInstruction ins : instructions) {
@@ -309,8 +284,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
 
     /**
      * getLastLine.
-     *
-     * @return a int.
      */
     public int getLastLine() {
 
@@ -327,8 +300,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
 
     /**
      * getName.
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getName() {
         return (isAuxiliaryBlock ? "aux" : "") + "BasicBlock " + id;
@@ -336,8 +307,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
 
     /**
      * Getter for the field <code>className</code>.
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getClassName() {
         return className;
@@ -345,8 +314,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
 
     /**
      * Getter for the field <code>methodName</code>.
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getMethodName() {
         return methodName;
@@ -354,8 +321,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
 
     /**
      * explain.
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String explain() {
         StringBuilder r = new StringBuilder();
@@ -463,8 +428,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
 
     /**
      * isEntryBlock.
-     *
-     * @return a boolean.
      */
     public boolean isEntryBlock() {
         return false;
@@ -472,8 +435,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
 
     /**
      * isExitBlock.
-     *
-     * @return a boolean.
      */
     public boolean isExitBlock() {
         return false;

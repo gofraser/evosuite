@@ -34,9 +34,6 @@ public interface BloatControlFunction<T extends Chromosome<T>> extends Serializa
 
     /**
      * <p>isTooLong.</p>
-     *
-     * @param chromosome a {@link org.evosuite.ga.Chromosome} object.
-     * @return a boolean.
      */
     boolean isTooLong(T chromosome);
 

@@ -38,10 +38,6 @@ public final class RealConstraint extends Constraint<Double> {
      * <p>
      * Constructor for RealConstraint.
      * </p>
-     *
-     * @param left  a {@link org.evosuite.symbolic.expr.Expression} object.
-     * @param cmp   a {@link org.evosuite.symbolic.expr.Comparator} object.
-     * @param right a {@link org.evosuite.symbolic.expr.Expression} object.
      */
     public RealConstraint(Expression<Double> left, Comparator cmp,
                           Expression<Double> right) {

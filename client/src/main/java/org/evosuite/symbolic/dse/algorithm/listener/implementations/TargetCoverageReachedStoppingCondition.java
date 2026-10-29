@@ -80,7 +80,6 @@ public class TargetCoverageReachedStoppingCondition extends StoppingConditionImp
      * <p>IMPORTANT: As the values are normalized (between 0 and 1) and the limit
      * will arrive as a long value. we have to normalize it.
      *
-     * @param limit a long.
      * @throws java.security.InvalidParameterException if limit is invalid.
      */
     @Override

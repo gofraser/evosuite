@@ -64,10 +64,6 @@ public class ConstructorStatement extends EntityWithParametersStatement {
      * <p>
      * Constructor for ConstructorStatement.
      * </p>
-     *
-     * @param tc          a {@link org.evosuite.testcase.TestCase} object.
-     * @param constructor a {@link java.lang.reflect.Constructor} object.
-     * @param parameters  a {@link java.util.List} object.
      */
     public ConstructorStatement(TestCase tc, GenericConstructor constructor,
                                 List<VariableReference> parameters) {
@@ -81,11 +77,6 @@ public class ConstructorStatement extends EntityWithParametersStatement {
      * as retvar. This should only be done, iff an old statement is replaced
      * with this statement. And already existing objects should in the future
      * reference this object.
-     *
-     * @param tc          a {@link org.evosuite.testcase.TestCase} object.
-     * @param constructor a {@link java.lang.reflect.Constructor} object.
-     * @param retvar      a {@link org.evosuite.testcase.variable.VariableReference} object.
-     * @param parameters  a {@link java.util.List} object.
      */
     public ConstructorStatement(TestCase tc, GenericConstructor constructor,
                                 VariableReference retvar, List<VariableReference> parameters) {
@@ -99,12 +90,6 @@ public class ConstructorStatement extends EntityWithParametersStatement {
      * <p>
      * Constructor for ConstructorStatement.
      * </p>
-     *
-     * @param tc          a {@link org.evosuite.testcase.TestCase} object.
-     * @param constructor a {@link java.lang.reflect.Constructor} object.
-     * @param retvar      a {@link org.evosuite.testcase.variable.VariableReference} object.
-     * @param parameters  a {@link java.util.List} object.
-     * @param check       a boolean.
      */
     protected ConstructorStatement(TestCase tc, GenericConstructor constructor,
                                    VariableReference retvar, List<VariableReference> parameters, boolean check) {
@@ -116,8 +101,6 @@ public class ConstructorStatement extends EntityWithParametersStatement {
 
     /**
      * Getter for the field <code>constructor</code>.
-     *
-     * @return a {@link java.lang.reflect.Constructor} object.
      */
     public GenericConstructor getConstructor() {
         return constructor;
@@ -125,8 +108,6 @@ public class ConstructorStatement extends EntityWithParametersStatement {
 
     /**
      * Setter for the field <code>constructor</code>.
-     *
-     * @param constructor a {@link java.lang.reflect.Constructor} object.
      */
     public void setConstructor(GenericConstructor constructor) {
         this.constructor = constructor;
@@ -135,9 +116,6 @@ public class ConstructorStatement extends EntityWithParametersStatement {
 
     /**
      * getReturnType.
-     *
-     * @param clazz a {@link java.lang.Class} object.
-     * @return a {@link java.lang.String} object.
      */
     public static String getReturnType(Class<?> clazz) {
         String retVal = ClassUtils.getShortClassName(clazz);
@@ -513,8 +491,6 @@ public class ConstructorStatement extends EntityWithParametersStatement {
 
     /**
      * getParameterReferences.
-     *
-     * @return a {@link java.util.List} object.
      */
     public List<VariableReference> getParameterReferences() {
         return parameters;

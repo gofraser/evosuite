@@ -65,8 +65,6 @@ public class StrongMutationTestFitness extends MutationTestFitness {
      * <p>
      * Constructor for StrongMutationTestFitness.
      * </p>
-     *
-     * @param mutation a {@link org.evosuite.coverage.mutation.Mutation} object.
      */
     public StrongMutationTestFitness(Mutation mutation) {
         super(mutation);

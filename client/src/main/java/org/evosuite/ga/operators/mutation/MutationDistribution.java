@@ -39,7 +39,6 @@ public abstract class MutationDistribution implements Serializable {
     /**
      * Check whether a particular chromosome is allowed to be mutated.
      *
-     * @param index a int.
      * @return true if mutation is allowed, false otherwise
      */
     public abstract boolean toMutate(int index);
@@ -47,9 +46,6 @@ public abstract class MutationDistribution implements Serializable {
     /**
      * Get mutation distribution defined in
      * {@link org.evosuite.Properties.MutationProbabilityDistribution}.
-     *
-     * @param sizeOfDistribution a int.
-     * @return a {@link org.evosuite.ga.operators.mutation.MutationDistribution} object.
      */
     public static MutationDistribution getMutationDistribution(int sizeOfDistribution) {
         switch (Properties.MUTATION_PROBABILITY_DISTRIBUTION) {

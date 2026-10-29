@@ -107,11 +107,6 @@ public class ExceptionCoverageSuiteFitness extends TestSuiteFitnessFunction {
      * Given the list of results, fill the 3 given (empty) maps with exception information.
      * Also, add exception coverage goals to mapping in {@link ExceptionCoverageFactory}
      *
-     * @param results                   a {@link java.util.List} object.
-     * @param implicitTypesOfExceptions a {@link java.util.Map} object.
-     * @param explicitTypesOfExceptions a {@link java.util.Map} object.
-     * @param declaredTypesOfExceptions a {@link java.util.Map} object.
-     * @param contextFitness            a {@link org.evosuite.coverage.exception.ExceptionCoverageSuiteFitness} object.
      * @throws IllegalArgumentException if any of the input maps are null or not empty.
      */
     public static void calculateExceptionInfo(List<ExecutionResult> results,

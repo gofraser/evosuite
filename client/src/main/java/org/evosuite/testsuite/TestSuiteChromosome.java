@@ -58,8 +58,6 @@ public final class TestSuiteChromosome
     /**
      * Add an additional secondary objective to the end of the list of
      * objectives.
-     *
-     * @param objective a {@link org.evosuite.ga.SecondaryObjective} object.
      */
     public static void addSecondaryObjective(SecondaryObjective<TestSuiteChromosome> objective) {
         secondaryObjectives.add(objective);
@@ -110,8 +108,6 @@ public final class TestSuiteChromosome
 
     /**
      * Remove secondary objective from list, if it is there.
-     *
-     * @param objective a {@link org.evosuite.ga.SecondaryObjective} object.
      */
     public static void removeSecondaryObjective(SecondaryObjective<TestSuiteChromosome> objective) {
         secondaryObjectives.remove(objective);
@@ -143,8 +139,6 @@ public final class TestSuiteChromosome
      * <p>
      * Constructor for TestSuiteChromosome.
      * </p>
-     *
-     * @param testChromosomeFactory a {@link org.evosuite.ga.ChromosomeFactory} object.
      */
     public TestSuiteChromosome(ChromosomeFactory<TestChromosome> testChromosomeFactory) {
         super(testChromosomeFactory);
@@ -154,8 +148,6 @@ public final class TestSuiteChromosome
      * <p>
      * Constructor for TestSuiteChromosome.
      * </p>
-     *
-     * @param source a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      */
     protected TestSuiteChromosome(TestSuiteChromosome source) {
         super(source);
@@ -180,9 +172,6 @@ public final class TestSuiteChromosome
 
     /**
      * Add a test to a test suite.
-     *
-     * @param test a {@link org.evosuite.testcase.TestCase} object.
-     * @return a {@link org.evosuite.testcase.TestChromosome} object.
      */
     public TestChromosome addTest(TestCase test) {
         TestChromosome c = new TestChromosome();
@@ -204,8 +193,6 @@ public final class TestSuiteChromosome
      * {@inheritDoc}
      *
      * <p>Create a deep copy of this test suite.</p>
-     *
-     * @return a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      */
     @Override
     public TestSuiteChromosome clone() {
@@ -259,8 +246,6 @@ public final class TestSuiteChromosome
      * <p>
      * getCoveredGoals.
      * </p>
-     *
-     * @return a {@link java.util.Set} object.
      */
     public Set<TestFitnessFunction> getCoveredGoals() {
         Set<TestFitnessFunction> goals = new LinkedHashSet<>();
@@ -284,8 +269,6 @@ public final class TestSuiteChromosome
      * <p>
      * getTests.
      * </p>
-     *
-     * @return a {@link java.util.List} object.
      */
     public List<TestCase> getTests() {
         return tests.stream()

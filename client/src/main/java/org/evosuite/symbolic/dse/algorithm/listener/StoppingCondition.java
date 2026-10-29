@@ -31,8 +31,6 @@ public interface StoppingCondition extends SearchListener {
 
     /**
      * How much of the budget have we used up.
-     *
-     * @return a long.
      */
     long getCurrentValue();
 
@@ -62,7 +60,6 @@ public interface StoppingCondition extends SearchListener {
     /**
      * Set new upper limit of resources.
      *
-     * @param limit a long.
      * @throws java.security.InvalidParameterException if limit is invalid.
      */
     void setLimit(long limit) throws InvalidParameterException;

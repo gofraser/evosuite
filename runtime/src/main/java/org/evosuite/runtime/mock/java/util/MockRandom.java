@@ -39,8 +39,6 @@ public class MockRandom extends Random implements OverrideMock {
 
     /**
      * Replacement function for nextInt.
-     *
-     * @return a int.
      */
     public int nextInt() {
         return org.evosuite.runtime.Random.nextInt();
@@ -48,10 +46,6 @@ public class MockRandom extends Random implements OverrideMock {
 
     /**
      * Replacement function for nextInt.
-     *
-     * @param max
-     *            a int.
-     * @return a int.
      */
     public int nextInt(int max) {
         return org.evosuite.runtime.Random.nextInt(max);
@@ -59,8 +53,6 @@ public class MockRandom extends Random implements OverrideMock {
 
     /**
      * Replacement function for nextFloat.
-     *
-     * @return a float.
      */
     public float nextFloat() {
         return org.evosuite.runtime.Random.nextFloat();
@@ -77,8 +69,6 @@ public class MockRandom extends Random implements OverrideMock {
 
     /**
      * Replacement function for nextDouble.
-     *
-     * @return a float.
      */
     public double nextDouble() {
         return org.evosuite.runtime.Random.nextDouble();
@@ -86,8 +76,6 @@ public class MockRandom extends Random implements OverrideMock {
 
     /**
      * Replacement function for nextGaussian.
-     *
-     * @return a double.
      */
     public double nextGaussian() {
         return org.evosuite.runtime.Random.nextGaussian();
@@ -95,8 +83,6 @@ public class MockRandom extends Random implements OverrideMock {
 
     /**
      * Replacement function for nextBoolean.
-     *
-     * @return a boolean.
      */
     public boolean nextBoolean() {
         return org.evosuite.runtime.Random.nextBoolean();
@@ -104,8 +90,6 @@ public class MockRandom extends Random implements OverrideMock {
 
     /**
      * Replacement function for nextLong.
-     *
-     * @return a long.
      */
     public long nextLong() {
         return org.evosuite.runtime.Random.nextLong();

@@ -52,17 +52,11 @@ public abstract class SelectionFunction<T extends Chromosome<T>> implements Seri
 
     /**
      * Return index of next offspring.
-     *
-     * @param population a {@link List} object.
-     * @return a int.
      */
     public abstract int getIndex(List<T> population);
 
     /**
      * Return two parents.
-     *
-     * @param population a {@link List} object.
-     * @return a {@link org.evosuite.ga.Chromosome} object.
      */
     public T select(List<T> population) {
         return select(population, 1).get(0);
@@ -71,9 +65,7 @@ public abstract class SelectionFunction<T extends Chromosome<T>> implements Seri
     /**
      * Return n parents.
      *
-     * @param population a {@link List} object.
      * @param number     n
-     * @return a {@link java.util.List} object.
      */
     public List<T> select(List<T> population, int number) {
         return Stream.generate(() -> getIndex(population))
@@ -84,8 +76,6 @@ public abstract class SelectionFunction<T extends Chromosome<T>> implements Seri
 
     /**
      * Are we maximizing or minimizing fitness.
-     *
-     * @param max a boolean.
      */
     public void setMaximize(boolean max) {
         maximize = max;

@@ -39,8 +39,6 @@ public class PrimitiveFieldAssertion extends Assertion {
      * <p>
      * Getter for the field <code>field</code>.
      * </p>
-     *
-     * @return a {@link java.lang.reflect.Field} object.
      */
     public Field getField() {
         return field;

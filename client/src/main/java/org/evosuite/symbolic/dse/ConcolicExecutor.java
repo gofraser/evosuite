@@ -31,9 +31,6 @@ public interface ConcolicExecutor {
 
     /**
      * Retrieve the path condition for a given test case.
-     *
-     * @param defaultTestCase a {@link org.evosuite.testcase.DefaultTestCase} object.
-     * @return a {@link PathCondition} object.
      */
     PathCondition execute(DefaultTestCase defaultTestCase);
 }

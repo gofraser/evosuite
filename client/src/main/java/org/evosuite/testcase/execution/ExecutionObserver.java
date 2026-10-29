@@ -40,8 +40,6 @@ public abstract class ExecutionObserver {
 
     /**
      * Setter method for current test case.
-     *
-     * @param test a {@link org.evosuite.testcase.TestCase} object.
      */
     public static void setCurrentTest(TestCase test) {
         currentTest = test;
@@ -49,8 +47,6 @@ public abstract class ExecutionObserver {
 
     /**
      * Getter method for current test case.
-     *
-     * @return a {@link org.evosuite.testcase.TestCase} object.
      */
     public static TestCase getCurrentTest() {
         return currentTest;
@@ -68,10 +64,6 @@ public abstract class ExecutionObserver {
 
     /**
      * After execution of a statement, the result is passed to the observer.
-     *
-     * @param statement a {@link org.evosuite.testcase.statements.Statement} object.
-     * @param scope     a {@link org.evosuite.testcase.execution.Scope} object.
-     * @param exception a {@link java.lang.Throwable} object.
      */
     public abstract void afterStatement(Statement statement, Scope scope,
                                         Throwable exception);
@@ -96,9 +88,6 @@ public abstract class ExecutionObserver {
 
     /**
      * Determine the set of variables that somehow lead to this statement.
-     *
-     * @param statement a {@link org.evosuite.testcase.statements.Statement} object.
-     * @return a {@link java.util.Set} object.
      */
     protected Set<VariableReference> getDependentVariables(Statement statement) {
         Set<VariableReference> dependencies = new HashSet<>();

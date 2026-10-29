@@ -51,8 +51,6 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
 
     /**
      * Handle test visitor.
-     *
-     * @param visitor a {@link org.evosuite.testcase.TestVisitor} object.
      */
     void accept(TestVisitor visitor);
 
@@ -65,22 +63,16 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
 
     /**
      * Keep track of an additional covered goal.
-     *
-     * @param goal a {@link org.evosuite.testcase.TestFitnessFunction} object.
      */
     void addCoveredGoal(TestFitnessFunction goal);
 
     /**
      * Remove goal that may have been covered.
-     *
-     * @param goal a {@link org.evosuite.testcase.TestFitnessFunction} object.
      */
     void removeCoveredGoal(TestFitnessFunction goal);
 
     /**
      * Keep track of an additional test failure.
-     *
-     * @param violation a {@link org.evosuite.contracts.ContractViolation} object.
      */
     void addContractViolation(ContractViolation violation);
 
@@ -122,8 +114,6 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
 
     /**
      * <p>clone.</p>
-     *
-     * @return a {@link org.evosuite.testcase.TestCase} object.
      */
     TestCase clone();
 
@@ -136,8 +126,6 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
 
     /**
      * Retrieve an object containing information about what environment components this test interacted with.
-     *
-     * @return a {@link java.util.List} object.
      */
     AccessedEnvironment getAccessedEnvironment();
 
@@ -160,15 +148,11 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
 
     /**
      * Retrieve all coverage goals covered by this test.
-     *
-     * @return a {@link java.util.Set} object.
      */
     Set<TestFitnessFunction> getCoveredGoals();
 
     /**
      * <p>getDeclaredExceptions.</p>
-     *
-     * @return a {@link java.util.Set} object.
      */
     Set<Class<?>> getDeclaredExceptions();
 
@@ -203,27 +187,18 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
 
     /**
      * Get all objects up to the given position.
-     *
-     * @param position a int.
-     * @return a {@link java.util.List} object.
      */
     List<VariableReference> getObjects(int position);
 
     /**
      * Get all objects up to position satisfying constraint.
-     *
-     * @param type     a {@link java.lang.reflect.Type} object.
-     * @param position a int.
-     * @return a {@link java.util.List} object.
      */
     List<VariableReference> getObjects(Type type, int position);
 
     /**
      * Get a random object matching type.
      *
-     * @param type     a {@link java.lang.reflect.Type} object.
      * @param position Upper bound in test case up to which objects are considered
-     * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
      * @throws org.evosuite.utils.ConstructionFailedException if no such object exists
      */
     VariableReference getRandomNonNullObject(Type type, int position)
@@ -232,9 +207,7 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
     /**
      * Get a random object matching type.
      *
-     * @param type     a {@link java.lang.reflect.Type} object.
      * @param position Upper bound in test case up to which objects are considered
-     * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
      * @throws org.evosuite.utils.ConstructionFailedException if no such object exists
      */
     VariableReference getRandomObject(Type type, int position)
@@ -250,9 +223,6 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
 
     /**
      * Get return value (variable) of statement at position.
-     *
-     * @param position a int.
-     * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
      */
     VariableReference getReturnValue(int position);
 
@@ -348,15 +318,11 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
 
     /**
      * Check if test case is valid (executable).
-     *
-     * @return a boolean.
      */
     boolean isValid();
 
     /**
      * Remove statement at position and fix variable references.
-     *
-     * @param position a int.
      */
     void remove(int position);
 
@@ -448,7 +414,6 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
     /**
      * Get Java code representation of the test case.
      *
-     * @param exceptions a {@link java.util.Map} object.
      * @return Code as string
      */
     String toCode(Map<Integer, Throwable> exceptions);

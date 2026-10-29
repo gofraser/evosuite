@@ -35,10 +35,6 @@ public abstract class ArrayUtil {
 
     /**
      * <p>asSet.</p>
-     *
-     * @param values a T object.
-     * @param <T>    a T object.
-     * @return a {@link java.util.Set} object.
      */
     @SuppressWarnings("unchecked")
     public static <T> Set<T> asSet(T... values) {
@@ -52,9 +48,6 @@ public abstract class ArrayUtil {
 
     /**
      * <p>box.</p>
-     *
-     * @param array an array of int.
-     * @return an array of {@link java.lang.Integer} objects.
      */
     public static Integer[] box(int[] array) {
         Integer[] result = new Integer[array.length];
@@ -69,9 +62,6 @@ public abstract class ArrayUtil {
 
     /**
      * <p>box.</p>
-     *
-     * @param array an array of long.
-     * @return an array of {@link java.lang.Long} objects.
      */
     public static Long[] box(long[] array) {
         Long[] result = new Long[array.length];
@@ -86,9 +76,6 @@ public abstract class ArrayUtil {
 
     /**
      * <p>box.</p>
-     *
-     * @param array an array of byte.
-     * @return an array of {@link java.lang.Byte} objects.
      */
     public static Byte[] box(byte[] array) {
         Byte[] result = new Byte[array.length];
@@ -103,10 +90,6 @@ public abstract class ArrayUtil {
 
     /**
      * <p>join.</p>
-     *
-     * @param array     an array of {@link java.lang.Object} objects.
-     * @param separator a {@link java.lang.String} object.
-     * @return a {@link java.lang.String} object.
      */
     public static String join(Object[] array, String separator) {
         return StringUtils.join(array, separator);
@@ -114,9 +97,6 @@ public abstract class ArrayUtil {
 
     /**
      * <p>join.</p>
-     *
-     * @param array an array of {@link java.lang.Object} objects.
-     * @return a {@link java.lang.String} object.
      */
     public static String join(Object[] array) {
         return StringUtils.join(array, DEFAULT_JOIN_SEPARATOR);
@@ -124,10 +104,6 @@ public abstract class ArrayUtil {
 
     /**
      * <p>join.</p>
-     *
-     * @param array     an array of long.
-     * @param separator a {@link java.lang.String} object.
-     * @return a {@link java.lang.String} object.
      */
     public static String join(long[] array, String separator) {
         return join(box(array), separator);
@@ -135,9 +111,6 @@ public abstract class ArrayUtil {
 
     /**
      * <p>join.</p>
-     *
-     * @param array an array of long.
-     * @return a {@link java.lang.String} object.
      */
     public static String join(long[] array) {
         return join(array, DEFAULT_JOIN_SEPARATOR);
@@ -145,10 +118,6 @@ public abstract class ArrayUtil {
 
     /**
      * <p>join.</p>
-     *
-     * @param array     an array of byte.
-     * @param separator a {@link java.lang.String} object.
-     * @return a {@link java.lang.String} object.
      */
     public static String join(byte[] array, String separator) {
         return join(box(array), separator);
@@ -156,9 +125,6 @@ public abstract class ArrayUtil {
 
     /**
      * <p>join.</p>
-     *
-     * @param array an array of byte.
-     * @return a {@link java.lang.String} object.
      */
     public static String join(byte[] array) {
         return join(array, DEFAULT_JOIN_SEPARATOR);

@@ -65,8 +65,6 @@ public class ClassReInitializer {
 
     /**
      * <p>Getter for the field <code>instance</code>.</p>
-     *
-     * @return a {@link org.evosuite.testcase.execution.reset.ClassReInitializer} object.
      */
     public static ClassReInitializer getInstance() {
         if (instance == null) {

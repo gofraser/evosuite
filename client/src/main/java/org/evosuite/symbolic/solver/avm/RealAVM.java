@@ -47,8 +47,6 @@ final class RealAVM extends VariableAVM {
 
     /**
      * Applies AVM to the real variable.
-     *
-     * @return a boolean.
      */
     @Override
     public boolean applyAVM() throws SolverTimeoutException {
@@ -133,8 +131,6 @@ final class RealAVM extends VariableAVM {
      * Increments the realVar with the specified value. If we are going out of
      * the bounds of the variable the new value is set to the the appropriate
      * bound.
-     *
-     * @param i a double.
      */
     private void incrementVar(double i) {
         double oldVal = realVar.getConcreteValue();
@@ -158,9 +154,6 @@ final class RealAVM extends VariableAVM {
     /**
      * Returns if the new distance is smaller than the checkpointing old
      * distance.
-     *
-     * @param newDistance a double.
-     * @return a boolean.
      */
     private boolean distImpr(double newDistance) {
         return newDistance < checkpointedDistance;
@@ -176,11 +169,6 @@ final class RealAVM extends VariableAVM {
 
     /**
      * Try to optimize the digits after the comma.
-     *
-     * @param realVar a {@link org.evosuite.symbolic.expr.fp.RealVariable} object.
-     * @param cnstr a {@link java.util.Collection} object.
-     * @return a boolean.
-     * @throws org.evosuite.symbolic.solver.SolverTimeoutException if any.
      */
     private boolean afterCommaSearch(RealVariable realVar, Collection<Constraint<?>> cnstr)
             throws SolverTimeoutException {
@@ -208,9 +196,6 @@ final class RealAVM extends VariableAVM {
 
     /**
      * Cut off digits after comma.
-     *
-     * @param precision a int.
-     * @param isFloat a boolean.
      */
     private void chopOffPrecision(int precision, boolean isFloat) {
 
@@ -239,10 +224,6 @@ final class RealAVM extends VariableAVM {
 
     /**
      * Apply AVM on variable.
-     *
-     * @param delta a double.
-     * @param factor a double.
-     * @throws org.evosuite.symbolic.solver.SolverTimeoutException if any.
      */
     private void iterateVar(double delta, double factor) throws SolverTimeoutException {
 

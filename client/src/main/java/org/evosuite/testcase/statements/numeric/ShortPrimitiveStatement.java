@@ -37,7 +37,6 @@ public class ShortPrimitiveStatement extends NumericalPrimitiveStatement<Short> 
     /**
      * Constructs a new ShortPrimitiveStatement with the given value.
      *
-     * @param tc    a {@link org.evosuite.testcase.TestCase} object.
      * @param value the initial value.
      */
     public ShortPrimitiveStatement(TestCase tc, Short value) {
@@ -46,8 +45,6 @@ public class ShortPrimitiveStatement extends NumericalPrimitiveStatement<Short> 
 
     /**
      * Constructs a new ShortPrimitiveStatement with default value 0.
-     *
-     * @param tc a {@link org.evosuite.testcase.TestCase} object.
      */
     public ShortPrimitiveStatement(TestCase tc) {
         super(tc, short.class, (short) 0);

@@ -39,9 +39,6 @@ public class FitnessFunctionsUtils {
 
     /**
      * Convert criterion names to test suite fitness functions.
-     *
-     * @param criterion an array of {@link org.evosuite.Properties.Criterion} objects
-     * @return a {@link java.util.List} object
      */
     public static List<TestSuiteFitnessFunction> getFitnessFunctions(Properties.Criterion[] criterion) {
         List<TestSuiteFitnessFunction> ffs = new ArrayList<>();
@@ -55,9 +52,6 @@ public class FitnessFunctionsUtils {
 
     /**
      * Convert criterion names to factories for test case fitness functions.
-     *
-     * @param criterion an array of {@link org.evosuite.Properties.Criterion} objects
-     * @return a {@link java.util.List} object
      */
     public static List<TestFitnessFactory<? extends TestFitnessFunction>> getFitnessFactories(
             Properties.Criterion[] criterion) {
@@ -68,10 +62,6 @@ public class FitnessFunctionsUtils {
 
     /**
      * Returns current Fitness functions based on which criterion was passed.
-     *
-     * @param criterion an array of {@link org.evosuite.Properties.Criterion} objects
-     * @param verbose   a boolean
-     * @return a {@link java.util.List} object
      */
     public static List<TestFitnessFunction> getFitnessFunctionsGoals(Properties.Criterion[] criterion,
                                                                      boolean verbose) {

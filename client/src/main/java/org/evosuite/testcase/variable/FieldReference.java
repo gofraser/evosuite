@@ -48,10 +48,6 @@ public class FieldReference extends VariableReferenceImpl {
 
     /**
      * Constructor for FieldReference.
-     *
-     * @param testCase a {@link org.evosuite.testcase.TestCase} object.
-     * @param field    a {@link java.lang.reflect.Field} object.
-     * @param source   a {@link VariableReference} object.
      */
     public FieldReference(TestCase testCase, GenericField field, VariableReference source) {
         super(testCase, field.getFieldType());
@@ -66,11 +62,6 @@ public class FieldReference extends VariableReferenceImpl {
      * We need this constructor to work around a bug in Java Generics which
      * causes a java.lang.reflect.GenericSignatureFormatError when accessing
      * getType.
-     *
-     * @param testCase  a {@link org.evosuite.testcase.TestCase} object.
-     * @param field     a {@link java.lang.reflect.Field} object.
-     * @param fieldType a {@link java.lang.reflect.Type} object.
-     * @param source    a {@link VariableReference} object.
      */
     public FieldReference(TestCase testCase, GenericField field, Type fieldType,
                           VariableReference source) {
@@ -93,9 +84,6 @@ public class FieldReference extends VariableReferenceImpl {
 
     /**
      * Constructor for FieldReference.
-     *
-     * @param testCase a {@link org.evosuite.testcase.TestCase} object.
-     * @param field    a {@link java.lang.reflect.Field} object.
      */
     public FieldReference(TestCase testCase, GenericField field) {
         super(testCase, field.getFieldType());
@@ -107,10 +95,6 @@ public class FieldReference extends VariableReferenceImpl {
      * We need this constructor to work around a bug in Java Generics which
      * causes a java.lang.reflect.GenericSignatureFormatError when accessing
      * getType.
-     *
-     * @param testCase a {@link org.evosuite.testcase.TestCase} object.
-     * @param type     a {@link java.lang.reflect.Type} object.
-     * @param field    a {@link java.lang.reflect.Field} object.
      */
     public FieldReference(TestCase testCase, GenericField field, Type type) {
         super(testCase, type);
@@ -120,8 +104,6 @@ public class FieldReference extends VariableReferenceImpl {
 
     /**
      * Access the field.
-     *
-     * @return a {@link java.lang.reflect.Field} object.
      */
     public GenericField getField() {
         return field;
@@ -129,8 +111,6 @@ public class FieldReference extends VariableReferenceImpl {
 
     /**
      * Access the source object.
-     *
-     * @return a {@link VariableReference} object.
      */
     public VariableReference getSource() {
         return source;
@@ -388,8 +368,6 @@ public class FieldReference extends VariableReferenceImpl {
     /**
      * Determine the nesting level of the field access (I.e., how many dots in
      * the expression).
-     *
-     * @return a int.
      */
     public int getDepth() {
         int depth = 1;

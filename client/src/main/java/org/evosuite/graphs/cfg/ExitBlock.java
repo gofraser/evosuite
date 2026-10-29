@@ -25,9 +25,6 @@ public class ExitBlock extends BasicBlock {
 
     /**
      * <p>Constructor for ExitBlock.</p>
-     *
-     * @param className  a {@link java.lang.String} object.
-     * @param methodName a {@link java.lang.String} object.
      */
     public ExitBlock(String className, String methodName) {
         super(className, methodName, -2);

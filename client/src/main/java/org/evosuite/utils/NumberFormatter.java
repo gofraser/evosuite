@@ -59,10 +59,6 @@ public class NumberFormatter {
      * <p>
      * getNumberString.
      * </p>
-     *
-     * @param value a {@link java.lang.Object} object.
-     * @param visitor a {@link org.evosuite.testcase.TestCodeVisitor} object.
-     * @return a {@link java.lang.String} object.
      */
     public static String getNumberString(Object value, TestCodeVisitor visitor) {
         if (value == null) {
@@ -212,9 +208,6 @@ public class NumberFormatter {
      * <p>
      * getBoxedClassName.
      * </p>
-     *
-     * @param value a {@link java.lang.Object} object.
-     * @return a {@link java.lang.String} object.
      */
     public static String getBoxedClassName(Object value) {
         if (value.getClass().equals(Double.class)) {

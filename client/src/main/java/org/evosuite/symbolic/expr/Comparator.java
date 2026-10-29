@@ -115,15 +115,11 @@ public enum Comparator {
 
     /**
      * Returns the negation of this comparator.
-     *
-     * @return a {@link org.evosuite.symbolic.expr.Comparator} object.
      */
     public abstract Comparator not();
 
     /**
      * Returns the comparator with swapped operands.
-     *
-     * @return a {@link org.evosuite.symbolic.expr.Comparator} object.
      */
     public abstract Comparator swap();
 

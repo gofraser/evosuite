@@ -31,9 +31,6 @@ public class CCFGMethodCallEdge extends CCFGEdge {
 
     /**
      * Constructor for CCFGMethodCallEdge.
-     *
-     * @param callInstruction a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
-     * @param isCallingEdge   a boolean.
      */
     public CCFGMethodCallEdge(BytecodeInstruction callInstruction, boolean isCallingEdge) {
         this.callInstruction = callInstruction;
@@ -42,8 +39,6 @@ public class CCFGMethodCallEdge extends CCFGEdge {
 
     /**
      * Marks whether this is a calling edge or a returning edge.
-     *
-     * @return a boolean.
      */
     public boolean isCallingEdge() {
         return isCallingEdge;
@@ -51,8 +46,6 @@ public class CCFGMethodCallEdge extends CCFGEdge {
 
     /**
      * Getter for the field <code>callInstruction</code>.
-     *
-     * @return a {@link org.evosuite.graphs.cfg.BytecodeInstruction} object.
      */
     public BytecodeInstruction getCallInstruction() {
         return callInstruction;

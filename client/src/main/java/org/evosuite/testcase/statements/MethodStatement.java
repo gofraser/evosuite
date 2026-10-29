@@ -99,12 +99,6 @@ public class MethodStatement extends EntityWithParametersStatement {
      * as retvar. This should only be done, iff an old statement is replaced
      * with this statement. And already existing objects should in the future
      * reference this object.
-     *
-     * @param tc         a {@link org.evosuite.testcase.TestCase} object.
-     * @param method     a {@link java.lang.reflect.Method} object.
-     * @param callee     a {@link org.evosuite.testcase.variable.VariableReference} object.
-     * @param retvar     a {@link org.evosuite.testcase.variable.VariableReference} object.
-     * @param parameters a {@link java.util.List} object.
      */
     public MethodStatement(TestCase tc, GenericMethod method, VariableReference callee,
                            VariableReference retvar, List<VariableReference> parameters) {
@@ -123,10 +117,6 @@ public class MethodStatement extends EntityWithParametersStatement {
 
     /**
      * <p>isCompatibleCalleeType.</p>
-     *
-     * @param method a {@link org.evosuite.utils.GenericMethod} object.
-     * @param calleeType a {@link java.lang.reflect.Type} object.
-     * @return a boolean.
      */
     public static boolean isCompatibleCalleeType(GenericMethod method, java.lang.reflect.Type calleeType) {
         if (method == null || calleeType == null) {
@@ -242,8 +232,6 @@ public class MethodStatement extends EntityWithParametersStatement {
 
     /**
      * Getter for the field <code>method</code>.
-     *
-     * @return a {@link java.lang.reflect.Method} object.
      */
     public GenericMethod getMethod() {
         return method;
@@ -251,8 +239,6 @@ public class MethodStatement extends EntityWithParametersStatement {
 
     /**
      * Setter for the field <code>method</code>.
-     *
-     * @param method a {@link java.lang.reflect.Method} object.
      */
     public void setMethod(GenericMethod method) {
         this.method = method;
@@ -260,8 +246,6 @@ public class MethodStatement extends EntityWithParametersStatement {
 
     /**
      * Getter for the field <code>callee</code>.
-     *
-     * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
      */
     public VariableReference getCallee() {
         return callee;
@@ -269,8 +253,6 @@ public class MethodStatement extends EntityWithParametersStatement {
 
     /**
      * Setter for the field <code>callee</code>.
-     *
-     * @param callee a {@link org.evosuite.testcase.variable.VariableReference} object.
      */
     public void setCallee(VariableReference callee) {
         if (!isStatic()) {
@@ -297,8 +279,6 @@ public class MethodStatement extends EntityWithParametersStatement {
 
     /**
      * Checks if method is static.
-     *
-     * @return a boolean.
      */
     public boolean isStatic() {
         return method.isStatic();

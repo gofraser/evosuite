@@ -147,11 +147,6 @@ public class ReplaceArithmeticOperator implements MutationOperator {
 
     /**
      * <p>getInfectionDistance.</p>
-     *
-     * @param opcodeOrig a int.
-     * @param opcodeNew  a int.
-     * @param localVar   a int.
-     * @return a {@link org.objectweb.asm.tree.InsnList} object.
      */
     public InsnList getInfectionDistance(int opcodeOrig, int opcodeNew, int localVar) {
         InsnList distance = new InsnList();
@@ -231,12 +226,6 @@ public class ReplaceArithmeticOperator implements MutationOperator {
 
     /**
      * <p>getInfectionDistanceInt.</p>
-     *
-     * @param x          a int.
-     * @param y          a int.
-     * @param opcodeOrig a int.
-     * @param opcodeNew  a int.
-     * @return a double.
      */
     public static double getInfectionDistanceInt(int x, int y, int opcodeOrig,
                                                  int opcodeNew) {
@@ -250,12 +239,6 @@ public class ReplaceArithmeticOperator implements MutationOperator {
 
     /**
      * <p>getInfectionDistanceLong.</p>
-     *
-     * @param x          a long.
-     * @param y          a long.
-     * @param opcodeOrig a int.
-     * @param opcodeNew  a int.
-     * @return a double.
      */
     public static double getInfectionDistanceLong(long x, long y, int opcodeOrig,
                                                   int opcodeNew) {
@@ -269,12 +252,6 @@ public class ReplaceArithmeticOperator implements MutationOperator {
 
     /**
      * <p>getInfectionDistanceFloat.</p>
-     *
-     * @param x          a float.
-     * @param y          a float.
-     * @param opcodeOrig a int.
-     * @param opcodeNew  a int.
-     * @return a double.
      */
     public static double getInfectionDistanceFloat(float x, float y, int opcodeOrig,
                                                    int opcodeNew) {
@@ -288,12 +265,6 @@ public class ReplaceArithmeticOperator implements MutationOperator {
 
     /**
      * <p>getInfectionDistanceDouble.</p>
-     *
-     * @param x          a double.
-     * @param y          a double.
-     * @param opcodeOrig a int.
-     * @param opcodeNew  a int.
-     * @return a double.
      */
     public static double getInfectionDistanceDouble(double x, double y, int opcodeOrig,
                                                     int opcodeNew) {
@@ -307,11 +278,6 @@ public class ReplaceArithmeticOperator implements MutationOperator {
 
     /**
      * <p>calculate.</p>
-     *
-     * @param x      a int.
-     * @param y      a int.
-     * @param opcode a int.
-     * @return a int.
      */
     public static int calculate(int x, int y, int opcode) {
         switch (opcode) {
@@ -333,11 +299,6 @@ public class ReplaceArithmeticOperator implements MutationOperator {
 
     /**
      * <p>calculate.</p>
-     *
-     * @param x      a long.
-     * @param y      a long.
-     * @param opcode a int.
-     * @return a long.
      */
     public static long calculate(long x, long y, int opcode) {
         switch (opcode) {
@@ -359,11 +320,6 @@ public class ReplaceArithmeticOperator implements MutationOperator {
 
     /**
      * <p>calculate.</p>
-     *
-     * @param x      a float.
-     * @param y      a float.
-     * @param opcode a int.
-     * @return a float.
      */
     public static float calculate(float x, float y, int opcode) {
         switch (opcode) {
@@ -385,11 +341,6 @@ public class ReplaceArithmeticOperator implements MutationOperator {
 
     /**
      * <p>calculate.</p>
-     *
-     * @param x      a double.
-     * @param y      a double.
-     * @param opcode a int.
-     * @return a double.
      */
     public static double calculate(double x, double y, int opcode) {
         switch (opcode) {

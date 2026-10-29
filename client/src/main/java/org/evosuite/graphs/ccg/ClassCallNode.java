@@ -29,8 +29,6 @@ public class ClassCallNode extends CCFGNode {
 
     /**
      * Getter for the field <code>method</code>.
-     *
-     * @return a {@link java.lang.String} object.
      */
     public String getMethod() {
         return method;
@@ -38,8 +36,6 @@ public class ClassCallNode extends CCFGNode {
 
     /**
      * Constructor for ClassCallNode.
-     *
-     * @param method a {@link java.lang.String} object.
      */
     public ClassCallNode(String method) {
         this.method = method;

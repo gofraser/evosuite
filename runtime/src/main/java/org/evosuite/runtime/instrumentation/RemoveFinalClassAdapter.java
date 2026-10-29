@@ -50,8 +50,6 @@ public class RemoveFinalClassAdapter extends ClassVisitor {
 
     /**
      * <p>Constructor for RemoveFinalClassAdapter.</p>
-     *
-     * @param cv a {@link org.objectweb.asm.ClassVisitor} object.
      */
     public RemoveFinalClassAdapter(ClassVisitor cv) {
         super(Opcodes.ASM9, cv);

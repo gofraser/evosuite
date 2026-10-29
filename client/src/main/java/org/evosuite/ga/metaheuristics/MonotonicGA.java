@@ -57,8 +57,6 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
     /**
      * Constructor.
-     *
-     * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object.
      */
     public MonotonicGA(ChromosomeFactory<T> factory) {
         super(factory);
@@ -68,12 +66,6 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
     /**
      * Decides whether to keep the offspring.
-     *
-     * @param parent1    a {@link org.evosuite.ga.Chromosome} object.
-     * @param parent2    a {@link org.evosuite.ga.Chromosome} object.
-     * @param offspring1 a {@link org.evosuite.ga.Chromosome} object.
-     * @param offspring2 a {@link org.evosuite.ga.Chromosome} object.
-     * @return a boolean.
      */
     protected boolean keepOffspring(T parent1, T parent2, T offspring1,
                                     T offspring2) {
@@ -448,8 +440,6 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
     /**
      * Sets the replacement function.
-     *
-     * @param replacementFunction a {@link org.evosuite.ga.ReplacementFunction} object.
      */
     public void setReplacementFunction(ReplacementFunction<T> replacementFunction) {
         this.replacementFunction = replacementFunction;
@@ -457,8 +447,6 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
     /**
      * Gets the replacement function.
-     *
-     * @return a {@link org.evosuite.ga.ReplacementFunction} object.
      */
     public ReplacementFunction<T> getReplacementFunction() {
         return replacementFunction;
