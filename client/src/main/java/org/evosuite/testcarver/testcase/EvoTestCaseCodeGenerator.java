@@ -25,7 +25,6 @@ import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.testcarver.capture.CaptureLog;
 import org.evosuite.testcarver.capture.CaptureUtil;
-import org.evosuite.testcarver.codegen.ICodeGenerator;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.variable.*;
@@ -38,7 +37,7 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.*;
 import java.util.*;
 
-public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> {
+public final class EvoTestCaseCodeGenerator {
 
     private static final Logger logger = LoggerFactory.getLogger(EvoTestCaseCodeGenerator.class);
     //--- source generation
@@ -50,12 +49,10 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
         this.oidToVarRefMap = new HashMap<>();
     }
 
-    @Override
     public boolean isMaximumLengthReached() {
         return testCase.size() > Properties.CHROMOSOME_LENGTH;
     }
 
-    @Override
     public void createMethodCallStmt(final CaptureLog log, final int logRecNo) {
         if (log == null) {
             throw new IllegalArgumentException("captured log must not be null");
@@ -181,7 +178,6 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    @Override
     public void createPlainInitStmt(CaptureLog log, int logRecNo) {
         // NOTE: PLAIN INIT: has always one non-null param
         // TODO: use primitives
@@ -215,7 +211,6 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
     }
 
     @SuppressWarnings({"rawtypes"})
-    @Override
     public void createUnobservedInitStmt(CaptureLog log, int logRecNo) {
 
         // NOTE: PLAIN INIT: has always one non-null param
@@ -238,7 +233,6 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
         }
     }
 
-    @Override
     public void createFieldWriteAccessStmt(CaptureLog log, int logRecNo) {
         // assumption: all necessary statements are created and there is one variable for each referenced object
 
@@ -283,7 +277,6 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
         }
     }
 
-    @Override
     public void createFieldReadAccessStmt(CaptureLog log, int logRecNo) {
         // assumption: all necessary statements are created and there is one variable for reach referenced object
         final int oid = log.objectIds.get(logRecNo);
@@ -472,7 +465,6 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
         }
     }
 
-    @Override
     public void createArrayInitStmt(final CaptureLog log, final int logRecNo) {
         final int oid = log.objectIds.get(logRecNo);
 
@@ -530,7 +522,6 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
         return false;
     }
 
-    @Override
     public void createCollectionInitStmt(final CaptureLog log, final int logRecNo) {
         try {
             final int oid = log.objectIds.get(logRecNo);
@@ -599,7 +590,6 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
 
 
 
-    @Override
     public void createMapInitStmt(final CaptureLog log, final int logRecNo) {
         try {
             final int oid = log.objectIds.get(logRecNo);
@@ -658,21 +648,17 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
         }
     }
 
-    @Override
     public void before(CaptureLog log) {
         this.testCase = new CarvedTestCase();
     }
 
-    @Override
     public void after(CaptureLog log) {
     }
 
-    @Override
     public TestCase getCode() {
         return this.testCase;
     }
 
-    @Override
     public void clear() {
         this.testCase = null;
         this.oidToVarRefMap.clear();

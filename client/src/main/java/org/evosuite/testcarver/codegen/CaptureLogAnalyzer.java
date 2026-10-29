@@ -23,6 +23,7 @@ package org.evosuite.testcarver.codegen;
 import org.evosuite.TimeController;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.testcarver.capture.CaptureLog;
+import org.evosuite.testcarver.testcase.EvoTestCaseCodeGenerator;
 import org.evosuite.utils.CollectionUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,12 +35,17 @@ import java.util.List;
 import java.util.Set;
 
 
-public final class CaptureLogAnalyzer implements ICaptureLogAnalyzer {
+public final class CaptureLogAnalyzer {
     private static final Logger logger = LoggerFactory.getLogger(CaptureLogAnalyzer.class);
 
-    @SuppressWarnings("rawtypes")
-    @Override
-    public void analyze(final CaptureLog originalLog, final ICodeGenerator generator,
+    /**
+     * Analyzes the given capture log and generates code.
+     *
+     * @param originalLog     the capture log
+     * @param generator       the code generator
+     * @param observedClasses the observed classes
+     */
+    public void analyze(final CaptureLog originalLog, final EvoTestCaseCodeGenerator generator,
                         final Class<?>... observedClasses) {
         this.analyze(originalLog, generator, new HashSet<>(), observedClasses);
     }
@@ -52,8 +58,7 @@ public final class CaptureLogAnalyzer implements ICaptureLogAnalyzer {
      * @param blackList       the blacklist of classes
      * @param observedClasses the observed classes
      */
-    @SuppressWarnings("rawtypes")
-    public void analyze(final CaptureLog originalLog, final ICodeGenerator generator,
+    public void analyze(final CaptureLog originalLog, final EvoTestCaseCodeGenerator generator,
                         final Set<Class<?>> blackList, final Class<?>... observedClasses) {
         if (originalLog == null) {
             throw new IllegalArgumentException("captured log must not be null");
@@ -92,7 +97,7 @@ public final class CaptureLogAnalyzer implements ICaptureLogAnalyzer {
     }
 
     private void postProcessLog(final CaptureLog originalLog,
-                                final ICodeGenerator<?> generator, final Set<Class<?>> blackList,
+                                final EvoTestCaseCodeGenerator generator, final Set<Class<?>> blackList,
                                 CaptureLog log, int[] oidExchange,
                                 final Class<?>... observedClasses) throws RuntimeException {
 
@@ -117,7 +122,7 @@ public final class CaptureLogAnalyzer implements ICaptureLogAnalyzer {
         }
     }
 
-    private int[] analyzeLog(final ICodeGenerator<?> generator,
+    private int[] analyzeLog(final EvoTestCaseCodeGenerator generator,
                              final Set<Class<?>> blackList, CaptureLog log,
                              List<Integer> targetOids) {
         //--- 3. step: analyze log
@@ -331,9 +336,8 @@ public final class CaptureLogAnalyzer implements ICaptureLogAnalyzer {
 
     }
 
-    @SuppressWarnings({"rawtypes"})
     private void restoreArgs(final Object[] args, final int currentRecord, final CaptureLog log,
-                             final ICodeGenerator generator, final Set<Class<?>> blackList) {
+                             final EvoTestCaseCodeGenerator generator, final Set<Class<?>> blackList) {
         Integer oid;
         for (final Object arg : args) {
             // there can only be OIDs or null
@@ -346,8 +350,7 @@ public final class CaptureLogAnalyzer implements ICaptureLogAnalyzer {
     }
 
 
-    @SuppressWarnings({"rawtypes"})
-    private int[] restoreCodeFromLastPosTo(final CaptureLog log, final ICodeGenerator generator, final int oid,
+    private int[] restoreCodeFromLastPosTo(final CaptureLog log, final EvoTestCaseCodeGenerator generator, final int oid,
                                           final int end, final Set<Class<?>> blackList) {
         logger.debug("Restoring code from last pos");
 
@@ -589,7 +592,7 @@ public final class CaptureLogAnalyzer implements ICaptureLogAnalyzer {
 
 
     private int handleArrayInit(final CaptureLog log,
-                                final ICodeGenerator<?> generator, final Set<Class<?>> blackList,
+                                final EvoTestCaseCodeGenerator generator, final Set<Class<?>> blackList,
                                 int currentRecord, int currentOid) {
         try {
 
@@ -611,7 +614,7 @@ public final class CaptureLogAnalyzer implements ICaptureLogAnalyzer {
     }
 
     private int handleMapInit(final CaptureLog log,
-                              final ICodeGenerator<?> generator, final Set<Class<?>> blackList,
+                              final EvoTestCaseCodeGenerator generator, final Set<Class<?>> blackList,
                               int currentRecord, int currentOid) {
         try {
             final Object[] methodArgs = log.params.get(currentRecord);
@@ -630,7 +633,7 @@ public final class CaptureLogAnalyzer implements ICaptureLogAnalyzer {
     }
 
     private int handleCollectionInit(final CaptureLog log,
-                                     final ICodeGenerator<?> generator, final Set<Class<?>> blackList,
+                                     final EvoTestCaseCodeGenerator generator, final Set<Class<?>> blackList,
                                      int currentRecord, int currentOid) {
 
         try {
@@ -650,7 +653,7 @@ public final class CaptureLogAnalyzer implements ICaptureLogAnalyzer {
     }
 
     private int handlePlainInit(final CaptureLog log,
-                                final ICodeGenerator<?> generator, int currentRecord, int currentOid) {
+                                final EvoTestCaseCodeGenerator generator, int currentRecord, int currentOid) {
         // e.g. String var = "Hello World";
         generator.createPlainInitStmt(log, currentRecord);
         currentRecord = findEndOfMethod(log, currentRecord, currentOid);
