@@ -197,7 +197,8 @@ public class ScaffoldingStandardStreamsTest {
         headlessDuringTest = null;
         try {
             String methods = new Scaffolding().getBeforeAndAfterMethods("Suite_ESTest", false,
-                    Collections.emptyList());
+                    Collections.emptyList(),
+                RuntimeRequirements.fromResults(Collections.emptyList()), null);
             Assertions.assertTrue(methods.contains("restoreHeadlessMode"), methods);
             String scaffolding = "import org.junit.*; import java.io.PrintStream;\n"
                     + "import javax.swing.DebugGraphics;\n"
@@ -247,7 +248,8 @@ public class ScaffoldingStandardStreamsTest {
         hookRan = false;
         registeredHook = null;
         String methods = new Scaffolding().getBeforeAndAfterMethods("Suite_ESTest", false,
-                Collections.emptyList());
+                Collections.emptyList(),
+                RuntimeRequirements.fromResults(Collections.emptyList()), null);
         String scaffolding = "import org.junit.*; import java.io.PrintStream;\n"
                 + "import javax.swing.DebugGraphics;\n"
                 + "public class Suite_ESTest_scaffolding {\n" + methods + "}\n";
@@ -303,7 +305,8 @@ public class ScaffoldingStandardStreamsTest {
     private void runSuite(String members, String testPrologue, boolean expectSuccess,
                           int expectedDepth) throws Exception {
         String methods = new Scaffolding().getBeforeAndAfterMethods("Suite_ESTest", false,
-                Collections.emptyList());
+                Collections.emptyList(),
+                RuntimeRequirements.fromResults(Collections.emptyList()), null);
         String scaffolding = "import org.junit.*; import java.io.PrintStream;\n"
                 + "import javax.swing.DebugGraphics;\n"
                 + "public class Suite_ESTest_scaffolding {\n" + methods + "}\n";

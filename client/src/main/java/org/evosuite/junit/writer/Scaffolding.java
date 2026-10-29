@@ -129,9 +129,9 @@ public class Scaffolding {
      * Whether the scaffolding has a {@code @BeforeClass} method (which can run static
      * initialisers of the code under test) and so also needs the matching {@code @AfterClass}.
      */
-    private static boolean hasClassLevelSetup(boolean wasSecurityException) {
+    private static boolean hasClassLevelSetup(boolean needsThreadWrapper, RuntimeRequirements requirements) {
         return !Properties.NO_RUNTIME_DEPENDENCY
-                && (wasSecurityException || TestSuiteWriterUtils.needToUseAgent());
+                && (needsThreadWrapper || requirements.needsAgent());
     }
 
     /**
@@ -166,7 +166,7 @@ public class Scaffolding {
             builder.append("// Empty scaffolding for empty test suite\n");
         } else {
             builder.append(new Scaffolding().getBeforeAndAfterMethods(name,
-                    requirements.needsThreadWrapper(), results, replaySnapshot));
+                    requirements.needsThreadWrapper(), results, requirements, replaySnapshot));
         }
         builder.append(getFooter());
 
@@ -281,16 +281,14 @@ public class Scaffolding {
      * SecurityManager and runtime bytecode replacement)
      *
      * @param name test name
-     * @param wasSecurityException if a security exception occurred
+     * @param needsThreadWrapper whether the tests run on a separate thread through the executor
      * @param results execution results
+     * @param requirements resolved runtime/output requirements
      * @return @After.
      */
-    public String getBeforeAndAfterMethods(String name, boolean wasSecurityException, List<ExecutionResult> results) {
-        return getBeforeAndAfterMethods(name, wasSecurityException, results, null);
-    }
-
-    String getBeforeAndAfterMethods(String name, boolean wasSecurityException,
+    String getBeforeAndAfterMethods(String name, boolean needsThreadWrapper,
                                     List<ExecutionResult> results,
+                                    RuntimeRequirements requirements,
                                     ReplaySnapshot replaySnapshot) {
 
         /*
@@ -323,21 +321,21 @@ public class Scaffolding {
 
         generateNFRRule(bd);
 
-        generateFields(bd, wasSecurityException, results);
+        generateFields(bd, needsThreadWrapper, requirements);
 
-        generateBeforeClass(bd, wasSecurityException, results);
+        generateBeforeClass(bd, needsThreadWrapper, requirements);
 
-        generateAfterClass(bd, wasSecurityException, results);
+        generateAfterClass(bd, needsThreadWrapper, requirements);
 
-        generateBefore(bd, wasSecurityException, results);
+        generateBefore(bd, needsThreadWrapper, requirements);
 
-        generateAfter(bd, wasSecurityException);
+        generateAfter(bd, needsThreadWrapper, requirements);
 
-        generateSetSystemProperties(bd, results);
+        generateSetSystemProperties(bd, results, requirements);
 
         generateInitializeClasses(name, bd, replaySnapshot);
 
-        generateMockInitialization(name, bd, results, replaySnapshot);
+        generateMockInitialization(name, bd, results, requirements, replaySnapshot);
 
         if (Properties.RESET_STATIC_FIELDS) {
             generateResetClasses(name, bd, replaySnapshot);
@@ -355,11 +353,13 @@ public class Scaffolding {
      * @param testClassName name of the test class
      * @param bd string builder
      * @param results execution results
+     * @param requirements resolved runtime/output requirements
      */
     private void generateMockInitialization(String testClassName, StringBuilder bd,
                                               List<ExecutionResult> results,
+                                            RuntimeRequirements requirements,
                                               ReplaySnapshot replaySnapshot) {
-        if (replaySnapshot == null && !TestSuiteWriterUtils.doesUseMocks(results)) {
+        if (replaySnapshot == null && !requirements.usesMocks()) {
             return;
         }
         if (replaySnapshot != null && replaySnapshot.mockClasses.isEmpty()) {
@@ -531,7 +531,7 @@ public class Scaffolding {
         bd.append("} \n");
     }
 
-    private void generateAfter(StringBuilder bd, boolean wasSecurityException) {
+    private void generateAfter(StringBuilder bd, boolean needsThreadWrapper, RuntimeRequirements requirements) {
 
         if (Properties.NO_RUNTIME_DEPENDENCY) {
             return;
@@ -540,7 +540,7 @@ public class Scaffolding {
         /*
          * Likely always at least ThreadStopper
          *
-         * if (!Properties.RESET_STANDARD_STREAMS && !wasSecurityException &&
+         * if (!Properties.RESET_STANDARD_STREAMS && !needsThreadWrapper &&
          * !Properties.REPLACE_CALLS && !Properties.VIRTUAL_FS &&
          * !Properties.RESET_STATIC_FIELDS) { return; }
          */
@@ -586,11 +586,11 @@ public class Scaffolding {
         List<String> cleanup = new ArrayList<>();
         cleanup.add(StandardStreams.class.getName() + ".restore(standardStreams);");
 
-        if (Properties.RESET_STATIC_FIELDS || wasSecurityException) {
+        if (Properties.RESET_STATIC_FIELDS || needsThreadWrapper) {
             cleanup.add(Sandbox.class.getName() + ".doneWithExecutingSUTCode();");
         }
 
-        if (TestSuiteWriterUtils.needToUseAgent()) {
+        if (requirements.needsAgent()) {
             cleanup.add(InstrumentingAgent.class.getName() + ".deactivate();");
         }
 
@@ -636,7 +636,7 @@ public class Scaffolding {
         }
     }
 
-    private void generateBefore(StringBuilder bd, boolean wasSecurityException, List<ExecutionResult> results) {
+    private void generateBefore(StringBuilder bd, boolean needsThreadWrapper, RuntimeRequirements requirements) {
 
         if (Properties.NO_RUNTIME_DEPENDENCY) {
             return;
@@ -646,8 +646,8 @@ public class Scaffolding {
          * Most likely, should always have at least ThreadStopper
          *
          * if (!Properties.RESET_STANDARD_STREAMS &&
-         * !TestSuiteWriterUtils.shouldResetProperties(results) &&
-         * !wasSecurityException && !Properties.REPLACE_CALLS &&
+         * !requirements.shouldResetProperties() &&
+         * !needsThreadWrapper && !Properties.REPLACE_CALLS &&
          * !Properties.VIRTUAL_FS && !Properties.RESET_STATIC_FIELDS &&
          * !SystemInUtil.getInstance().hasBeenUsed()) { return; }
          */
@@ -667,7 +667,7 @@ public class Scaffolding {
             bd.append(ShutdownHookHandler.class.getName()).append(".getInstance().initHandler(); \n");
         }
 
-        if (Properties.RESET_STATIC_FIELDS || wasSecurityException) {
+        if (Properties.RESET_STATIC_FIELDS || needsThreadWrapper) {
             bd.append(BLOCK_SPACE);
             bd.append(Sandbox.class.getName()).append(".goingToExecuteSUTCode(); \n");
         }
@@ -684,7 +684,7 @@ public class Scaffolding {
             bd.append(" \n");
         }
 
-        if (TestSuiteWriterUtils.shouldResetProperties(results)) {
+        if (requirements.shouldResetProperties()) {
             bd.append(BLOCK_SPACE);
             bd.append("setSystemProperties();");
             bd.append(" \n");
@@ -705,7 +705,7 @@ public class Scaffolding {
             bd.append(GuiSupport.class.getName()).append(".setHeadless(); \n");
         }
 
-        if (TestSuiteWriterUtils.needToUseAgent()) {
+        if (requirements.needsAgent()) {
             bd.append(BLOCK_SPACE);
             bd.append(org.evosuite.runtime.Runtime.class.getName()).append(".getInstance().resetRuntime(); \n");
             bd.append(BLOCK_SPACE);
@@ -732,17 +732,17 @@ public class Scaffolding {
         return "java.lang.System.setProperties((java.util.Properties)" + " " + DEFAULT_PROPERTIES + ".clone());";
     }
 
-    private void generateAfterClass(StringBuilder bd, boolean wasSecurityException, List<ExecutionResult> results) {
+    private void generateAfterClass(StringBuilder bd, boolean needsThreadWrapper, RuntimeRequirements requirements) {
 
-        if (Properties.RESET_STATIC_FIELDS || wasSecurityException
-                || TestSuiteWriterUtils.shouldResetProperties(results)
-                || hasClassLevelSetup(wasSecurityException)) {
+        if (Properties.RESET_STATIC_FIELDS || needsThreadWrapper
+                || requirements.shouldResetProperties()
+                || hasClassLevelSetup(needsThreadWrapper, requirements)) {
             bd.append(METHOD_SPACE);
             bd.append("@").append(getAdapter().afterAll().getSimpleName()).append("\n");
             bd.append(METHOD_SPACE);
             bd.append("public static void clearEvoSuiteFramework(){ \n");
 
-            boolean restoreStreams = hasClassLevelSetup(wasSecurityException);
+            boolean restoreStreams = hasClassLevelSetup(needsThreadWrapper, requirements);
             if (restoreStreams) {
                 bd.append(BLOCK_SPACE);
                 bd.append("try { \n");
@@ -751,13 +751,13 @@ public class Scaffolding {
 
             // Each step runs even when an earlier one throws.
             List<String> classCleanup = new ArrayList<>();
-            if (Properties.RESET_STATIC_FIELDS || wasSecurityException) {
+            if (Properties.RESET_STATIC_FIELDS || needsThreadWrapper) {
                 classCleanup.add("Sandbox.resetDefaultSecurityManager();");
             }
-            if (wasSecurityException) {
+            if (needsThreadWrapper) {
                 classCleanup.add(EXECUTOR_SERVICE + ".shutdownNow();");
             }
-            if (TestSuiteWriterUtils.shouldResetProperties(results)) {
+            if (requirements.shouldResetProperties()) {
                 classCleanup.add(getResetPropertiesCommand());
             }
             if (!classCleanup.isEmpty()) {
@@ -782,7 +782,8 @@ public class Scaffolding {
 
     }
 
-    private void generateSetSystemProperties(StringBuilder bd, List<ExecutionResult> results) {
+    private void generateSetSystemProperties(StringBuilder bd, List<ExecutionResult> results,
+                                             RuntimeRequirements requirements) {
 
         if (!Properties.REPLACE_CALLS) {
             return;
@@ -791,7 +792,7 @@ public class Scaffolding {
         bd.append(METHOD_SPACE);
         bd.append("public static void setSystemProperties() {\n");
         bd.append(" \n");
-        if (TestSuiteWriterUtils.shouldResetProperties(results)) {
+        if (requirements.shouldResetProperties()) {
             /*
              * even if we set all the properties that were read, we still need
              * to reset everything to handle the properties that were written
@@ -832,9 +833,9 @@ public class Scaffolding {
 
     }
 
-    private void generateBeforeClass(StringBuilder bd, boolean wasSecurityException, List<ExecutionResult> results) {
+    private void generateBeforeClass(StringBuilder bd, boolean needsThreadWrapper, RuntimeRequirements requirements) {
 
-        if (!wasSecurityException && !TestSuiteWriterUtils.needToUseAgent()) {
+        if (!needsThreadWrapper && !requirements.needsAgent()) {
             return;
         }
 
@@ -844,7 +845,7 @@ public class Scaffolding {
         bd.append(METHOD_SPACE);
         bd.append("public static void initEvoSuiteFramework() { \n");
 
-        if (hasClassLevelSetup(wasSecurityException)) {
+        if (hasClassLevelSetup(needsThreadWrapper, requirements)) {
             // Before anything of the code under test is initialised, which may wrap the streams.
             bd.append(BLOCK_SPACE);
             bd.append("classStandardStreams = ").append(StandardStreams.class.getName()).append(".save(); \n");
@@ -899,7 +900,7 @@ public class Scaffolding {
             bd.append(RuntimeSettings.class.getName()).append(".mockGUI = true; \n");
         }
 
-        if (Properties.RESET_STATIC_FIELDS || wasSecurityException) {
+        if (Properties.RESET_STATIC_FIELDS || needsThreadWrapper) {
             // need to setup the Sandbox mode
             bd.append(BLOCK_SPACE);
             bd.append(RuntimeSettings.class.getName()).append(".sandboxMode = ")
@@ -910,7 +911,7 @@ public class Scaffolding {
             bd.append(Sandbox.class.getName()).append(".initializeSecurityManagerForSUT(); \n");
         }
 
-        if (wasSecurityException) {
+        if (needsThreadWrapper) {
             bd.append(BLOCK_SPACE);
             bd.append(EXECUTOR_SERVICE + " = Executors.newCachedThreadPool(); \n");
         }
@@ -924,7 +925,7 @@ public class Scaffolding {
             bd.append(InitializingListener.INITIALIZE_CLASSES_METHOD + "();" + "\n");
         }
 
-        if (TestSuiteWriterUtils.needToUseAgent()) {
+        if (requirements.needsAgent()) {
             bd.append(BLOCK_SPACE);
             bd.append(org.evosuite.runtime.Runtime.class.getName()).append(".getInstance().resetRuntime(); \n");
         } else {
@@ -934,7 +935,7 @@ public class Scaffolding {
             bd.append(LoopCounter.class.getName()).append(".getInstance().reset(); \n");
         }
 
-        if (TestSuiteWriterUtils.doesUseMocks(results)) {
+        if (requirements.usesMocks()) {
             bd.append(BLOCK_SPACE);
             bd.append("try { initMocksToAvoidTimeoutsInTheTests(); } catch(ClassNotFoundException e) {} \n");
         }
@@ -944,14 +945,14 @@ public class Scaffolding {
         bd.append("\n");
     }
 
-    private void generateFields(StringBuilder bd, boolean wasSecurityException, List<ExecutionResult> results) {
+    private void generateFields(StringBuilder bd, boolean needsThreadWrapper, RuntimeRequirements requirements) {
 
         // A suite without runtime dependency gets neither @Before nor @After, so nothing
         // would use the snapshot fields.
         if (!Properties.NO_RUNTIME_DEPENDENCY) {
             bd.append(METHOD_SPACE);
             bd.append("private " + STANDARD_STREAMS + " standardStreams = null;" + '\n');
-            if (hasClassLevelSetup(wasSecurityException)) {
+            if (hasClassLevelSetup(needsThreadWrapper, requirements)) {
                 bd.append(METHOD_SPACE);
                 bd.append("private static " + STANDARD_STREAMS + " classStandardStreams = null;" + '\n');
             }
@@ -962,14 +963,14 @@ public class Scaffolding {
             bd.append("private PrintStream logStream = null;" + '\n');
         }
 
-        if (wasSecurityException) {
+        if (needsThreadWrapper) {
             bd.append(METHOD_SPACE);
             bd.append("protected static ExecutorService " + EXECUTOR_SERVICE + "; \n");
 
             bd.append("\n");
         }
 
-        if (TestSuiteWriterUtils.shouldResetProperties(results)) {
+        if (requirements.shouldResetProperties()) {
             /*
              * some System properties were read/written. so, let's be sure we ll
              * have the same properties in the generated JUnit file, regardless

@@ -58,7 +58,8 @@ public class ScaffoldingRegressionTest {
         configureDefaults();
         Properties.IGNORE_THREADS = new String[]{"AWT-EventQueue-0", "pool-1-thread-"};
 
-        String code = new Scaffolding().getBeforeAndAfterMethods("Bug3Test", false, Collections.emptyList());
+        String code = new Scaffolding().getBeforeAndAfterMethods("Bug3Test", false, Collections.emptyList(),
+                RuntimeRequirements.fromResults(Collections.emptyList()), null);
         Assertions.assertTrue(code.contains(", \"AWT-EventQueue-0\""));
         Assertions.assertTrue(code.contains(", \"pool-1-thread-\""));
         Assertions.assertFalse(code.contains(", AWT-EventQueue-0"));
@@ -83,7 +84,8 @@ public class ScaffoldingRegressionTest {
     public void testStandardStreamsAreRestoredWithoutResetStandardStreams() {
         configureDefaults();
 
-        String code = new Scaffolding().getBeforeAndAfterMethods("Bug5Test", false, Collections.emptyList());
+        String code = new Scaffolding().getBeforeAndAfterMethods("Bug5Test", false, Collections.emptyList(),
+                RuntimeRequirements.fromResults(Collections.emptyList()), null);
         Assertions.assertTrue(code.contains(SAVE), code);
         Assertions.assertTrue(code.contains(RESTORE), code);
         Assertions.assertFalse(code.contains("DebugGraphics"), code);
@@ -94,7 +96,8 @@ public class ScaffoldingRegressionTest {
         configureDefaults();
         Properties.RESET_STATIC_FIELDS = true;
 
-        String code = new Scaffolding().getBeforeAndAfterMethods("Bug6Test", false, Collections.emptyList());
+        String code = new Scaffolding().getBeforeAndAfterMethods("Bug6Test", false, Collections.emptyList(),
+                RuntimeRequirements.fromResults(Collections.emptyList()), null);
         int reset = code.indexOf("resetClasses(); ");
         int restore = code.indexOf(RESTORE);
         Assertions.assertTrue(reset >= 0 && restore > reset, code);
@@ -105,7 +108,8 @@ public class ScaffoldingRegressionTest {
         configureDefaults();
         Properties.RESET_STATIC_FIELDS = true;
 
-        String all = new Scaffolding().getBeforeAndAfterMethods("Bug8Test", false, Collections.emptyList());
+        String all = new Scaffolding().getBeforeAndAfterMethods("Bug8Test", false, Collections.emptyList(),
+                RuntimeRequirements.fromResults(Collections.emptyList()), null);
         String code = all.substring(all.indexOf("doneWithTestCase"));
         int tryBlock = code.indexOf("try { ");
         int reset = code.indexOf("resetClasses(); ");
@@ -123,7 +127,8 @@ public class ScaffoldingRegressionTest {
         Properties.HEADLESS_MODE = true;
         Properties.RESET_STATIC_FIELDS = true;
         try {
-            String all = new Scaffolding().getBeforeAndAfterMethods("Bug11Test", false, Collections.emptyList());
+            String all = new Scaffolding().getBeforeAndAfterMethods("Bug11Test", false, Collections.emptyList(),
+                RuntimeRequirements.fromResults(Collections.emptyList()), null);
             String code = all.substring(all.indexOf("doneWithTestCase"));
             String expected = "    } finally { \n"
                     + "      try { \n"
@@ -153,7 +158,8 @@ public class ScaffoldingRegressionTest {
         Properties.REPLACE_CALLS = true;
         Properties.RESET_STATIC_FIELDS = true;
 
-        String all = new Scaffolding().getBeforeAndAfterMethods("Bug14Test", false, Collections.emptyList());
+        String all = new Scaffolding().getBeforeAndAfterMethods("Bug14Test", false, Collections.emptyList(),
+                RuntimeRequirements.fromResults(Collections.emptyList()), null);
         String code = all.substring(all.indexOf("doneWithTestCase"));
         Assertions.assertTrue(code.contains("    try { \n"
                 + "      try { \n"
@@ -178,7 +184,8 @@ public class ScaffoldingRegressionTest {
         boolean headless = Properties.HEADLESS_MODE;
         Properties.HEADLESS_MODE = true;
         try {
-            String all = new Scaffolding().getBeforeAndAfterMethods("Bug12Test", false, Collections.emptyList());
+            String all = new Scaffolding().getBeforeAndAfterMethods("Bug12Test", false, Collections.emptyList(),
+                RuntimeRequirements.fromResults(Collections.emptyList()), null);
             String code = all.substring(all.indexOf("doneWithTestCase"));
             Assertions.assertTrue(code.contains("    } finally { \n"
                     + "      try { \n"
@@ -203,7 +210,8 @@ public class ScaffoldingRegressionTest {
         Properties.REPLACE_CALLS = true;
         Properties.RESET_STATIC_FIELDS = true;
 
-        String all = new Scaffolding().getBeforeAndAfterMethods("Bug13Test", true, Collections.emptyList());
+        String all = new Scaffolding().getBeforeAndAfterMethods("Bug13Test", true, Collections.emptyList(),
+                RuntimeRequirements.fromResults(Collections.emptyList()), null);
         String code = all.substring(all.indexOf("clearEvoSuiteFramework"));
         Assertions.assertTrue(code.contains("    try { \n"
                 + "      try { \n"
@@ -222,7 +230,8 @@ public class ScaffoldingRegressionTest {
         Properties.REPLACE_CALLS = true;
         Properties.RESET_STATIC_FIELDS = true;
 
-        String code = new Scaffolding().getBeforeAndAfterMethods("Bug9Test", false, Collections.emptyList());
+        String code = new Scaffolding().getBeforeAndAfterMethods("Bug9Test", false, Collections.emptyList(),
+                RuntimeRequirements.fromResults(Collections.emptyList()), null);
         int save = code.indexOf("classStandardStreams = org.evosuite.runtime.StandardStreams.save();");
         int init = code.indexOf("initializeSecurityManagerForSUT");
         int restore = code.indexOf("org.evosuite.runtime.StandardStreams.restore(classStandardStreams);");
@@ -236,7 +245,8 @@ public class ScaffoldingRegressionTest {
         configureDefaults();
         Properties.REPLACE_CALLS = true;
 
-        String code = new Scaffolding().getBeforeAndAfterMethods("Bug10Test", false, Collections.emptyList());
+        String code = new Scaffolding().getBeforeAndAfterMethods("Bug10Test", false, Collections.emptyList(),
+                RuntimeRequirements.fromResults(Collections.emptyList()), null);
         Assertions.assertTrue(code.contains("clearEvoSuiteFramework"), code);
         Assertions.assertTrue(code.contains("classStandardStreams"), code);
     }
@@ -246,7 +256,8 @@ public class ScaffoldingRegressionTest {
         configureDefaults();
         Properties.NO_RUNTIME_DEPENDENCY = true;
 
-        String code = new Scaffolding().getBeforeAndAfterMethods("Bug11Test", false, Collections.emptyList());
+        String code = new Scaffolding().getBeforeAndAfterMethods("Bug11Test", false, Collections.emptyList(),
+                RuntimeRequirements.fromResults(Collections.emptyList()), null);
         Assertions.assertFalse(code.contains("standardStreams"), code);
         Assertions.assertFalse(code.contains("StandardStreams"), code);
         Assertions.assertFalse(code.contains("systemOut"), code);
@@ -279,7 +290,8 @@ public class ScaffoldingRegressionTest {
                 RuntimeRequirements.fromResults(Collections.emptyList()));
 
         String code = new Scaffolding().getBeforeAndAfterMethods(
-                "ReplayTest", false, Collections.emptyList(), snapshot);
+                "ReplayTest", false, Collections.emptyList(),
+                RuntimeRequirements.fromResults(Collections.emptyList()), snapshot);
 
         Assertions.assertTrue(code.contains("\"example.StructuralClass\""));
         Assertions.assertFalse(code.contains("example.PostProcessingClass"));

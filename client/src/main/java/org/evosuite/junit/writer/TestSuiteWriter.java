@@ -375,18 +375,8 @@ public class TestSuiteWriter implements Opcodes {
     private String getUnitTestsAllInSameFile(String name, List<ExecutionResult> results,
                                              RuntimeRequirements requirements) {
 
-        /*
-         * if there was any security exception, then we need to scaffold the
-         * test cases with a sandbox
-         */
-        boolean wasSecurityException = TestSuiteWriterUtils.hasAnySecurityException(results);
-        // The ExecutorService wrapper is needed for both security exceptions and
-        // timeouts — it runs the test body in a separate thread with future.get(timeout).
-        boolean needsThreadWrapper = wasSecurityException
-                || results.stream().anyMatch(ExecutionResult::hasTimeout);
-
         List<Integer> testIds = IntStream.range(0, testCases.size()).boxed().collect(Collectors.toList());
-        return assembleTestFile(name, name, testIds, needsThreadWrapper, results, requirements);
+        return assembleTestFile(name, name, testIds, requirements.needsThreadWrapper(), results, requirements);
     }
 
     /**
@@ -419,7 +409,7 @@ public class TestSuiteWriter implements Opcodes {
 
         if (requirements.isInlineScaffoldingMode()) {
             builder.append(new Scaffolding().getBeforeAndAfterMethods(
-                    className, needsThreadWrapper, results, replayScaffoldingSnapshot));
+                    className, needsThreadWrapper, results, requirements, replayScaffoldingSnapshot));
         }
 
         if (testIds.isEmpty()) {
