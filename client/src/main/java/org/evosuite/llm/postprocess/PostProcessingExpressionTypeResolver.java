@@ -16,7 +16,6 @@
  */
 package org.evosuite.llm.postprocess;
 
-import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.expr.ArrayCreationExpr;
 import com.github.javaparser.ast.expr.BinaryExpr;
 import com.github.javaparser.ast.expr.Expression;
@@ -28,6 +27,7 @@ import com.github.javaparser.ast.expr.UnaryExpr;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Resolves the small expression type model used by assertion validation.
@@ -41,11 +41,33 @@ final class PostProcessingExpressionTypeResolver {
     private final LlmPostProcessingResponseParser.ParseContext context;
     private final MethodCallResolver methodCallResolver;
     private final Map<String, ExprType> resolvedStrings = new HashMap<>();
+    private final Map<String, Optional<Expression>> parsedOperands = new HashMap<>();
 
     PostProcessingExpressionTypeResolver(LlmPostProcessingResponseParser.ParseContext context,
                                          MethodCallResolver methodCallResolver) {
         this.context = context;
         this.methodCallResolver = methodCallResolver;
+    }
+
+    /**
+     * Records the tree of an operand that has already been parsed, so that later stages find it
+     * instead of parsing the text again.
+     */
+    void remember(String expression, Expression parsed) {
+        parsedOperands.put(expression, Optional.of(parsed));
+    }
+
+    /**
+     * Returns the tree of an operand, parsing each text at most once. The tree is shared: callers
+     * must not modify it (clone it first). Returns null if the text is not a valid expression.
+     */
+    Expression parse(String expression) {
+        Optional<Expression> parsed = parsedOperands.get(expression);
+        if (parsed == null) {
+            parsed = Optional.ofNullable(LlmPostProcessingExpressionUtils.parseExpressionOrNull(expression));
+            parsedOperands.put(expression, parsed);
+        }
+        return parsed.orElse(null);
     }
 
     ExprType resolve(String expression) {
@@ -60,7 +82,8 @@ final class PostProcessingExpressionTypeResolver {
         }
         ExprType resolved;
         try {
-            resolved = resolve(StaticJavaParser.parseExpression(expression));
+            Expression parsed = parse(expression);
+            resolved = parsed == null ? ExprType.unknown() : resolve(parsed);
         } catch (RuntimeException e) {
             resolved = ExprType.unknown();
         }

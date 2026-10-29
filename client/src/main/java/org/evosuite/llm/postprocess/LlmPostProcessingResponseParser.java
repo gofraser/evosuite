@@ -855,21 +855,24 @@ public final class LlmPostProcessingResponseParser {
                                                         String argumentExpression,
                                                         String path) {
             try {
-                Expression parsed = StaticJavaParser.parseExpression(receiverExpression);
-                MethodCallExpr renderedCall = new MethodCallExpr(parsed, methodName);
-                if (argumentExpression != null) {
-                    renderedCall.addArgument(StaticJavaParser.parseExpression(argumentExpression));
-                }
-                if (parsed instanceof NameExpr) {
-                    String receiverId = ((NameExpr) parsed).getNameAsString();
-                    if (callablePolicy.isCallableMethod(receiverId, null, renderedCall)) {
+                Expression parsed = expressionTypes.parse(receiverExpression);
+                Expression argument = argumentExpression == null ? null : expressionTypes.parse(argumentExpression);
+                if (parsed != null && (argumentExpression == null || argument != null)) {
+                    MethodCallExpr renderedCall = new MethodCallExpr(parsed.clone(), methodName);
+                    if (argument != null) {
+                        renderedCall.addArgument(argument.clone());
+                    }
+                    if (parsed instanceof NameExpr) {
+                        String receiverId = ((NameExpr) parsed).getNameAsString();
+                        if (callablePolicy.isCallableMethod(receiverId, null, renderedCall)) {
+                            return true;
+                        }
+                    }
+                    ExprType receiverType = resolveExpressionType(parsed);
+                    if (receiverType.isKnown()
+                            && callablePolicy.isCallableMethod(null, receiverType.typeName, renderedCall)) {
                         return true;
                     }
-                }
-                ExprType receiverType = resolveExpressionType(parsed);
-                if (receiverType.isKnown()
-                        && callablePolicy.isCallableMethod(null, receiverType.typeName, renderedCall)) {
-                    return true;
                 }
             } catch (RuntimeException ignored) {
                 // Syntax has already been validated by expression().
@@ -990,7 +993,7 @@ public final class LlmPostProcessingResponseParser {
         }
 
         private boolean isLiteralOrNullExpression(String expression) {
-            Expression parsed = LlmPostProcessingExpressionUtils.parseExpressionOrNull(expression);
+            Expression parsed = expressionTypes.parse(expression);
             return parsed != null && (parsed.isLiteralExpr() || parsed.isNullLiteralExpr());
         }
 
@@ -1024,7 +1027,7 @@ public final class LlmPostProcessingResponseParser {
         }
 
         private boolean isSelfComparison(String expression, boolean assertedTrue) {
-            Expression parsed = LlmPostProcessingExpressionUtils.parseExpressionOrNull(expression);
+            Expression parsed = expressionTypes.parse(expression);
             if (!(parsed instanceof BinaryExpr)) {
                 return false;
             }
@@ -1168,7 +1171,9 @@ public final class LlmPostProcessingResponseParser {
                         LlmPostProcessingParseResult.DiagnosticReason.SAFETY_POLICY);
                 return ExpressionParseResult.invalid();
             }
-            return ExpressionParseResult.valid(normalizedVariableAlias ? parsed.toString() : expression);
+            String value = normalizedVariableAlias ? parsed.toString() : expression;
+            expressionTypes.remember(value, parsed);
+            return ExpressionParseResult.valid(value);
         }
 
         private boolean normalizeProposedVariableAliases(Expression expression) {

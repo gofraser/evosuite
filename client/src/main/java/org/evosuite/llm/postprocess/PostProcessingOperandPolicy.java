@@ -16,7 +16,6 @@
  */
 package org.evosuite.llm.postprocess;
 
-import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.UnaryExpr;
 
@@ -86,7 +85,7 @@ final class PostProcessingOperandPolicy {
 
     boolean isNegativeNumericLiteral(String expression) {
         try {
-            Expression parsed = StaticJavaParser.parseExpression(expression);
+            Expression parsed = expressionTypes.parse(expression);
             if (parsed instanceof UnaryExpr) {
                 UnaryExpr unaryExpr = (UnaryExpr) parsed;
                 return unaryExpr.getOperator() == UnaryExpr.Operator.MINUS
