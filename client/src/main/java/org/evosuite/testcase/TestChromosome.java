@@ -876,7 +876,6 @@ public final class TestChromosome extends ExecutableChromosome<TestChromosome> {
 
                     } else if (!statement.isAssignmentStatement()) {
 
-                        int pos = statement.getPosition();
                         if (testFactory.changeRandomCall(test, statement)) {
                             changed = true;
                         }

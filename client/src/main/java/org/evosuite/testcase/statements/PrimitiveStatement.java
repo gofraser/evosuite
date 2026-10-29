@@ -398,12 +398,4 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void changeClassLoader(ClassLoader loader) {
-        super.changeClassLoader(loader);
-    }
-
 }

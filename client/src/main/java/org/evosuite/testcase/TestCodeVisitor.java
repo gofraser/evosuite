@@ -478,6 +478,14 @@ public class TestCodeVisitor extends TestVisitor {
         return false;
     }
 
+    private void recordArgumentNames(List<VariableReference> parameters, List<String> parameterNames) {
+        int idx = 0;
+        for (final VariableReference param : parameters) {
+            this.argumentNames.put(param, parameterNames.get(idx));
+            ++idx;
+        }
+    }
+
     /**
      * Returns the type name of the given type.
      *
@@ -490,8 +498,7 @@ public class TestCodeVisitor extends TestVisitor {
         } else if (type instanceof ParameterizedType) {
             return getTypeName((ParameterizedType) type);
         } else if (type instanceof WildcardType) {
-            String ret = "Object";
-            return ret;
+            return "Object";
         } else if (type instanceof TypeVariable) {
             return "Object";
         } else if (type instanceof CaptureType) {
@@ -2418,12 +2425,7 @@ public class TestCodeVisitor extends TestVisitor {
         }
         if ((!this.argumentNames.containsKey(retval) || retval.isVoid())
                 && VariableNameStrategyFactory.gatherInformation()) {
-            final List<String> parameterNames = (List<String>)statement.obtainParameterNameListInOrder();
-            int idx = 0;
-            for (final VariableReference param : parameters) {
-                this.argumentNames.put(param, parameterNames.get(idx));
-                ++idx;
-            }
+            recordArgumentNames(parameters, (List<String>) statement.obtainParameterNameListInOrder());
         }
         String declarationVarName = getDeclarationVariableName(retval);
         // An instantiated GenericMethod may have no unresolved type parameters left, while the
@@ -2928,12 +2930,7 @@ public class TestCodeVisitor extends TestVisitor {
 
         List<VariableReference> parameters = statement.getParameterReferences();
         if (!this.argumentNames.containsKey(retval) && VariableNameStrategyFactory.gatherInformation()) {
-            final List<String> parameterNames = statement.obtainParameterNameListInOrder();
-            int idx = 0;
-            for (final VariableReference param : parameters) {
-                this.argumentNames.put(param, parameterNames.get(idx));
-                ++idx;
-            }
+            recordArgumentNames(parameters, statement.obtainParameterNameListInOrder());
         }
         int startPos = 0;
         if (isNonStaticMemberClass) {

@@ -48,6 +48,13 @@ import java.util.Set;
  */
 class SnippetSourceSupport {
 
+    private static final java.util.regex.Pattern THROWS_CLAUSE =
+            java.util.regex.Pattern.compile("\\bthrows\\s+([^\\{;]+)");
+    private static final java.util.regex.Pattern GENERIC_CLAUSE =
+            java.util.regex.Pattern.compile("<([^<>]+)>");
+    private static final java.util.regex.Pattern SIMPLE_TYPE_NAME =
+            java.util.regex.Pattern.compile("(?<![A-Za-z0-9_$.])([A-Z][A-Za-z0-9_]*)\\b");
+
     private final TestCodeVisitor host;
 
     SnippetSourceSupport(TestCodeVisitor host) {
@@ -424,45 +431,31 @@ class SnippetSourceSupport {
     private void registerThrownTypeImports(String text,
                                            Set<String> boundNames,
                                            Set<String> seen) {
-        java.util.regex.Matcher throwsMatcher =
-                java.util.regex.Pattern.compile("\\bthrows\\s+([^\\{;]+)").matcher(text);
+        java.util.regex.Matcher throwsMatcher = THROWS_CLAUSE.matcher(text);
         while (throwsMatcher.find()) {
-            String clause = throwsMatcher.group(1);
-            java.util.regex.Matcher typeMatcher =
-                    java.util.regex.Pattern.compile("(?<![A-Za-z0-9_$.])([A-Z][A-Za-z0-9_]*)\\b")
-                            .matcher(clause);
-            while (typeMatcher.find()) {
-                String simpleName = typeMatcher.group(1);
-                if (!seen.add(simpleName) || boundNames.contains(simpleName)) {
-                    continue;
-                }
-                Class<?> resolved = resolveSimpleClassName(simpleName);
-                if (resolved != null) {
-                    host.getClassName(resolved);
-                }
-            }
+            registerTypeNameImports(throwsMatcher.group(1), boundNames, seen);
         }
     }
 
     private void registerGenericTypeArgumentImports(String text,
                                                     Set<String> boundNames,
                                                     Set<String> seen) {
-        java.util.regex.Matcher matcher =
-                java.util.regex.Pattern.compile("<([^<>]+)>").matcher(text);
+        java.util.regex.Matcher matcher = GENERIC_CLAUSE.matcher(text);
         while (matcher.find()) {
-            String genericClause = matcher.group(1);
-            java.util.regex.Matcher typeMatcher =
-                    java.util.regex.Pattern.compile("(?<![A-Za-z0-9_$.])([A-Z][A-Za-z0-9_]*)\\b")
-                            .matcher(genericClause);
-            while (typeMatcher.find()) {
-                String simpleName = typeMatcher.group(1);
-                if (!seen.add(simpleName) || boundNames.contains(simpleName)) {
-                    continue;
-                }
-                Class<?> resolved = resolveSimpleClassName(simpleName);
-                if (resolved != null) {
-                    host.getClassName(resolved);
-                }
+            registerTypeNameImports(matcher.group(1), boundNames, seen);
+        }
+    }
+
+    private void registerTypeNameImports(String clause, Set<String> boundNames, Set<String> seen) {
+        java.util.regex.Matcher typeMatcher = SIMPLE_TYPE_NAME.matcher(clause);
+        while (typeMatcher.find()) {
+            String simpleName = typeMatcher.group(1);
+            if (!seen.add(simpleName) || boundNames.contains(simpleName)) {
+                continue;
+            }
+            Class<?> resolved = resolveSimpleClassName(simpleName);
+            if (resolved != null) {
+                host.getClassName(resolved);
             }
         }
     }
