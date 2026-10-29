@@ -19,6 +19,7 @@
  */
 package org.evosuite.llm.response;
 
+import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
@@ -111,6 +112,7 @@ class TestRepairLoopTest {
     private Logger testRepairLoopLogger;
     private Logger decompiledContextLogger;
     private Logger evoLogger;
+    private Level testRepairLoopLevel;
     private ListAppender<ILoggingEvent> testRepairLoopLogAppender;
     private ListAppender<ILoggingEvent> decompiledContextLogAppender;
     private ListAppender<ILoggingEvent> evoLogAppender;
@@ -138,6 +140,9 @@ class TestRepairLoopTest {
         testRepairLoopLogger.addAppender(testRepairLoopLogAppender);
         decompiledContextLogger.addAppender(decompiledContextLogAppender);
         evoLogger.addAppender(evoLogAppender);
+        testRepairLoopLevel = testRepairLoopLogger.getLevel();
+        // Salvage outcomes are logged at debug level.
+        testRepairLoopLogger.setLevel(Level.DEBUG);
         testRepairLoopLogger.setAdditive(false);
         decompiledContextLogger.setAdditive(false);
         evoLogger.setAdditive(false);
@@ -151,6 +156,7 @@ class TestRepairLoopTest {
         testRepairLoopLogAppender.stop();
         decompiledContextLogAppender.stop();
         evoLogAppender.stop();
+        testRepairLoopLogger.setLevel(testRepairLoopLevel);
         testRepairLoopLogger.setAdditive(testRepairLoopLoggerAdditive);
         decompiledContextLogger.setAdditive(decompiledContextLoggerAdditive);
         evoLogger.setAdditive(evoLoggerAdditive);
