@@ -53,16 +53,16 @@ public class PluginParityTest {
         var project = TestProjects.create("parity-settings", "src", null);
         var prefs = InstanceScope.INSTANCE.getNode(EvoSuitePreferences.QUALIFIER);
         try {
-            prefs.putBoolean(EvoSuitePreferences.MINIMIZE_VALUES, true);
-            prefs.putBoolean(EvoSuitePreferences.NO_RUNTIME_DEPENDENCY, true);
-            prefs.put(EvoSuitePreferences.RANDOM_SEED, "-123456789012345");
-            prefs.put(EvoSuitePreferences.LLM_PROVIDER, "OLLAMA");
-            prefs.put(EvoSuitePreferences.LLM_MODEL, "local");
-            prefs.put(EvoSuitePreferences.LLM_CONTEXT_MODE, "SOURCE_CODE");
-            prefs.putInt(EvoSuitePreferences.LLM_MAX_TOKENS, 1024);
-            prefs.putInt(EvoSuitePreferences.LLM_TIMEOUT_SECONDS, 15);
-            prefs.putInt(EvoSuitePreferences.LLM_RETRY_MAX_ATTEMPTS, 3);
-            prefs.put(EvoSuitePreferences.LLM_TEMPERATURE, "0.2");
+            prefs.putBoolean(SettingKeys.MINIMIZE_VALUES, true);
+            prefs.putBoolean(SettingKeys.NO_RUNTIME_DEPENDENCY, true);
+            prefs.put(SettingKeys.RANDOM_SEED, "-123456789012345");
+            prefs.put(SettingKeys.LLM_PROVIDER, "OLLAMA");
+            prefs.put(SettingKeys.LLM_MODEL, "local");
+            prefs.put(SettingKeys.LLM_CONTEXT_MODE, "SOURCE_CODE");
+            prefs.putInt(SettingKeys.LLM_MAX_TOKENS, 1024);
+            prefs.putInt(SettingKeys.LLM_TIMEOUT_SECONDS, 15);
+            prefs.putInt(SettingKeys.LLM_RETRY_MAX_ATTEMPTS, 3);
+            prefs.put(SettingKeys.LLM_TEMPERATURE, "0.2");
             var options = EvoSuitePreferences.load(project.getProject());
             options.llmSourcePath = "/custom sources/Foo.java";
             var args = arguments(options);

@@ -34,6 +34,7 @@ import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.IType;
 import org.evosuite.eclipse.TestProjects;
 import org.evosuite.eclipse.launch.GenerationTarget;
+import org.evosuite.eclipse.launch.SettingKeys;
 import org.evosuite.eclipse.launch.SuiteAction;
 import org.evosuite.eclipse.launch.TestGenerationJob;
 import org.evosuite.eclipse.preferences.EvoSuitePreferences;
@@ -110,8 +111,8 @@ public class ExtendTestsHandlerTest {
      */
     @Test
     public void neverWritesIntoAHandWrittenTestClass() throws Exception {
-        preferences.put(EvoSuitePreferences.TEST_FOLDER, "src/test/java");
-        preferences.put(EvoSuitePreferences.TEST_SUFFIX, "Test");
+        preferences.put(SettingKeys.TEST_FOLDER, "src/test/java");
+        preferences.put(SettingKeys.TEST_SUFFIX, "Test");
         List<String> messages = new ArrayList<>();
         List<ExistingSuitesQuestion> questions = new ArrayList<>();
         GenerateTestsHandler.informer = (shell, message) -> messages.add(message);

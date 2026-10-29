@@ -147,7 +147,7 @@ public class TestGenerationJobTest {
         assumeFalse(Boolean.getBoolean("evosuite.it.skip"), "end-to-end test skipped");
         // Tycho passes an empty property on as the string "null".
         String javaHome = System.getProperty("evosuite.it.javaHome", "");
-        preferences.put(EvoSuitePreferences.JAVA_HOME, "null".equals(javaHome) ? "" : javaHome);
+        preferences.put(SettingKeys.JAVA_HOME, "null".equals(javaHome) ? "" : javaHome);
     }
 
     @AfterEach
@@ -157,7 +157,7 @@ public class TestGenerationJobTest {
 
     @Test
     public void generatesATestSuiteThatCompiles() throws Exception {
-        preferences.putInt(EvoSuitePreferences.SEARCH_BUDGET, 10);
+        preferences.putInt(SettingKeys.SEARCH_BUDGET, 10);
         IJavaProject project = TestProjects.create("generation", "src/main/java", null);
         TestProjects.addSource(project, "src/main/java", "demo.Calculator", CALCULATOR);
         TestProjects.build(project);
@@ -191,8 +191,8 @@ public class TestGenerationJobTest {
      */
     @Test
     public void aQueuedRunDoesNotOverwriteTheSuiteOfTheRunBeforeIt() throws Exception {
-        preferences.putInt(EvoSuitePreferences.SEARCH_BUDGET, 10);
-        preferences.putBoolean(EvoSuitePreferences.OPEN_GENERATED_TESTS, false);
+        preferences.putInt(SettingKeys.SEARCH_BUDGET, 10);
+        preferences.putBoolean(SettingKeys.OPEN_GENERATED_TESTS, false);
         IJavaProject project = TestProjects.create("queued", "src/main/java", null);
         TestProjects.addSource(project, "src/main/java", "demo.Calculator", CALCULATOR);
         TestProjects.build(project);
@@ -227,7 +227,7 @@ public class TestGenerationJobTest {
      */
     @Test
     public void methodLevelRunsTargetTheirMethodAndAddToTheSuite() throws Exception {
-        preferences.putInt(EvoSuitePreferences.SEARCH_BUDGET, 10);
+        preferences.putInt(SettingKeys.SEARCH_BUDGET, 10);
         IJavaProject project = TestProjects.create("methods", "src/main/java", null);
         TestProjects.addSource(project, "src/main/java", "demo.Calculator", CALCULATOR);
         TestProjects.build(project);
@@ -276,7 +276,7 @@ public class TestGenerationJobTest {
      */
     @Test
     public void extendsHandWrittenTestsWithoutRepeatingThem() throws Exception {
-        preferences.putInt(EvoSuitePreferences.SEARCH_BUDGET, 10);
+        preferences.putInt(SettingKeys.SEARCH_BUDGET, 10);
         IJavaProject project = vaultProject("extension");
         IFile suite = project.getProject().getFile("src/test/evosuite/demo/Vault_ESTest.java");
 
@@ -307,7 +307,7 @@ public class TestGenerationJobTest {
      */
     @Test
     public void extendingAddsTheNewTestsToTheExistingSuite() throws Exception {
-        preferences.putInt(EvoSuitePreferences.SEARCH_BUDGET, 10);
+        preferences.putInt(SettingKeys.SEARCH_BUDGET, 10);
         IJavaProject project = vaultProject("extension-add");
         IFile suite = project.getProject().getFile("src/test/evosuite/demo/Vault_ESTest.java");
         TestGenerationJob plain = new TestGenerationJob(project, List.of("demo.Vault"));
@@ -436,12 +436,12 @@ public class TestGenerationJobTest {
         });
         server.start();
         try {
-            preferences.putInt(EvoSuitePreferences.SEARCH_BUDGET, 10);
-            preferences.put(EvoSuitePreferences.LLM_PROVIDER, GenerationOptions.LLM_OPENAI);
-            preferences.put(EvoSuitePreferences.LLM_MODEL, "fake-model");
-            preferences.put(EvoSuitePreferences.LLM_BASE_URL,
+            preferences.putInt(SettingKeys.SEARCH_BUDGET, 10);
+            preferences.put(SettingKeys.LLM_PROVIDER, GenerationOptions.LLM_OPENAI);
+            preferences.put(SettingKeys.LLM_MODEL, "fake-model");
+            preferences.put(SettingKeys.LLM_BASE_URL,
                     "http://127.0.0.1:" + server.getAddress().getPort() + "/v1");
-            preferences.put(EvoSuitePreferences.LLM_SEEDING, "FULL");
+            preferences.put(SettingKeys.LLM_SEEDING, "FULL");
             TestGenerationJob.apiKeySource = () -> "test-key";
             IJavaProject project = TestProjects.create("llm", "src/main/java", null);
             TestProjects.addSource(project, "src/main/java", "demo.Calculator", CALCULATOR);
@@ -499,7 +499,7 @@ public class TestGenerationJobTest {
 
     @Test
     public void cancellingStopsEvoSuiteAndKeepsFinishedSuites() throws Exception {
-        preferences.putInt(EvoSuitePreferences.SEARCH_BUDGET, 10);
+        preferences.putInt(SettingKeys.SEARCH_BUDGET, 10);
         IJavaProject project = TestProjects.create("cancellation", "src/main/java", null);
         TestProjects.addSource(project, "src/main/java", "demo.Calculator", CALCULATOR);
         TestProjects.addSource(project, "src/main/java", "demo.Other",

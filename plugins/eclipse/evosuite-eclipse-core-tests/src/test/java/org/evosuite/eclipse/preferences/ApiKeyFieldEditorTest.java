@@ -34,6 +34,7 @@ import org.eclipse.core.runtime.preferences.InstanceScope;
 import org.eclipse.equinox.security.storage.StorageException;
 import org.eclipse.jface.preference.PreferenceDialog;
 import org.eclipse.swt.widgets.Text;
+import org.evosuite.eclipse.launch.SettingKeys;
 import org.evosuite.eclipse.preferences.SettingsFields.Section;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -122,7 +123,7 @@ public class ApiKeyFieldEditorTest {
             ((Text) control(page(dialog), "Model")).setText("gpt-5");
         });
         assertEquals(List.of(), store.writes);
-        assertEquals("gpt-5", workspace.get(EvoSuitePreferences.LLM_MODEL, null));
+        assertEquals("gpt-5", workspace.get(SettingKeys.LLM_MODEL, null));
 
         edit(SettingsDialogs::restoreDefaults);
         assertEquals(List.of(), store.writes, "nor by restoring the defaults");

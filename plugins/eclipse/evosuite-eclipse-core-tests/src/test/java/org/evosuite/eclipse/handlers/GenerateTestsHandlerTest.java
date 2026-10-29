@@ -35,6 +35,7 @@ import org.eclipse.jdt.core.IJavaProject;
 import org.evosuite.eclipse.TestProjects;
 import org.evosuite.eclipse.launch.GenerationOptions;
 import org.evosuite.eclipse.launch.GenerationTarget;
+import org.evosuite.eclipse.launch.SettingKeys;
 import org.evosuite.eclipse.launch.TestGenerationJob;
 import org.evosuite.eclipse.preferences.EvoSuitePreferences;
 import org.junit.jupiter.api.Test;
@@ -97,8 +98,8 @@ public class GenerateTestsHandlerTest {
     @Test
     public void leavesOutClassesWhoseSuiteFileIsAHandWrittenTest() throws Exception {
         IEclipsePreferences preferences = InstanceScope.INSTANCE.getNode(EvoSuitePreferences.QUALIFIER);
-        preferences.put(EvoSuitePreferences.TEST_FOLDER, "src/test/java");
-        preferences.put(EvoSuitePreferences.TEST_SUFFIX, "Test");
+        preferences.put(SettingKeys.TEST_FOLDER, "src/test/java");
+        preferences.put(SettingKeys.TEST_SUFFIX, "Test");
         IJavaProject project = TestProjects.create("hand-written", "src/main/java", "src/test/java");
         TestProjects.addSource(project, "src/test/java", "demo.FooTest", "package demo; public class FooTest {}");
         TestProjects.addSource(project, "src/test/java", "demo.BarTest",

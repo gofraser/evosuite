@@ -40,6 +40,7 @@ import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Link;
 import org.eclipse.swt.widgets.Text;
 import org.evosuite.eclipse.launch.GenerationOptions;
+import org.evosuite.eclipse.launch.SettingKeys;
 import org.evosuite.eclipse.preferences.SettingsFields.Section;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -78,7 +79,7 @@ public class SettingsEditorsTest {
 
     @Test
     public void anEmptyNumberIsEvoSuitesDefaultAndShowsItsHint() {
-        workspace.putInt(EvoSuitePreferences.TEST_TIMEOUT, 500);
+        workspace.putInt(SettingKeys.TEST_TIMEOUT, 500);
         onUiThread(() -> {
             PreferenceDialog dialog = SettingsDialogs.preferences(Section.GENERAL);
             try {
@@ -93,7 +94,7 @@ public class SettingsEditorsTest {
             }
         });
         // The store removes a value equal to the default.
-        assertEquals(null, workspace.get(EvoSuitePreferences.TEST_TIMEOUT, null));
+        assertEquals(null, workspace.get(SettingKeys.TEST_TIMEOUT, null));
 
         onUiThread(() -> {
             PreferenceDialog dialog = SettingsDialogs.preferences(Section.GENERAL);
@@ -109,7 +110,7 @@ public class SettingsEditorsTest {
                 dialog.close();
             }
         });
-        assertEquals(250, workspace.getInt(EvoSuitePreferences.TEST_TIMEOUT, -1));
+        assertEquals(250, workspace.getInt(SettingKeys.TEST_TIMEOUT, -1));
     }
 
     @Test
@@ -135,7 +136,7 @@ public class SettingsEditorsTest {
 
     @Test
     public void theCriteriaCheckboxesEditTheStoredList() {
-        workspace.put(EvoSuitePreferences.CRITERION, "line:STRONGMUTATION");
+        workspace.put(SettingKeys.CRITERION, "line:STRONGMUTATION");
         onUiThread(() -> {
             PreferenceDialog dialog = SettingsDialogs.preferences(Section.GENERAL);
             try {
@@ -149,7 +150,7 @@ public class SettingsEditorsTest {
                 dialog.close();
             }
         });
-        assertEquals("LINE:STRONGMUTATION:BRANCH", workspace.get(EvoSuitePreferences.CRITERION, null));
+        assertEquals("LINE:STRONGMUTATION:BRANCH", workspace.get(SettingKeys.CRITERION, null));
 
         onUiThread(() -> {
             PreferenceDialog dialog = SettingsDialogs.preferences(Section.GENERAL);
@@ -169,7 +170,7 @@ public class SettingsEditorsTest {
             }
         });
         // All of EvoSuite's default criteria are its default, which the store does not keep.
-        assertEquals(null, workspace.get(EvoSuitePreferences.CRITERION, null));
+        assertEquals(null, workspace.get(SettingKeys.CRITERION, null));
 
         onUiThread(() -> {
             PreferenceDialog dialog = SettingsDialogs.preferences(Section.GENERAL);

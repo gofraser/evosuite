@@ -48,6 +48,7 @@ import org.eclipse.m2e.core.project.IMavenProjectFacade;
 import org.eclipse.m2e.core.project.ResolverConfiguration;
 import org.eclipse.swt.widgets.Display;
 import org.evosuite.eclipse.launch.GenerationOptions;
+import org.evosuite.eclipse.launch.SettingKeys;
 import org.evosuite.eclipse.preferences.EvoSuitePreferences;
 import org.junit.jupiter.api.AfterEach;
 import org.osgi.framework.Constants;
@@ -334,7 +335,7 @@ public class MavenSupportTest {
     public void canBeSwitchedOff() throws Exception {
         mavenProject("maven-parent", PARENT);
         IProject child = mavenProject("maven-child", CHILD);
-        workspace.putBoolean(EvoSuitePreferences.USE_POM_SETTINGS, false);
+        workspace.putBoolean(SettingKeys.USE_POM_SETTINGS, false);
 
         GenerationOptions options = EvoSuitePreferences.resolve(child, null);
         assertEquals(new GenerationOptions().searchBudget, options.searchBudget);

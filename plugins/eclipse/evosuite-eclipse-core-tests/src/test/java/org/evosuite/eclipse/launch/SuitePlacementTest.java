@@ -89,8 +89,8 @@ public class SuitePlacementTest {
     @BeforeEach
     public void createProject(TestInfo test) throws Exception {
         String javaHome = System.getProperty("evosuite.it.javaHome", "");
-        preferences.put(EvoSuitePreferences.JAVA_HOME, "null".equals(javaHome) ? "" : javaHome);
-        preferences.putBoolean(EvoSuitePreferences.OPEN_GENERATED_TESTS, false);
+        preferences.put(SettingKeys.JAVA_HOME, "null".equals(javaHome) ? "" : javaHome);
+        preferences.putBoolean(SettingKeys.OPEN_GENERATED_TESTS, false);
         // A project of its own for each test: the local history outlives a deleted project.
         project = TestProjects.create("placement-" + test.getTestMethod().orElseThrow().getName(), "src/main/java",
                 null);
@@ -238,7 +238,7 @@ public class SuitePlacementTest {
     /** With -Dtest_scaffolding=true, replacing a suite replaces its scaffolding too. */
     @Test
     public void replacingASuiteReplacesItsScaffolding() throws Exception {
-        preferences.put(EvoSuitePreferences.EXTRA_ARGUMENTS, "-Dtest_scaffolding=true");
+        preferences.put(SettingKeys.EXTRA_ARGUMENTS, "-Dtest_scaffolding=true");
         write(suite, EXISTING);
         write(scaffolding, "package demo;\npublic class Calculator_ESTest_scaffolding {}\n");
 
@@ -256,7 +256,7 @@ public class SuitePlacementTest {
      */
     @Test
     public void addingWithANewScaffoldingComparesBothFiles() throws Exception {
-        preferences.put(EvoSuitePreferences.EXTRA_ARGUMENTS, "-Dtest_scaffolding=true");
+        preferences.put(SettingKeys.EXTRA_ARGUMENTS, "-Dtest_scaffolding=true");
         String oldScaffolding = "package demo;\npublic class Calculator_ESTest_scaffolding {}\n";
         write(suite, EXISTING);
         write(scaffolding, oldScaffolding);
@@ -332,7 +332,7 @@ public class SuitePlacementTest {
     @Test
     public void theUsersArgumentsCannotMoveTheNewSuite() throws Exception {
         File elsewhere = Files.createTempDirectory("elsewhere").toFile();
-        preferences.put(EvoSuitePreferences.EXTRA_ARGUMENTS,
+        preferences.put(SettingKeys.EXTRA_ARGUMENTS,
                 "-Dtest_dir=" + elsewhere.getAbsolutePath() + " -Djunit_suffix=Test");
         write(suite, EXISTING);
         TestGenerationJob job = job(ONE_METHOD, SuiteAction.ADD);
@@ -398,7 +398,7 @@ public class SuitePlacementTest {
     /** The build path stays as it is when the settings keep the run from starting. */
     @Test
     public void checksTheSettingsBeforeChangingTheBuildPath() throws Exception {
-        preferences.put(EvoSuitePreferences.LLM_PROVIDER, GenerationOptions.LLM_OLLAMA);
+        preferences.put(SettingKeys.LLM_PROVIDER, GenerationOptions.LLM_OLLAMA);
         var classpath = List.of(project.getRawClasspath());
 
         IStatus result = run(job(WHOLE_CLASS, SuiteAction.REPLACE));

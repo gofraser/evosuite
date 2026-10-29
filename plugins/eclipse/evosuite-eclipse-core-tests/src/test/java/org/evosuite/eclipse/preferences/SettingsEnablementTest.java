@@ -45,6 +45,7 @@ import org.eclipse.swt.widgets.Link;
 import org.eclipse.swt.widgets.Text;
 import org.evosuite.eclipse.TestProjects;
 import org.evosuite.eclipse.launch.GenerationOptions;
+import org.evosuite.eclipse.launch.SettingKeys;
 import org.evosuite.eclipse.preferences.SettingsFields.Section;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -159,8 +160,8 @@ public class SettingsEnablementTest {
 
     @Test
     public void theStoredValuesDecideOnOpeningAndTheDefaultsAfterRestoring() {
-        workspace.put(EvoSuitePreferences.LLM_PROVIDER, GenerationOptions.LLM_OLLAMA);
-        workspace.put(EvoSuitePreferences.LLM_APPROACH, GenerationOptions.APPROACH_LLM_ITERATIVE);
+        workspace.put(SettingKeys.LLM_PROVIDER, GenerationOptions.LLM_OLLAMA);
+        workspace.put(SettingKeys.LLM_APPROACH, GenerationOptions.APPROACH_LLM_ITERATIVE);
         onUiThread(() -> {
             PreferenceDialog dialog = SettingsDialogs.preferences(Section.LLM);
             try {
@@ -179,7 +180,7 @@ public class SettingsEnablementTest {
 
     @Test
     public void assertionsKeptDependsOnGeneratingAssertions() {
-        workspace.putBoolean(EvoSuitePreferences.ASSERTIONS, false);
+        workspace.putBoolean(SettingKeys.ASSERTIONS, false);
         onUiThread(() -> {
             PreferenceDialog dialog = SettingsDialogs.preferences(Section.GENERAL);
             try {
@@ -201,7 +202,7 @@ public class SettingsEnablementTest {
     public void theProjectSwitchDisablesEverythingAndOtherwiseTheRulesApply() throws Exception {
         IProject project = TestProjects.create("enablement", "src", null).getProject();
         IEclipsePreferences own = new ProjectScope(project).getNode(EvoSuitePreferences.QUALIFIER);
-        own.put(EvoSuitePreferences.LLM_PROVIDER, GenerationOptions.LLM_ANTHROPIC);
+        own.put(SettingKeys.LLM_PROVIDER, GenerationOptions.LLM_ANTHROPIC);
         onUiThread(() -> {
             PreferenceDialog dialog = SettingsDialogs.properties(project, Section.LLM);
             try {

@@ -26,26 +26,22 @@ import java.util.*;
 public final class SettingKeys {
     private SettingKeys() {}
 
-    public static final String USE_PROJECT_SETTINGS = "useProjectSettings";
     public static final String SEARCH_BUDGET = "searchBudget";
+    public static final String RANDOM_SEED = "randomSeed";
     public static final String CRITERION = "criterion";
     public static final String ASSERTIONS = "assertions";
     public static final String MINIMIZE = "minimize";
     public static final String MINIMIZE_VALUES = "minimizeValues";
+    public static final String NO_RUNTIME_DEPENDENCY = "noRuntimeDependency";
     public static final String ASSERTION_STRATEGY = "assertionStrategy";
+    public static final String TEST_FORMAT = "testFormat";
+    public static final String TEST_FOLDER = "testFolder";
+    public static final String TEST_SUFFIX = "testSuffix";
     public static final String TEST_NAMING = "testNaming";
     public static final String VARIABLE_NAMING = "variableNaming";
     public static final String TEST_COMMENTS = "testComments";
     public static final String TEST_TIMEOUT = "testTimeout";
-    public static final String TEST_FORMAT = "testFormat";
-    public static final String TEST_SUFFIX = "testSuffix";
-    public static final String TEST_FOLDER = "testFolder";
-    public static final String CLIENT_MEMORY = "clientMemory";
-    public static final String EXTRA_ARGUMENTS = "extraArguments";
-    public static final String JAVA_HOME = "javaHome";
     public static final String OPEN_GENERATED_TESTS = "openGeneratedTests";
-    public static final String CONFIGURE_BUILD_PATH = "configureBuildPath";
-    public static final String USE_POM_SETTINGS = "usePomSettings";
     public static final String LLM_PROVIDER = "llmProvider";
     public static final String LLM_MODEL = "llmModel";
     public static final String LLM_BASE_URL = "llmBaseUrl";
@@ -55,6 +51,16 @@ public final class SettingKeys {
     public static final String LLM_OPERATORS = "llmOperators";
     public static final String LLM_POSTPROCESSING = "llmPostprocessing";
     public static final String LLM_MAX_CALLS = "llmMaxCalls";
+    public static final String LLM_CONTEXT_MODE = "llmContextMode";
+    public static final String LLM_MAX_TOKENS = "llmMaxTokens";
+    public static final String LLM_TIMEOUT_SECONDS = "llmTimeoutSeconds";
+    public static final String LLM_RETRY_MAX_ATTEMPTS = "llmRetryMaxAttempts";
+    public static final String LLM_TEMPERATURE = "llmTemperature";
+    public static final String JAVA_HOME = "javaHome";
+    public static final String CLIENT_MEMORY = "clientMemory";
+    public static final String EXTRA_ARGUMENTS = "extraArguments";
+    public static final String USE_POM_SETTINGS = "usePomSettings";
+    public static final String CONFIGURE_BUILD_PATH = "configureBuildPath";
     public static final List<String> SUPPORTED_CRITERIA =
             List.of(
                     "EXCEPTION",
@@ -82,45 +88,45 @@ public final class SettingKeys {
                     "TRYCATCH");
     public static final List<String> MAIN =
             List.of(
-                    "searchBudget",
-                    "randomSeed",
-                    "criterion",
-                    "assertions",
-                    "minimize",
-                    "minimizeValues",
-                    "noRuntimeDependency",
-                    "assertionStrategy",
-                    "testFormat",
-                    "testFolder",
-                    "testSuffix",
-                    "testNaming",
-                    "variableNaming",
-                    "testComments",
-                    "testTimeout",
-                    "openGeneratedTests");
+                    SEARCH_BUDGET,
+                    RANDOM_SEED,
+                    CRITERION,
+                    ASSERTIONS,
+                    MINIMIZE,
+                    MINIMIZE_VALUES,
+                    NO_RUNTIME_DEPENDENCY,
+                    ASSERTION_STRATEGY,
+                    TEST_FORMAT,
+                    TEST_FOLDER,
+                    TEST_SUFFIX,
+                    TEST_NAMING,
+                    VARIABLE_NAMING,
+                    TEST_COMMENTS,
+                    TEST_TIMEOUT,
+                    OPEN_GENERATED_TESTS);
     public static final List<String> LLM =
             List.of(
-                    "llmProvider",
-                    "llmModel",
-                    "llmBaseUrl",
-                    "llmApproach",
-                    "llmSeeding",
-                    "llmOnStagnation",
-                    "llmOperators",
-                    "llmPostprocessing",
-                    "llmMaxCalls",
-                    "llmContextMode",
-                    "llmMaxTokens",
-                    "llmTimeoutSeconds",
-                    "llmRetryMaxAttempts",
-                    "llmTemperature");
+                    LLM_PROVIDER,
+                    LLM_MODEL,
+                    LLM_BASE_URL,
+                    LLM_APPROACH,
+                    LLM_SEEDING,
+                    LLM_ON_STAGNATION,
+                    LLM_OPERATORS,
+                    LLM_POSTPROCESSING,
+                    LLM_MAX_CALLS,
+                    LLM_CONTEXT_MODE,
+                    LLM_MAX_TOKENS,
+                    LLM_TIMEOUT_SECONDS,
+                    LLM_RETRY_MAX_ATTEMPTS,
+                    LLM_TEMPERATURE);
     public static final List<String> ADVANCED =
             List.of(
-                    "javaHome",
-                    "clientMemory",
-                    "extraArguments",
-                    "usePomSettings",
-                    "configureBuildPath");
+                    JAVA_HOME,
+                    CLIENT_MEMORY,
+                    EXTRA_ARGUMENTS,
+                    USE_POM_SETTINGS,
+                    CONFIGURE_BUILD_PATH);
 
     public static List<String> all() {
         List<String> keys = new ArrayList<>(MAIN);
@@ -154,7 +160,7 @@ public final class SettingKeys {
                                 : field.getType() == boolean.class
                                         ? Boolean.valueOf(value)
                                         : value.trim();
-                if (parsed instanceof Integer n && (n < 0 || key.equals("searchBudget") && n == 0))
+                if (parsed instanceof Integer n && (n < 0 || key.equals(SEARCH_BUDGET) && n == 0))
                     throw new IllegalArgumentException(
                             key + " must be positive (or zero for defaults where allowed)");
                 field.set(options, parsed);

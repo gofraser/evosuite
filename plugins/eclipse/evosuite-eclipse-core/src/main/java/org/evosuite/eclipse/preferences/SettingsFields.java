@@ -38,6 +38,7 @@ import org.eclipse.swt.widgets.Group;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Text;
 import org.evosuite.eclipse.launch.GenerationOptions;
+import org.evosuite.eclipse.launch.SettingKeys;
 
 /**
  * The editors of one settings page, shared by the workspace preference pages and the project
@@ -185,11 +186,11 @@ final class SettingsFields {
 
     private void general(Composite parent) {
         Composite search = group(parent, "Search");
-        IntegerFieldEditor budget = new IntegerFieldEditor(EvoSuitePreferences.SEARCH_BUDGET,
+        IntegerFieldEditor budget = new IntegerFieldEditor(SettingKeys.SEARCH_BUDGET,
                 "Search &budget per class (seconds):", search);
         budget.setValidRange(1, 24 * 60 * 60);
         add(budget, search);
-        StringFieldEditor seed = new ValidatedStringFieldEditor(EvoSuitePreferences.RANDOM_SEED,
+        StringFieldEditor seed = new ValidatedStringFieldEditor(SettingKeys.RANDOM_SEED,
                 "Random &seed:", search, value -> {
                     if (value.isBlank()) return true;
                     try { Long.parseLong(value.trim()); return true; }
@@ -197,58 +198,58 @@ final class SettingsFields {
                 }, "Random seed must be a signed 64-bit integer, or empty for a fresh seed.");
         seed.getTextControl(search).setMessage("Fresh seed per class (recorded in Runs)");
         add(seed, search);
-        add(new CriteriaFieldEditor(EvoSuitePreferences.CRITERION, "Coverage &criteria:", search), search);
-        assertions = new BooleanFieldEditor(EvoSuitePreferences.ASSERTIONS, "Generate &assertions", search);
+        add(new CriteriaFieldEditor(SettingKeys.CRITERION, "Coverage &criteria:", search), search);
+        assertions = new BooleanFieldEditor(SettingKeys.ASSERTIONS, "Generate &assertions", search);
         add(assertions, search);
-        add(new ChoiceFieldEditor(EvoSuitePreferences.ASSERTION_STRATEGY, "Assertions &kept:",
+        add(new ChoiceFieldEditor(SettingKeys.ASSERTION_STRATEGY, "Assertions &kept:",
                 new String[][]{{"Those that detect faults (fewer)", "MUTATION"},
                         {"All observed values (more)", "ALL"}}, search), search, assertions::getBooleanValue);
-        minimize = new BooleanFieldEditor(EvoSuitePreferences.MINIMIZE,
+        minimize = new BooleanFieldEditor(SettingKeys.MINIMIZE,
                 "&Minimize tests (remove redundant tests and statements)", search);
         add(minimize, search);
-        add(new BooleanFieldEditor(EvoSuitePreferences.MINIMIZE_VALUES,
+        add(new BooleanFieldEditor(SettingKeys.MINIMIZE_VALUES,
                 "Minimize &values (simplify constants)", search), search, minimize::getBooleanValue);
 
         Composite output = group(parent, "Generated tests");
-        add(new ChoiceFieldEditor(EvoSuitePreferences.TEST_FORMAT, "Test &format:",
+        add(new ChoiceFieldEditor(SettingKeys.TEST_FORMAT, "Test &format:",
                 new String[][]{{"Automatic (JUnit 4 or JUnit 5)", ""}, {"JUnit 5", GenerationOptions.JUNIT5}, {"JUnit 4", GenerationOptions.JUNIT4}},
                 output), output);
-        add(new BooleanFieldEditor(EvoSuitePreferences.NO_RUNTIME_DEPENDENCY,
+        add(new BooleanFieldEditor(SettingKeys.NO_RUNTIME_DEPENDENCY,
                 "Omit EvoSuite runtime &dependency", output), output);
-        add(new ValidatedStringFieldEditor(EvoSuitePreferences.TEST_FOLDER,
+        add(new ValidatedStringFieldEditor(SettingKeys.TEST_FOLDER,
                 "Test &source folder (project-relative):", output, value -> {
                     try { var path = java.nio.file.Path.of(value).normalize();
                         return !value.isBlank() && !path.isAbsolute() && !path.startsWith("..") && !path.toString().equals("."); }
                     catch (RuntimeException e) { return false; }
                 }, "Choose a test folder inside the project."), output);
-        add(new ValidatedStringFieldEditor(EvoSuitePreferences.TEST_SUFFIX, "Test class s&uffix:", output,
+        add(new ValidatedStringFieldEditor(SettingKeys.TEST_SUFFIX, "Test class s&uffix:", output,
                 value -> value.matches("[A-Za-z_$][A-Za-z0-9_$]*"), "Test suffix must be a Java identifier."), output);
-        add(new ChoiceFieldEditor(EvoSuitePreferences.TEST_NAMING, "Test &names:",
+        add(new ChoiceFieldEditor(SettingKeys.TEST_NAMING, "Test &names:",
                 new String[][]{{"Numbered (test0, test1, ...)", "NUMBERED"},
                         {"Descriptive (from what each test covers)", "COVERAGE"}}, output), output);
-        add(new ChoiceFieldEditor(EvoSuitePreferences.VARIABLE_NAMING, "&Variable names:",
+        add(new ChoiceFieldEditor(SettingKeys.VARIABLE_NAMING, "&Variable names:",
                 new String[][]{{"From the type (int0, string0, ...)", "TYPE_BASED"},
                         {"From how values are used", "HEURISTICS_BASED"}}, output), output);
-        add(new BooleanFieldEditor(EvoSuitePreferences.TEST_COMMENTS,
+        add(new BooleanFieldEditor(SettingKeys.TEST_COMMENTS,
                 "Comment tests with the &goals they cover", output), output);
-        add(new OptionalIntegerFieldEditor(EvoSuitePreferences.TEST_TIMEOUT, "&Time limit per test (ms):",
+        add(new OptionalIntegerFieldEditor(SettingKeys.TEST_TIMEOUT, "&Time limit per test (ms):",
                 output, 24 * 60 * 60 * 1000, "EvoSuite default (3000)"), output);
-        add(new BooleanFieldEditor(EvoSuitePreferences.OPEN_GENERATED_TESTS,
+        add(new BooleanFieldEditor(SettingKeys.OPEN_GENERATED_TESTS,
                 "&Open generated tests in an editor", output), output);
     }
 
     private void llm(Composite parent, boolean workspace) {
         Composite model = group(parent, "Model");
-        provider = new ChoiceFieldEditor(EvoSuitePreferences.LLM_PROVIDER, "&Provider:",
+        provider = new ChoiceFieldEditor(SettingKeys.LLM_PROVIDER, "&Provider:",
                 new String[][]{{"None (no LLM)", GenerationOptions.LLM_NONE},
                         {"OpenAI", GenerationOptions.LLM_OPENAI},
                         {"Anthropic", GenerationOptions.LLM_ANTHROPIC},
                         {"Ollama (local)", GenerationOptions.LLM_OLLAMA}}, model);
         add(provider, model);
-        StringFieldEditor modelEditor = new StringFieldEditor(EvoSuitePreferences.LLM_MODEL, "Mo&del:", model);
+        StringFieldEditor modelEditor = new StringFieldEditor(SettingKeys.LLM_MODEL, "Mo&del:", model);
         modelName = modelEditor.getTextControl(model);
         add(modelEditor, model, this::llmOn);
-        StringFieldEditor baseUrlEditor = new StringFieldEditor(EvoSuitePreferences.LLM_BASE_URL, "Base &URL:", model);
+        StringFieldEditor baseUrlEditor = new StringFieldEditor(SettingKeys.LLM_BASE_URL, "Base &URL:", model);
         baseUrl = baseUrlEditor.getTextControl(model);
         add(baseUrlEditor, model, this::llmOn);
         if (workspace) {
@@ -274,38 +275,38 @@ final class SettingsFields {
         }
 
         Composite use = group(parent, "Test generation");
-        approach = new ChoiceFieldEditor(EvoSuitePreferences.LLM_APPROACH, "Appro&ach:",
+        approach = new ChoiceFieldEditor(SettingKeys.LLM_APPROACH, "Appro&ach:",
                 new String[][]{{"Search only (LLM off, settings kept)", GenerationOptions.APPROACH_SEARCH_ONLY},
                         {"Search, assisted by the LLM", GenerationOptions.APPROACH_SEARCH},
                         {"LLM only, one prompt", GenerationOptions.APPROACH_LLM_SINGLE_PROMPT},
                         {"LLM only, iterating on uncovered goals", GenerationOptions.APPROACH_LLM_ITERATIVE}},
                 use);
         add(approach, use, this::llmConfigured);
-        add(new ChoiceFieldEditor(EvoSuitePreferences.LLM_SEEDING, "Seed the search with LLM &input:",
+        add(new ChoiceFieldEditor(SettingKeys.LLM_SEEDING, "Seed the search with LLM &input:",
                 new String[][]{{"Off", "OFF"},
                         {"Minimal: classes to cast to", "MIN"},
                         {"Standard: constants and objects too", "STANDARD"},
                         {"Full: also initial tests", "FULL"}}, use), use, this::llmAssistsSearch);
-        add(new BooleanFieldEditor(EvoSuitePreferences.LLM_ON_STAGNATION,
+        add(new BooleanFieldEditor(SettingKeys.LLM_ON_STAGNATION,
                 "Ask the LLM for tests when the search s&tagnates", use), use, this::llmAssistsSearch);
-        add(new BooleanFieldEditor(EvoSuitePreferences.LLM_OPERATORS,
+        add(new BooleanFieldEditor(SettingKeys.LLM_OPERATORS,
                 "Use LLM-based mutation and c&rossover", use), use, this::llmAssistsSearch);
-        add(new BooleanFieldEditor(EvoSuitePreferences.LLM_POSTPROCESSING,
+        add(new BooleanFieldEditor(SettingKeys.LLM_POSTPROCESSING,
                 "Improve test names, comments and assertions &with the LLM", use), use, this::llmOn);
-        add(new OptionalIntegerFieldEditor(EvoSuitePreferences.LLM_MAX_CALLS, "LLM ca&lls per class:", use,
+        add(new OptionalIntegerFieldEditor(SettingKeys.LLM_MAX_CALLS, "LLM ca&lls per class:", use,
                 1_000_000, "EvoSuite default (no limit)"), use, this::llmOn);
         Composite context = group(parent, "Model controls");
-        add(new ChoiceFieldEditor(EvoSuitePreferences.LLM_CONTEXT_MODE, "Class &context:",
+        add(new ChoiceFieldEditor(SettingKeys.LLM_CONTEXT_MODE, "Class &context:",
                 new String[][]{{"Signatures only", "SIGNATURE_ONLY"}, {"Project source", "SOURCE_CODE"},
                         {"Decompiled source", "DECOMPILED_SOURCE"},
                         {"Disassembled bytecode", "BYTECODE_DISASSEMBLED"}}, context), context, this::llmOn);
-        add(positiveInteger(EvoSuitePreferences.LLM_MAX_TOKENS, "Output token limit:", context), context, this::llmOn);
-        add(positiveInteger(EvoSuitePreferences.LLM_TIMEOUT_SECONDS, "HTTP timeout (seconds):", context), context, this::llmOn);
-        IntegerFieldEditor retries = new IntegerFieldEditor(EvoSuitePreferences.LLM_RETRY_MAX_ATTEMPTS,
+        add(positiveInteger(SettingKeys.LLM_MAX_TOKENS, "Output token limit:", context), context, this::llmOn);
+        add(positiveInteger(SettingKeys.LLM_TIMEOUT_SECONDS, "HTTP timeout (seconds):", context), context, this::llmOn);
+        IntegerFieldEditor retries = new IntegerFieldEditor(SettingKeys.LLM_RETRY_MAX_ATTEMPTS,
                 "Retry attempts:", context);
         retries.setValidRange(0, 1_000_000);
         add(retries, context, this::llmOn);
-        add(new ValidatedStringFieldEditor(EvoSuitePreferences.LLM_TEMPERATURE, "Temperature:", context,
+        add(new ValidatedStringFieldEditor(SettingKeys.LLM_TEMPERATURE, "Temperature:", context,
                 value -> {
                     try { double n = Double.parseDouble(value); return Double.isFinite(n) && n >= 0 && n <= 2; }
                     catch (NumberFormatException e) { return false; }
@@ -321,14 +322,14 @@ final class SettingsFields {
 
     private void advanced(Composite parent) {
         Composite runtime = group(parent, "Running EvoSuite");
-        DirectoryFieldEditor javaHome = new DirectoryFieldEditor(EvoSuitePreferences.JAVA_HOME, "&Java home:",
+        DirectoryFieldEditor javaHome = new DirectoryFieldEditor(SettingKeys.JAVA_HOME, "&Java home:",
                 runtime);
         javaHome.setEmptyStringAllowed(true);
         javaHome.getTextControl(runtime).setMessage("The project's JRE");
         add(javaHome, runtime);
-        add(new OptionalIntegerFieldEditor(EvoSuitePreferences.CLIENT_MEMORY, "Client &heap (MB):", runtime,
+        add(new OptionalIntegerFieldEditor(SettingKeys.CLIENT_MEMORY, "Client &heap (MB):", runtime,
                 1024 * 1024, "EvoSuite default"), runtime);
-        StringFieldEditor arguments = new ValidatedStringFieldEditor(EvoSuitePreferences.EXTRA_ARGUMENTS,
+        StringFieldEditor arguments = new ValidatedStringFieldEditor(SettingKeys.EXTRA_ARGUMENTS,
                 "Additional &arguments:", runtime, value -> org.evosuite.eclipse.launch.EvoSuiteCommand.splitArguments(value)
                         .stream().noneMatch(a -> a.startsWith("-Dllm_api_key=")),
                 "Store API keys in secure storage on the LLM page.");
@@ -336,11 +337,11 @@ final class SettingsFields {
         add(arguments, runtime);
 
         Composite project = group(parent, "Project setup");
-        add(new BooleanFieldEditor(EvoSuitePreferences.USE_POM_SETTINGS,
+        add(new BooleanFieldEditor(SettingKeys.USE_POM_SETTINGS,
                 "Take settings from the EvoSuite Maven plugin in pom.&xml", project), project);
         if (!workspacePage) add(new BooleanFieldEditor("delegateToMaven",
                 "Run whole-class requests through the Maven plugin", project), project);
-        add(new BooleanFieldEditor(EvoSuitePreferences.CONFIGURE_BUILD_PATH,
+        add(new BooleanFieldEditor(SettingKeys.CONFIGURE_BUILD_PATH,
                 "Add the test folder, JUnit and the EvoSuite runtime to the build &path", project), project);
     }
 
