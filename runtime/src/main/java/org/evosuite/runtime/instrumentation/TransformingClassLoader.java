@@ -28,8 +28,6 @@ import java.net.URL;
 import java.security.CodeSource;
 import java.security.ProtectionDomain;
 import java.security.cert.Certificate;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * A class loader that defines the classes it can instrument itself, from transformed bytecode, and
@@ -42,7 +40,6 @@ public abstract class TransformingClassLoader extends ClassLoader {
     private static final Logger logger = LoggerFactory.getLogger(TransformingClassLoader.class);
 
     private final ClassLoader delegate;
-    private final Map<String, Class<?>> classes = new HashMap<>();
 
     /**
      * @param parent   the parent class loader
@@ -99,15 +96,16 @@ public abstract class TransformingClassLoader extends ClassLoader {
             return delegate.loadClass(name);
         }
 
-        Class<?> result = classes.get(name);
-        if (result == null) {
-            result = findLoadedClass(name);
+        // Look up, transform and define under one lock: two threads loading the class for the first
+        // time must get the same Class instead of defining it twice.
+        synchronized (getClassLoadingLock(name)) {
+            Class<?> result = findLoadedClass(name);
+            if (result != null) {
+                return result;
+            }
+            logger.info("Seeing class for first time: " + name);
+            return instrumentClass(name);
         }
-        if (result != null) {
-            return result;
-        }
-        logger.info("Seeing class for first time: " + name);
-        return instrumentClass(name);
     }
 
     private Class<?> instrumentClass(String name) throws ClassNotFoundException {
@@ -123,8 +121,6 @@ public abstract class TransformingClassLoader extends ClassLoader {
             Class<?> result = protectionDomain == null
                     ? defineClass(name, byteBuffer, 0, byteBuffer.length)
                     : defineClass(name, byteBuffer, 0, byteBuffer.length, protectionDomain);
-            classes.put(name, result);
-            logger.info("Keeping class: " + name);
             return result;
         } catch (VirtualMachineError e) {
             // A StackOverflowError while instrumenting (a StackOverflowError handler in the SUT
