@@ -68,10 +68,6 @@ public class IndividualPopulationLimit<T extends Chromosome<T>> implements Popul
         this.limit = other.limit;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.PopulationLimit#isPopulationFull(java.util.List)
-     */
-
     /**
      * {@inheritDoc}
      */

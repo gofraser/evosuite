@@ -65,10 +65,6 @@ public class StringPrimitiveStatement extends PrimitiveStatement<String> {
         super(tc, String.class, "");
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#zero()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -154,10 +150,6 @@ public class StringPrimitiveStatement extends PrimitiveStatement<String> {
         value = s;
         // logger.info("Mutated string now is: "+value);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#increment(java.lang.Object)
-     */
 
     /**
      * increment.

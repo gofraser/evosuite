@@ -53,10 +53,6 @@ public class UnitAssertionGenerator extends AssertionGenerator {
         return false;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.AssertionGenerator#addAssertions(org.evosuite.testcase.TestCase)
-     */
-
     /**
      * {@inheritDoc}
      */

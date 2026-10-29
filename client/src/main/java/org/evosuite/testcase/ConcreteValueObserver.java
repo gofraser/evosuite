@@ -41,10 +41,6 @@ public class ConcreteValueObserver extends ExecutionObserver {
         return concreteValues;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#afterStatement(org.evosuite.testcase.StatementInterface,
-     * org.evosuite.testcase.Scope, java.lang.Throwable)
-     */
     @Override
     public void afterStatement(Statement statement, Scope scope,
                                Throwable exception) {

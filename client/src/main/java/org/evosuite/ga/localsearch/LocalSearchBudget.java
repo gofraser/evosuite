@@ -174,10 +174,6 @@ public class LocalSearchBudget<T extends Chromosome<T>> implements SearchListene
         executedStart = MaxStatementsStoppingCondition.getNumExecutedStatements();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.SearchListener#searchStarted(org.evosuite.ga.GeneticAlgorithm)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -189,10 +185,6 @@ public class LocalSearchBudget<T extends Chromosome<T>> implements SearchListene
         fitnessEvaluations = 0;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.SearchListener#iteration(org.evosuite.ga.GeneticAlgorithm)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -203,10 +195,6 @@ public class LocalSearchBudget<T extends Chromosome<T>> implements SearchListene
         fitnessEvaluations = 0;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.SearchListener#searchFinished(org.evosuite.ga.GeneticAlgorithm)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -214,10 +202,6 @@ public class LocalSearchBudget<T extends Chromosome<T>> implements SearchListene
     public void searchFinished(GeneticAlgorithm<T> algorithm) {
         ga = null;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.SearchListener#fitnessEvaluation(org.evosuite.ga.Chromosome)
-     */
 
     /**
      * {@inheritDoc}
@@ -227,10 +211,6 @@ public class LocalSearchBudget<T extends Chromosome<T>> implements SearchListene
     public void fitnessEvaluation(T individual) {
         // Not used
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.SearchListener#modification(org.evosuite.ga.Chromosome)
-     */
 
     /**
      * {@inheritDoc}

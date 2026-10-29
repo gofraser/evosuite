@@ -269,9 +269,6 @@ public class ContractViolation {
         return false;
     }
 
-    /* (non-Javadoc)
-     * @see java.lang.Object#toString()
-     */
     @Override
     public String toString() {
         return "Violated contract: " + contract + " in statement " + statement

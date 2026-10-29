@@ -59,9 +59,6 @@ public class ValueMinimizer extends TestVisitor {
             this.lastFitness = test.getFitness(fitness);
         }
 
-        /* (non-Javadoc)
-         * @see org.evosuite.ga.LocalSearchObjective#hasImproved(org.evosuite.ga.Chromosome)
-         */
         @Override
         public boolean isNotWorse() {
             ExecutionResult lastResult = individual.getLastExecutionResult();
@@ -115,9 +112,6 @@ public class ValueMinimizer extends TestVisitor {
             this.lastCoverage = suite.getCoverage();
         }
 
-        /* (non-Javadoc)
-         * @see org.evosuite.ga.LocalSearchObjective#hasImproved(org.evosuite.ga.Chromosome)
-         */
         @Override
         public boolean isNotWorse() {
             ExecutionResult lastResult = individual.getLastExecutionResult().clone();
@@ -396,10 +390,6 @@ public class ValueMinimizer extends TestVisitor {
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestVisitor#visitTestCase(org.evosuite.testcase.TestCase)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -436,20 +426,12 @@ public class ValueMinimizer extends TestVisitor {
     }
 
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestVisitor#visitPrimitiveStatement(org.evosuite.testcase.PrimitiveStatement)
-     */
-
     /**
      * {@inheritDoc}
      */
     @Override
     public void visitPrimitiveStatement(PrimitiveStatement<?> statement) {
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestVisitor#visitFieldStatement(org.evosuite.testcase.FieldStatement)
-     */
 
     /**
      * {@inheritDoc}
@@ -460,10 +442,6 @@ public class ValueMinimizer extends TestVisitor {
 
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestVisitor#visitMethodStatement(org.evosuite.testcase.MethodStatement)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -471,10 +449,6 @@ public class ValueMinimizer extends TestVisitor {
     public void visitMethodStatement(MethodStatement statement) {
 
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestVisitor#visitConstructorStatement(org.evosuite.testcase.ConstructorStatement)
-     */
 
     /**
      * {@inheritDoc}
@@ -485,10 +459,6 @@ public class ValueMinimizer extends TestVisitor {
 
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestVisitor#visitArrayStatement(org.evosuite.testcase.ArrayStatement)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -498,10 +468,6 @@ public class ValueMinimizer extends TestVisitor {
 
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestVisitor#visitAssignmentStatement(org.evosuite.testcase.AssignmentStatement)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -510,10 +476,6 @@ public class ValueMinimizer extends TestVisitor {
         // TODO Auto-generated method stub
 
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestVisitor#visitNullStatement(org.evosuite.testcase.NullStatement)
-     */
 
     /**
      * {@inheritDoc}

@@ -34,13 +34,6 @@ import java.util.Set;
 public class AllDefsCoverageFactory extends
         AbstractFitnessFactory<AllDefsCoverageTestFitness> {
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.coverage.TestFitnessFactory#getCoverageGoals()
-     */
-
     /**
      * {@inheritDoc}
      */

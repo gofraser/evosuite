@@ -242,9 +242,6 @@ public class ExceptionTransformationMethodAdapter extends GeneratorAdapter {
         // super.visitTryCatchBlock(start, end, handler, type);
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitEnd()
-     */
     // @Override
     // public void visitEnd() {
     //     MethodNode mn = (MethodNode) mv;

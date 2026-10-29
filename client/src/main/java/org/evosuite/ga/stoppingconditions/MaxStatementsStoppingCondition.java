@@ -104,10 +104,6 @@ public class MaxStatementsStoppingCondition<T extends Chromosome<T>> extends Sto
         currentStatement.set(value);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.StoppingCondition#getCurrentValue()
-     */
-
     /**
      * {@inheritDoc}
      */

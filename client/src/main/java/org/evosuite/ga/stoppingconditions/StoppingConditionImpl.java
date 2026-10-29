@@ -64,12 +64,6 @@ public abstract class StoppingConditionImpl<T extends Chromosome<T>> implements 
         // Default no-op implementation
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.ga.SearchListener#iteration(java.util.List)
-     */
-
     /**
      * {@inheritDoc}
      *
@@ -80,12 +74,6 @@ public abstract class StoppingConditionImpl<T extends Chromosome<T>> implements 
         // Default no-op implementation
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.ga.SearchListener#searchFinished(java.util.List)
-     */
-
     /**
      * {@inheritDoc}
      *
@@ -95,14 +83,6 @@ public abstract class StoppingConditionImpl<T extends Chromosome<T>> implements 
     public void searchFinished(GeneticAlgorithm<T> algorithm) {
         // Default no-op implementation
     }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.ga.SearchListener#mutation(org.evosuite
-     * .ga.Chromosome)
-     */
 
     /**
      * {@inheritDoc}

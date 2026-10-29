@@ -145,22 +145,12 @@ public final class StringVariable extends AbstractExpression<String>
         return variables;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.symbolic.expr.AbstractExpression#getConstants()
-     */
     @Override
     public Set<Object> getConstants() {
         // Do not include original values?
         return new HashSet<>();
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.symbolic.expr.Variable#getMinValue()
-     */
     @Override
     public String getMinValue() {
         return concreteValue;

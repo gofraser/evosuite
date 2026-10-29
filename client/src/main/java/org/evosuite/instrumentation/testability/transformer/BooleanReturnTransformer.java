@@ -46,10 +46,6 @@ public class BooleanReturnTransformer extends MethodNodeTransformer {
         this.booleanTestabilityTransformation = booleanTestabilityTransformation;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformInsnNode(org.objectweb.asm.tree.MethodNode,
-     * org.objectweb.asm.tree.InsnNode)
-     */
     @Override
     protected AbstractInsnNode transformInsnNode(MethodNode mn, InsnNode insnNode) {
         //String desc = DescriptorMapping.getInstance().getMethodDesc(className, mn.name, mn.desc);

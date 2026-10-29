@@ -88,10 +88,6 @@ public class MaxFitnessEvaluationsStoppingCondition<T extends Chromosome<T>> ext
         currentEvaluation = 0;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.StoppingCondition#setLimit(int)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -107,10 +103,6 @@ public class MaxFitnessEvaluationsStoppingCondition<T extends Chromosome<T>> ext
     public long getLimit() {
         return maxEvaluations;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.StoppingCondition#getCurrentValue()
-     */
 
     /**
      * {@inheritDoc}

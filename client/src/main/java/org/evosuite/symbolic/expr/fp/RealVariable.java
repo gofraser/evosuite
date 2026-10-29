@@ -121,9 +121,6 @@ public final class RealVariable extends AbstractExpression<Double> implements Re
         return variables;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.symbolic.expr.AbstractExpression#getConstants()
-     */
     @Override
     public Set<Object> getConstants() {
         // Do not include original values?

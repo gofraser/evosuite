@@ -56,10 +56,6 @@ public class NullStatement extends PrimitiveStatement<Void> {
         super(tc, new NullReference(tc, type), null);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#clone(org.evosuite.testcase.TestCase)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -69,10 +65,6 @@ public class NullStatement extends PrimitiveStatement<Void> {
         copyProvenanceFrom(copy, this);
         return copy;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#execute(org.evosuite.testcase.Scope, java.io.PrintStream)
-     */
 
     /**
      * {@inheritDoc}
@@ -84,10 +76,6 @@ public class NullStatement extends PrimitiveStatement<Void> {
         return null;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#getVariableReferences()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -98,10 +86,6 @@ public class NullStatement extends PrimitiveStatement<Void> {
         return references;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#replace(VariableReference, VariableReference)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -109,10 +93,6 @@ public class NullStatement extends PrimitiveStatement<Void> {
     public void replace(VariableReference oldVar, VariableReference newVar) {
         super.replace(oldVar, newVar);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#same(org.evosuite.testcase.StatementInterface)
-     */
 
     /**
      * {@inheritDoc}

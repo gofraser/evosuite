@@ -161,9 +161,6 @@ public class FieldStatement extends AbstractStatement {
         return field.isStatic();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#getNumParameters()
-     */
     @Override
     public int getNumParameters() {
         if (isStatic()) {
@@ -279,10 +276,6 @@ public class FieldStatement extends AbstractStatement {
         return references;
 
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#replace(VariableReference, VariableReference)
-     */
 
     @Override
     public boolean acceptsReplacement(VariableReference var1, VariableReference var2) {
@@ -422,10 +415,6 @@ public class FieldStatement extends AbstractStatement {
         }
         return true;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#changeClassLoader(java.lang.ClassLoader)
-     */
 
     /**
      * {@inheritDoc}

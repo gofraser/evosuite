@@ -161,11 +161,6 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
     protected abstract void visit(Statement statement, Scope scope,
                                   VariableReference var) throws CodeUnderTestException;
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#statement(org.evosuite.testcase.StatementInterface,
-     * org.evosuite.testcase.Scope, java.lang.Throwable)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -205,18 +200,10 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#beforeStatement(org.evosuite.testcase.StatementInterface,
-     * org.evosuite.testcase.Scope)
-     */
     @Override
     public synchronized void beforeStatement(Statement statement, Scope scope) {
         // Do nothing
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#clear()
-     */
 
     /**
      * {@inheritDoc}

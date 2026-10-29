@@ -41,10 +41,6 @@ public class CoverageCrossOver extends CrossOverFunction<TestSuiteChromosome> {
 
     private static final long serialVersionUID = -2203276450790663024L;
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.CrossOverFunction#crossOver(org.evosuite.ga.Chromosome, org.evosuite.ga.Chromosome)
-     */
-
     /**
      * {@inheritDoc}
      *

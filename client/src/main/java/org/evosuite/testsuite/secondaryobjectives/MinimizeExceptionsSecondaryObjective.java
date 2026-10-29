@@ -43,14 +43,6 @@ public class MinimizeExceptionsSecondaryObjective extends SecondaryObjective<Tes
         return sum;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.testcase.secondaryobjectives.SecondaryObjective#compareChromosomes(org.evosuite.ga.Chromosome,
-     * org.evosuite.ga.Chromosome)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -58,14 +50,6 @@ public class MinimizeExceptionsSecondaryObjective extends SecondaryObjective<Tes
     public int compareChromosomes(TestSuiteChromosome chromosome1, TestSuiteChromosome chromosome2) {
         return getNumExceptions(chromosome1) - getNumExceptions(chromosome2);
     }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.testcase.secondaryobjectives.SecondaryObjective#compareGenerations(org.evosuite.ga.Chromosome,
-     * org.evosuite.ga.Chromosome, org.evosuite.ga.Chromosome, org.evosuite.ga.Chromosome)
-     */
 
     /**
      * {@inheritDoc}

@@ -192,10 +192,6 @@ public abstract class TestFitnessFunction
         return isCovered(chromosome, result);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.FitnessFunction#isMaximizationFunction()
-     */
-
     /**
      * {@inheritDoc}
      */

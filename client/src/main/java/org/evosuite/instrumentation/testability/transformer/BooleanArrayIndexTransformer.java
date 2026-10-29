@@ -41,10 +41,6 @@ public class BooleanArrayIndexTransformer extends MethodNodeTransformer {
         this.frames = frames;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformInsnNode(org.objectweb.asm.tree.MethodNode,
-     * org.objectweb.asm.tree.InsnNode)
-     */
     @Override
     protected AbstractInsnNode transformInsnNode(MethodNode mn, InsnNode insnNode) {
         if (frames == null) {
@@ -81,10 +77,6 @@ public class BooleanArrayIndexTransformer extends MethodNodeTransformer {
         return insnNode;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformTypeInsnNode(org.objectweb.asm.tree.MethodNode,
-     * org.objectweb.asm.tree.TypeInsnNode)
-     */
     @Override
     protected AbstractInsnNode transformTypeInsnNode(MethodNode mn,
                                                      TypeInsnNode typeNode) {

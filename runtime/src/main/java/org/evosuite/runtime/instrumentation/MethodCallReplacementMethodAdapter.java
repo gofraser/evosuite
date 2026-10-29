@@ -263,10 +263,6 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
         super.visitInvokeDynamicInsn(name, desc, bootstrapMethodHandle, bootstrapMethodArguments);
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitMethodInsn(int, java.lang.String, java.lang.String, java.lang.String)
-     */
-
     /**
      * {@inheritDoc}
      */

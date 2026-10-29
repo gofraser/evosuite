@@ -31,14 +31,6 @@ public class MinimizeSizeSecondaryObjective extends SecondaryObjective<TestSuite
 
     private static final long serialVersionUID = 7211557650429998223L;
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.testcase.secondaryobjectives.SecondaryObjective#compareChromosomes(org.evosuite.ga.Chromosome,
-     * org.evosuite.ga.Chromosome)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -48,14 +40,6 @@ public class MinimizeSizeSecondaryObjective extends SecondaryObjective<TestSuite
                 + chromosome2.size());
         return chromosome1.size() - chromosome2.size();
     }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.testcase.secondaryobjectives.SecondaryObjective#compareGenerations(org.evosuite.ga.Chromosome,
-     * org.evosuite.ga.Chromosome, org.evosuite.ga.Chromosome, org.evosuite.ga.Chromosome)
-     */
 
     /**
      * {@inheritDoc}

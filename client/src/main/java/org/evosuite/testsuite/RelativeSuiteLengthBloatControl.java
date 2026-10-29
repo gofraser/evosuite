@@ -136,14 +136,6 @@ public class RelativeSuiteLengthBloatControl<T extends Chromosome<T>> implements
     public void fitnessEvaluation(T result) {
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.ga.SearchListener#mutation(org.evosuite
-     * .ga.Chromosome)
-     */
-
     /**
      * {@inheritDoc}
      */

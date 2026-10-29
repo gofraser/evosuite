@@ -54,15 +54,6 @@ public class BranchInstrumentation implements MethodInstrumentation {
 
     private ClassLoader classLoader;
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.cfg.MethodInstrumentation#analyze(org.objectweb
-     * .asm.tree.MethodNode, org.jgrapht.Graph, java.lang.String,
-     * java.lang.String, int)
-     */
-
     /**
      * {@inheritDoc}
      */

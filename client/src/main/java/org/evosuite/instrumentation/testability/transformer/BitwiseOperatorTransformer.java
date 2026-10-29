@@ -46,10 +46,6 @@ public class BitwiseOperatorTransformer extends MethodNodeTransformer {
         this.booleanTestabilityTransformation = booleanTestabilityTransformation;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformInsnNode(org.objectweb.asm.tree.MethodNode,
-     * org.objectweb.asm.tree.InsnNode)
-     */
     @Override
     protected AbstractInsnNode transformInsnNode(MethodNode mn, InsnNode insnNode) {
         if (insnNode.getOpcode() == Opcodes.IOR

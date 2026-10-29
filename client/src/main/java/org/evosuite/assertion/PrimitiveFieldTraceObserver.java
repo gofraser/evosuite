@@ -33,11 +33,6 @@ import java.lang.reflect.Modifier;
 public class PrimitiveFieldTraceObserver extends
         AssertionTraceObserver<PrimitiveFieldTraceEntry> {
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.AssertionTraceObserver#visit(org.evosuite.testcase.StatementInterface,
-     * org.evosuite.testcase.Scope, org.evosuite.testcase.VariableReference)
-     */
-
     /**
      * {@inheritDoc}
      */

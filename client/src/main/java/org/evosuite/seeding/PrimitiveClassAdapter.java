@@ -56,11 +56,6 @@ public class PrimitiveClassAdapter extends ClassVisitor {
         this.className = className.replaceAll("/", ".");
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.ClassAdapter#visit(int, int, java.lang.String, java.lang.String, java.lang.String,
-     * java.lang.String[])
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -138,9 +133,6 @@ public class PrimitiveClassAdapter extends ClassVisitor {
         return mv;
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.ClassVisitor#visitInnerClass(java.lang.String, java.lang.String, java.lang.String, int)
-     */
     @Override
     public void visitInnerClass(String name, String outerName, String innerName,
                                 int access) {

@@ -44,10 +44,6 @@ public class BooleanDistanceTransformer extends MethodNodeTransformer {
         this.booleanTestabilityTransformation = booleanTestabilityTransformation;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformJumpInsnNode(org.objectweb.asm.tree.MethodNode,
-     * org.objectweb.asm.tree.JumpInsnNode)
-     */
     @Override
     protected AbstractInsnNode transformJumpInsnNode(MethodNode mn,
                                                      JumpInsnNode jumpNode) {

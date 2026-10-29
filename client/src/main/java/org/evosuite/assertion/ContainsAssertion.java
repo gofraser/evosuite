@@ -54,9 +54,6 @@ public class ContainsAssertion extends Assertion {
         return s;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.Assertion#evaluate(org.evosuite.testcase.Scope)
-     */
     @Override
     public boolean evaluate(Scope scope) {
         try {
@@ -75,12 +72,6 @@ public class ContainsAssertion extends Assertion {
             throw new UnsupportedOperationException();
         }
     }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.assertion.Assertion#getReferencedVariables()
-     */
 
     /**
      * {@inheritDoc}

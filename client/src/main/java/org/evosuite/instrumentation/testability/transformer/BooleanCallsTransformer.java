@@ -44,10 +44,6 @@ public class BooleanCallsTransformer extends MethodNodeTransformer {
         this.booleanTestabilityTransformation = booleanTestabilityTransformation;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformMethodInsnNode(
-     * org.objectweb.asm.tree.MethodNode, org.objectweb.asm.tree.MethodInsnNode)
-     */
     @Override
     protected AbstractInsnNode transformMethodInsnNode(MethodNode mn,
                                                        MethodInsnNode methodNode) {
@@ -207,10 +203,6 @@ public class BooleanCallsTransformer extends MethodNodeTransformer {
                 || sort == Type.LONG || sort == Type.DOUBLE;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformFieldInsnNode(org.objectweb.asm.tree.MethodNode,
-     * org.objectweb.asm.tree.FieldInsnNode)
-     */
     @Override
     protected AbstractInsnNode transformFieldInsnNode(MethodNode mn,
                                                       FieldInsnNode fieldNode) {

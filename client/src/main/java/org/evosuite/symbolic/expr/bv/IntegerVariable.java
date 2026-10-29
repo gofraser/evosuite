@@ -124,9 +124,6 @@ public final class IntegerVariable extends AbstractExpression<Long> implements
         return variables;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.symbolic.expr.AbstractExpression#getConstants()
-     */
     @Override
     public Set<Object> getConstants() {
         // Do not include original values?

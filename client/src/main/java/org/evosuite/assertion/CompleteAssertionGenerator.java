@@ -36,14 +36,6 @@ import java.util.List;
  */
 public class CompleteAssertionGenerator extends AssertionGenerator {
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.assertion.AssertionGenerator#addAssertions(org.evosuite.
-     * testcase.TestCase)
-     */
-
     /**
      * {@inheritDoc}
      */

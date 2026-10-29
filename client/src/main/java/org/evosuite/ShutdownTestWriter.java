@@ -78,10 +78,6 @@ public class ShutdownTestWriter<T extends Chromosome<T>> extends StoppingConditi
         return interrupted;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.stoppingconditions.StoppingCondition#isFinished()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -90,10 +86,6 @@ public class ShutdownTestWriter<T extends Chromosome<T>> extends StoppingConditi
         return interrupted;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.stoppingconditions.StoppingCondition#reset()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -101,10 +93,6 @@ public class ShutdownTestWriter<T extends Chromosome<T>> extends StoppingConditi
     public void reset() {
         // interrupted = false;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.stoppingconditions.StoppingCondition#setLimit(int)
-     */
 
     /**
      * {@inheritDoc}
@@ -115,10 +103,6 @@ public class ShutdownTestWriter<T extends Chromosome<T>> extends StoppingConditi
 
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.stoppingconditions.StoppingCondition#getLimit()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -127,10 +111,6 @@ public class ShutdownTestWriter<T extends Chromosome<T>> extends StoppingConditi
         // TODO Auto-generated method stub
         return 0;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.stoppingconditions.StoppingCondition#getCurrentValue()
-     */
 
     /**
      * {@inheritDoc}

@@ -167,12 +167,6 @@ public class CompareAssertion extends Assertion {
         }
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.assertion.Assertion#getReferencedVariables()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -183,10 +177,6 @@ public class CompareAssertion extends Assertion {
         vars.add(dest);
         return vars;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.Assertion#isValid()
-     */
 
     /**
      * {@inheritDoc}

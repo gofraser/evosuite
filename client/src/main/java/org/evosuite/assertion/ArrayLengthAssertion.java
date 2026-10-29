@@ -44,9 +44,6 @@ public class ArrayLengthAssertion extends Assertion {
         return s;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.Assertion#evaluate(org.evosuite.testcase.Scope)
-     */
     @Override
     public boolean evaluate(Scope scope) {
         try {

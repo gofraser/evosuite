@@ -1079,12 +1079,6 @@ public class TestCodeVisitor extends TestVisitor {
         return classNames.values();
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.TestVisitor#visitTestCase(org.evosuite.testcase.TestCase)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -1829,12 +1823,6 @@ public class TestCodeVisitor extends TestVisitor {
 
 
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.TestVisitor#visitPrimitiveStatement(org.evosuite.testcase.PrimitiveStatement)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -1940,12 +1928,6 @@ public class TestCodeVisitor extends TestVisitor {
     }
 
 
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.TestVisitor#visitFieldStatement(org.evosuite.testcase.FieldStatement)
-     */
 
     /**
      * Visits a field statement.
@@ -2403,12 +2385,6 @@ public class TestCodeVisitor extends TestVisitor {
     }
 
 
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.TestVisitor#visitMethodStatement(org.evosuite.testcase.MethodStatement)
-     */
 
     /**
      * {@inheritDoc}
@@ -2906,12 +2882,6 @@ public class TestCodeVisitor extends TestVisitor {
         return constructorTypeName;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.TestVisitor#visitConstructorStatement(org.evosuite.testcase.ConstructorStatement)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -3202,12 +3172,6 @@ public class TestCodeVisitor extends TestVisitor {
         return ex != null && "java.awt.HeadlessException".equals(ex.getName());
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.TestVisitor#visitArrayStatement(org.evosuite.testcase.ArrayStatement)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -3256,12 +3220,6 @@ public class TestCodeVisitor extends TestVisitor {
         }
         addAssertions(statement);
     }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.TestVisitor#visitAssignmentStatement(org.evosuite.testcase.AssignmentStatement)
-     */
 
     /**
      * Checks whether a value renders as a null literal.
@@ -3399,12 +3357,6 @@ public class TestCodeVisitor extends TestVisitor {
                 + ";" + NEWLINE);
         addAssertions(statement);
     }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.TestVisitor#visitNullStatement(org.evosuite.testcase.NullStatement)
-     */
 
     /**
      * {@inheritDoc}

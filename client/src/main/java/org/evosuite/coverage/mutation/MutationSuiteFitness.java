@@ -241,10 +241,6 @@ public abstract class MutationSuiteFitness extends TestSuiteFitnessFunction {
         return fitness;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.FitnessFunction#getFitness(org.evosuite.ga.Chromosome)
-     */
-
     /**
      * {@inheritDoc}
      */

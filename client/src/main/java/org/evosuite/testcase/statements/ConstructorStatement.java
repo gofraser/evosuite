@@ -526,9 +526,6 @@ public class ConstructorStatement extends EntityWithParametersStatement {
         return parameters;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#getNumParameters()
-     */
     @Override
     public int getNumParameters() {
         return parameters.size();
@@ -586,12 +583,6 @@ public class ConstructorStatement extends EntityWithParametersStatement {
 
 
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.Statement#getDeclaredExceptions()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -608,9 +599,6 @@ public class ConstructorStatement extends EntityWithParametersStatement {
      *
      * @param test the test case.
      * @param factory the factory.
-     */
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.AbstractStatement#mutate(TestCase, TestFactory)
      */
     @Override
     public boolean mutate(TestCase test, TestFactory factory) {
@@ -645,10 +633,6 @@ public class ConstructorStatement extends EntityWithParametersStatement {
         return super.isAccessible();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#isValid()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -676,10 +660,6 @@ public class ConstructorStatement extends EntityWithParametersStatement {
     public boolean isAssignmentStatement() {
         return false;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#changeClassLoader(java.lang.ClassLoader)
-     */
 
     /**
      * {@inheritDoc}

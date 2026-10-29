@@ -74,10 +74,6 @@ public class ZeroFitnessStoppingCondition<T extends Chromosome<T>> extends Stopp
         lastFitness = Double.MAX_VALUE;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.StoppingCondition#setLimit(int)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -93,10 +89,6 @@ public class ZeroFitnessStoppingCondition<T extends Chromosome<T>> extends Stopp
     public long getLimit() {
         return 0;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.StoppingCondition#getCurrentValue()
-     */
 
     /**
      * {@inheritDoc}

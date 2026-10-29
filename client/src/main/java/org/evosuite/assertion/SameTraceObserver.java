@@ -37,11 +37,6 @@ import org.evosuite.testcase.variable.VariableReference;
  */
 public class SameTraceObserver extends AssertionTraceObserver<SameTraceEntry> {
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.AssertionTraceObserver#visit(org.evosuite.testcase.StatementInterface,
-     * org.evosuite.testcase.Scope, org.evosuite.testcase.VariableReference)
-     */
-
     /**
      * {@inheritDoc}
      */

@@ -37,11 +37,6 @@ import java.util.Set;
  */
 public class UndeclaredExceptionContract extends Contract {
 
-    /* (non-Javadoc)
-     * @see org.evosuite.contracts.Contract#check(org.evosuite.testcase.StatementInterface,
-     * org.evosuite.testcase.Scope, java.lang.Throwable)
-     */
-
     /**
      * {@inheritDoc}
      */

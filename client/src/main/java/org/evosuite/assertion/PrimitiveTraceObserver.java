@@ -53,11 +53,6 @@ public class PrimitiveTraceObserver extends AssertionTraceObserver<PrimitiveTrac
         visitReturnValue(statement, scope);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.AssertionTraceObserver#visit(org.evosuite.testcase.StatementInterface,
-     * org.evosuite.testcase.Scope, org.evosuite.testcase.VariableReference)
-     */
-
     /**
      * {@inheritDoc}
      */

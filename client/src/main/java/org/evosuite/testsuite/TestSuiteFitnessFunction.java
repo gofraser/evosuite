@@ -101,10 +101,6 @@ public abstract class TestSuiteFitnessFunction extends FitnessFunction<TestSuite
 
 
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.FitnessFunction#isMaximizationFunction()
-     */
-
     /**
      * {@inheritDoc}
      */

@@ -49,10 +49,6 @@ public class PrimitivePoolMethodAdapter extends MethodVisitor {
         this.className = className;
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodAdapter#visitLookupSwitchInsn(org.objectweb.asm.Label,
-     * int[], org.objectweb.asm.Label[])
-     */
     @Override
     public void visitLookupSwitchInsn(Label dflt, int[] keys, Label[] labels) {
         for (int key : keys) {

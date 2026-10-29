@@ -73,10 +73,6 @@ public class MutationFactory extends AbstractFitnessFactory<MutationTestFitness>
         this.strong = strongMutation;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.coverage.TestFitnessFactory#getCoverageGoals()
-     */
-
     /**
      * {@inheritDoc}
      */

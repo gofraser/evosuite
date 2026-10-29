@@ -127,11 +127,6 @@ public class ContractChecker extends ExecutionObserver {
         active = isActive;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#statement(int, org.evosuite.testcase.Scope,
-     * org.evosuite.testcase.VariableReference)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -167,10 +162,6 @@ public class ContractChecker extends ExecutionObserver {
             }
         }
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#clear()
-     */
 
     /**
      * {@inheritDoc}

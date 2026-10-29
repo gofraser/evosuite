@@ -68,10 +68,6 @@ public class GlobalTimeStoppingCondition<T extends Chromosome<T>> extends Stoppi
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.StoppingCondition#getCurrentValue()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -83,10 +79,6 @@ public class GlobalTimeStoppingCondition<T extends Chromosome<T>> extends Stoppi
         long currentTime = System.nanoTime();
         return TimeUnit.NANOSECONDS.toSeconds(currentTime - startTime);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.StoppingCondition#isFinished()
-     */
 
     /**
      * {@inheritDoc}
@@ -105,10 +97,6 @@ public class GlobalTimeStoppingCondition<T extends Chromosome<T>> extends Stoppi
         }
         return false;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.StoppingCondition#reset()
-     */
 
     /**
      * {@inheritDoc}
@@ -129,10 +117,6 @@ public class GlobalTimeStoppingCondition<T extends Chromosome<T>> extends Stoppi
     public void fullReset() {
         startTime = System.nanoTime();
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.StoppingCondition#setLimit(int)
-     */
 
     /**
      * {@inheritDoc}

@@ -47,10 +47,6 @@ public class PrimitiveTraceEntry implements OutputTraceEntry {
         this.value = value;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#differs(org.evosuite.assertion.OutputTraceEntry)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -62,10 +58,6 @@ public class PrimitiveTraceEntry implements OutputTraceEntry {
         }
         return false;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#getAssertion(org.evosuite.assertion.OutputTraceEntry)
-     */
 
     /**
      * {@inheritDoc}
@@ -89,10 +81,6 @@ public class PrimitiveTraceEntry implements OutputTraceEntry {
         return assertions;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#getAssertion()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -108,10 +96,6 @@ public class PrimitiveTraceEntry implements OutputTraceEntry {
         return assertions;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#isDetectedBy(org.evosuite.assertion.Assertion)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -125,10 +109,6 @@ public class PrimitiveTraceEntry implements OutputTraceEntry {
         }
         return false;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#cloneEntry()
-     */
 
     /**
      * {@inheritDoc}

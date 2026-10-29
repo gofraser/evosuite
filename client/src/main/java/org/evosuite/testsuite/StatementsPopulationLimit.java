@@ -57,10 +57,6 @@ public class StatementsPopulationLimit<T extends Chromosome<T>>
     public StatementsPopulationLimit(StatementsPopulationLimit<?> other) {
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.PopulationLimit#isPopulationFull(java.util.List)
-     */
-
     /**
      * {@inheritDoc}
      */

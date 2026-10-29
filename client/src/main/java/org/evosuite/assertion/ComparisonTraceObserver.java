@@ -32,11 +32,6 @@ import org.objectweb.asm.Type;
 
 public class ComparisonTraceObserver extends AssertionTraceObserver<ComparisonTraceEntry> {
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.AssertionTraceObserver#visit(org.evosuite.testcase.StatementInterface,
-     * org.evosuite.testcase.Scope, org.evosuite.testcase.VariableReference)
-     */
-
     /**
      * {@inheritDoc}
      */

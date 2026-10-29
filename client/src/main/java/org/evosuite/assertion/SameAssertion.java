@@ -56,14 +56,6 @@ public class SameAssertion extends Assertion {
         this.dest = dest;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.Assertion#getCode()
-     */
-
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.Assertion#copy(org.evosuite.testcase.TestCase, int)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -77,10 +69,6 @@ public class SameAssertion extends Assertion {
         s.killedMutants.addAll(killedMutants);
         return s;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.Assertion#evaluate(org.evosuite.testcase.Scope)
-     */
 
     /**
      * {@inheritDoc}
@@ -106,10 +94,6 @@ public class SameAssertion extends Assertion {
         }
     }
 
-    /* (non-Javadoc)
-     * @see java.lang.Object#hashCode()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -120,10 +104,6 @@ public class SameAssertion extends Assertion {
         result = prime * result + ((dest == null) ? 0 : dest.hashCode());
         return result;
     }
-
-    /* (non-Javadoc)
-     * @see java.lang.Object#equals(java.lang.Object)
-     */
 
     /**
      * {@inheritDoc}
@@ -146,12 +126,6 @@ public class SameAssertion extends Assertion {
             return dest.equals(other.dest);
         }
     }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.assertion.Assertion#getReferencedVariables()
-     */
 
     /**
      * {@inheritDoc}

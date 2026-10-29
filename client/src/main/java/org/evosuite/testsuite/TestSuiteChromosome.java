@@ -229,10 +229,6 @@ public final class TestSuiteChromosome
         return copy;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.Chromosome#compareSecondaryObjective(org.evosuite.ga.Chromosome)
-     */
-
     /**
      * {@inheritDoc}
      */

@@ -48,11 +48,6 @@ public class JCrasherExceptionContract extends Contract {
 
     private static final List<Class<?>> uncheckedExceptions = Arrays.asList(uncheckedBugExceptions);
 
-    /* (non-Javadoc)
-     * @see org.evosuite.contracts.Contract#check(org.evosuite.testcase.StatementInterface,
-     * org.evosuite.testcase.Scope, java.lang.Throwable)
-     */
-
     /**
      * {@inheritDoc}
      */

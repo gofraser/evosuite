@@ -89,10 +89,6 @@ public class MaxTimeStoppingCondition<T extends Chromosome<T>> extends StoppingC
         startTime = System.nanoTime();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.StoppingCondition#setLimit(int)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -108,10 +104,6 @@ public class MaxTimeStoppingCondition<T extends Chromosome<T>> extends StoppingC
     public long getLimit() {
         return maxSeconds;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.StoppingCondition#getCurrentValue()
-     */
 
     /**
      * {@inheritDoc}

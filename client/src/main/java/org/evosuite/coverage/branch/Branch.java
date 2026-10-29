@@ -248,9 +248,6 @@ public class Branch implements Serializable, Comparable<Branch> {
         }
     }
 
-    /* (non-Javadoc)
-     * @see java.lang.Comparable#compareTo(java.lang.Object)
-     */
     @Override
     public int compareTo(Branch other) {
         int diff = instruction.compareTo(other.instruction);

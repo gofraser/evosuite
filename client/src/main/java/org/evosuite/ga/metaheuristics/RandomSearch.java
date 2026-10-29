@@ -44,10 +44,6 @@ public class RandomSearch<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
     private static final long serialVersionUID = -7685015421245920459L;
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.GeneticAlgorithm#evolve()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -63,10 +59,6 @@ public class RandomSearch<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
         currentIteration++;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.GeneticAlgorithm#initializePopulation()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -75,10 +67,6 @@ public class RandomSearch<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
         generateRandomPopulation(1);
         calculateFitnessAndSortPopulation();
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.GeneticAlgorithm#generateSolution()
-     */
 
     /**
      * {@inheritDoc}

@@ -72,13 +72,6 @@ public class DefUseCoverageFactory extends
         return duGoals;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.coverage.TestFitnessFactory#getCoverageGoals()
-     */
-
     /**
      * {@inheritDoc}
      */

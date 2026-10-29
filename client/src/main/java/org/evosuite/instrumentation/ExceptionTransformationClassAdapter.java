@@ -49,11 +49,6 @@ public class ExceptionTransformationClassAdapter extends ClassVisitor {
         this.className = className;
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.ClassVisitor#visitMethod(int, java.lang.String, java.lang.String,
-     * java.lang.String, java.lang.String[])
-     */
-
     /**
      * {@inheritDoc}
      */

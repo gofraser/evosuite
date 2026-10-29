@@ -706,10 +706,6 @@ public class MethodStatement extends EntityWithParametersStatement {
         return references;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#replace(VariableReference, VariableReference)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -747,9 +743,6 @@ public class MethodStatement extends EntityWithParametersStatement {
     }
 
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#getNumParameters()
-     */
     @Override
     public int getNumParameters() {
         return parameters.size() + (isStatic() ? 0 : 1);
@@ -814,12 +807,6 @@ public class MethodStatement extends EntityWithParametersStatement {
         return result;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.Statement#getDeclaredExceptions()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -829,13 +816,6 @@ public class MethodStatement extends EntityWithParametersStatement {
         ex.addAll(Arrays.asList(method.getMethod().getExceptionTypes()));
         return ex;
     }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.testcase.Statement#getUniqueVariableReferences()
-     */
 
     /**
      * {@inheritDoc}
@@ -862,10 +842,6 @@ public class MethodStatement extends EntityWithParametersStatement {
 
         return super.isAccessible();
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#isValid()
-     */
 
     /**
      * {@inheritDoc}
@@ -955,10 +931,6 @@ public class MethodStatement extends EntityWithParametersStatement {
     public boolean isAssignmentStatement() {
         return false;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#changeClassLoader(java.lang.ClassLoader)
-     */
 
     /**
      * {@inheritDoc}

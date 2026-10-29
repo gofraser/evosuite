@@ -310,10 +310,6 @@ public class ImplicitElseTransformer extends MethodNodeTransformer {
 
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformFieldInsnNode(org.objectweb.asm.tree.MethodNode,
-     * org.objectweb.asm.tree.FieldInsnNode)
-     */
     @SuppressWarnings("unchecked")
     @Override
     protected AbstractInsnNode transformFieldInsnNode(MethodNode mn,
@@ -403,10 +399,6 @@ public class ImplicitElseTransformer extends MethodNodeTransformer {
         return fieldNode;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformVarInsnNode(org.objectweb.asm.tree.MethodNode,
-     * org.objectweb.asm.tree.VarInsnNode)
-     */
     @Override
     protected AbstractInsnNode transformVarInsnNode(MethodNode mn, VarInsnNode varNode) {
         if (varNode.getOpcode() == Opcodes.ISTORE

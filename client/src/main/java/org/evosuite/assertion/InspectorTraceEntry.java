@@ -70,10 +70,6 @@ public class InspectorTraceEntry implements OutputTraceEntry {
         return inspectorMap.size();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#differs(org.evosuite.assertion.OutputTraceEntry)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -104,10 +100,6 @@ public class InspectorTraceEntry implements OutputTraceEntry {
         }
         return false;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#getAssertions(org.evosuite.assertion.OutputTraceEntry)
-     */
 
     /**
      * {@inheritDoc}
@@ -140,10 +132,6 @@ public class InspectorTraceEntry implements OutputTraceEntry {
         return assertions;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#getAssertions()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -162,10 +150,6 @@ public class InspectorTraceEntry implements OutputTraceEntry {
         return assertions;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#isDetectedBy(org.evosuite.assertion.Assertion)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -182,10 +166,6 @@ public class InspectorTraceEntry implements OutputTraceEntry {
         }
         return false;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#cloneEntry()
-     */
 
     /**
      * {@inheritDoc}

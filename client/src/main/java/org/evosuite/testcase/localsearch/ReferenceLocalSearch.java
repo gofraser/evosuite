@@ -45,9 +45,6 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
 
     private int positionDelta = 0;
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.LocalSearch#getPositionDelta()
-     */
     @Override
     public int getPositionDelta() {
         return positionDelta;

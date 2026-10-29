@@ -121,10 +121,6 @@ public class ArrayAllocationLimitMethodAdapter extends ArrayAllocationMethodAdap
         super.visitLabel(ok);
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitIntInsn(int, int)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -137,10 +133,6 @@ public class ArrayAllocationLimitMethodAdapter extends ArrayAllocationMethodAdap
         }
         super.visitIntInsn(opcode, operand);
     }
-
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitTypeInsn(int, java.lang.String)
-     */
 
     /**
      * {@inheritDoc}
@@ -186,10 +178,6 @@ public class ArrayAllocationLimitMethodAdapter extends ArrayAllocationMethodAdap
         }
         return false;
     }
-
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitMultiANewArrayInsn(java.lang.String, int)
-     */
 
     /**
      * {@inheritDoc}

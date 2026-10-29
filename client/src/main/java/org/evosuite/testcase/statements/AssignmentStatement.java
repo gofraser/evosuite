@@ -343,10 +343,6 @@ public class AssignmentStatement extends AbstractStatement {
         return vars;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#replace(VariableReference, VariableReference)
-     */
-
     @Override
     public boolean acceptsReplacement(VariableReference var1, VariableReference var2) {
         return replacementOf(var1, var2) != null;
@@ -439,10 +435,6 @@ public class AssignmentStatement extends AbstractStatement {
     }
 
 
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#isValid()
-     */
 
     /**
      * {@inheritDoc}
@@ -559,10 +551,6 @@ public class AssignmentStatement extends AbstractStatement {
     private int getStructuralArrayLength(ArrayReference arrayRef) {
         return arrayRef.getStructuralArrayLength();
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#mutate(org.evosuite.testcase.TestCase)
-     */
 
     /**
      * {@inheritDoc}

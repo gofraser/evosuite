@@ -124,10 +124,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         presentationMetadata = null;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#accept(org.evosuite.testcase.TestVisitor)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -140,10 +136,6 @@ public class DefaultTestCase implements TestCase, Serializable {
             visitor.visitStatement(s);
         }
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#addAssertions(org.evosuite.testcase.DefaultTestCase)
-     */
 
     /**
      * {@inheritDoc}
@@ -168,10 +160,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     public Set<ContractViolation> getContractViolations() {
         return contractViolations;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#addCoveredGoal(org.evosuite.testcase.TestFitnessFunction)
-     */
 
     /**
      * {@inheritDoc}
@@ -231,10 +219,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         statements.addListener(listener);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#addStatement(org.evosuite.testcase.Statement)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -271,10 +255,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return statement.getReturnValue();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#addStatement(org.evosuite.testcase.Statement, int)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -305,10 +285,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     public ClassLoader getChangedClassLoader() {
         return changedClassLoader;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#chop(int)
-     */
 
     /**
      * {@inheritDoc}
@@ -374,10 +350,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     public boolean contains(Statement statement) {
         return statements.contains(statement);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#clearCoveredGoals()
-     */
 
     /**
      * {@inheritDoc}
@@ -548,10 +520,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return true;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#getAccessedClasses()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -592,10 +560,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     }
 
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#getAssertions()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -608,10 +572,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return assertions;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#getCoveredGoals()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -619,10 +579,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     public Set<TestFitnessFunction> getCoveredGoals() {
         return coveredGoals;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#getDeclaredExceptions()
-     */
 
     /**
      * {@inheritDoc}
@@ -640,10 +596,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     public AccessedEnvironment getAccessedEnvironment() {
         return accessedEnvironment;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#getDependencies(org.evosuite.testcase.VariableReference)
-     */
 
     /**
      * {@inheritDoc}
@@ -694,10 +646,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         throw new ConstructionFailedException("Found no variables of type " + type);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#getObjects(int)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -726,10 +674,6 @@ public class DefaultTestCase implements TestCase, Serializable {
 
         return variables;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#getObjects(java.lang.reflect.Type, int)
-     */
 
     /**
      * {@inheritDoc}
@@ -797,10 +741,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return variables;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#getRandomObject(java.lang.reflect.Type, int)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -822,10 +762,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return Randomness.choice(variables);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#getRandomObject(java.lang.reflect.Type, int)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -841,10 +777,6 @@ public class DefaultTestCase implements TestCase, Serializable {
 
         return Randomness.choice(variables);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#getReferences(org.evosuite.testcase.VariableReference)
-     */
 
     /**
      * {@inheritDoc}
@@ -883,10 +815,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return references;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#getReturnValue(int)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -894,10 +822,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     public VariableReference getReturnValue(int position) {
         return getStatement(position).getReturnValue();
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#getStatement(int)
-     */
 
     /**
      * {@inheritDoc}
@@ -911,10 +835,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return statements.get(position);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#hasStatement(int)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -922,10 +842,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     public boolean hasStatement(int position) {
         return statements.size() > position && position >= 0;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#hasAssertions()
-     */
 
     /**
      * {@inheritDoc}
@@ -948,10 +864,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return statements.hashCode();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#hasObject(java.lang.reflect.Type, int)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -968,10 +880,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         }
         return false;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#hasReferences(org.evosuite.testcase.VariableReference)
-     */
 
     /**
      * {@inheritDoc}
@@ -1036,10 +944,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return statements.stream().allMatch(Statement::isAccessible);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#isEmpty()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -1057,10 +961,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     public void setFailing() {
         isFailing = true;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#isPrefix(org.evosuite.testcase.DefaultTestCase)
-     */
 
     /**
      * {@inheritDoc}
@@ -1085,10 +985,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return unstable;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#isValid()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -1102,10 +998,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return true;
     }
 
-    /* (non-Javadoc)
-     * @see java.lang.Iterable#iterator()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -1113,10 +1005,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     public Iterator<Statement> iterator() {
         return statements.iterator();
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#remove(int)
-     */
 
     /**
      * {@inheritDoc}
@@ -1185,10 +1073,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     public void removeAssertion(Assertion assertion) {
         statements.forEach(s -> s.removeAssertion(assertion));
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#removeAssertions()
-     */
 
     /**
      * {@inheritDoc}
@@ -1330,11 +1214,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#replace(org.evosuite.testcase.VariableReference,
-     * org.evosuite.testcase.VariableReference)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -1362,10 +1241,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         isFailing = failing;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#setStatement(org.evosuite.testcase.Statement, int)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -1380,10 +1255,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     public void setUnstable(boolean unstable) {
         this.unstable = unstable;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#size()
-     */
 
     /**
      * {@inheritDoc}
@@ -1401,10 +1272,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return this.size() + this.getAssertions().size();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#toCode()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -1414,10 +1281,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         accept(visitor);
         return visitor.getCode();
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestCase#toCode(java.util.Map)
-     */
 
     /**
      * {@inheritDoc}
@@ -1429,10 +1292,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         accept(visitor);
         return visitor.getCode();
     }
-
-    /* (non-Javadoc)
-     * @see java.lang.Object#toString()
-     */
 
     /**
      * {@inheritDoc}

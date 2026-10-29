@@ -77,10 +77,6 @@ public class StrongMutationSuiteFitness extends MutationSuiteFitness {
         return executionOrder;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.FitnessFunction#getFitness(org.evosuite.ga.Chromosome)
-     */
-
     /**
      * {@inheritDoc}
      */

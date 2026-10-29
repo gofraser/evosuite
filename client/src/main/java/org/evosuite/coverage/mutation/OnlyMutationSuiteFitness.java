@@ -37,10 +37,6 @@ public class OnlyMutationSuiteFitness extends MutationSuiteFitness {
         super(Properties.Criterion.ONLYMUTATION);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.FitnessFunction#getFitness(org.evosuite.ga.Chromosome)
-     */
-
     /**
      * {@inheritDoc}
      */

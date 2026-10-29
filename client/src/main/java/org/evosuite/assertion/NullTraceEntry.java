@@ -47,10 +47,6 @@ public class NullTraceEntry implements OutputTraceEntry {
         this.isNull = result;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#differs(org.evosuite.assertion.OutputTraceEntry)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -63,10 +59,6 @@ public class NullTraceEntry implements OutputTraceEntry {
         }
         return false;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#getAssertions(org.evosuite.assertion.OutputTraceEntry)
-     */
 
     /**
      * {@inheritDoc}
@@ -89,10 +81,6 @@ public class NullTraceEntry implements OutputTraceEntry {
         return assertions;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#getAssertions()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -108,10 +96,6 @@ public class NullTraceEntry implements OutputTraceEntry {
         return assertions;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#isDetectedBy(org.evosuite.assertion.Assertion)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -125,10 +109,6 @@ public class NullTraceEntry implements OutputTraceEntry {
         }
         return false;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#cloneEntry()
-     */
 
     /**
      * {@inheritDoc}

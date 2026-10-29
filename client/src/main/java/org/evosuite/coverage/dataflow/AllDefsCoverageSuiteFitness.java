@@ -46,14 +46,6 @@ public class AllDefsCoverageSuiteFitness extends TestSuiteFitnessFunction {
     public static int totalGoals = goals.size();
 
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.ga.FitnessFunction#getFitness(org.
-     * evosuite.ga.Chromosome)
-     */
-
     /**
      * {@inheritDoc}
      */

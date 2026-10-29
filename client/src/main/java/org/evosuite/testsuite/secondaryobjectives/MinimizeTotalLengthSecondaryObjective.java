@@ -36,14 +36,6 @@ public class MinimizeTotalLengthSecondaryObjective extends SecondaryObjective<Te
         return chromosome1.totalLengthOfTestCases() + chromosome2.totalLengthOfTestCases();
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.testcase.secondaryobjectives.SecondaryObjective#compareChromosomes(org.evosuite.ga.Chromosome,
-     * org.evosuite.ga.Chromosome)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -52,14 +44,6 @@ public class MinimizeTotalLengthSecondaryObjective extends SecondaryObjective<Te
         return chromosome1.totalLengthOfTestCases()
                 - chromosome2.totalLengthOfTestCases();
     }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.testcase.secondaryobjectives.SecondaryObjective#compareGenerations(org.evosuite.ga.Chromosome,
-     * org.evosuite.ga.Chromosome, org.evosuite.ga.Chromosome, org.evosuite.ga.Chromosome)
-     */
 
     /**
      * {@inheritDoc}

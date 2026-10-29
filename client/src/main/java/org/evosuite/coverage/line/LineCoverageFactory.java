@@ -67,13 +67,6 @@ public class LineCoverageFactory extends
         }
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.coverage.TestCoverageFactory#getCoverageGoals()
-     */
-
     /**
      * {@inheritDoc}
      */

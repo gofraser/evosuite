@@ -58,10 +58,6 @@ public class EvoSuiteFile implements Serializable {
         return path;
     }
 
-    /* (non-Javadoc)
-     * @see java.lang.Object#toString()
-     */
-
     /**
      * {@inheritDoc}
      */

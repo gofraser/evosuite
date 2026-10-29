@@ -316,9 +316,6 @@ public class JobDefinition {
         return seconds == other.seconds;
     }
 
-    /* (non-Javadoc)
-     * @see java.lang.Object#toString()
-     */
     @Override
     public String toString() {
         return "job " + jobId + ", target " + cut

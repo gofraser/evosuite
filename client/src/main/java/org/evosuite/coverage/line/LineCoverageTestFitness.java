@@ -245,9 +245,6 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
                 && Objects.equals(line, other.line);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#compareTo(org.evosuite.testcase.TestFitnessFunction)
-     */
     @Override
     public int compareTo(TestFitnessFunction other) {
         if (other == null) {
@@ -266,17 +263,11 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
         return compareClassName(other);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#getTargetClass()
-     */
     @Override
     public String getTargetClass() {
         return getClassName();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#getTargetMethod()
-     */
     @Override
     public String getTargetMethod() {
         return getMethod();

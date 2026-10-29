@@ -719,12 +719,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         }
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#getCoverageData()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -732,12 +726,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
     public Map<String, Map<String, Map<Integer, Integer>>> getCoverageData() {
         return coverage;
     }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#getCoveredFalseBranches()
-     */
 
     /**
      * {@inheritDoc}
@@ -753,12 +741,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
         return covered;
     }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#getCoveredLines()
-     */
 
     /**
      * {@inheritDoc}
@@ -783,12 +765,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         return this.getCoveredLines(Properties.TARGET_CLASS);
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#getCoveredMethods()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -802,12 +778,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         return coveredBranchlessMethods.keySet();
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#getCoveredPredicates()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -815,12 +785,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
     public Set<Integer> getCoveredPredicates() {
         return coveredPredicates.keySet();
     }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#getCoveredTrueBranches()
-     */
 
     /**
      * {@inheritDoc}
@@ -837,21 +801,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         return covered;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#getDefinitionExecutionCount()
-     */
     @Override
     public Map<Integer, Integer> getDefinitionExecutionCount() {
         return coveredDefs;
     }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#getDefinitionData()
-     */
 
     /**
      * {@inheritDoc}
@@ -873,12 +826,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         return explicitException;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#getFalseDistance(int)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -887,12 +834,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         return falseDistances.get(branchId);
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#getFalseDistances()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -900,12 +841,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
     public Map<Integer, Double> getFalseDistances() {
         return falseDistances;
     }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#getMethodCalls()
-     */
 
     /**
      * {@inheritDoc}
@@ -939,12 +874,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         return result == null ? Collections.emptyList() : result;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#getMethodExecutionCount()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -952,12 +881,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
     public Map<String, Integer> getMethodExecutionCount() {
         return coveredMethods;
     }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#getMutationDistance(int)
-     */
 
     /**
      * {@inheritDoc}
@@ -967,12 +890,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         return mutantDistances.get(mutationId);
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#getMutationDistances()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -980,13 +897,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
     public Map<Integer, Double> getMutationDistances() {
         return mutantDistances;
     }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#getPassedDefinitions(java.lang.
-     * String)
-     */
 
     /**
      * {@inheritDoc}
@@ -996,13 +906,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         return passedDefinitions.get(variableName);
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#getPassedUses(java.lang.
-     * String)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -1010,12 +913,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
     public Map<Integer, HashMap<Integer, Integer>> getPassedUses(String variableName) {
         return passedUses.get(variableName);
     }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#getPredicateExecutionCount()
-     */
 
     /**
      * {@inheritDoc}
@@ -1034,12 +931,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         return proxyCount;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#getReturnData()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -1047,12 +938,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
     public Map<String, Map<String, Map<Integer, Integer>>> getReturnData() {
         return returnData;
     }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#getTouchedMutants()
-     */
 
     /**
      * {@inheritDoc}
@@ -1188,12 +1073,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         return new ExecutionTraceProxy(r);
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#getTrueDistance(int)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -1201,12 +1080,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
     public double getTrueDistance(int branchId) {
         return trueDistances.get(branchId);
     }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#getTrueDistances()
-     */
 
     /**
      * {@inheritDoc}
@@ -1246,12 +1119,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         return slot == null ? null : slot.toBranchOperands();
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#getUseData()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -1263,12 +1130,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
     public Map<String, HashMap<Integer, HashMap<Integer, Object>>> getUseDataObjects() {
         return passedUseObject;
     }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#wasCoveredFalse(int)
-     */
 
     /**
      * {@inheritDoc}
@@ -1292,12 +1153,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         return result;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#wasCoveredTrue(int)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -1305,12 +1160,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
     public boolean hasTrueDistance(int predicateId) {
         return trueDistances.containsKey(predicateId);
     }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#lazyClone()
-     */
 
     /**
      * {@inheritDoc}
@@ -1534,12 +1383,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         duCounter++;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#wasMutationTouched(int)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -1556,11 +1399,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         return passedUses;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#getPassedDefIDs()
-     */
     // Map<String, HashMap<Integer, HashMap<Integer, Integer>>>
 
     @Override
@@ -1574,42 +1412,21 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         return defs;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#getTrueDistancesContext()
-     */
     @Override
     public Map<Integer, Map<CallContext, Double>> getTrueDistancesContext() {
         return coveredTrueContext;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#getFalseDistancesContext()
-     */
     @Override
     public Map<Integer, Map<CallContext, Double>> getFalseDistancesContext() {
         return coveredFalseContext;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.testcase.ExecutionTrace#getPredicateContextExecutionCount()
-     */
     @Override
     public Map<Integer, Map<CallContext, Integer>> getPredicateContextExecutionCount() {
         return coveredPredicateContext;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.testcase.ExecutionTrace#getMethodContextCount()
-     */
     @Override
     public Map<String, Map<CallContext, Integer>> getMethodContextCount() {
         return coveredMethodContext;

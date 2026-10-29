@@ -117,17 +117,11 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
         return field;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.utils.GenericAccessibleObject#getAccessibleObject()
-     */
     @Override
     public AccessibleObject getAccessibleObject() {
         return field;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.utils.GenericAccessibleObject#getDeclaringClass()
-     */
     @Override
     public Class<?> getDeclaringClass() {
         return field.getDeclaringClass();
@@ -223,9 +217,6 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
         return false;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.utils.GenericAccessibleObject#isField()
-     */
     @Override
     public boolean isField() {
         return true;
@@ -236,9 +227,6 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
         return false;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.utils.GenericAccessibleObject#isStatic()
-     */
     @Override
     public boolean isStatic() {
         return Modifier.isStatic(field.getModifiers());
@@ -248,17 +236,11 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
         return TestClusterGenerator.isFinalField(field);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.utils.GenericAccessibleObject#getName()
-     */
     @Override
     public String getName() {
         return field.getName();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.utils.GenericAccessibleObject#toString()
-     */
     @Override
     public String toString() {
         return field.toGenericString();

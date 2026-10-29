@@ -245,10 +245,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
         return throwableClasses.stream().anyMatch(t -> t.isAssignableFrom(clazz));
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#references(VariableReference)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -270,10 +266,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
         return variables;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#SetRetval(VariableReference)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -289,10 +281,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
     public List<VariableReference> getUniqueVariableReferences() {
         return new ArrayList<>(getVariableReferences());
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#getCode()
-     */
 
     /**
      * {@inheritDoc}
@@ -335,10 +323,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
                 + " Use Statement.clone(TestCase) instead.");
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#getReturnType()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -346,10 +330,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
     public Type getReturnType() {
         return retval.getType();
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#getReturnClass()
-     */
 
     /**
      * {@inheritDoc}
@@ -359,10 +339,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
         return retval.getVariableClass();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#getReturnValue()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -371,9 +347,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
         return retval;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#getNumParameters()
-     */
     @Override
     public int getNumParameters() {
         return 0;
@@ -402,10 +375,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
         return copy;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#hasAssertions()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -413,10 +382,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
     public boolean hasAssertions() {
         return !assertions.isEmpty();
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#addAssertion(Assertion)
-     */
 
     /**
      * {@inheritDoc}
@@ -437,10 +402,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#setAssertions(java.util.Set)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -450,10 +411,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
         this.assertions = assertions;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#removeAssertions()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -461,10 +418,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
     public void removeAssertions() {
         assertions.clear();
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#removeAssertion(Assertion)
-     */
 
     /**
      * {@inheritDoc}
@@ -474,10 +427,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
         assertions.remove(assertion);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#getAssertions()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -485,10 +434,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
     public Set<Assertion> getAssertions() {
         return assertions;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#getDeclaredExceptions()
-     */
 
     /**
      * {@inheritDoc}
@@ -511,10 +456,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
         }
         return clazz;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#getPosition()
-     */
 
     /**
      * {@inheritDoc}
@@ -546,10 +487,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
         return false;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#mutate(TestCase, TestFactory)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -557,10 +494,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
     public boolean mutate(TestCase test, TestFactory factory) {
         return false;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#clone(TestCase)
-     */
 
     /**
      * {@inheritDoc}
@@ -573,10 +506,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
         copyProvenanceFrom(result, this);
         return result;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#changeClassLoader(java.lang.ClassLoader)
-     */
 
     /**
      * {@inheritDoc}

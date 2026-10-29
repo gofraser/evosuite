@@ -134,10 +134,6 @@ public class InspectorAssertion extends Assertion {
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.Assertion#isValid()
-     */
-
     /**
      * {@inheritDoc}
      */

@@ -39,13 +39,6 @@ public class TryCatchCoverageFactory extends AbstractFitnessFactory<TryCatchCove
 
     private static final Logger logger = LoggerFactory.getLogger(TryCatchCoverageFactory.class);
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.coverage.TestCoverageFactory#getCoverageGoals()
-     */
-
     /**
      * {@inheritDoc}
      */

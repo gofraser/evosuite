@@ -127,12 +127,6 @@ public class CBranchSuiteFitness extends TestSuiteFitnessFunction {
         return null;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.ga.FitnessFunction#getFitness(org.evosuite.ga.Chromosome)
-     */
     @Override
     public double getFitness(TestSuiteChromosome suite) {
         double fitness = 0.0;

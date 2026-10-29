@@ -41,9 +41,6 @@ public class ArrayTraceEntry implements OutputTraceEntry {
         this.value = value;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#differs(org.evosuite.assertion.OutputTraceEntry)
-     */
     @Override
     public boolean differs(OutputTraceEntry other) {
         if (other instanceof ArrayTraceEntry) {
@@ -53,9 +50,6 @@ public class ArrayTraceEntry implements OutputTraceEntry {
         return false;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#getAssertions(org.evosuite.assertion.OutputTraceEntry)
-     */
     @Override
     public Set<Assertion> getAssertions(OutputTraceEntry other) {
         Set<Assertion> assertions = new HashSet<>();
@@ -72,9 +66,6 @@ public class ArrayTraceEntry implements OutputTraceEntry {
         return assertions;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#getAssertions()
-     */
     @Override
     public Set<Assertion> getAssertions() {
         Set<Assertion> assertions = new HashSet<>();
@@ -87,9 +78,6 @@ public class ArrayTraceEntry implements OutputTraceEntry {
         return assertions;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#isDetectedBy(org.evosuite.assertion.Assertion)
-     */
     @Override
     public boolean isDetectedBy(Assertion assertion) {
         if (assertion instanceof ArrayEqualsAssertion) {
@@ -101,9 +89,6 @@ public class ArrayTraceEntry implements OutputTraceEntry {
         return false;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#cloneEntry()
-     */
     @Override
     public OutputTraceEntry cloneEntry() {
         return new ArrayTraceEntry(var, Arrays.copyOf(value, value.length));

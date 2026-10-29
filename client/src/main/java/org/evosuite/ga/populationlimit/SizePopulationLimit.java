@@ -69,10 +69,6 @@ public class SizePopulationLimit<T extends Chromosome<T>> implements PopulationL
         this.limit = other.limit;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.PopulationLimit#isPopulationFull(java.util.List)
-     */
-
     /**
      * {@inheritDoc}
      */

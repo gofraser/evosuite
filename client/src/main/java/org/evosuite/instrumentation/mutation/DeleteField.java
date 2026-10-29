@@ -46,12 +46,6 @@ public class DeleteField implements MutationOperator {
 
     public static final String NAME = "DeleteField";
 
-    /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.mutation.MutationOperator#apply(
-     * org.objectweb.asm.tree.MethodNode, java.lang.String, java.lang.String,
-     * org.evosuite.graphs.cfg.BytecodeInstruction)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -114,11 +108,6 @@ public class DeleteField implements MutationOperator {
 
         return distance;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.mutation.MutationOperator#isApplicable(
-     * org.evosuite.cfg.BytecodeInstruction)
-     */
 
     /**
      * {@inheritDoc}

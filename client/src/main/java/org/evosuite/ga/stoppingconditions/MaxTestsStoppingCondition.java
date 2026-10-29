@@ -87,10 +87,6 @@ public class MaxTestsStoppingCondition<T extends Chromosome<T>> extends Stopping
         return numTests.get() >= maxTests;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.StoppingCondition#getCurrentValue()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -98,10 +94,6 @@ public class MaxTestsStoppingCondition<T extends Chromosome<T>> extends Stopping
     public long getCurrentValue() {
         return numTests.get();
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.StoppingCondition#setLimit(int)
-     */
 
     /**
      * {@inheritDoc}

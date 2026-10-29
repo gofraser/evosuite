@@ -45,12 +45,6 @@ public class ReplaceConstant implements MutationOperator {
 
     public static final String NAME = "ReplaceConstant";
 
-    /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.MutationOperator#apply(
-     * org.objectweb.asm.tree.MethodNode, java.lang.String, java.lang.String,
-     * org.evosuite.graphs.cfg.BytecodeInstruction)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -241,11 +235,6 @@ public class ReplaceConstant implements MutationOperator {
 
         return values.toArray();
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.mutation.MutationOperator#isApplicable(
-     * org.evosuite.cfg.BytecodeInstruction)
-     */
 
     /**
      * {@inheritDoc}

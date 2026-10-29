@@ -62,15 +62,6 @@ public class SingleContractChecker extends ExecutionObserver {
         return valid;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#output(int, java.lang.String)
-     */
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#statement(org.evosuite.testcase.StatementInterface,
-     * org.evosuite.testcase.Scope, java.lang.Throwable)
-     */
-
     /**
      * {@inheritDoc}
      */

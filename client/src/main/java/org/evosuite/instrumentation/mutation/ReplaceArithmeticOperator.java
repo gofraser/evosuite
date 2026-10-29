@@ -95,12 +95,6 @@ public class ReplaceArithmeticOperator implements MutationOperator {
         throw new RuntimeException("Unknown opcode: " + opcode);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.MutationOperator#apply(
-     * org.objectweb.asm.tree.MethodNode, java.lang.String, java.lang.String,
-     * org.evosuite.graphs.cfg.BytecodeInstruction)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -417,11 +411,6 @@ public class ReplaceArithmeticOperator implements MutationOperator {
         }
         throw new RuntimeException("Unknown double opcode: " + opcode);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.mutation.MutationOperator#isApplicable(
-     * org.evosuite.cfg.BytecodeInstruction)
-     */
 
     /**
      * {@inheritDoc}

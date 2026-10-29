@@ -43,9 +43,6 @@ public class ContainsTraceEntry implements OutputTraceEntry {
         containsMapIntVar.put(other.getStPosition(), other);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#differs(org.evosuite.assertion.OutputTraceEntry)
-     */
     @Override
     public boolean differs(OutputTraceEntry other) {
         if (other instanceof ContainsTraceEntry) {
@@ -68,9 +65,6 @@ public class ContainsTraceEntry implements OutputTraceEntry {
         return false;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#getAssertions(org.evosuite.assertion.OutputTraceEntry)
-     */
     @Override
     public Set<Assertion> getAssertions(OutputTraceEntry other) {
         Set<Assertion> assertions = new HashSet<>();
@@ -99,9 +93,6 @@ public class ContainsTraceEntry implements OutputTraceEntry {
         return assertions;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#getAssertions()
-     */
     @Override
     public Set<Assertion> getAssertions() {
         Set<Assertion> assertions = new HashSet<>();
@@ -121,9 +112,6 @@ public class ContainsTraceEntry implements OutputTraceEntry {
         return assertions;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#isDetectedBy(org.evosuite.assertion.Assertion)
-     */
     @Override
     public boolean isDetectedBy(Assertion assertion) {
         if (assertion instanceof ContainsAssertion) {
@@ -135,9 +123,6 @@ public class ContainsTraceEntry implements OutputTraceEntry {
         return false;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#cloneEntry()
-     */
     @Override
     public OutputTraceEntry cloneEntry() {
         ContainsTraceEntry copy = new ContainsTraceEntry(containerVar);

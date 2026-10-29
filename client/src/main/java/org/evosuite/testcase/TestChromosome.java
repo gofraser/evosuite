@@ -341,10 +341,6 @@ public final class TestChromosome extends ExecutableChromosome<TestChromosome> {
         return c;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutableChromosome#copyCachedResults(org.evosuite.testcase.ExecutableChromosome)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -456,10 +452,6 @@ public final class TestChromosome extends ExecutableChromosome<TestChromosome> {
     public int hashCode() {
         return test.hashCode();
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.Chromosome#localSearch()
-     */
 
     /**
      * {@inheritDoc}

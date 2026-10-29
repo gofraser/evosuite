@@ -98,13 +98,6 @@ public class BranchCoverageFactory extends
         return goals;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.coverage.TestCoverageFactory#getCoverageGoals()
-     */
-
     /**
      * {@inheritDoc}
      */

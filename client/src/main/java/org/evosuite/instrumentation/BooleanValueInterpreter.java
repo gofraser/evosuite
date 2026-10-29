@@ -86,11 +86,6 @@ public class BooleanValueInterpreter extends BasicInterpreter {
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.tree.analysis.BasicInterpreter#unaryOperation(org.objectweb.asm.tree.AbstractInsnNode,
-     * org.objectweb.asm.tree.analysis.BasicValue)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -109,10 +104,6 @@ public class BooleanValueInterpreter extends BasicInterpreter {
         }
         return super.unaryOperation(insn, value);
     }
-
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.tree.analysis.BasicInterpreter#newOperation(org.objectweb.asm.tree.AbstractInsnNode)
-     */
 
     /**
      * {@inheritDoc}
@@ -135,11 +126,6 @@ public class BooleanValueInterpreter extends BasicInterpreter {
         return super.newOperation(insn);
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.tree.analysis.BasicInterpreter#binaryOperation(org.objectweb.asm.tree.AbstractInsnNode,
-     * org.objectweb.asm.tree.analysis.BasicValue, org.objectweb.asm.tree.analysis.BasicValue)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -160,11 +146,6 @@ public class BooleanValueInterpreter extends BasicInterpreter {
         }
         return super.binaryOperation(insn, value1, value2);
     }
-
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.tree.analysis.BasicInterpreter#copyOperation(org.objectweb.asm.tree.AbstractInsnNode,
-     * org.objectweb.asm.tree.analysis.BasicValue)
-     */
 
     /**
      * {@inheritDoc}
@@ -191,10 +172,6 @@ public class BooleanValueInterpreter extends BasicInterpreter {
         return super.copyOperation(insn, value);
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.tree.analysis.BasicInterpreter#naryOperation(org.objectweb.asm.tree.AbstractInsnNode,
-     * java.util.List)
-     */
     @SuppressWarnings("rawtypes")
     @Override
     public BasicValue naryOperation(AbstractInsnNode insn, List values)
@@ -210,11 +187,6 @@ public class BooleanValueInterpreter extends BasicInterpreter {
         }
         return super.naryOperation(insn, values);
     }
-
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.tree.analysis.BasicInterpreter#merge(org.objectweb.asm.tree.analysis.BasicValue,
-     * org.objectweb.asm.tree.analysis.BasicValue)
-     */
 
     /**
      * {@inheritDoc}

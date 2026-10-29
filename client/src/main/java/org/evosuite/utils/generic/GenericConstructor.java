@@ -139,17 +139,11 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
         return constructor;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.utils.GenericAccessibleMember#getAccessibleObject()
-     */
     @Override
     public AccessibleObject getAccessibleObject() {
         return constructor;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.utils.GenericAccessibleMember#getDeclaringClass()
-     */
     @Override
     public Class<?> getDeclaringClass() {
         return constructor.getDeclaringClass();
@@ -174,9 +168,6 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
         return getRawGeneratedType();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.utils.GenericAccessibleMember#getName()
-     */
     @Override
     public String getName() {
         return constructor.getName();
@@ -245,9 +236,6 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
         return reflectionAccessible && TestUsageChecker.canUse(constructor);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.utils.GenericAccessibleMember#isConstructor()
-     */
     @Override
     public boolean isConstructor() {
         return true;
@@ -353,9 +341,6 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
         throw exception;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.utils.GenericAccessibleMember#toString()
-     */
     @Override
     public String toString() {
         return constructor.toGenericString();

@@ -50,10 +50,6 @@ public class RemoveFinalMethodAdapter extends MethodVisitor {
         this.className = className;
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodAdapter#visitFieldInsn(int, java.lang.String, java.lang.String, java.lang.String)
-     */
-
     /**
      * {@inheritDoc}
      */

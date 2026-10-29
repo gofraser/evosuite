@@ -78,10 +78,6 @@ public class ComparisonTraceEntry implements OutputTraceEntry {
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#differs(org.evosuite.assertion.OutputTraceEntry)
-     */
-
     /**
      * <p>addEntry.</p>
      *
@@ -92,10 +88,6 @@ public class ComparisonTraceEntry implements OutputTraceEntry {
         equalityMap.put(other, value);
         equalityMapIntVar.put(other.getStPosition(), other);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#getAssertions(org.evosuite.assertion.OutputTraceEntry)
-     */
 
     /**
      * {@inheritDoc}
@@ -121,10 +113,6 @@ public class ComparisonTraceEntry implements OutputTraceEntry {
         }
         return false;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#getAssertions()
-     */
 
     /**
      * {@inheritDoc}
@@ -157,10 +145,6 @@ public class ComparisonTraceEntry implements OutputTraceEntry {
         return assertions;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#isDetectedBy(org.evosuite.assertion.Assertion)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -182,10 +166,6 @@ public class ComparisonTraceEntry implements OutputTraceEntry {
         }
         return assertions;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.OutputTraceEntry#cloneEntry()
-     */
 
     /**
      * {@inheritDoc}

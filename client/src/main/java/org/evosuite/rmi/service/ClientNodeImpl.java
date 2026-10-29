@@ -1034,9 +1034,6 @@ public class ClientNodeImpl<T extends Chromosome<T>>
         });
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.rmi.service.ClientNodeRemote#printClassStatistics()
-     */
     @Override
     public void printClassStatistics() throws RemoteException {
         if (!state.equals(ClientState.NOT_STARTED)) {

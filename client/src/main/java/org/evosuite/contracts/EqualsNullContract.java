@@ -36,11 +36,6 @@ import java.util.List;
  */
 public class EqualsNullContract extends Contract {
 
-    /* (non-Javadoc)
-     * @see org.evosuite.contracts.Contract#check(org.evosuite.testcase.TestCase,
-     * org.evosuite.testcase.Statement, org.evosuite.testcase.Scope, java.lang.Throwable)
-     */
-
     /**
      * {@inheritDoc}
      */

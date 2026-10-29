@@ -42,13 +42,6 @@ public class OnlyBranchCoverageFactory extends
 
     private static final Logger logger = LoggerFactory.getLogger(OnlyBranchCoverageFactory.class);
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.coverage.TestCoverageFactory#getCoverageGoals()
-     */
-
     /**
      * {@inheritDoc}
      */

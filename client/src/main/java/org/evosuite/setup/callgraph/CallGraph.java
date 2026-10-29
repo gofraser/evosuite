@@ -330,11 +330,6 @@ public class CallGraph implements Iterable<CallGraphEntry> {
         return toTestMethods.contains(className + methodName);
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see java.lang.Iterable#iterator()
-     */
     @Override
     public Iterator<CallGraphEntry> iterator() {
         return graph.getVertexSet().iterator();

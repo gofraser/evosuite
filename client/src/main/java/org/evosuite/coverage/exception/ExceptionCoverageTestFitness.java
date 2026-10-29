@@ -232,9 +232,6 @@ public class ExceptionCoverageTestFitness extends TestFitnessFunction {
         return type == other.type;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#compareTo(org.evosuite.testcase.TestFitnessFunction)
-     */
     @Override
     public int compareTo(TestFitnessFunction other) {
         if (other instanceof ExceptionCoverageTestFitness) {
@@ -253,17 +250,11 @@ public class ExceptionCoverageTestFitness extends TestFitnessFunction {
     }
 
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#getTargetClass()
-     */
     @Override
     public String getTargetClass() {
         return className;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#getTargetMethod()
-     */
     @Override
     public String getTargetMethod() {
         return methodIdentifier;

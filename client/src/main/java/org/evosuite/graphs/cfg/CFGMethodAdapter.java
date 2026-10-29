@@ -127,9 +127,6 @@ public class CFGMethodAdapter extends MethodVisitor {
 
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitLineNumber(int, org.objectweb.asm.Label)
-     */
     @Override
     public void visitLineNumber(int line, Label start) {
         lineNumber = line;
@@ -353,12 +350,6 @@ public class CFGMethodAdapter extends MethodVisitor {
         }
         return insn.getClass().getSimpleName() + " opcode=" + op;
     }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.objectweb.asm.commons.LocalVariablesSorter#visitMaxs(int, int)
-     */
 
     /**
      * {@inheritDoc}

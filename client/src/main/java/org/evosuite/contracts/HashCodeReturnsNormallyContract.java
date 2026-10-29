@@ -39,11 +39,6 @@ import java.util.List;
  */
 public class HashCodeReturnsNormallyContract extends Contract {
 
-    /* (non-Javadoc)
-     * @see org.evosuite.contracts.Contract#check(org.evosuite.testcase.Statement,
-     * org.evosuite.testcase.Scope, java.lang.Throwable)
-     */
-
     /**
      * {@inheritDoc}
      */

@@ -43,9 +43,6 @@ public class CBranchFitnessFactory extends AbstractFitnessFactory<CBranchTestFit
 
     private static final Logger logger = LoggerFactory.getLogger(CBranchFitnessFactory.class);
 
-    /* (non-Javadoc)
-     * @see org.evosuite.coverage.TestFitnessFactory#getCoverageGoals()
-     */
     @Override
     public List<CBranchTestFitness> getCoverageGoals() {
         Set<CBranchTestFitness> goals = new LinkedHashSet<>();

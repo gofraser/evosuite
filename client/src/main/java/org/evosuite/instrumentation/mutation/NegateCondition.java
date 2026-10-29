@@ -65,11 +65,6 @@ public class NegateCondition implements MutationOperator {
         opcodeMap.put(Opcodes.IFNULL, Opcodes.IFNONNULL);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.MutationOperator#apply(org.objectweb.asm.tree.MethodNode,
-     * java.lang.String, java.lang.String, org.evosuite.graphs.cfg.BytecodeInstruction)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -100,11 +95,6 @@ public class NegateCondition implements MutationOperator {
     private static int getOpposite(int opcode) {
         return opcodeMap.get(opcode);
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.mutation.MutationOperator#isApplicable(
-     * org.evosuite.cfg.BytecodeInstruction)
-     */
 
     /**
      * {@inheritDoc}

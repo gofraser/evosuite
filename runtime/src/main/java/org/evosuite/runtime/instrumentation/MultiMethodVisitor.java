@@ -64,10 +64,6 @@ public class MultiMethodVisitor extends MethodVisitor {
 
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitAnnotation(java.lang.String, boolean)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -76,10 +72,6 @@ public class MultiMethodVisitor extends MethodVisitor {
         mv1.visitAnnotation(arg0, arg1);
         return mv2.visitAnnotation(arg0, arg1);
     }
-
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitAnnotationDefault()
-     */
 
     /**
      * {@inheritDoc}
@@ -90,10 +82,6 @@ public class MultiMethodVisitor extends MethodVisitor {
         return mv2.visitAnnotationDefault();
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitAttribute(org.objectweb.asm.Attribute)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -102,10 +90,6 @@ public class MultiMethodVisitor extends MethodVisitor {
         mv1.visitAttribute(arg0);
         mv2.visitAttribute(arg0);
     }
-
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitCode()
-     */
 
     /**
      * {@inheritDoc}
@@ -116,10 +100,6 @@ public class MultiMethodVisitor extends MethodVisitor {
         mv2.visitCode();
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitEnd()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -129,10 +109,6 @@ public class MultiMethodVisitor extends MethodVisitor {
         mv2.visitEnd();
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitFieldInsn(int, java.lang.String, java.lang.String, java.lang.String)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -141,10 +117,6 @@ public class MultiMethodVisitor extends MethodVisitor {
         mv1.visitFieldInsn(arg0, arg1, arg2, arg3);
         mv2.visitFieldInsn(arg0, arg1, arg2, arg3);
     }
-
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitFrame(int, int, java.lang.Object[], int, java.lang.Object[])
-     */
 
     /**
      * {@inheritDoc}
@@ -156,10 +128,6 @@ public class MultiMethodVisitor extends MethodVisitor {
 
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitIincInsn(int, int)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -168,10 +136,6 @@ public class MultiMethodVisitor extends MethodVisitor {
         mv1.visitIincInsn(arg0, arg1);
         mv2.visitIincInsn(arg0, arg1);
     }
-
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitInsn(int)
-     */
 
     /**
      * {@inheritDoc}
@@ -182,10 +146,6 @@ public class MultiMethodVisitor extends MethodVisitor {
         mv2.visitInsn(arg0);
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitIntInsn(int, int)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -194,10 +154,6 @@ public class MultiMethodVisitor extends MethodVisitor {
         mv1.visitIntInsn(arg0, arg1);
         mv2.visitIntInsn(arg0, arg1);
     }
-
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitJumpInsn(int, org.objectweb.asm.Label)
-     */
 
     /**
      * {@inheritDoc}
@@ -208,10 +164,6 @@ public class MultiMethodVisitor extends MethodVisitor {
         mv2.visitJumpInsn(arg0, getLabel(arg1));
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitLabel(org.objectweb.asm.Label)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -221,10 +173,6 @@ public class MultiMethodVisitor extends MethodVisitor {
         mv2.visitLabel(getLabel(arg0));
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitLdcInsn(java.lang.Object)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -233,10 +181,6 @@ public class MultiMethodVisitor extends MethodVisitor {
         mv1.visitLdcInsn(arg0);
         mv2.visitLdcInsn(arg0);
     }
-
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitLineNumber(int, org.objectweb.asm.Label)
-     */
 
     /**
      * {@inheritDoc}
@@ -273,10 +217,6 @@ public class MultiMethodVisitor extends MethodVisitor {
                 arg2Copy);
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitMaxs(int, int)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -285,10 +225,6 @@ public class MultiMethodVisitor extends MethodVisitor {
         mv1.visitMaxs(arg0, arg1);
         mv2.visitMaxs(arg0, arg1);
     }
-
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitMethodInsn(int, java.lang.String, java.lang.String, java.lang.String)
-     */
 
     /**
      * {@inheritDoc}
@@ -305,10 +241,6 @@ public class MultiMethodVisitor extends MethodVisitor {
         mv2.visitMethodInsn(arg0, arg1, arg2, arg3);
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitMultiANewArrayInsn(java.lang.String, int)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -324,10 +256,6 @@ public class MultiMethodVisitor extends MethodVisitor {
         mv1.visitInvokeDynamicInsn(name, desc, bsm, bsmArgs);
         mv2.visitInvokeDynamicInsn(name, desc, bsm, bsmArgs);
     }
-
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitParameterAnnotation(int, java.lang.String, boolean)
-     */
 
     /**
      * {@inheritDoc}
@@ -362,10 +290,6 @@ public class MultiMethodVisitor extends MethodVisitor {
         mv2.visitTryCatchBlock(getLabel(arg0), getLabel(arg1), getLabel(arg2), arg3);
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitTypeInsn(int, java.lang.String)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -374,10 +298,6 @@ public class MultiMethodVisitor extends MethodVisitor {
         mv1.visitTypeInsn(arg0, arg1);
         mv2.visitTypeInsn(arg0, arg1);
     }
-
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodVisitor#visitVarInsn(int, int)
-     */
 
     /**
      * {@inheritDoc}

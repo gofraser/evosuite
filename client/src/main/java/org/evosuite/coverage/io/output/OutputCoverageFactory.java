@@ -45,13 +45,6 @@ public class OutputCoverageFactory extends AbstractFitnessFactory<OutputCoverage
 
     private static final Logger logger = LoggerFactory.getLogger(OutputCoverageFactory.class);
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.coverage.TestCoverageFactory#getCoverageGoals()
-     */
-
     /**
      * {@inheritDoc}
      */

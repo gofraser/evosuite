@@ -102,11 +102,6 @@ public class ReplaceComparisonOperator implements MutationOperator {
 
     private static final int FALSE = -2;
 
-    /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.MutationOperator#apply(org.objectweb.asm.tree.MethodNode,
-     * java.lang.String, java.lang.String, org.evosuite.graphs.cfg.BytecodeInstruction)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -577,11 +572,6 @@ public class ReplaceComparisonOperator implements MutationOperator {
         }
         return replacement;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.cfg.instrumentation.mutation.MutationOperator#isApplicable(
-     * org.evosuite.graphs.cfg.BytecodeInstruction)
-     */
 
     /**
      * {@inheritDoc}

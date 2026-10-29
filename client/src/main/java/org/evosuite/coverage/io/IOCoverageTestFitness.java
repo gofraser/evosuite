@@ -313,9 +313,6 @@ public abstract class IOCoverageTestFitness<G extends IOGoal<G>> extends TestFit
         return this.goal.equals(other.goal);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#compareTo(org.evosuite.testcase.TestFitnessFunction)
-     */
     @Override
     @SuppressWarnings("unchecked")
     public int compareTo(TestFitnessFunction other) {
@@ -325,17 +322,11 @@ public abstract class IOCoverageTestFitness<G extends IOGoal<G>> extends TestFit
         return compareClassName(other);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#getTargetClass()
-     */
     @Override
     public String getTargetClass() {
         return getClassName();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#getTargetMethod()
-     */
     @Override
     public String getTargetMethod() {
         return getMethod();

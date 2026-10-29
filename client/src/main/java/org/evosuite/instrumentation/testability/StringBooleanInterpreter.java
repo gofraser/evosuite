@@ -46,11 +46,6 @@ public class StringBooleanInterpreter extends BasicInterpreter {
     }
 
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.tree.analysis.BasicInterpreter#naryOperation(
-     * org.objectweb.asm.tree.AbstractInsnNode, java.util.List)
-     */
-
     /**
      * {@inheritDoc}
      */

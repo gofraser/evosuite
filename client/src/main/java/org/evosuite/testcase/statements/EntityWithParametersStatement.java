@@ -135,10 +135,6 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
         return Collections.unmodifiableList(parameters);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#replace(VariableReference, VariableReference)
-     */
-
     /**
      * {@inheritDoc}
      */

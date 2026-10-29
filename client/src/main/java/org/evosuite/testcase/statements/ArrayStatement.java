@@ -286,10 +286,6 @@ public class ArrayStatement extends AbstractStatement {
         return false;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#isValid()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -319,10 +315,6 @@ public class ArrayStatement extends AbstractStatement {
         }
         return super.isValid();
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.AbstractStatement#mutate(TestCase, TestFactory)
-     */
 
     /**
      * {@inheritDoc}
@@ -384,10 +376,6 @@ public class ArrayStatement extends AbstractStatement {
         ((ArrayReference) retval).setLengths(lengths);
         return true;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#replace(VariableReference, VariableReference)
-     */
 
     /**
      * {@inheritDoc}

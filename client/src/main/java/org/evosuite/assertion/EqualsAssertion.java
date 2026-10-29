@@ -118,12 +118,6 @@ public class EqualsAssertion extends Assertion {
         return Objects.equals(dest, other.dest);
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.evosuite.assertion.Assertion#getReferencedVariables()
-     */
-
     /**
      * {@inheritDoc}
      */

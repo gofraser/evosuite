@@ -45,10 +45,6 @@ public class OutputObserver extends ExecutionObserver {
 
     private static final Logger logger = LoggerFactory.getLogger(OutputObserver.class);
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#afterStatement(org.evosuite.testcase.StatementInterface,
-     * org.evosuite.testcase.Scope, java.lang.Throwable)
-     */
     @Override
     public void afterStatement(Statement statement, Scope scope,
                                Throwable exception) {
@@ -75,18 +71,12 @@ public class OutputObserver extends ExecutionObserver {
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#testExecutionFinished(org.evosuite.testcase.ExecutionResult)
-     */
     @Override
     public void testExecutionFinished(ExecutionResult r, Scope s) {
         logger.debug("Adding returnValues map to ExecutionResult");
         r.setOutputGoals(outputCoverage);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#clear()
-     */
     @Override
     public void clear() {
         outputCoverage = new LinkedHashMap<>();

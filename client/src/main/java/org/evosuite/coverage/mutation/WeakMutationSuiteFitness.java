@@ -37,10 +37,6 @@ public class WeakMutationSuiteFitness extends MutationSuiteFitness {
         super(Properties.Criterion.WEAKMUTATION);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.FitnessFunction#getFitness(org.evosuite.ga.Chromosome)
-     */
-
     /**
      * {@inheritDoc}
      */

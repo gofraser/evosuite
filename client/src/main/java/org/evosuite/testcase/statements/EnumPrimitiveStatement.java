@@ -124,10 +124,6 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
         return Arrays.asList(constants);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#delta()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -158,17 +154,10 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
         value = constants[pos];
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#hasMoreThanOneValue()
-     */
     @Override
     public boolean hasMoreThanOneValue() {
         return constants.length > 1;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#zero()
-     */
 
     /**
      * {@inheritDoc}
@@ -182,10 +171,6 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
         value = constants[0];
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.PrimitiveStatement#randomize()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -196,10 +181,6 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
             value = constants[pos];
         }
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.StatementInterface#changeClassLoader(java.lang.ClassLoader)
-     */
 
     /**
      * {@inheritDoc}

@@ -97,9 +97,6 @@ public class CollectParameterTypesVisitor extends SignatureVisitor {
         return this;
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.signature.SignatureVisitor#visitClassType(java.lang.String)
-     */
     @Override
     public void visitClassType(String name) {
         logger.debug("  visitClassType(" + name + ")");
@@ -113,9 +110,6 @@ public class CollectParameterTypesVisitor extends SignatureVisitor {
         super.visitClassType(name);
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.signature.SignatureVisitor#visitTypeVariable(java.lang.String)
-     */
     @Override
     public void visitTypeVariable(String name) {
         logger.debug("  visitTypeVariable(" + name + ")");
@@ -123,9 +117,6 @@ public class CollectParameterTypesVisitor extends SignatureVisitor {
         super.visitTypeVariable(name);
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.signature.SignatureVisitor#visitTypeArgument()
-     */
     @Override
     public void visitTypeArgument() {
         logger.debug("  visitTypeArgument");

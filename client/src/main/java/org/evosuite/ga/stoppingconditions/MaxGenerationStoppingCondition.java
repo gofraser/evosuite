@@ -99,10 +99,6 @@ public class MaxGenerationStoppingCondition<T extends Chromosome<T>> extends Sto
         currentIteration = 0;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.StoppingCondition#setLimit(int)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -118,10 +114,6 @@ public class MaxGenerationStoppingCondition<T extends Chromosome<T>> extends Sto
     public long getLimit() {
         return maxIterations;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.StoppingCondition#getCurrentValue()
-     */
 
     /**
      * {@inheritDoc}

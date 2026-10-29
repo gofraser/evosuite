@@ -46,10 +46,6 @@ public class InputObserver extends ExecutionObserver {
 
     private static final Logger logger = LoggerFactory.getLogger(InputObserver.class);
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#afterStatement(org.evosuite.testcase.StatementInterface,
-     * org.evosuite.testcase.Scope, java.lang.Throwable)
-     */
     @Override
     public void afterStatement(Statement statement, Scope scope,
                                Throwable exception) {
@@ -84,18 +80,12 @@ public class InputObserver extends ExecutionObserver {
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#testExecutionFinished(org.evosuite.testcase.ExecutionResult)
-     */
     @Override
     public void testExecutionFinished(ExecutionResult r, Scope s) {
         logger.info("Attaching argumentsValues map to ExecutionResult");
         r.setInputGoals(inputCoverage);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.ExecutionObserver#clear()
-     */
     @Override
     public void clear() {
         logger.info("Clearing InputObserver data");

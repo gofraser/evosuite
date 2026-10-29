@@ -102,10 +102,6 @@ public class ProgressMonitor<T extends Chromosome<T>> implements SearchListener<
         //out.writeObject(currentTask);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.SearchListener#searchStarted(org.evosuite.ga.GeneticAlgorithm)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -113,10 +109,6 @@ public class ProgressMonitor<T extends Chromosome<T>> implements SearchListener<
     public void searchStarted(GeneticAlgorithm<T> algorithm) {
         this.algorithm = algorithm;
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.SearchListener#iteration(org.evosuite.ga.GeneticAlgorithm)
-     */
 
     /**
      * {@inheritDoc}
@@ -139,10 +131,6 @@ public class ProgressMonitor<T extends Chromosome<T>> implements SearchListener<
         iteration++;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.SearchListener#searchFinished(org.evosuite.ga.GeneticAlgorithm)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -153,10 +141,6 @@ public class ProgressMonitor<T extends Chromosome<T>> implements SearchListener<
             updateStatus(getProgress(algorithm));
         }
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.SearchListener#fitnessEvaluation(org.evosuite.ga.Chromosome)
-     */
 
     /**
      * {@inheritDoc}
@@ -172,10 +156,6 @@ public class ProgressMonitor<T extends Chromosome<T>> implements SearchListener<
             updateStatus(current);
         }
     }
-
-    /* (non-Javadoc)
-     * @see org.evosuite.ga.SearchListener#modification(org.evosuite.ga.Chromosome)
-     */
 
     /**
      * {@inheritDoc}

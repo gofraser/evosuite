@@ -28,10 +28,6 @@ import org.objectweb.asm.tree.*;
  * Make sure arrays of booleans are also transformed.
  */
 public class BooleanArrayTransformer extends MethodNodeTransformer {
-    /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformIntInsnNode(org.objectweb.asm.tree.MethodNode,
-     * org.objectweb.asm.tree.IntInsnNode)
-     */
     @Override
     protected AbstractInsnNode transformIntInsnNode(MethodNode mn,
                                                     IntInsnNode intInsnNode) {
@@ -41,10 +37,6 @@ public class BooleanArrayTransformer extends MethodNodeTransformer {
         return intInsnNode;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformMultiANewArrayInsnNode(
-     * org.objectweb.asm.tree.MethodNode, org.objectweb.asm.tree.MultiANewArrayInsnNode)
-     */
     @Override
     protected AbstractInsnNode transformMultiANewArrayInsnNode(MethodNode mn,
                                                                MultiANewArrayInsnNode arrayInsnNode) {
@@ -63,10 +55,6 @@ public class BooleanArrayTransformer extends MethodNodeTransformer {
         return arrayInsnNode;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformTypeInsnNode(org.objectweb.asm.tree.MethodNode,
-     * org.objectweb.asm.tree.TypeInsnNode)
-     */
     @Override
     protected AbstractInsnNode transformTypeInsnNode(MethodNode mn,
                                                      TypeInsnNode typeNode) {

@@ -47,10 +47,6 @@ public class BooleanDefinitionTransformer extends MethodNodeTransformer {
         this.booleanTestabilityTransformation = booleanTestabilityTransformation;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformInsnNode(org.objectweb.asm.tree.MethodNode,
-     * org.objectweb.asm.tree.InsnNode)
-     */
     @Override
     protected AbstractInsnNode transformInsnNode(MethodNode mn, InsnNode insnNode) {
         BooleanTestabilityTransformation.logger.info("Checking transformation of InsnNode ");
@@ -70,10 +66,6 @@ public class BooleanDefinitionTransformer extends MethodNodeTransformer {
         return insnNode;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformVarInsnNode(org.objectweb.asm.tree.MethodNode,
-     * org.objectweb.asm.tree.VarInsnNode)
-     */
     @Override
     protected AbstractInsnNode transformVarInsnNode(MethodNode mn, VarInsnNode varNode) {
         // Special case for implicit else branch
@@ -87,10 +79,6 @@ public class BooleanDefinitionTransformer extends MethodNodeTransformer {
         return varNode;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.instrumentation.MethodNodeTransformer#transformFieldInsnNode(org.objectweb.asm.tree.MethodNode,
-     * org.objectweb.asm.tree.FieldInsnNode)
-     */
     @Override
     protected AbstractInsnNode transformFieldInsnNode(MethodNode mn,
                                                       FieldInsnNode fieldNode) {

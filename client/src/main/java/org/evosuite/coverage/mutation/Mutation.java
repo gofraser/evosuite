@@ -226,10 +226,6 @@ public class Mutation implements Comparable<Mutation> {
         return defaultDistance;
     }
 
-    /* (non-Javadoc)
-     * @see java.lang.Object#toString()
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -238,10 +234,6 @@ public class Mutation implements Comparable<Mutation> {
         return "Mutation " + id + ": " + className + "." + methodName + ":" + lineNo
                 + " - " + mutationName;
     }
-
-    /* (non-Javadoc)
-     * @see java.lang.Object#hashCode()
-     */
 
     /**
      * {@inheritDoc}
@@ -257,10 +249,6 @@ public class Mutation implements Comparable<Mutation> {
         result = prime * result + ((mutationName == null) ? 0 : mutationName.hashCode());
         return result;
     }
-
-    /* (non-Javadoc)
-     * @see java.lang.Object#equals(java.lang.Object)
-     */
 
     /**
      * {@inheritDoc}
@@ -304,9 +292,6 @@ public class Mutation implements Comparable<Mutation> {
         }
     }
 
-    /* (non-Javadoc)
-     * @see java.lang.Comparable#compareTo(java.lang.Object)
-     */
     @Override
     public int compareTo(Mutation o) {
         int diff = lineNo - o.lineNo;

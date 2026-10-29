@@ -57,11 +57,6 @@ public class ArrayLengthObserver extends AssertionTraceObserver<ArrayLengthTrace
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.assertion.AssertionTraceObserver#visit(org.evosuite.testcase.StatementInterface,
-     * org.evosuite.testcase.Scope, org.evosuite.testcase.VariableReference)
-     */
-
     /**
      * {@inheritDoc}
      */

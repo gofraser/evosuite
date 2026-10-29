@@ -100,10 +100,6 @@ public class CBranchTestFitness extends TestFitnessFunction {
         return Double.MAX_VALUE;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#getFitness(org.evosuite.testcase.TestChromosome,
-     * org.evosuite.testcase.ExecutionResult)
-     */
     @Override
     public double getFitness(TestChromosome individual, ExecutionResult result) {
         double fitness = 0.0;
@@ -130,9 +126,6 @@ public class CBranchTestFitness extends TestFitnessFunction {
     }
 
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#compareTo(org.evosuite.testcase.TestFitnessFunction)
-     */
     @Override
     public int compareTo(TestFitnessFunction other) {
         if (other instanceof CBranchTestFitness) {
@@ -158,17 +151,11 @@ public class CBranchTestFitness extends TestFitnessFunction {
         return compareClassName(other);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#getTargetClass()
-     */
     @Override
     public String getTargetClass() {
         return branchGoal.getClassName();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#getTargetMethod()
-     */
     @Override
     public String getTargetMethod() {
         return branchGoal.getMethodName();
@@ -180,17 +167,11 @@ public class CBranchTestFitness extends TestFitnessFunction {
     }
 
 
-    /* (non-Javadoc)
-     * @see java.lang.Object#hashCode()
-     */
     @Override
     public int hashCode() {
         return Objects.hash(branchGoal, context);
     }
 
-    /* (non-Javadoc)
-     * @see java.lang.Object#equals(java.lang.Object)
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {

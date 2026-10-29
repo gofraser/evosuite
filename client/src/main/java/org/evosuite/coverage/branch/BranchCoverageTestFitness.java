@@ -205,9 +205,6 @@ public class BranchCoverageTestFitness extends TestFitnessFunction {
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#compareTo(org.evosuite.testcase.TestFitnessFunction)
-     */
     @Override
     public int compareTo(TestFitnessFunction other) {
         if (other instanceof BranchCoverageTestFitness) {
@@ -217,17 +214,11 @@ public class BranchCoverageTestFitness extends TestFitnessFunction {
         return compareClassName(other);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#getTargetClass()
-     */
     @Override
     public String getTargetClass() {
         return getClassName();
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestFitnessFunction#getTargetMethod()
-     */
     @Override
     public String getTargetMethod() {
         return getMethod();

@@ -57,13 +57,6 @@ public class StaticAccessMethodAdapter extends MethodVisitor {
         this.methodName = methodName;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.objectweb.asm.MethodAdapter#visitFieldInsn(int,
-     * java.lang.String, java.lang.String, java.lang.String)
-     */
-
     /**
      * {@inheritDoc}
      */

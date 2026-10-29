@@ -319,34 +319,22 @@ public class GenericTypeInference extends TestVisitor {
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestVisitor#visitTestCase(org.evosuite.testcase.TestCase)
-     */
     @Override
     public void visitTestCase(TestCase test) {
         this.test = test;
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestVisitor#visitPrimitiveStatement(org.evosuite.testcase.PrimitiveStatement)
-     */
     @Override
     public void visitPrimitiveStatement(PrimitiveStatement<?> statement) {
         // Primitives have no generic type
         addVariable(statement);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestVisitor#visitFieldStatement(org.evosuite.testcase.FieldStatement)
-     */
     @Override
     public void visitFieldStatement(FieldStatement statement) {
         addVariable(statement);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestVisitor#visitMethodStatement(org.evosuite.testcase.MethodStatement)
-     */
     @Override
     public void visitMethodStatement(MethodStatement statement) {
         addVariable(statement);
@@ -361,9 +349,6 @@ public class GenericTypeInference extends TestVisitor {
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestVisitor#visitConstructorStatement(org.evosuite.testcase.ConstructorStatement)
-     */
     @Override
     public void visitConstructorStatement(ConstructorStatement statement) {
         addVariable(statement);
@@ -382,26 +367,17 @@ public class GenericTypeInference extends TestVisitor {
 
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestVisitor#visitArrayStatement(org.evosuite.testcase.ArrayStatement)
-     */
     @Override
     public void visitArrayStatement(ArrayStatement statement) {
         addVariable(statement);
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestVisitor#visitAssignmentStatement(org.evosuite.testcase.AssignmentStatement)
-     */
     @Override
     public void visitAssignmentStatement(AssignmentStatement statement) {
         addVariable(statement);
 
     }
 
-    /* (non-Javadoc)
-     * @see org.evosuite.testcase.TestVisitor#visitNullStatement(org.evosuite.testcase.NullStatement)
-     */
     @Override
     public void visitNullStatement(NullStatement statement) {
         addVariable(statement);

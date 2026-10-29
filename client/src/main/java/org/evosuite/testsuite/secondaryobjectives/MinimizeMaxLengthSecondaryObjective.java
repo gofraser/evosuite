@@ -41,14 +41,6 @@ public class MinimizeMaxLengthSecondaryObjective extends SecondaryObjective<Test
         return max;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.testcase.secondaryobjectives.SecondaryObjective#compareChromosomes(org.evosuite.ga.Chromosome,
-     * org.evosuite.ga.Chromosome)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -56,14 +48,6 @@ public class MinimizeMaxLengthSecondaryObjective extends SecondaryObjective<Test
     public int compareChromosomes(TestSuiteChromosome chromosome1, TestSuiteChromosome chromosome2) {
         return getMaxLength(chromosome1) - getMaxLength(chromosome2);
     }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.evosuite.testcase.secondaryobjectives.SecondaryObjective#compareGenerations(org.evosuite.ga.Chromosome,
-     * org.evosuite.ga.Chromosome, org.evosuite.ga.Chromosome, org.evosuite.ga.Chromosome)
-     */
 
     /**
      * {@inheritDoc}
