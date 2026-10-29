@@ -200,12 +200,6 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     protected final transient List<ExternalCandidateSource> externalCandidateSources =
             new ArrayList<>();
 
-    // Explicitly declared with a more special type than the one used in GeneticAlgorithm.
-    // This is required for the Archive, which currently only supports TestFitnessFunctions.
-    // It hides GeneticAlgorithm.fitnessFunctions, which stays empty for MOSA; inherited code must
-    // use getFitnessFunctions().
-    protected final List<TestFitnessFunction> fitnessFunctions = new ArrayList<>();
-
     private MOSATestSuiteAdapter adapter = null;
 
     /**
@@ -491,21 +485,21 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     @Override
     public void addFitnessFunction(final FitnessFunction<TestChromosome> function) {
         if (function instanceof TestFitnessFunction) {
-            fitnessFunctions.add((TestFitnessFunction) function);
-            localObjective.addFitnessFunction(function);
+            super.addFitnessFunction(function);
         } else {
             throw new IllegalArgumentException("Only TestFitnessFunctions are supported");
         }
     }
 
-    @Override
-    public FitnessFunction<TestChromosome> getFitnessFunction() {
-        return fitnessFunctions.get(0);
-    }
-
-    @Override
-    public List<? extends FitnessFunction<TestChromosome>> getFitnessFunctions() {
-        return fitnessFunctions;
+    /**
+     * The objectives as test fitness functions, which is what the archive and the goal managers
+     * accept. {@link #addFitnessFunction} only admits test fitness functions, so the view is safe.
+     *
+     * @return a live view of the objectives
+     */
+    @SuppressWarnings("unchecked")
+    protected final List<TestFitnessFunction> testFitnessFunctions() {
+        return (List<TestFitnessFunction>) (List<?>) fitnessFunctions;
     }
 
     /**
@@ -1725,7 +1719,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                     String[] methodNames = new String[n];
                     String[] descriptions = new String[n];
                     for (int i = 0; i < n; i++) {
-                        TestFitnessFunction g = fitnessFunctions.get(i);
+                        TestFitnessFunction g = testFitnessFunctions().get(i);
                         classNames[i] = g.getTargetClass();
                         methodNames[i] = g.getTargetMethod();
                         descriptions[i] = g.toString();
@@ -1888,7 +1882,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      * Registers the goals to cover with the archive. Runs first, before the LLM assistance starts.
      */
     protected void setUpGoals() {
-        this.fitnessFunctions.forEach(this::addUncoveredGoal);
+        testFitnessFunctions().forEach(this::addUncoveredGoal);
     }
 
     /** Runs once the initial population is created and evaluated, before it is ranked. */

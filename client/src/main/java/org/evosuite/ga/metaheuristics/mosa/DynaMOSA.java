@@ -112,7 +112,7 @@ public class DynaMOSA extends AbstractMOSA {
     protected void setUpGoals() {
         // Set up the targets to cover, which are initially free of any control dependencies.
         // We are trying to optimize for multiple targets at the same time.
-        this.goalsManager = new MultiCriteriaManager(this.fitnessFunctions);
+        this.goalsManager = new MultiCriteriaManager(testFitnessFunctions());
         publishCurrentGoals();
 
         LoggingUtils.getEvoLogger().info("* Initial Number of Goals in DynaMOSA = "
