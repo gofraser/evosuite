@@ -45,33 +45,12 @@ import java.util.Set;
  * Source-level support for rendering uninterpreted (LLM-parsed) snippets: local-name
  * normalisation, identifier substitution outside literals and comments, and import
  * discovery for simple type names used in the snippet text.
- *
- * <p>The only visitor state it touches is reached through {@link Host}.</p>
  */
 class SnippetSourceSupport {
 
-    /**
-     * The visitor state the snippet support reads and updates.
-     */
-    interface Host {
-        /**
-         * The classes already named by the visitor, mapped to their rendered names.
-         */
-        Map<Class<?>, String> classNames();
+    private final TestCodeVisitor host;
 
-        /**
-         * Registers {@code clazz} with the visitor and returns its rendered name.
-         */
-        String getClassName(Class<?> clazz);
-
-        boolean isLocalNameReserved(String candidate);
-
-        String ensureUniqueLocalVariableName(String baseName);
-    }
-
-    private final Host host;
-
-    SnippetSourceSupport(Host host) {
+    SnippetSourceSupport(TestCodeVisitor host) {
         this.host = host;
     }
 
@@ -489,7 +468,7 @@ class SnippetSourceSupport {
     }
 
     Class<?> resolveSimpleClassName(String simpleName) {
-        for (Map.Entry<Class<?>, String> entry : host.classNames().entrySet()) {
+        for (Map.Entry<Class<?>, String> entry : host.classNames.entrySet()) {
             if (simpleName.equals(entry.getValue())) {
                 return entry.getKey();
             }
@@ -497,7 +476,7 @@ class SnippetSourceSupport {
 
         // If the snippet refers to a nested type by simple name (e.g. ChangeEventType.USER),
         // try declared member classes of already-known classes first.
-        for (Class<?> knownClass : host.classNames().keySet()) {
+        for (Class<?> knownClass : host.classNames.keySet()) {
             Class<?> nested = resolveNestedSimpleName(knownClass, simpleName);
             if (nested != null) {
                 return nested;
@@ -544,7 +523,7 @@ class SnippetSourceSupport {
         // Try same-package siblings of already-known classes. This helps preserved
         // snippets that use simple names from the CUT API package, e.g.
         // ChartDataModelEvent when ChartDataModelListener is already known.
-        for (Class<?> knownClass : host.classNames().keySet()) {
+        for (Class<?> knownClass : host.classNames.keySet()) {
             Package knownPackage = knownClass.getPackage();
             if (knownPackage == null) {
                 continue;
@@ -562,7 +541,7 @@ class SnippetSourceSupport {
         // Try parent-package siblings of already-known classes. This handles
         // snippets that refer to project-level utility types (e.g. Constants)
         // while the known CUT/collaborators are in deeper subpackages.
-        for (Class<?> knownClass : host.classNames().keySet()) {
+        for (Class<?> knownClass : host.classNames.keySet()) {
             Package knownPackage = knownClass.getPackage();
             if (knownPackage == null) {
                 continue;
@@ -585,7 +564,7 @@ class SnippetSourceSupport {
         // Resolve snippet-only simple names via known classes' related API types.
         // This covers preserved declarations like "Instances x = ...;" where the
         // type is not in common packages but is reachable from the CUT signature.
-        for (Class<?> knownClass : host.classNames().keySet()) {
+        for (Class<?> knownClass : host.classNames.keySet()) {
             Class<?> related = resolveRelatedSimpleName(knownClass, simpleName, 2, new HashSet<Class<?>>());
             if (related != null) {
                 return related;

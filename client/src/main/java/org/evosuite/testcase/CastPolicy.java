@@ -72,51 +72,14 @@ import static org.evosuite.setup.GeneratedTestAccess.isTypeAccessibleFromGenerat
  * of an instance call is cast and how its result is cast back (bridges, raw receivers, static
  * generic factories), and the cast of a reference assignment.
  *
- * <p>The only visitor state it reaches is through {@link Host}. Every type name it writes comes
- * from the host, which also registers the imports, so the order of those calls is part of the
- * rendered output.</p>
+ * <p>Every type name it writes comes from the visitor, which also registers the imports, so the
+ * order of those calls is part of the rendered output.</p>
  */
 class CastPolicy {
 
-    /**
-     * The visitor state the cast decisions read.
-     */
-    interface Host {
-        /**
-         * Registers {@code clazz} with the visitor and returns its rendered name.
-         */
-        String getClassName(Class<?> clazz);
+    private final TestCodeVisitor host;
 
-        /**
-         * The type name of a variable's declaration.
-         */
-        String getClassName(VariableReference var);
-
-        String getTypeName(Type type);
-
-        String getVariableName(VariableReference var);
-
-        boolean canUseDirectFieldAccess(Field field, VariableReference source);
-
-        VariableReference normalizeVariableReference(VariableReference var);
-
-        int safePosition(VariableReference variableReference);
-
-        /**
-         * How {@code variable} is declared when a constructor statement of {@code testCase}
-         * defines it, or null (see {@link DeclaredType#ofVariable}); computed once per render.
-         */
-        DeclaredType declaredType(TestCase testCase, VariableReference variable);
-
-        /**
-         * The test being rendered, or null outside of a render.
-         */
-        TestCase test();
-    }
-
-    private final Host host;
-
-    CastPolicy(Host host) {
+    CastPolicy(TestCodeVisitor host) {
         this.host = host;
     }
 
@@ -534,14 +497,14 @@ class CastPolicy {
     }
 
     private boolean isNullInitializedVariable(VariableReference reference) {
-        if (reference == null || host.test() == null) {
+        if (reference == null || host.test == null) {
             return false;
         }
         int pos = host.safePosition(reference);
-        if (pos < 0 || pos >= host.test().size()) {
+        if (pos < 0 || pos >= host.test.size()) {
             return false;
         }
-        Statement statement = host.test().getStatement(pos);
+        Statement statement = host.test.getStatement(pos);
         if (statement instanceof NullStatement) {
             return true;
         }
@@ -736,15 +699,15 @@ class CastPolicy {
      */
     private boolean isParameterizedClassTargetForClassLiteral(Type targetType, VariableReference source) {
         if (!(targetType instanceof ParameterizedType) || !isClassType(targetType)
-                || host.test() == null || source == null) {
+                || host.test == null || source == null) {
             return false;
         }
         // A value that only exists in the rendering (eg the null a pending mock stub is answered
         // with) is defined by no statement and has no position; it is not a class literal.
         int position = host.safePosition(source);
-        if (position < 0 || position >= host.test().size()
-                || !(host.test().getStatement(position) instanceof ClassPrimitiveStatement)
-                || host.test().getStatement(position).getReturnValue() != source) {
+        if (position < 0 || position >= host.test.size()
+                || !(host.test.getStatement(position) instanceof ClassPrimitiveStatement)
+                || host.test.getStatement(position).getReturnValue() != source) {
             return false;
         }
         Type[] arguments = ((ParameterizedType) targetType).getActualTypeArguments();
@@ -1534,13 +1497,13 @@ class CastPolicy {
                     // A constructor's variable is declared with the constructor's owner type,
                     // which is raw when an argument is outside its bounds.
                     || (!(receiver instanceof FieldReference) && !(receiver instanceof ArrayIndex)
-                    && declaredVariableType(host.test() != null ? host.test() : receiver.getTestCase(),
+                    && declaredVariableType(host.test != null ? host.test : receiver.getTestCase(),
                             host.normalizeVariableReference(receiver)) instanceof Class<?>);
         }
         // Outer.Inner without the outer's type arguments is a raw type as well.
         if (isInnerClassOfGenericClass(receiverClass)
                 && !(receiver instanceof FieldReference) && !(receiver instanceof ArrayIndex)
-                && declaredVariableType(host.test() != null ? host.test() : receiver.getTestCase(),
+                && declaredVariableType(host.test != null ? host.test : receiver.getTestCase(),
                         host.normalizeVariableReference(receiver)) instanceof Class<?>) {
             return true;
         }
@@ -1563,7 +1526,7 @@ class CastPolicy {
             return null;
         }
         DeclaredType declared = host.declaredType(
-                host.test() != null ? host.test() : receiver.getTestCase(),
+                host.test != null ? host.test : receiver.getTestCase(),
                 host.normalizeVariableReference(receiver));
         if (declared == null
                 || !(declared.definition.getConstructor().getOwnerType() instanceof Class<?>)

@@ -97,79 +97,14 @@ public class TestCodeVisitor extends TestVisitor {
     protected final Map<Class<?>, String> classNames = new HashMap<>();
 
     /**
-     * Rendering support for uninterpreted snippets; it reaches visitor state only through this host.
+     * Rendering support for uninterpreted snippets.
      */
-    final SnippetSourceSupport snippetSupport = new SnippetSourceSupport(new SnippetSourceSupport.Host() {
-        @Override
-        public Map<Class<?>, String> classNames() {
-            return classNames;
-        }
-
-        @Override
-        public String getClassName(Class<?> clazz) {
-            return TestCodeVisitor.this.getClassName(clazz);
-        }
-
-        @Override
-        public boolean isLocalNameReserved(String candidate) {
-            return TestCodeVisitor.this.isLocalNameReserved(candidate);
-        }
-
-        @Override
-        public String ensureUniqueLocalVariableName(String baseName) {
-            return TestCodeVisitor.this.ensureUniqueLocalVariableName(baseName);
-        }
-    });
+    final SnippetSourceSupport snippetSupport = new SnippetSourceSupport(this);
 
     /**
-     * The cast decisions for calls, receivers and assignments; it reaches visitor state only through this host.
+     * The cast decisions for calls, receivers and assignments.
      */
-    final CastPolicy castPolicy = new CastPolicy(new CastPolicy.Host() {
-        @Override
-        public String getClassName(Class<?> clazz) {
-            return TestCodeVisitor.this.getClassName(clazz);
-        }
-
-        @Override
-        public String getClassName(VariableReference var) {
-            return TestCodeVisitor.this.getClassName(var);
-        }
-
-        @Override
-        public String getTypeName(Type type) {
-            return TestCodeVisitor.this.getTypeName(type);
-        }
-
-        @Override
-        public String getVariableName(VariableReference var) {
-            return TestCodeVisitor.this.getVariableName(var);
-        }
-
-        @Override
-        public boolean canUseDirectFieldAccess(Field field, VariableReference source) {
-            return TestCodeVisitor.this.canUseDirectFieldAccess(field, source);
-        }
-
-        @Override
-        public VariableReference normalizeVariableReference(VariableReference var) {
-            return TestCodeVisitor.this.normalizeVariableReference(var);
-        }
-
-        @Override
-        public int safePosition(VariableReference variableReference) {
-            return TestCodeVisitor.this.safePosition(variableReference);
-        }
-
-        @Override
-        public DeclaredType declaredType(TestCase testCase, VariableReference variable) {
-            return TestCodeVisitor.this.declaredType(testCase, variable);
-        }
-
-        @Override
-        public TestCase test() {
-            return test;
-        }
-    });
+    final CastPolicy castPolicy = new CastPolicy(this);
 
     /**
      * How the constructor variables of the test being rendered are declared, by variable. A
@@ -929,7 +864,7 @@ public class TestCodeVisitor extends TestVisitor {
         return name;
     }
 
-    private String ensureUniqueLocalVariableName(String baseName) {
+    String ensureUniqueLocalVariableName(String baseName) {
         String seed = (baseName == null || baseName.trim().isEmpty()) ? "var" : baseName.trim();
         if (!isLocalNameReserved(seed)) {
             return seed;
@@ -943,7 +878,7 @@ public class TestCodeVisitor extends TestVisitor {
         return candidate;
     }
 
-    private boolean isLocalNameReserved(String candidate) {
+    boolean isLocalNameReserved(String candidate) {
         if (candidate == null || candidate.isEmpty()) {
             return true;
         }
@@ -956,7 +891,7 @@ public class TestCodeVisitor extends TestVisitor {
         return containsIdentifierOutsideLiteralsAndComments(testCode.toString(), candidate);
     }
 
-    private boolean canUseDirectFieldAccess(Field field, VariableReference source) {
+    boolean canUseDirectFieldAccess(Field field, VariableReference source) {
         if (field == null) {
             return false;
         }
@@ -1042,7 +977,7 @@ public class TestCodeVisitor extends TestVisitor {
         return name;
     }
 
-    private VariableReference normalizeVariableReference(VariableReference var) {
+    VariableReference normalizeVariableReference(VariableReference var) {
         if (var == null || test == null) {
             return var;
         }
@@ -1100,7 +1035,7 @@ public class TestCodeVisitor extends TestVisitor {
         return expectedClass.equals(candidateClass) || expectedClass.isAssignableFrom(candidateClass);
     }
 
-    private int safePosition(VariableReference variableReference) {
+    int safePosition(VariableReference variableReference) {
         if (variableReference == null || test == null) {
             return -1;
         }
@@ -1158,7 +1093,7 @@ public class TestCodeVisitor extends TestVisitor {
         this.variableNameStrategy = VariableNameStrategyFactory.get();
     }
 
-    private DeclaredType declaredType(TestCase testCase, VariableReference variable) {
+    DeclaredType declaredType(TestCase testCase, VariableReference variable) {
         if (testCase == null || testCase != test) {
             return DeclaredType.ofVariable(testCase, variable);
         }
