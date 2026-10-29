@@ -12,6 +12,7 @@
 package org.evosuite.llm.postprocess;
 
 import org.evosuite.Properties;
+import org.evosuite.assertion.InspectorManager;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.assertion.NullAssertion;
 import org.evosuite.assertion.PrimitiveAssertion;
@@ -371,6 +372,48 @@ class OracleContextTest {
         assertTrue(callables.contains("compareTo(Ljava/math/BigDecimal;)I->int"), callables);
     }
 
+    private static String inspectorCallables() {
+        // A package-private class of EvoSuite's own is only usable as part of the class prefix.
+        Properties.CLASS_PREFIX = InspectorCounter.class.getPackage().getName();
+        InspectorManager.resetSingleton();
+        DefaultTestCase test = new DefaultTestCase();
+        UninterpretedStatement statement = new UninterpretedStatement(test, InspectorCounter.class,
+                "return counter;", Collections.emptyMap(), "counter");
+        test.addStatement(statement);
+        ExecutionResult result = new ExecutionResult(test);
+        Scope scope = new Scope();
+        scope.setObject(statement.getReturnValue(), new InspectorCounter());
+        result.setFinalScope(scope);
+        OracleContext context = OracleContext.from(test, result, Collections.emptyList(),
+                PostProcessingOptions.fromProperties());
+        return PostProcessingPromptRenderer.callableMemberText(
+                context, null, PostProcessingOptions.fromProperties());
+    }
+
+    @Test
+    void callableInspectorsFollowThePureInspectorsProperty() {
+        boolean originalPure = Properties.PURE_INSPECTORS;
+        String originalPrefix = Properties.CLASS_PREFIX;
+        Properties.LLM_POSTPROCESSING_CALLABLE_POLICY =
+                Properties.LlmPostProcessingCallablePolicy.INSPECTORS_ONLY;
+        try {
+            Properties.PURE_INSPECTORS = true;
+            // The purity analysis has not seen this class, so it vouches for none of its methods.
+            String pure = inspectorCallables();
+            assertFalse(pure.contains("peek()I"), pure);
+            assertFalse(pure.contains("next()I"), pure);
+
+            Properties.PURE_INSPECTORS = false;
+            String any = inspectorCallables();
+            assertTrue(any.contains("peek()I"), any);
+            assertTrue(any.contains("next()I"), any);
+        } finally {
+            Properties.PURE_INSPECTORS = originalPure;
+            Properties.CLASS_PREFIX = originalPrefix;
+            InspectorManager.resetSingleton();
+        }
+    }
+
     @Test
     void captureLimitsCallableMembersToDeclaredType() throws Exception {
         Properties.LLM_POSTPROCESSING_CALLABLE_POLICY =
@@ -455,5 +498,17 @@ class OracleContextTest {
             kinds.add(fact.getKind());
         }
         return kinds;
+    }
+}
+
+class InspectorCounter {
+    private int count;
+
+    public int peek() {
+        return count;
+    }
+
+    public int next() {
+        return count++;
     }
 }

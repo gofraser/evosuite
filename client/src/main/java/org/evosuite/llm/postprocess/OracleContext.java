@@ -1056,11 +1056,8 @@ final class OracleContext {
                 && !isPrimitiveWrapper(returnType)) {
             return false;
         }
-        String ownerName = method.getDeclaringClass().getName();
-        if (ownerName.startsWith("java.") || ownerName.startsWith("javax.")) {
-            return true;
-        }
-        return CheapPurityAnalyzer.getInstance().isPure(method);
+        // Purity is the InspectorManager's decision (Properties.PURE_INSPECTORS), not repeated here.
+        return true;
     }
 
     private static boolean isPrimitiveWrapper(Class<?> type) {
