@@ -510,7 +510,7 @@ class MockitoPatternParser {
         Expression innerExpression;
         try {
             innerExpression = StaticJavaParser.parseExpression(whenExprText);
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException | StackOverflowError ignored) {
             return null;
         }
         if (!(innerExpression instanceof MethodCallExpr)) {

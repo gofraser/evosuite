@@ -297,4 +297,23 @@ class LlmResponseParserTest {
         assertEquals(0, result.getReflectiveRewrites());
         assertNull(result.getInvalidSource());
     }
+
+    @Test
+    void deeplyNestedExpressionIsAParseFailureNotAnError() {
+        StringBuilder nested = new StringBuilder();
+        int depth = 100000;
+        for (int i = 0; i < depth; i++) {
+            nested.append('(');
+        }
+        nested.append('1');
+        for (int i = 0; i < depth; i++) {
+            nested.append(')');
+        }
+        String response = "```java\n@org.junit.Test\npublic void deep(){ int x = " + nested + "; }\n```";
+
+        List<LlmResponseParser.ExtractionResult> results =
+                assertDoesNotThrow(() -> parser.extractAllTestClassesWithMetadata(response, "DeepTest", null));
+
+        assertEquals(1, results.size());
+    }
 }

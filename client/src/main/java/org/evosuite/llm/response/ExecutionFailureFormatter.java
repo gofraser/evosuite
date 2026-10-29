@@ -808,7 +808,7 @@ final class ExecutionFailureFormatter {
             }
             String receiverName = ((NameExpr) methodCallExpr.getScope().get()).getNameAsString();
             return isLikelyTypeReferenceName(receiverName) ? null : receiverName;
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException | StackOverflowError ignored) {
             return null;
         }
     }
@@ -1018,7 +1018,7 @@ final class ExecutionFailureFormatter {
                 return methodCallExpr.getNameAsString();
             }
             return methodCallExpr.getScope().get().toString() + "." + methodCallExpr.getNameAsString();
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException | StackOverflowError ignored) {
             return null;
         }
     }

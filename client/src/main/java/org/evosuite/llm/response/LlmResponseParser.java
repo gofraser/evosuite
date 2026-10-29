@@ -281,7 +281,7 @@ public class LlmResponseParser {
             cu = StaticJavaParser.parse(code);
         } catch (ParseProblemException parserFailure) {
             return null;
-        } catch (RuntimeException parserFailure) {
+        } catch (RuntimeException | StackOverflowError parserFailure) {
             return null;
         }
         if (cu.getTypes().size() != 1 || !(cu.getType(0) instanceof ClassOrInterfaceDeclaration)) {
@@ -426,7 +426,7 @@ public class LlmResponseParser {
                 return extraction.withInvalidSource(new IllegalArgumentException(
                         "Recovered source is still not valid Java: " + parseProblem.getMessage(),
                         parseProblem));
-            } catch (RuntimeException ignored) {
+            } catch (RuntimeException | StackOverflowError ignored) {
                 // Best-effort normalization only; keep the original source if parsing fails.
                 return extraction;
             }
@@ -502,7 +502,7 @@ public class LlmResponseParser {
             try {
                 rewrittenThrowStmt = StaticJavaParser.parseStatement(rewrittenThrow);
                 rewrittenCauseAssertStmt = StaticJavaParser.parseStatement(rewrittenCauseAssert);
-            } catch (RuntimeException ignored) {
+            } catch (RuntimeException | StackOverflowError ignored) {
                 continue;
             }
 

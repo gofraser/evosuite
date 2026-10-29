@@ -117,7 +117,7 @@ public final class TruncatedJavaRecovery {
     private CompilationUnit parse(String source) {
         try {
             return StaticJavaParser.parse(source);
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException | StackOverflowError ignored) {
             return null;
         }
     }
