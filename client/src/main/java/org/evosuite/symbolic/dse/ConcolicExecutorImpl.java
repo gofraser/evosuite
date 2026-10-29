@@ -27,8 +27,6 @@ import org.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
 import org.evosuite.symbolic.BranchCondition;
 import org.evosuite.symbolic.PathCondition;
 import org.evosuite.symbolic.SymbolicObserver;
-import org.evosuite.symbolic.expr.Constraint;
-import org.evosuite.symbolic.expr.ExpressionEvaluator;
 import org.evosuite.symbolic.instrument.ConcolicBytecodeInstrumentation;
 import org.evosuite.symbolic.instrument.ConcolicInstrumentingClassLoader;
 import org.evosuite.symbolic.vm.*;
@@ -100,7 +98,6 @@ public class ConcolicExecutorImpl implements ConcolicExecutor {
         /*
          * Override test case classloader for instrumentation
          */
-        defaultTestCase.getChangedClassLoader();
         defaultTestCase.changeClassLoader(instrumentingClassLoader);
 
         Set<ExecutionObserver> originalExecutionObservers = TestCaseExecutor.getInstance().getExecutionObservers();
@@ -131,11 +128,6 @@ public class ConcolicExecutorImpl implements ConcolicExecutor {
             int idx = result.getFirstPositionOfThrownException();
             logger.info("Exception thrown: " + result.getExceptionThrownAtPosition(idx));
         }
-
-        logNrOfConstraints(branches);
-
-        logger.debug("Cleaning concolic execution");
-        TestCaseExecutor.getInstance().setExecutionObservers(originalExecutionObservers);
 
         return new PathCondition(branches);
     }
@@ -174,26 +166,5 @@ public class ConcolicExecutorImpl implements ConcolicExecutor {
 
         VM.getInstance().setListeners(listeners);
         VM.getInstance().prepareConcolicExecution();
-    }
-
-    private void logNrOfConstraints(List<BranchCondition> branches) {
-        int nrOfConstraints = 0;
-
-        ExpressionEvaluator exprExecutor = new ExpressionEvaluator();
-        for (BranchCondition branchCondition : branches) {
-
-            for (Constraint<?> supportingConstraint : branchCondition.getSupportingConstraints()) {
-                supportingConstraint.getLeftOperand().accept(exprExecutor, null);
-                supportingConstraint.getRightOperand().accept(exprExecutor, null);
-                nrOfConstraints++;
-            }
-
-            Constraint<?> constraint = branchCondition.getConstraint();
-            constraint.getLeftOperand().accept(exprExecutor, null);
-            constraint.getRightOperand().accept(exprExecutor, null);
-            nrOfConstraints++;
-
-        }
-        logger.debug("nrOfConstraints=" + nrOfConstraints);
     }
 }

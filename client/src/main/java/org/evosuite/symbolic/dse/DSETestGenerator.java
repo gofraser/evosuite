@@ -87,10 +87,6 @@ public class DSETestGenerator {
         logger.info("APPLYING DSE");
         logger.info(test.getTestCase().toCode());
         logger.info("Starting concolic execution");
-        // Backup copy
-        // test.getMutationHistory().clear();
-        test.clone(); // I am not sure what is the purpose of this
-
         DefaultTestCase cloneTestCase = (DefaultTestCase) test.getTestCase().clone();
         final PathCondition collectedPathCondition = new ConcolicExecutorImpl().execute(cloneTestCase);
 
