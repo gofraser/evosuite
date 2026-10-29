@@ -36,21 +36,24 @@ public interface SearchListener<T extends Chromosome<T>> extends Serializable {
      *
      * @param algorithm a {@link org.evosuite.ga.metaheuristics.GeneticAlgorithm} object.
      */
-    void searchStarted(GeneticAlgorithm<T> algorithm);
+    default void searchStarted(GeneticAlgorithm<T> algorithm) {
+    }
 
     /**
      * Called after each iteration of the search.
      *
      * @param algorithm a {@link org.evosuite.ga.metaheuristics.GeneticAlgorithm} object.
      */
-    void iteration(GeneticAlgorithm<T> algorithm);
+    default void iteration(GeneticAlgorithm<T> algorithm) {
+    }
 
     /**
      * Called after the last iteration.
      *
      * @param algorithm a {@link org.evosuite.ga.metaheuristics.GeneticAlgorithm} object.
      */
-    void searchFinished(GeneticAlgorithm<T> algorithm);
+    default void searchFinished(GeneticAlgorithm<T> algorithm) {
+    }
 
     /**
      * Called after every single fitness evaluation.
@@ -64,6 +67,7 @@ public interface SearchListener<T extends Chromosome<T>> extends Serializable {
      *
      * @param individual a {@link org.evosuite.ga.Chromosome} object.
      */
-    void modification(T individual);
+    default void modification(T individual) {
+    }
 
 }

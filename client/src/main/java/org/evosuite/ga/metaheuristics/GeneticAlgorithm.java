@@ -1161,8 +1161,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
             return bestIndividuals;
         }
 
-        if (Properties.ALGORITHM == Algorithm.NSGAII
-                || Properties.ALGORITHM == Algorithm.SPEA2) {
+        if (Properties.ALGORITHM == Algorithm.NSGAII) {
             return population;
         }
 

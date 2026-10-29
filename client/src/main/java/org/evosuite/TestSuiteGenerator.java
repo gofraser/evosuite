@@ -643,13 +643,9 @@ public class TestSuiteGenerator {
         for (TestChromosome test : testSuite.getTestChromosomes()) {
             ExecutionResult result = test.getLastExecutionResult();
             if (result != null && result.hasTestException()) {
-                String exceptionType = "<unknown>";
-                Integer firstPos = result.getFirstPositionOfThrownException();
-                if (firstPos != null) {
-                    Throwable thrown = result.getExceptionThrownAtPosition(firstPos);
-                    if (thrown != null) {
-                        exceptionType = thrown.getClass().getName();
-                    }
+                String exceptionType = firstThrownExceptionType(result);
+                if (exceptionType == null) {
+                    exceptionType = "<unknown>";
                 }
                 exceptionTypeHistogram.merge(exceptionType, 1, Integer::sum);
                 candidatesToRemove.add(test);
@@ -726,7 +722,6 @@ public class TestSuiteGenerator {
                 }
                 publishUnminimizedSuite(testSuite, minimizationResult);
             } else {
-                double before = testSuite.getFitness();
                 TestSuiteMinimizer minimizer = new TestSuiteMinimizer(FitnessFunctions.getFitnessFactories());
                 int testsBeforeMinimization = testSuite.size();
                 int lengthBeforeMinimization = testSuite.totalLengthOfTestCases();
@@ -741,28 +736,8 @@ public class TestSuiteGenerator {
                     logger.warn("Minimization removed all tests ({} -> 0).", testsBeforeMinimization);
                 }
                 logSuiteDiagnostics("postProcess:afterMinimization", testSuite);
-
-                // Note: this guard cannot currently fire.  getFitness() only sums
-                // the fitness values already cached on the chromosome, and the
-                // per-test minimization used here never re-evaluates a suite
-                // fitness function, so `after` is by construction equal to
-                // `before` (and simply 0.0 for an archive-derived suite, whose
-                // cache is empty).  What actually protects coverage is the
-                // covered-goal check inside TestSuiteMinimizer.minimize(), which
-                // reverts to the pre-minimization suite rather than aborting the
-                // whole run.  Kept as a cheap assertion in case a future caller
-                // does keep the suite fitness up to date across minimization.
-                double after = testSuite.getFitness();
-                if (after > before + 0.01d) { // assume minimization
-                    throw new Error("EvoSuite bug: minimization lead fitness from " + before + " to " + after);
-                }
             }
         } else {
-            if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
-                LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                        + "Skipping minimization because not enough time is left");
-            }
-
             publishUnminimizedSuite(testSuite, minimizationResult);
         }
 
@@ -913,12 +888,9 @@ public class TestSuiteGenerator {
                 withSecurityException++;
             }
 
-            Integer firstPos = result.getFirstPositionOfThrownException();
-            if (firstPos != null) {
-                Throwable thrown = result.getExceptionThrownAtPosition(firstPos);
-                if (thrown != null) {
-                    firstExceptionHistogram.merge(thrown.getClass().getName(), 1, Integer::sum);
-                }
+            String firstExceptionType = firstThrownExceptionType(result);
+            if (firstExceptionType != null) {
+                firstExceptionHistogram.merge(firstExceptionType, 1, Integer::sum);
             }
         }
 
@@ -926,6 +898,16 @@ public class TestSuiteGenerator {
                         + "timeouts={}, testExceptions={}, securityExceptions={}, firstExceptions={}",
                 phase, total, totalLength, emptyTests, withoutExecutionResult,
                 withTimeout, withTestException, withSecurityException, firstExceptionHistogram);
+    }
+
+    /** The class name of the first exception a test threw, or null if it threw none. */
+    private static String firstThrownExceptionType(ExecutionResult result) {
+        Integer firstPos = result.getFirstPositionOfThrownException();
+        if (firstPos == null) {
+            return null;
+        }
+        Throwable thrown = result.getExceptionThrownAtPosition(firstPos);
+        return thrown == null ? null : thrown.getClass().getName();
     }
 
     /**
