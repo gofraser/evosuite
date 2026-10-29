@@ -147,7 +147,7 @@ public class BranchCoverageSuiteFitness extends TestSuiteFitnessFunction {
                     continue;
                 }
             }
-            if (updateArchive && Properties.TEST_ARCHIVE) {
+            if (updateArchive && Archive.isUpdating()) {
                 Archive.getArchiveInstance().addTarget(goal);
             }
 
@@ -201,7 +201,7 @@ public class BranchCoverageSuiteFitness extends TestSuiteFitnessFunction {
                     TestFitnessFunction goal = branchlessMethodCoverageMap.get(name);
                     test.getTestCase().addCoveredGoal(goal);
                     toRemoveRootBranches.add(name);
-                    if (Properties.TEST_ARCHIVE) {
+                    if (Archive.isUpdating()) {
                         Archive.getArchiveInstance().updateArchive(goal, test, 0.0);
                     }
                 }
@@ -230,7 +230,7 @@ public class BranchCoverageSuiteFitness extends TestSuiteFitnessFunction {
                 TestFitnessFunction goal = branchlessMethodCoverageMap.get(entry.getKey());
                 test.getTestCase().addCoveredGoal(goal);
                 toRemoveRootBranches.add(entry.getKey());
-                if (Properties.TEST_ARCHIVE) {
+                if (Archive.isUpdating()) {
                     Archive.getArchiveInstance().updateArchive(goal, test, 0.0);
                 }
             }
@@ -275,7 +275,7 @@ public class BranchCoverageSuiteFitness extends TestSuiteFitnessFunction {
                 test.getTestCase().addCoveredGoal(goal);
                 toRemoveBranchesT.add(entry.getKey());
             }
-            if (Properties.TEST_ARCHIVE) {
+            if (Archive.isUpdating()) {
                 Archive.getArchiveInstance().updateArchive(goal, test, entry.getValue());
             }
         }
@@ -304,7 +304,7 @@ public class BranchCoverageSuiteFitness extends TestSuiteFitnessFunction {
                 test.getTestCase().addCoveredGoal(goal);
                 toRemoveBranchesF.add(entry.getKey());
             }
-            if (Properties.TEST_ARCHIVE) {
+            if (Archive.isUpdating()) {
                 Archive.getArchiveInstance().updateArchive(goal, test, entry.getValue());
             }
         }

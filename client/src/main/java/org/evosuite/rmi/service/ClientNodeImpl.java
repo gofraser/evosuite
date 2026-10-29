@@ -26,6 +26,7 @@ import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.coverage.ClassStatisticsPrinter;
 import org.evosuite.coverage.CoverageCriteriaAnalyzer;
 import org.evosuite.ga.Chromosome;
+import org.evosuite.ga.archive.Archive;
 import org.evosuite.ga.stoppingconditions.RMIStoppingCondition;
 import org.evosuite.junit.CoverageAnalysis;
 import org.evosuite.result.LightweightTestGenerationResult;
@@ -952,14 +953,13 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                 try {
                     // We have to deactivate the archive when measuring coverage
                     // otherwise it would complain about unknown goals
-                    boolean archive = Properties.TEST_ARCHIVE;
-                    Properties.TEST_ARCHIVE = false;
-                    if (COVERAGE_ANALYSIS_FOR_TESTING != null) {
-                        COVERAGE_ANALYSIS_FOR_TESTING.run();
-                    } else {
-                        CoverageAnalysis.analyzeCoverage();
+                    try (Archive.UpdateSuppression ignored = Archive.suppressUpdates()) {
+                        if (COVERAGE_ANALYSIS_FOR_TESTING != null) {
+                            COVERAGE_ANALYSIS_FOR_TESTING.run();
+                        } else {
+                            CoverageAnalysis.analyzeCoverage();
+                        }
                     }
-                    Properties.TEST_ARCHIVE = archive;
 
                 } catch (Throwable t) {
                     logger.error("Error when analysing coverage for: "

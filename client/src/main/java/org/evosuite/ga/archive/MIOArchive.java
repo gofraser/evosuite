@@ -271,13 +271,8 @@ public class MIOArchive extends Archive {
     protected TestSuiteChromosome createMergedSolution(TestSuiteChromosome solution) {
         // Deactivate in case a test is executed and would access the archive as this might cause a
         // concurrent access
-        boolean archiveWasEnabled = Properties.TEST_ARCHIVE;
-        Properties.TEST_ARCHIVE = false;
-        try {
+        try (UpdateSuppression ignored = suppressUpdates()) {
             return mergeArchiveInto(solution);
-        } finally {
-            // re-activate it, unless it was disabled before
-            Properties.TEST_ARCHIVE = archiveWasEnabled;
         }
     }
 

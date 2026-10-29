@@ -19,7 +19,6 @@
  */
 package org.evosuite.coverage.exception;
 
-import org.evosuite.Properties;
 import org.evosuite.ga.archive.Archive;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -124,7 +123,7 @@ public class ExceptionCoverageTestFitness extends TestFitnessFunction {
         // MultiCriteriaManager.deriveCoveredExceptions) can reach the archive through
         // updateCoveredGoals having never been registered, with the 1.0 returned below
         // cached on the chromosome so that it is never evaluated again.
-        if (Properties.TEST_ARCHIVE) {
+        if (Archive.isUpdating()) {
             Archive.getArchiveInstance().addTarget(this);
         }
 
@@ -165,7 +164,7 @@ public class ExceptionCoverageTestFitness extends TestFitnessFunction {
             individual.getTestCase().addCoveredGoal(this);
         }
 
-        if (Properties.TEST_ARCHIVE) {
+        if (Archive.isUpdating()) {
             Archive.getArchiveInstance().updateArchive(this, individual, fitness);
         }
 

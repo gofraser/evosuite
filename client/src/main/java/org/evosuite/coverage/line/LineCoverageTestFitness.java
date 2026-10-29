@@ -19,7 +19,6 @@
  */
 package org.evosuite.coverage.line;
 
-import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.branch.BranchCoverageFactory;
 import org.evosuite.coverage.branch.BranchCoverageTestFitness;
@@ -170,9 +169,7 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
 
         // Deactivate coverage archive while measuring fitness, since branchcoverage fitness
         // evaluating will attempt to claim coverage for it in the archive
-        boolean archive = Properties.TEST_ARCHIVE;
-        Properties.TEST_ARCHIVE = false;
-        try {
+        try (Archive.UpdateSuppression ignored = Archive.suppressUpdates()) {
             if (result.getTrace().getCoveredLines().contains(this.line)) {
                 fitness = 0.0;
             } else {
@@ -198,8 +195,6 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
 
                 fitness = r;
             }
-        } finally {
-            Properties.TEST_ARCHIVE = archive;
         }
         updateIndividual(individual, fitness);
 
@@ -207,7 +202,7 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
             individual.getTestCase().addCoveredGoal(this);
         }
 
-        if (Properties.TEST_ARCHIVE) {
+        if (Archive.isUpdating()) {
             // Skip when this line goal isn't a registered target — e.g. the line factory
             // filtered it out (no instruction in the pool / missing debug info) but a
             // synthetic LineCoverageTestFitness was still constructed elsewhere, or the

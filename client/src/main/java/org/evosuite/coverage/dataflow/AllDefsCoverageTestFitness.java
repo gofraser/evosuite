@@ -19,8 +19,8 @@
  */
 package org.evosuite.coverage.dataflow;
 
-import org.evosuite.Properties;
 import org.evosuite.coverage.statement.StatementCoverageTestFitness;
+import org.evosuite.ga.archive.Archive;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionResult;
@@ -77,13 +77,13 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
     @Override
     public double getFitness(TestChromosome individual, ExecutionResult result) {
 
-        boolean archive = Properties.TEST_ARCHIVE;
-        Properties.TEST_ARCHIVE = false;
-        double defFitness = goalDefinitionFitness.getFitness(individual, result);
+        double defFitness;
+        try (Archive.UpdateSuppression ignored = Archive.suppressUpdates()) {
+            defFitness = goalDefinitionFitness.getFitness(individual, result);
+        }
         if (defFitness == 0.0) {
             individual.getTestCase().removeCoveredGoal(goalDefinitionFitness);
         }
-        Properties.TEST_ARCHIVE = archive;
 
         if (defFitness > 0) {
             return 1 + normalize(defFitness);

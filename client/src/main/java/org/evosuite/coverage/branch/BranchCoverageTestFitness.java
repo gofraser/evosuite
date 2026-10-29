@@ -128,7 +128,7 @@ public class BranchCoverageTestFitness extends TestFitnessFunction {
             individual.getTestCase().addCoveredGoal(this);
         }
 
-        if (Properties.TEST_ARCHIVE) {
+        if (Archive.isUpdating()) {
             updateArchive(individual, fitness);
         }
 

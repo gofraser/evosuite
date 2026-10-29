@@ -55,7 +55,7 @@ public class StatementCoverageSuiteFitness extends TestSuiteFitnessFunction {
         for (StatementCoverageTestFitness goal : goals) {
             this.statementGoals.add(goal);
 
-            if (Properties.TEST_ARCHIVE) {
+            if (Archive.isUpdating()) {
                 Archive.getArchiveInstance().addTarget(goal);
             }
         }

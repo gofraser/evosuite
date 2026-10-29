@@ -19,7 +19,6 @@
  */
 package org.evosuite.coverage.mutation;
 
-import org.evosuite.Properties;
 import org.evosuite.ga.archive.Archive;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutionResult;
@@ -79,7 +78,7 @@ public class WeakMutationTestFitness extends MutationTestFitness {
             individual.getTestCase().addCoveredGoal(this);
         }
 
-        if (Properties.TEST_ARCHIVE) {
+        if (Archive.isUpdating()) {
             Archive.getArchiveInstance().updateArchive(this, individual, fitness);
         }
 

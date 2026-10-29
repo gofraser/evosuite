@@ -31,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-/** Merging the archive into a suite must leave {@code TEST_ARCHIVE} as it found it. */
+/** Merging the archive into a suite must leave the archive configuration and update state as it found them. */
 class ArchiveMergeTest {
 
     private boolean originalTestArchive;
@@ -63,6 +63,7 @@ class ArchiveMergeTest {
                 () -> new CoverageArchive().createMergedSolution(failingSuite()));
 
         assertTrue(Properties.TEST_ARCHIVE);
+        assertTrue(Archive.isUpdating());
     }
 
     @Test
@@ -82,6 +83,7 @@ class ArchiveMergeTest {
                 () -> new MIOArchive().createMergedSolution(failingSuite()));
 
         assertTrue(Properties.TEST_ARCHIVE);
+        assertTrue(Archive.isUpdating());
     }
 
     private static TestSuiteChromosome failingSuite() {

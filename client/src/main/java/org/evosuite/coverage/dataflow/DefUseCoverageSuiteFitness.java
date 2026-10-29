@@ -22,6 +22,7 @@ package org.evosuite.coverage.dataflow;
 import org.evosuite.Properties;
 import org.evosuite.coverage.branch.BranchCoverageSuiteFitness;
 import org.evosuite.coverage.dataflow.DefUseCoverageTestFitness.DefUsePairType;
+import org.evosuite.ga.archive.Archive;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testsuite.TestSuiteChromosome;
@@ -70,10 +71,9 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
      * Initializes a new DefUseCoverageSuiteFitness and sets up definition and method counts.
      */
     public DefUseCoverageSuiteFitness() {
-        boolean archive = Properties.TEST_ARCHIVE;
-        Properties.TEST_ARCHIVE = false;
-        branchFitness = new BranchCoverageSuiteFitness();
-        Properties.TEST_ARCHIVE = archive;
+        try (Archive.UpdateSuppression ignored = Archive.suppressUpdates()) {
+            branchFitness = new BranchCoverageSuiteFitness();
+        }
 
         for (DefUseCoverageTestFitness defUse : goals) {
             if (defUse.isParameterGoal()) {
@@ -302,17 +302,14 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
     public double getFitness(TestSuiteChromosome suite) {
         // Deactivate coverage archive while measuring fitness, as auxiliar fitness functions
         // could attempt to claim coverage for it in the archive
-        boolean archive = Properties.TEST_ARCHIVE;
-        Properties.TEST_ARCHIVE = false;
-
         double fit = 0.0;
-        if (Properties.ENABLE_ALTERNATIVE_SUITE_FITNESS) {
-            fit = getFitnessAlternative(suite);
-        } else {
-            fit = getFitnessOld(suite);
+        try (Archive.UpdateSuppression ignored = Archive.suppressUpdates()) {
+            if (Properties.ENABLE_ALTERNATIVE_SUITE_FITNESS) {
+                fit = getFitnessAlternative(suite);
+            } else {
+                fit = getFitnessOld(suite);
+            }
         }
-
-        Properties.TEST_ARCHIVE = archive;
 
         return fit;
     }

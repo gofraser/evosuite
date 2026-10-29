@@ -19,7 +19,6 @@
  */
 package org.evosuite.coverage.cbranch;
 
-import org.evosuite.Properties;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.coverage.branch.BranchCoverageGoal;
 import org.evosuite.ga.archive.Archive;
@@ -123,7 +122,7 @@ public class CBranchTestFitness extends TestFitnessFunction {
             individual.getTestCase().addCoveredGoal(this);
         }
 
-        if (Properties.TEST_ARCHIVE) {
+        if (Archive.isUpdating()) {
             Archive.getArchiveInstance().updateArchive(this, individual, fitness);
         }
 

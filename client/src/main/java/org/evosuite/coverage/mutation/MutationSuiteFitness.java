@@ -74,14 +74,13 @@ public abstract class MutationSuiteFitness extends TestSuiteFitnessFunction {
         }
         MutationFactory factory = (MutationFactory) FitnessFunctions.getFitnessFactory(criterion);
 
-        boolean archive = Properties.TEST_ARCHIVE;
-        Properties.TEST_ARCHIVE = false;
-        branchFitness = new BranchCoverageSuiteFitness();
-        Properties.TEST_ARCHIVE = archive;
+        try (Archive.UpdateSuppression ignored = Archive.suppressUpdates()) {
+            branchFitness = new BranchCoverageSuiteFitness();
+        }
 
         for (MutationTestFitness goal : factory.getCoverageGoals()) {
             mutantMap.put(goal.getMutation().getId(), goal);
-            if (Properties.TEST_ARCHIVE) {
+            if (Archive.isUpdating()) {
                 Archive.getArchiveInstance().addTarget(goal);
             }
         }
@@ -163,10 +162,9 @@ public abstract class MutationSuiteFitness extends TestSuiteFitnessFunction {
              * Note: results are cached, so the test suite is not executed again when we
              * calculated the branch fitness
              */
-            boolean archive = Properties.TEST_ARCHIVE;
-            Properties.TEST_ARCHIVE = false;
-            fitness = branchFitness.getFitness(individual);
-            Properties.TEST_ARCHIVE = archive;
+            try (Archive.UpdateSuppression ignored = Archive.suppressUpdates()) {
+                fitness = branchFitness.getFitness(individual);
+            }
         }
 
         Map<Integer, Double> mutantDistance = new LinkedHashMap<>();
@@ -212,7 +210,7 @@ public abstract class MutationSuiteFitness extends TestSuiteFitnessFunction {
                     this.toRemoveMutants.add(mutantId); // goal to not be considered by next EA iteration
                 }
 
-                if (Properties.TEST_ARCHIVE) {
+                if (Archive.isUpdating()) {
                     Archive.getArchiveInstance().updateArchive(goal, test, fit);
                 }
             }

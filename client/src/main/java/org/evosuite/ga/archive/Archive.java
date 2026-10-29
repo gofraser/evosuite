@@ -40,6 +40,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.evosuite.testcase.TestChromosome.getSecondaryObjectives;
 
@@ -54,6 +55,12 @@ public abstract class Archive implements Serializable {
     private static final long serialVersionUID = 2604119519478973245L;
 
     private static final Logger logger = LoggerFactory.getLogger(Archive.class);
+
+    /**
+     * Number of enclosing {@link #suppressUpdates()} scopes; archive updates are suspended while it
+     * is positive.
+     */
+    private static final AtomicInteger suppressionDepth = new AtomicInteger();
 
     /**
      * Map used to store all targets (values of the map) of each method (here represented by its name,
@@ -541,6 +548,46 @@ public abstract class Archive implements Serializable {
      */
     public void setHasBeenUpdated(boolean b) {
         this.hasBeenUpdated = b;
+    }
+
+    /**
+     * Whether fitness evaluation should update the archive right now: the archive is enabled in the
+     * configuration and no {@link #suppressUpdates()} scope is open.
+     *
+     * @return true if archive targets should be registered and solutions offered
+     */
+    public static boolean isUpdating() {
+        return Properties.TEST_ARCHIVE && suppressionDepth.get() == 0;
+    }
+
+    /**
+     * Suspends archive updates until the returned scope is closed, for auxiliary evaluations whose
+     * goals are not archive targets. Scopes nest, and closing restores the previous state even if
+     * the evaluation throws, so use it in a try-with-resources statement.
+     *
+     * @return the scope to close
+     */
+    public static UpdateSuppression suppressUpdates() {
+        suppressionDepth.incrementAndGet();
+        return new UpdateSuppression();
+    }
+
+    /**
+     * A scope in which archive updates are suspended; see {@link #suppressUpdates()}.
+     */
+    public static final class UpdateSuppression implements AutoCloseable {
+        private boolean open = true;
+
+        private UpdateSuppression() {
+        }
+
+        @Override
+        public void close() {
+            if (open) {
+                open = false;
+                suppressionDepth.decrementAndGet();
+            }
+        }
     }
 
     /**

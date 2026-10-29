@@ -102,7 +102,7 @@ public class MethodNoExceptionCoverageTestFitness extends AbstractMethodTestFitn
             individual.getTestCase().addCoveredGoal(this);
         }
 
-        if (Properties.TEST_ARCHIVE) {
+        if (Archive.isUpdating()) {
             Archive.getArchiveInstance().updateArchive(this, individual, fitness);
         }
 

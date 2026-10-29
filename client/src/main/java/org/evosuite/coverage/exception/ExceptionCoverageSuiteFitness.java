@@ -69,7 +69,7 @@ public class ExceptionCoverageSuiteFitness extends TestSuiteFitnessFunction {
         calculateExceptionInfo(results, implicitTypesOfExceptions, explicitTypesOfExceptions,
                 declaredTypesOfExceptions, this);
 
-        if (Properties.TEST_ARCHIVE) {
+        if (Archive.isUpdating()) {
             // If we are using the archive, then fitness is by definition 0
             // as all assertions already covered are in the archive
             suite.setFitness(this, 0.0);
@@ -213,7 +213,7 @@ public class ExceptionCoverageSuiteFitness extends TestSuiteFitnessFunction {
         if (!ExceptionCoverageFactory.getGoals().containsKey(key)) {
             ExceptionCoverageFactory.getGoals().put(key, goal);
             test.getTestCase().addCoveredGoal(goal);
-            if (Properties.TEST_ARCHIVE && contextFitness != null) {
+            if (Archive.isUpdating() && contextFitness != null) {
                 Archive.getArchiveInstance().addTarget(goal);
                 Archive.getArchiveInstance().updateArchive(goal, test, 0.0);
             }

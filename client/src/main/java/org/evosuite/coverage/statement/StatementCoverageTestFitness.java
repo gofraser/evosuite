@@ -19,7 +19,6 @@
  */
 package org.evosuite.coverage.statement;
 
-import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.branch.BranchCoverageFactory;
 import org.evosuite.coverage.branch.BranchCoverageTestFitness;
@@ -131,42 +130,39 @@ public class StatementCoverageTestFitness extends TestFitnessFunction {
 
         // Deactivate coverage archive while measuring fitness, since BranchCoverage fitness
         // evaluating will attempt to claim coverage for it in the archive
-        boolean archive = Properties.TEST_ARCHIVE;
-        Properties.TEST_ARCHIVE = false;
+        try (Archive.UpdateSuppression ignored = Archive.suppressUpdates()) {
+            // Find minimum distance to satisfying any of the control dependencies
+            for (BranchCoverageTestFitness branchFitness : this.branchFitnesses) {
+                double newFitness = branchFitness.getFitness(individual, result);
+                if (newFitness == 0.0) {
+                    // Although the BranchCoverage goal has been covered, it is not part of the
+                    // statement coverage optimisation - always remove it
+                    individual.getTestCase().removeCoveredGoal(branchFitness);
 
-        // Find minimum distance to satisfying any of the control dependencies
-        for (BranchCoverageTestFitness branchFitness : this.branchFitnesses) {
-            double newFitness = branchFitness.getFitness(individual, result);
-            if (newFitness == 0.0) {
-                // Although the BranchCoverage goal has been covered, it is not part of the
-                // statement coverage optimisation - always remove it
-                individual.getTestCase().removeCoveredGoal(branchFitness);
+                    double penalty = 0.0;
+                    if (this.goalInstruction != null && this.goalInstruction.hasLineNumberSet()) {
+                        if (!result.getTrace().getCoveredLines(this.className)
+                                .contains(this.goalInstruction.getLineNumber())) {
+                            // The branch was covered, but the statement was not executed (e.g. due to an exception)
+                            penalty = 1.0;
+                        }
+                    }
 
-                double penalty = 0.0;
-                if (this.goalInstruction != null && this.goalInstruction.hasLineNumberSet()) {
-                    if (!result.getTrace().getCoveredLines(this.className)
-                            .contains(this.goalInstruction.getLineNumber())) {
-                        // The branch was covered, but the statement was not executed (e.g. due to an exception)
-                        penalty = 1.0;
+                    if (penalty == 0.0) {
+                        r = 0.0;
+                        break;
+                    } else {
+                        if (penalty < r) {
+                            r = penalty;
+                        }
+                        continue;
                     }
                 }
-
-                if (penalty == 0.0) {
-                    r = 0.0;
-                    break;
-                } else {
-                    if (penalty < r) {
-                        r = penalty;
-                    }
-                    continue;
+                if (newFitness < r) {
+                    r = newFitness;
                 }
-            }
-            if (newFitness < r) {
-                r = newFitness;
             }
         }
-
-        Properties.TEST_ARCHIVE = archive;
 
         updateIndividual(individual, r);
 
@@ -174,7 +170,7 @@ public class StatementCoverageTestFitness extends TestFitnessFunction {
             individual.getTestCase().addCoveredGoal(this);
         }
 
-        if (Properties.TEST_ARCHIVE) {
+        if (Archive.isUpdating()) {
             Archive.getArchiveInstance().updateArchive(this, individual, r);
         }
 

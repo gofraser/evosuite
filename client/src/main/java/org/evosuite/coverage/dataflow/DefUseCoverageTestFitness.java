@@ -23,6 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.coverage.statement.StatementCoverageTestFitness;
 import org.evosuite.ga.Chromosome;
+import org.evosuite.ga.archive.Archive;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionResult;
@@ -179,12 +180,10 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 
         // Deactivate coverage archive while measuring fitness, as auxiliar fitness functions
         // could attempt to claim coverage for it in the archive
-        boolean archive = Properties.TEST_ARCHIVE;
-        Properties.TEST_ARCHIVE = false;
-
-        double fitness = calculator.calculateDUFitness();
-
-        Properties.TEST_ARCHIVE = archive;
+        double fitness;
+        try (Archive.UpdateSuppression ignored = Archive.suppressUpdates()) {
+            fitness = calculator.calculateDUFitness();
+        }
 
         if (ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE) && fitness == 0.0) {
             setCovered(individual, result.getTrace(), -1); // TODO objectId wrong

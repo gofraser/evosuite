@@ -89,7 +89,7 @@ public class MethodCoverageTestFitness extends AbstractMethodTestFitness {
             individual.getTestCase().addCoveredGoal(this);
         }
 
-        if (Properties.TEST_ARCHIVE) {
+        if (Archive.isUpdating()) {
             Archive.getArchiveInstance().updateArchive(this, individual, fitness);
         }
 

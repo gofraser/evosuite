@@ -19,7 +19,6 @@
  */
 package org.evosuite.coverage.mutation;
 
-import org.evosuite.Properties;
 import org.evosuite.assertion.*;
 import org.evosuite.ga.archive.Archive;
 import org.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
@@ -414,7 +413,7 @@ public class StrongMutationTestFitness extends MutationTestFitness {
         assert (fitness >= 0.0);
         assert (fitness <= executionDistance + 2.0);
 
-        if (Properties.TEST_ARCHIVE) {
+        if (Archive.isUpdating()) {
             Archive.getArchiveInstance().updateArchive(this, individual, fitness);
         }
 

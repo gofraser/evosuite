@@ -81,7 +81,7 @@ public abstract class IOCoverageSuiteFitness<F extends IOCoverageTestFitness<?>>
     private void determineCoverageGoals(AbstractFitnessFactory<F> factory) {
         for (F goal : factory.getCoverageGoals()) {
             goals.add(goal);
-            if (Properties.TEST_ARCHIVE) {
+            if (Archive.isUpdating()) {
                 Archive.getArchiveInstance().addTarget(goal);
             }
 

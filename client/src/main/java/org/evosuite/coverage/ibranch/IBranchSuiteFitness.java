@@ -101,7 +101,7 @@ public class IBranchSuiteFitness extends TestSuiteFitnessFunction {
                         methodsMap.computeIfAbsent(methodName, k -> new LinkedHashMap<>());
                 innermap.put(goal.getContext(), goal);
             }
-            if (Properties.TEST_ARCHIVE) {
+            if (Archive.isUpdating()) {
                 Archive.getArchiveInstance().addTarget(goal);
             }
             logger.debug("Context goal: {}", goal);
@@ -177,7 +177,7 @@ public class IBranchSuiteFitness extends TestSuiteFitnessFunction {
             }
 
             TestChromosome testChromosome = null;
-            if (Properties.TEST_ARCHIVE || updateChromosome) {
+            if (Archive.isUpdating() || updateChromosome) {
                 testChromosome = TestChromosome.fromResult(result);
             }
 
@@ -273,7 +273,7 @@ public class IBranchSuiteFitness extends TestSuiteFitnessFunction {
                     toRemoveSet.add(goal);
                 }
 
-                if (Properties.TEST_ARCHIVE && testChromosome != null) {
+                if (Archive.isUpdating() && testChromosome != null) {
                     Archive.getArchiveInstance().updateArchive(goal, testChromosome, distance);
                 }
             }

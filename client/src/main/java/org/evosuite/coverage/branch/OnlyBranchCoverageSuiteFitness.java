@@ -54,7 +54,7 @@ public class OnlyBranchCoverageSuiteFitness extends BranchCoverageSuiteFitness {
     protected void determineCoverageGoals(boolean updateArchive) {
         List<OnlyBranchCoverageTestFitness> goals = new OnlyBranchCoverageFactory().getCoverageGoals();
         for (OnlyBranchCoverageTestFitness goal : goals) {
-            if (updateArchive && Properties.TEST_ARCHIVE) {
+            if (updateArchive && Archive.isUpdating()) {
                 Archive.getArchiveInstance().addTarget(goal);
             }
 

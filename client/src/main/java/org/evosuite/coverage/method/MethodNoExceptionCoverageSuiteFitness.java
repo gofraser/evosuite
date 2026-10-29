@@ -19,7 +19,6 @@
  */
 package org.evosuite.coverage.method;
 
-import org.evosuite.Properties;
 import org.evosuite.ga.archive.Archive;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutionResult;
@@ -49,7 +48,7 @@ public class MethodNoExceptionCoverageSuiteFitness extends MethodCoverageSuiteFi
         List<MethodNoExceptionCoverageTestFitness> goals = new MethodNoExceptionCoverageFactory().getCoverageGoals();
         for (MethodNoExceptionCoverageTestFitness goal : goals) {
             methodCoverageMap.put(goal.getClassName() + "." + goal.getMethod(), goal);
-            if (Properties.TEST_ARCHIVE) {
+            if (Archive.isUpdating()) {
                 Archive.getArchiveInstance().addTarget(goal);
             }
         }

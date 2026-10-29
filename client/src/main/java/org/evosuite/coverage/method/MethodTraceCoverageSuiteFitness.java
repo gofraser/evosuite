@@ -19,7 +19,6 @@
  */
 package org.evosuite.coverage.method;
 
-import org.evosuite.Properties;
 import org.evosuite.ga.archive.Archive;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.slf4j.Logger;
@@ -48,7 +47,7 @@ public class MethodTraceCoverageSuiteFitness extends MethodCoverageSuiteFitness 
         List<MethodTraceCoverageTestFitness> goals = new MethodTraceCoverageFactory().getCoverageGoals();
         for (MethodTraceCoverageTestFitness goal : goals) {
             methodCoverageMap.put(goal.getClassName() + "." + goal.getMethod(), goal);
-            if (Properties.TEST_ARCHIVE) {
+            if (Archive.isUpdating()) {
                 Archive.getArchiveInstance().addTarget(goal);
             }
         }

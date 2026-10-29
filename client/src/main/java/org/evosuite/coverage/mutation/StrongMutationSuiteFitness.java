@@ -20,6 +20,7 @@
 package org.evosuite.coverage.mutation;
 
 import org.evosuite.Properties;
+import org.evosuite.ga.archive.Archive;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutionResult;
@@ -106,10 +107,10 @@ public class StrongMutationSuiteFitness extends MutationSuiteFitness {
 
         // First objective: achieve branch coverage
         logger.debug("Calculating branch fitness: ");
-        boolean archive = Properties.TEST_ARCHIVE;
-        Properties.TEST_ARCHIVE = false;
-        double fitness = branchFitness.getFitness(suite);
-        Properties.TEST_ARCHIVE = archive;
+        double fitness;
+        try (Archive.UpdateSuppression ignored = Archive.suppressUpdates()) {
+            fitness = branchFitness.getFitness(suite);
+        }
 
         Set<Integer> touchedMutants = new LinkedHashSet<>();
         Map<Mutation, Double> minMutantFitness = new LinkedHashMap<>();

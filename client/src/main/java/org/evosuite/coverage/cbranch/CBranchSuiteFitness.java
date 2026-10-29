@@ -66,7 +66,7 @@ public class CBranchSuiteFitness extends TestSuiteFitnessFunction {
 
     private void initMaps() {
         for (CBranchTestFitness goal : branchGoals) {
-            if (Properties.TEST_ARCHIVE) {
+            if (Archive.isUpdating()) {
                 Archive.getArchiveInstance().addTarget(goal);
             }
 
@@ -177,7 +177,7 @@ public class CBranchSuiteFitness extends TestSuiteFitnessFunction {
                         test.getTestCase().addCoveredGoal(goalT);
                         toRemoveGoals.add(goalT);
                     }
-                    if (Properties.TEST_ARCHIVE) {
+                    if (Archive.isUpdating()) {
                         Archive.getArchiveInstance().updateArchive(goalT, test, distanceT);
                     }
                 }
@@ -199,7 +199,7 @@ public class CBranchSuiteFitness extends TestSuiteFitnessFunction {
                         test.getTestCase().addCoveredGoal(goalF);
                         toRemoveGoals.add(goalF);
                     }
-                    if (Properties.TEST_ARCHIVE) {
+                    if (Archive.isUpdating()) {
                         Archive.getArchiveInstance().updateArchive(goalF, test, distanceF);
                     }
                 }
@@ -248,7 +248,7 @@ public class CBranchSuiteFitness extends TestSuiteFitnessFunction {
                         test.getTestCase().addCoveredGoal(goal);
                         toRemoveGoals.add(goal);
                     }
-                    if (Properties.TEST_ARCHIVE) {
+                    if (Archive.isUpdating()) {
                         Archive.getArchiveInstance().updateArchive(goal, test, count == 0 ? 1.0 : 0.0);
                     }
                 }

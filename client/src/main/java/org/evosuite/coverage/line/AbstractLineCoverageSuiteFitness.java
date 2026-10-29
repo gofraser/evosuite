@@ -58,7 +58,7 @@ public abstract class AbstractLineCoverageSuiteFitness extends TestSuiteFitnessF
         List<LineCoverageTestFitness> goals = new LineCoverageFactory().getCoverageGoals();
         for (LineCoverageTestFitness goal : goals) {
             lineGoals.put(goal.getLine(), goal);
-            if (Properties.TEST_ARCHIVE) {
+            if (Archive.isUpdating()) {
                 Archive.getArchiveInstance().addTarget(goal);
             }
         }

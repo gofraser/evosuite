@@ -74,7 +74,7 @@ public class MethodCoverageSuiteFitness extends TestSuiteFitnessFunction {
         List<MethodCoverageTestFitness> goals = new MethodCoverageFactory().getCoverageGoals();
         for (MethodCoverageTestFitness goal : goals) {
             methodCoverageMap.put(goal.getClassName() + "." + goal.getMethod(), goal);
-            if (Properties.TEST_ARCHIVE) {
+            if (Archive.isUpdating()) {
                 Archive.getArchiveInstance().addTarget(goal);
             }
         }
@@ -111,7 +111,7 @@ public class MethodCoverageSuiteFitness extends TestSuiteFitnessFunction {
                 calledMethods.add(name);
                 this.toRemoveMethods.add(name);
 
-                if (Properties.TEST_ARCHIVE) {
+                if (Archive.isUpdating()) {
                     Archive.getArchiveInstance().updateArchive(goal, test, 0.0);
                 }
             }

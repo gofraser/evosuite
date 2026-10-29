@@ -19,7 +19,7 @@
  */
 package org.evosuite.llm.search;
 
-import org.evosuite.Properties;
+import org.evosuite.ga.archive.Archive;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionResult;
@@ -53,19 +53,13 @@ public final class IsolatedEvaluation {
         ExecutionResult result = TestCaseExecutor.runTest(chromosome.getTestCase());
         chromosome.setLastExecutionResult(result);
         chromosome.setChanged(false);
-        // Every goal type routes its archive update through this flag (see e.g.
-        // LineCoverageTestFitness, which toggles it the same way for its own probe).
-        boolean archive = Properties.TEST_ARCHIVE;
-        Properties.TEST_ARCHIVE = false;
-        try {
+        try (Archive.UpdateSuppression ignored = Archive.suppressUpdates()) {
             for (TestFitnessFunction goal : goals) {
                 // Not every goal type stores the value itself in the two-argument overload
                 // (ExceptionCoverageTestFitness, AllDefsCoverageTestFitness leave that to
                 // getFitness(TestChromosome)), so store it explicitly.
                 chromosome.setFitness(goal, goal.getFitness(chromosome, result));
             }
-        } finally {
-            Properties.TEST_ARCHIVE = archive;
         }
     }
 

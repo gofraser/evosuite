@@ -19,7 +19,6 @@
  */
 package org.evosuite.coverage.io;
 
-import org.evosuite.Properties;
 import org.evosuite.ga.archive.Archive;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -166,7 +165,7 @@ public abstract class IOCoverageTestFitness<G extends IOGoal<G>> extends TestFit
             individual.getTestCase().addCoveredGoal(this);
         }
 
-        if (Properties.TEST_ARCHIVE) {
+        if (Archive.isUpdating()) {
             Archive.getArchiveInstance().updateArchive(this, individual, fitness);
         }
 

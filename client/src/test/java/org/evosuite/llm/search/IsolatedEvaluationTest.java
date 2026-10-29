@@ -20,6 +20,7 @@
 package org.evosuite.llm.search;
 
 import org.evosuite.Properties;
+import org.evosuite.ga.archive.Archive;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -130,7 +131,7 @@ class IsolatedEvaluationTest {
 
         @Override
         public double getFitness(TestChromosome individual, ExecutionResult result) {
-            archiveWasOn |= Properties.TEST_ARCHIVE;
+            archiveWasOn |= Archive.isUpdating();
             if (storesOwnValue) {
                 updateIndividual(individual, value);
             }
