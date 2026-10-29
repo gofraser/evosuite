@@ -22,7 +22,6 @@ package org.evosuite.symbolic.dse.algorithm.strategies.implementations.testcaseb
 import org.evosuite.symbolic.PathCondition;
 import org.evosuite.symbolic.dse.DSETestCase;
 import org.evosuite.symbolic.dse.algorithm.GenerationalSearchPathCondition;
-import org.evosuite.symbolic.dse.algorithm.strategies.TestCaseBuildingStrategy;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.symbolic.TestCaseUpdater;
 
@@ -34,8 +33,7 @@ import java.util.ArrayList;
  *
  * @author ignacio lebrero
  */
-public class DefaultTestCaseBuildingStrategy implements TestCaseBuildingStrategy {
-    @Override
+public class DefaultTestCaseBuildingStrategy {
     public DSETestCase buildInitialTestCase(Method method) {
         TestCase testCase = TestCaseUpdater.buildTestCaseWithDefaultValues(method);
         PathCondition emptyPathCondition = new PathCondition(new ArrayList());

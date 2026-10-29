@@ -21,7 +21,6 @@ package org.evosuite.symbolic.dse.algorithm.strategies.implementations.caching;
 
 import org.evosuite.symbolic.PathConditionUtils;
 import org.evosuite.symbolic.dse.DSEStatistics;
-import org.evosuite.symbolic.dse.algorithm.strategies.CachingStrategy;
 import org.evosuite.symbolic.expr.Constraint;
 import org.evosuite.symbolic.solver.SolverResult;
 import org.slf4j.Logger;
@@ -48,12 +47,11 @@ import java.util.Set;
  *
  * @author Ignacio Lebrero
  */
-public class CounterExampleCache implements CachingStrategy {
+public class CounterExampleCache {
 
     private static final Logger logger = LoggerFactory.getLogger(CounterExampleCache.class);
     private static final DSEStatistics statisticsLogger = DSEStatistics.getInstance();
 
-    @Override
     public CacheQueryResult checkCache(Set<Constraint<?>> query, Map<Set<Constraint<?>>, SolverResult> queryCache) {
         statisticsLogger.reportNewQueryCacheCall();
 

@@ -22,7 +22,6 @@ package org.evosuite.symbolic.dse.algorithm.strategies.implementations.pathexten
 import org.evosuite.symbolic.BranchCondition;
 import org.evosuite.symbolic.PathCondition;
 import org.evosuite.symbolic.dse.algorithm.GenerationalSearchPathCondition;
-import org.evosuite.symbolic.dse.algorithm.strategies.PathExtensionStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,14 +33,13 @@ import java.util.List;
  *
  * @author ignacio lebrero
  */
-public class ExpandExecutionStrategy implements PathExtensionStrategy {
+public class ExpandExecutionStrategy {
 
     public static final String DEBUG_MSG_NEGATING_INDEX_OF_PATH_CONDITION = "negating index {} of path condition";
     public static final String DEBUG_MSG_GENERATING_CHILDREN_FOR_GENERATION = "Generating children for generation {}";
 
     Logger logger = LoggerFactory.getLogger(ExpandExecutionStrategy.class);
 
-    @Override
     public List<GenerationalSearchPathCondition> generateChildren(
             GenerationalSearchPathCondition currentPathConditionChild) {
         List<GenerationalSearchPathCondition> generatedChildren = new ArrayList<>();

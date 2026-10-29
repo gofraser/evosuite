@@ -27,8 +27,12 @@ import org.evosuite.symbolic.dse.ConcolicExecutor;
 import org.evosuite.symbolic.dse.ConcolicExecutorImpl;
 import org.evosuite.symbolic.dse.DSEStatistics;
 import org.evosuite.symbolic.dse.DSETestCase;
-import org.evosuite.symbolic.dse.algorithm.strategies.*;
 import org.evosuite.symbolic.dse.algorithm.strategies.implementations.caching.CacheQueryResult;
+import org.evosuite.symbolic.dse.algorithm.strategies.implementations.caching.CounterExampleCache;
+import org.evosuite.symbolic.dse.algorithm.strategies.implementations.keepsearching.TestCasesPendingStrategy;
+import org.evosuite.symbolic.dse.algorithm.strategies.implementations.pathextension.ExpandExecutionStrategy;
+import org.evosuite.symbolic.dse.algorithm.strategies.implementations.testcasebuilding.DefaultTestCaseBuildingStrategy;
+import org.evosuite.symbolic.dse.algorithm.strategies.implementations.testcaseselection.TopTestCaseSelectionStrategy;
 import org.evosuite.symbolic.expr.Constraint;
 import org.evosuite.symbolic.solver.*;
 import org.evosuite.testcase.DefaultTestCase;
@@ -121,11 +125,11 @@ public abstract class ExplorationAlgorithm extends ExplorationAlgorithmBase {
     /**
      * Exploration strategies.
      **/
-    private transient CachingStrategy cachingStrategy;
-    private transient PathExtensionStrategy pathsExpansionStrategy;
-    private transient TestCaseBuildingStrategy testCaseBuildingStrategy;
-    private transient TestCaseSelectionStrategy testCaseSelectionStrategy;
-    private transient KeepSearchingCriteriaStrategy keepSearchingCriteriaStrategy;
+    private transient CounterExampleCache cachingStrategy;
+    private transient ExpandExecutionStrategy pathsExpansionStrategy;
+    private transient DefaultTestCaseBuildingStrategy testCaseBuildingStrategy;
+    private transient TopTestCaseSelectionStrategy testCaseSelectionStrategy;
+    private transient TestCasesPendingStrategy keepSearchingCriteriaStrategy;
 
     /**
      * Internal executor and solver.
@@ -186,27 +190,27 @@ public abstract class ExplorationAlgorithm extends ExplorationAlgorithmBase {
     /**
      * Exploration strategies setters.
      */
-    public void setCachingStrategy(CachingStrategy cachingStrategy) {
+    public void setCachingStrategy(CounterExampleCache cachingStrategy) {
         checkStrategy(cachingStrategy);
         this.cachingStrategy = cachingStrategy;
     }
 
-    public void setPathsExpansionStrategy(PathExtensionStrategy pathsExpansionStrategy) {
+    public void setPathsExpansionStrategy(ExpandExecutionStrategy pathsExpansionStrategy) {
         checkStrategy(pathsExpansionStrategy);
         this.pathsExpansionStrategy = pathsExpansionStrategy;
     }
 
-    public void setTestCaseBuildingStrategy(TestCaseBuildingStrategy testCaseBuildingStrategy) {
+    public void setTestCaseBuildingStrategy(DefaultTestCaseBuildingStrategy testCaseBuildingStrategy) {
         checkStrategy(testCaseBuildingStrategy);
         this.testCaseBuildingStrategy = testCaseBuildingStrategy;
     }
 
-    public void setTestCaseSelectionStrategy(TestCaseSelectionStrategy testCaseSelectionStrategy) {
+    public void setTestCaseSelectionStrategy(TopTestCaseSelectionStrategy testCaseSelectionStrategy) {
         checkStrategy(testCaseSelectionStrategy);
         this.testCaseSelectionStrategy = testCaseSelectionStrategy;
     }
 
-    public void setKeepSearchingCriteriaStrategy(KeepSearchingCriteriaStrategy keepSearchingCriteriaStrategy) {
+    public void setKeepSearchingCriteriaStrategy(TestCasesPendingStrategy keepSearchingCriteriaStrategy) {
         checkStrategy(keepSearchingCriteriaStrategy);
         this.keepSearchingCriteriaStrategy = keepSearchingCriteriaStrategy;
     }

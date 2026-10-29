@@ -20,7 +20,6 @@
 package org.evosuite.symbolic.dse.algorithm.strategies.implementations.testcaseselection;
 
 import org.evosuite.symbolic.dse.DSETestCase;
-import org.evosuite.symbolic.dse.algorithm.strategies.TestCaseSelectionStrategy;
 
 import java.util.Queue;
 
@@ -29,8 +28,7 @@ import java.util.Queue;
  *
  * @author ignacio lebrero
  */
-public class TopTestCaseSelectionStrategy implements TestCaseSelectionStrategy {
-    @Override
+public class TopTestCaseSelectionStrategy {
     public DSETestCase getCurrentIterationBasedTestCase(Queue<DSETestCase> generatedTests) {
         return generatedTests.poll();
     }

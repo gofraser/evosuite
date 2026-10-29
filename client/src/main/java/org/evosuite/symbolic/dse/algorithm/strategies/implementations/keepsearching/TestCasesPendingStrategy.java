@@ -20,7 +20,6 @@
 package org.evosuite.symbolic.dse.algorithm.strategies.implementations.keepsearching;
 
 import org.evosuite.symbolic.dse.DSETestCase;
-import org.evosuite.symbolic.dse.algorithm.strategies.KeepSearchingCriteriaStrategy;
 
 import java.util.Queue;
 
@@ -29,8 +28,7 @@ import java.util.Queue;
  *
  * @author ignacio lebrero
  */
-public class TestCasesPendingStrategy implements KeepSearchingCriteriaStrategy {
-    @Override
+public class TestCasesPendingStrategy {
     public boolean shouldKeepSearching(Queue<DSETestCase> generatedTests) {
         return generatedTests.size() > 0;
     }
