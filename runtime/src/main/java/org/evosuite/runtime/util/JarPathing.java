@@ -197,7 +197,6 @@ public class JarPathing {
 
 
                 escaped.append(element + " ");
-                //escaped.append(URLEncoder.encode(element,"UTF-8")+ " ");
             } catch (Exception e) {
                 logger.error("Problem when encoding '" + element + "': " + e);
                 return classpath;

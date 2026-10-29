@@ -683,8 +683,6 @@ public class BooleanTestabilityTransformation {
     private void transformMethod(MethodNode mn) {
         logger.info("Transforming method " + mn.name + mn.desc);
 
-        //currentCFG = GraphPool.getActualCFG(className, mn.name + mn.desc);
-
         // TODO: Skipping interfaces for now, but will need to handle Booleans in interfaces!
         if ((mn.access & Opcodes.ACC_ABSTRACT) == Opcodes.ACC_ABSTRACT) {
             return;
@@ -763,10 +761,6 @@ public class BooleanTestabilityTransformation {
         // Replace all boolean return values
         logger.info("Transforming Boolean return values");
         new BooleanReturnTransformer(this).transform(mn);
-
-        // GraphPool.clear(className, mn.name + mn.desc);
-        // BytecodeInstructionPool.clear(className, mn.name + mn.desc);
-        // BranchPool.clear(className, mn.name + mn.desc);
 
         // Actually this should be done automatically by the ClassWriter...
         // +2 because we might do a DUP2

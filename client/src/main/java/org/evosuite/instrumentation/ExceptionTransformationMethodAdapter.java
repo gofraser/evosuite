@@ -128,7 +128,6 @@ public class ExceptionTransformationMethodAdapter extends GeneratorAdapter {
         // Skip catch block if no exception was thrown
         Label afterCatch = newLabel();
         goTo(afterCatch);
-        //push((String)null);
 
         mark(catchLabel);
 
@@ -230,7 +229,6 @@ public class ExceptionTransformationMethodAdapter extends GeneratorAdapter {
                                    String type) {
         TryCatchBlock block = new TryCatchBlock(start, end, handler, type);
         tryCatchBlocks.add(block);
-        // super.visitTryCatchBlock(start, end, handler, type);
     }
 
     // @Override
@@ -249,7 +247,6 @@ public class ExceptionTransformationMethodAdapter extends GeneratorAdapter {
      */
     public void tagBranch() {
         Label dummyTag = new AnnotatedLabel(false, true);
-        // dummyTag.info = Boolean.TRUE;
         super.visitLabel(dummyTag);
     }
 
@@ -258,7 +255,6 @@ public class ExceptionTransformationMethodAdapter extends GeneratorAdapter {
      */
     public void tagBranchExit() {
         Label dummyTag = new AnnotatedLabel(false, false);
-        // dummyTag.info = Boolean.FALSE;
         super.visitLabel(dummyTag);
     }
 

@@ -968,7 +968,6 @@ public final class CallVM implements IVM {
         /*
          * <clinit>() method can read textually earlier fields
          */
-        // env.ensurePrepared(className);
         Frame frame = new StaticInitializerFrame(className);
         env.pushFrame(frame); // <clinit>() has no parameters
     }

@@ -90,7 +90,6 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
             int delta = 0;
 
             Mutations m = Randomness.choice(mutations);
-            //logger.debug("Test before mutation: {}", test.getTestCase().toCode());
 
             switch (m) {
                 case REPLACE:
@@ -111,7 +110,6 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
 
             if (test.isChanged()) {
                 logger.debug("Is changed");
-                // logger.info("Test after mutation: " + test.getTestCase().toCode());
                 if (objective.hasImproved(test)) {
                     logger.debug("Fitness has improved, keeping");
 

@@ -228,7 +228,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         if (Properties.LOCAL_SEARCH_RATE > 0) {
             addListener(LocalSearchBudget.getInstance());
         }
-        // addBloatControl(new MaxSizeBloatControl());
     }
 
     /**
@@ -857,7 +856,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
             T individual = chromosomeFactory.getChromosome();
             fitnessFunctions.forEach(individual::addFitness);
             newPopulation.add(individual);
-            //logger.error("Created a new individual");
             if (isFinished()) {
                 break;
             }
@@ -1272,7 +1270,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
      * Determine whether any of the stopping conditions hold.
      */
     public boolean isFinished() {
-        // logger.error(c + " "+ c.getCurrentValue());
         return stoppingConditions.stream().anyMatch(StoppingCondition::isFinished);
     }
 
@@ -1337,7 +1334,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
      * <code>chromosome2</code> according to the compound fitness function.
      */
     protected boolean isBetterOrEqual(T chromosome1, T chromosome2) {
-        // if (fitnessFunction.isMaximizationFunction()) {
         if (getFitnessFunction().isMaximizationFunction()) {
             return chromosome1.compareTo(chromosome2) >= 0;
         } else {

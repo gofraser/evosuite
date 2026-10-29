@@ -75,8 +75,6 @@ public class StrongMutationSuiteFitness extends MutationSuiteFitness {
     public double getFitness(TestSuiteChromosome suite) {
         runTestSuite(suite);
 
-        // Set<MutationTestFitness> uncoveredMutants = MutationTestPool.getUncoveredFitnessFunctions();
-
         for (TestChromosome test : suite.getTestChromosomes()) {
             ExecutionResult result = test.getLastExecutionResult();
 
@@ -183,7 +181,6 @@ public class StrongMutationSuiteFitness extends MutationSuiteFitness {
             }
         }
 
-        //logger.info("Fitness values for " + minMutantFitness.size() + " mutants");
         for (Double fit : minMutantFitness.values()) {
             fitness += fit;
         }

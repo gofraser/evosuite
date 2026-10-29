@@ -237,7 +237,6 @@ public class TestMutator {
 
         logger.debug("Got {} possible calls for {} objects", calls.size(), objects.size());
 
-        // calls.clear();
         if (calls.isEmpty()) {
             logger.debug("No replacement calls");
             return false;
@@ -397,7 +396,6 @@ public class TestMutator {
         if (test.getStatement(position) instanceof MethodStatement) {
             MethodStatement ms = (MethodStatement) test.getStatement(position);
             if (ms.getReturnType().equals(Object.class)) {
-                //                filterVariablesByClass(alternatives, var.getVariableClass());
                 filterVariablesByClass(alternatives, Object.class);
             }
         } else if (test.getStatement(position) instanceof ConstructorStatement) {

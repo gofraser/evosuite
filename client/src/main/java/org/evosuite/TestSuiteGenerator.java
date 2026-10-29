@@ -382,7 +382,6 @@ public class TestSuiteGenerator {
                     result = TestGenerationResultBuilder.buildSuccessResult();
                 }
             } else {
-                // progressMonitor.setCurrentPhase("Writing JUnit test cases");
                 LoggingUtils.clientInfo("Writing tests to file");
                 result = writeJUnitTestsAndCreateResult(testCases);
                 try {
@@ -685,7 +684,6 @@ public class TestSuiteGenerator {
         if (Properties.INLINE) {
             ClientServices.getInstance().getClientNode().changeState(ClientState.INLINING);
             ConstantInliner inliner = new ConstantInliner();
-            // progressMonitor.setCurrentPhase("Inlining constants");
 
             // Map<FitnessFunction<? extends TestSuite<?>>, Double> fitnesses =
             // testSuite.getFitnesses();
@@ -696,7 +694,6 @@ public class TestSuiteGenerator {
         MinimizationResult minimizationResult = MinimizationResult.disabled(testSuite);
         if (Properties.MINIMIZE) {
             ClientServices.getInstance().getClientNode().changeState(ClientState.MINIMIZATION);
-            // progressMonitor.setCurrentPhase("Minimizing test cases");
             PhaseSkipCause skipCause = checkPhase("minimization",
                     TimeController.getInstance()::hasTimeToExecuteATestCase);
             if (skipCause != PhaseSkipCause.NONE) {
@@ -1126,7 +1123,6 @@ public class TestSuiteGenerator {
         if (Properties.JUNIT_TESTS) {
 
             TestSuiteWriter suiteWriter = new TestSuiteWriter();
-            //suiteWriter.insertTests(FailingTestSet.getFailingTests());
 
             TestSuiteChromosome suite = new TestSuiteChromosome();
             for (TestCase test : FailingTestSet.getFailingTests()) {

@@ -56,7 +56,6 @@ public class RelativeTestLengthBloatControl<T extends ExecutableChromosome<T>>
             return false;
         }
 
-        // logger.debug("Current - max: "+((TestSuiteChromosome)chromosome).length()+" - "+currentMax);
         if (currentMax > 0) {
             // if(((TestSuiteChromosome)chromosome).length() > bloat_factor *
             // currentMax)

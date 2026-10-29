@@ -79,7 +79,6 @@ final class StringAVM extends VariableAVM {
 
             double newDist = DistanceEstimator.getDistance(cnstr);
 
-            // if (distImpr(newDist)) {
             if (newDist <= checkpointDistance) {
                 log.debug("Distance improved or did not increase, keeping change");
                 checkpointVar(newDist);
@@ -365,7 +364,6 @@ final class StringAVM extends VariableAVM {
         }
         log.debug("No improvement on " + oldString);
         restoreVar();
-        // strVar.setMinValue(oldString);
         log.debug("Final value of this iteration: " + oldString);
 
         return improvement;

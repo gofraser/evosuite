@@ -124,7 +124,6 @@ public class FailingTestSet {
             ContractViolation violation = violations.get(i);
             violation.minimizeTest();
             TestCase test = violation.getTestCase();
-            //violation.addAssertion(test);
             tests.add(test);
         }
         return tests;

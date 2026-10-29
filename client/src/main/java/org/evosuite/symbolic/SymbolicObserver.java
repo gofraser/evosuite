@@ -582,11 +582,6 @@ public class SymbolicObserver extends ExecutionObserver {
         Type arrayType = Type.getType(concArray.getClass());
         Type elementType = arrayType.getElementType();
         if (TypeUtil.isValue(elementType) || elementType.equals(Type.getType(String.class))) {
-            // Expression<?> symbValue = readResult.getExpression();
-
-            // String arrayName = arrayReference.getName();
-            // ReferenceExpression symbArray = symbReferences.get(arrayName);
-
             // NOTE (ilebrero): we only want to update the symbolic environment outside the SUT.
             // if (symbValue instanceof IntegerValue) {
             // env.heap.arrayStore(concArray, symbArray, symbIndex,

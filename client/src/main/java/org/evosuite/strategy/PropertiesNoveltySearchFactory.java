@@ -42,7 +42,6 @@ public class PropertiesNoveltySearchFactory extends PropertiesSearchAlgorithmFac
     private static final Logger logger = LoggerFactory.getLogger(PropertiesNoveltySearchFactory.class);
 
     @Override
-    //public GeneticAlgorithm<TestChromosome> getSearchAlgorithm() {
     public NoveltySearch getSearchAlgorithm() {
         ChromosomeFactory<TestChromosome> factory = testChromosomeFactory();
 

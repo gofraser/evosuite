@@ -55,7 +55,6 @@ public class GenericTypeInference extends TestVisitor {
     public void inferTypes(TestCase test) {
         this.test = test;
         logger.debug("Inferring generic types");
-        // calculateExactTypes();
         for (int i = test.size() - 1; i >= 0; i--) {
             Statement statement = test.getStatement(i);
             if (statement instanceof ConstructorStatement) {
@@ -242,7 +241,6 @@ public class GenericTypeInference extends TestVisitor {
 
         Map<TypeVariable<?>, Type> typeMap = constructor.getOwnerClass().getTypeVariableMap();
         if (constructor.getOwnerClass().hasTypeVariables()) {
-            // if (!typeMap.isEmpty()) {
             logger.info("Has types: " + constructor.getOwnerClass());
             logger.info("Initial type map: " + GenericUtils.stableTypeVariableMapToString(typeMap));
             for (TypeVariable<?> var : typeMap.keySet()) {

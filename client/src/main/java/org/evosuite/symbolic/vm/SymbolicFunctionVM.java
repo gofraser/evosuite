@@ -438,7 +438,6 @@ public final class SymbolicFunctionVM implements IVM {
     }
 
     private void beforeExecuteFunction(int nr) {
-        // String desc = functionUnderExecution.getDesc();
         if (nr == 0) {
             callBeforeExecution(functionUnderExecution);
         }

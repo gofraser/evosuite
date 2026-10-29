@@ -110,7 +110,6 @@ public class RandomTestStrategy extends TestGenerationStrategy {
                 StatisticsSender.executedAndThenSendIndividualToMaster(clone);
             }
         }
-        //statistics.searchFinished(suiteGA);
         LoggingUtils.getEvoLogger().info("* Search Budget:");
         LoggingUtils.getEvoLogger().info("\t- {}", stoppingCondition);
 

@@ -205,8 +205,6 @@ class CastPolicy {
                                     + ") ";
                         }
                     } else {
-                        // if (!GenericClass.isAssignable(GenericTypeReflector.getArrayComponentType(declaredParamType),
-                        // GenericTypeReflector.getArrayComponentType(actualParamType))) {
                         parameterString += "(" + host.getTypeName(declaredParamType) + ") ";
                     }
                 } else if (isUnresolvedTypeVariableOrWildcard(declaredParamType)
@@ -231,7 +229,6 @@ class CastPolicy {
                 if (name.contains("(byte")) {
                     name = name.replace("(byte)", "");
                 }
-                //}
             } else {
                 // We have to cast between wrappers and primitives in case there
                 // are overloaded signatures. This could be optimized by checking

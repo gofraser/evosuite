@@ -251,7 +251,6 @@ public class TestCaseMinimizer {
     private static void restoreTestCase(TestChromosome c, TestChromosome copy) {
         c.test = copy.test;
         c.copyCachedResults(copy);
-        //c.setFitness(copy.getFitness());
         c.setFitnessValues(copy.getFitnessValues());
         c.setPreviousFitnessValues(copy.getPreviousFitnessValues());
         c.setChanged(false);

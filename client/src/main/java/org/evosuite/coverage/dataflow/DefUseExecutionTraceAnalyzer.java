@@ -294,7 +294,6 @@ public abstract class DefUseExecutionTraceAnalyzer {
         // so we have 25% more executed statements, which means this will stay
         // enabled
 
-        //      System.out.println("start");
         long start = System.currentTimeMillis();
 
         Set<DefUseCoverageTestFitness> r = new HashSet<>();
@@ -305,7 +304,6 @@ public abstract class DefUseExecutionTraceAnalyzer {
         }
 
         timeGetCoveredGoals += System.currentTimeMillis() - start;
-        //      System.out.println("end");
 
         return r;
     }

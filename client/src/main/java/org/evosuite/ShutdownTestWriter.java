@@ -85,7 +85,6 @@ public class ShutdownTestWriter<T extends Chromosome<T>> extends StoppingConditi
 
     @Override
     public void reset() {
-        // interrupted = false;
     }
 
     @Override

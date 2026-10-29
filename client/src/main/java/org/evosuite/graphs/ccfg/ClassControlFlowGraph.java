@@ -399,7 +399,6 @@ public class ClassControlFlowGraph extends EvoSuiteGraph<CCFGNode, CCFGEdge> {
                 // are static
                 if (!(call.isCallToStaticMethod() || call
                         .isMethodCallOnSameObject())) {
-                    // call.printFrameInformation();
                     continue;
                 }
                 connectCFG(cfg, call, tempMap);

@@ -45,13 +45,6 @@ public class Calendar extends java.util.Calendar {
         wrappedCalendar = cal;
     }
 
-    //    protected Calendar() {
-    //        super();
-    //        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "<init>", "()V", new Object[] {});
-    //        FieldRegistry.register(this);
-    //        Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, CaptureLog.RETURN_TYPE_VOID);
-    //    }
-
     /**
      * Shadow of getTime method.
      *

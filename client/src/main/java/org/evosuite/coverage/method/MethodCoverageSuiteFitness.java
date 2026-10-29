@@ -183,7 +183,6 @@ public class MethodCoverageSuiteFitness extends TestSuiteFitnessFunction {
         if (hasTimeoutOrTestException) {
             logger.info("Test suite has timed out, setting fitness to max value " + totalMethods);
             fitness = totalMethods;
-            //suite.setCoverage(0.0);
         }
 
         updateIndividual(suite, fitness);

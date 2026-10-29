@@ -3505,7 +3505,6 @@ public class Properties {
                                         .getPath());
                     }
                 }
-                // logger.info("* Properties loaded from default configuration file.");
             }
         } catch (FileNotFoundException e) {
             logger.warn("- Error: Could not find configuration file "

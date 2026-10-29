@@ -77,7 +77,6 @@ public class AVMTestCaseLocalSearch extends TestCaseLocalSearch<TestChromosome> 
                 if (search.doSearch(individual, i, objective)) {
                     improved = true;
                 }
-                // i = s.getPosition();
                 logger.debug("Old position was: " + i + ", adjusting to: " + (i + search.getPositionDelta()));
                 i += search.getPositionDelta();
                 test = individual.getTestCase();

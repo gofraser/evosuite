@@ -563,7 +563,6 @@ public class DistanceCalculator implements ConstraintVisitor<Object, Void> {
 
         if (subStr_length > val_length) {
             return avmDistance(val, sub);
-            // return editDistance(val, sub);
         } else {
             int diff = val_length - subStr_length;
             for (int i = 0; i < diff + 1; i++) {
@@ -657,7 +656,6 @@ public class DistanceCalculator implements ConstraintVisitor<Object, Void> {
             return 0; // Identical
         } else {
             return avmDistance(first, second.toString());
-            // return editDistance(first, second.toString());
         }
     }
 

@@ -87,7 +87,6 @@ public class EnvironmentTestClusterAugmenter {
     public EnvironmentTestClusterAugmenter(TestCluster cluster) {
         this.cluster = cluster;
         testClusterGenerator = TestGenerationContext.getInstance().getTestClusterGenerator();
-        // testClusterGenerator = new TestClusterGenerator(cluster.getInheritanceTree());
         this.handledClasses = new LinkedHashSet<>();
     }
 

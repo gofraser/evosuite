@@ -199,8 +199,6 @@ public class ErrorConditionChecker {
                     return 1;
                 }
             }
-            //System.out.println(op1+" * "+op2 +" -> "+result +" -> "+(HALFWAY - scaleTo(result, HALFWAY)));
-            //return result <= 0 ? result : HALFWAY - scaleTo(result, HALFWAY);
         } else if (op1 < 0 && op2 < 0) {
             return result <= 0 ? result : HALFWAY - scaleTo(result, HALFWAY);
         } else if (op1 > 0 && op2 < 0) {

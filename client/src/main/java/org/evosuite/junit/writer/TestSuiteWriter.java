@@ -281,14 +281,12 @@ public class TestSuiteWriter implements Opcodes {
 
         if (Properties.OUTPUT_GRANULARITY == OutputGranularity.MERGED || testCases.size() == 0) {
             File file = new File(dir + "/" + name + ".java");
-            //executor.newObservers();
             content = getUnitTestsAllInSameFile(name, results, requirements);
             FileIOUtils.writeFile(content, file);
             generated.add(file);
         } else {
             for (int i = 0; i < testCases.size(); i++) {
                 File file = new File(dir + "/" + name + "_" + i + ".java"); // e.g., dir/Foo_ESTest_0.java
-                //executor.newObservers();
                 String testCode = getOneUnitTestInAFile(name, i, results, requirements);
                 FileIOUtils.writeFile(testCode, file);
                 content += testCode;

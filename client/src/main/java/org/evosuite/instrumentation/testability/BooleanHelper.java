@@ -40,7 +40,6 @@ public class BooleanHelper {
      * Constant <code>K=Integer.MAX_VALUE - 2</code>.
      */
     public static final int K = Integer.MAX_VALUE - 2;
-    //public static final int K = 1000;
 
     public static final int TRUE = K;
 
@@ -90,11 +89,9 @@ public class BooleanHelper {
      * @return the normalized distance.
      */
     public static double normalize(int distance) {
-        // double k = K;
         double k = Properties.MAX_INT;
         double d = distance;
         return d / (d + 0.5 * k);
-        //return distance / (distance + 1.0);
     }
 
     /**
@@ -139,7 +136,6 @@ public class BooleanHelper {
 
         double diff = d1 - d2;
         double diff2 = diff / (1.0 + Math.abs(diff));
-        // int d3 = (int) Math.round(Integer.MAX_VALUE * diff2);
         int d3 = (int) (diff2 < 0 ? Math.floor(Integer.MAX_VALUE * diff2)
                 : Math.ceil(Integer.MAX_VALUE * diff2));
         if (d3 == 0) {
@@ -230,7 +226,6 @@ public class BooleanHelper {
 
     @Deprecated
     public static int fromDouble(double d) {
-        //logger.info("Converting double " + d);
         /*
         if (d > Integer.MAX_VALUE)
             return Integer.MAX_VALUE;
@@ -242,16 +237,13 @@ public class BooleanHelper {
             return 0;
         } else {
             double d2 = Math.signum(d) * Math.abs(d) / (1.0 + Math.abs(d));
-            //logger.info(" -> " + d2);
             int d3 = (int) Math.round(Integer.MAX_VALUE * d2);
-            //logger.info(" -> " + d3);
             return d3;
         }
     }
 
     @Deprecated
     public static int fromFloat(float d) {
-        //logger.info("Converting float " + d);
         /*
         if (d > Integer.MAX_VALUE)
             return Integer.MAX_VALUE;
@@ -262,9 +254,7 @@ public class BooleanHelper {
             return 0;
         } else {
             float d2 = Math.signum(d) * Math.abs(d) / (1f + Math.abs(d));
-            //logger.info(" ->" + d2);
             int d3 = Math.round(Integer.MAX_VALUE * d2);
-            //logger.info(" -> " + d3);
             return d3;
         }
     }

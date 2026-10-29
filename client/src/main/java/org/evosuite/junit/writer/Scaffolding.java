@@ -317,7 +317,6 @@ public class Scaffolding {
          *
          * https://github.com/junit-team/junit/issues/1231
          */
-        // generateTimeoutRule(bd);
 
         generateNFRRule(bd);
 

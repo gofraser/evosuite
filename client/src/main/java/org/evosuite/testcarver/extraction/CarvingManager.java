@@ -78,11 +78,6 @@ public class CarvingManager {
             junitTestNames.add(s.trim());
         }
 
-        /*
-        Pattern pattern = Pattern.compile(Properties.JUNIT_PREFIX+".*.class");
-        Collection<String> junitTestNames = ResourceList.getResources(pattern);
-        logger.info("Found "+junitTestNames.size()+" candidate junit classes for pattern "+pattern);
-        */
         return junitTestNames;
     }
 
@@ -184,7 +179,6 @@ public class CarvingManager {
                         }
                     }
                 }
-                // junitTests.addAll(listener.getTestCases());
 
                 if (processedTests.size() > 0) {
                     LoggingUtils.getEvoLogger().info(" -> Carved {} tests for class {} from existing JUnit tests",
@@ -202,7 +196,6 @@ public class CarvingManager {
                     //}
                     logger.info("It was not possible to carve any test case for class {} from {}",
                             targetClass.getName(), Arrays.toString(junitTestNames.toArray()));
-                    //        + ". Test execution results: " + outcome);
                 }
                 carvedTests.put(targetClass, processedTests);
             }

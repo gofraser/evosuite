@@ -80,7 +80,6 @@ public class NullTraceObserver extends AssertionTraceObserver<NullTraceEntry> {
                     object == null));
         } catch (CodeUnderTestException e) {
             logger.debug("", e);
-            //throw new UnsupportedOperationException();
         }
     }
 

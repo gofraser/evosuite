@@ -46,11 +46,9 @@ public class LinkedListInstrumentation extends ErrorBranchInstrumenter {
                 // empty
                 Map<Integer, Integer> tempVariables = getMethodCallee(desc);
 
-                //tagBranchStart();
                 mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, LISTNAME,
                         "isEmpty", "()Z", false);
                 insertBranch(Opcodes.IFLE, "java/util/NoSuchElementException");
-                //tagBranchEnd();
                 restoreMethodParameters(tempVariables, desc);
 
             }

@@ -70,7 +70,6 @@ class TestGenerationResultImpl<T extends Chromosome<T>> implements TestGeneratio
 
     private String targetClass = "";
 
-    //private String targetCriterion = "";
     private String[] targetCriterion;
 
     private final LinkedHashMap<FitnessFunction<?>, Double> targetCoverages = new LinkedHashMap<>();

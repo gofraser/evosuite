@@ -632,9 +632,6 @@ public class TestCaseExecutor implements ThreadFactory {
          */
 
         try {
-            // ExecutionResult result = task.get(timeout,
-            // TimeUnit.MILLISECONDS);
-
             ExecutionResult result = null;
 
             // important to call it before setting up the sandbox

@@ -73,8 +73,6 @@ public class TransformerForTests implements ClassFileTransformer {
                 || classWithDots.startsWith(PackageInfo.getEvoSuitePackage())) {
             return classfileBuffer;
         } else {
-            //ClassResetter.getInstance().setClassLoader(loader);
-
             ClassReader reader = new ClassReader(classfileBuffer);
             synchronized (instrumentedClasses) {
                 instrumentedClasses.add(classWithDots);

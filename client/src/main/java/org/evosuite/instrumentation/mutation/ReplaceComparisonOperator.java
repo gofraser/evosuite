@@ -394,14 +394,12 @@ public class ReplaceComparisonOperator implements MutationOperator {
             } else {
                 replacement.addAll(getIntReplacement(opcode));
             }
-            // replacement.addAll(opcodesInt);
         } else if (opcodesIntInt.contains(opcode)) {
             if (isBoolean) {
                 replacement.add(getBooleanIntIntReplacement(opcode));
             } else {
                 replacement.addAll(getIntIntReplacement(opcode));
             }
-            // replacement.addAll(opcodesIntInt);
         }
         replacement.remove(opcode);
         return replacement;

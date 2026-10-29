@@ -386,7 +386,6 @@ public final class CaptureLog implements Cloneable {
         if (receiver instanceof Class) { //this can only happen, if there is a static method call
             final Class<?> c = (Class<?>) receiver;
             this.oidClassNames.add(c.getName().replace(PackageInfo.getEvoSuitePackage() + ".testcarver.wrapper.", ""));
-            //.replaceFirst("\\$\\d+$", ""));
 
         } else if (this.isPlain(receiver)) {
             // we don't need fully qualified name for plain types

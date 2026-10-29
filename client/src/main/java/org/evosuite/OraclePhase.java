@@ -73,7 +73,6 @@ final class OraclePhase {
             // change the class loader stored in statements. Keep assertion-free
             // canonical clones and transfer only retained assertions afterward.
             LoggingUtils.clientInfo("Generating assertions");
-            // progressMonitor.setCurrentPhase("Generating assertions");
             ClientServices.getInstance().getClientNode().changeState(ClientState.ASSERTION_GENERATION);
             PhaseSkipCause skipCause = TestSuiteGenerator.checkPhase("assertion generation",
                     TimeController.getInstance()::hasTimeToExecuteATestCase);

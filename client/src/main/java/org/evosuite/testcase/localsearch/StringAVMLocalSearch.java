@@ -83,8 +83,6 @@ public class StringAVMLocalSearch extends AbstractStringLocalSearch {
             }
 
             return hasImproved;
-            //} else {
-            //    logger.info("Not applying local search to string as it does not improve fitness");
         }
 
         return false;

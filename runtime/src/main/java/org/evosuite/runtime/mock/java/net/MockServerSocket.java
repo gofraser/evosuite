@@ -302,8 +302,6 @@ public class MockServerSocket extends ServerSocket implements OverrideMock {
             }
             si = s.impl;
             s.impl = null;
-            //si.address = new InetAddress();
-            //si.fd = new FileDescriptor();
 
             si.setServerSocket(this); // TODO not sure if correct
             getImpl().accept(si);

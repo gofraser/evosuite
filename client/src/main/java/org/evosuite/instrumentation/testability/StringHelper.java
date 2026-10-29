@@ -33,10 +33,6 @@ import java.util.regex.Pattern;
 public class StringHelper {
 
     public static int editDistance(String s, String t) {
-        // if (s == null || t == null) {
-        //     throw new IllegalArgumentException("Strings must not be null");
-        // }
-
         /*
             The difference between this impl. and the previous is that, rather
              than creating and retaining a matrix of size s.length()+1 by t.length()+1,
@@ -121,7 +117,6 @@ public class StringHelper {
         } else {
             ConstantPoolManager.addDynamicConstantIfTracing(first);
             ConstantPoolManager.addDynamicConstantIfTracing(second);
-            // return -getDistanceBasedOnLeftAlignment(first, second.toString());
             double distance = -getDistanceBasedOnLeftAlignmentCharacterDistance(first, second.toString());
             double d2 = distance / (1.0 + Math.abs(distance));
 
@@ -292,7 +287,6 @@ public class StringHelper {
                     differences += BooleanHelper.normalize(Math.abs(a.charAt(i) - b.charAt(i)));
                 }
             }
-            //LoggingUtils.getEvoLogger().info("Distance between " + a + " and " + b  + " is: " + differences);
             return differences;
         }
     }

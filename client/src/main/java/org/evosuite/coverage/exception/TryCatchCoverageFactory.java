@@ -43,7 +43,6 @@ public class TryCatchCoverageFactory extends AbstractFitnessFactory<TryCatchCove
     public List<TryCatchCoverageTestFitness> getCoverageGoals() {
         List<TryCatchCoverageTestFitness> goals = new ArrayList<>();
 
-        // logger.info("Getting branches");
         for (String className : BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                 .knownClasses()) {
             if (!TargetClasses.isCutOrUnset(className)) {

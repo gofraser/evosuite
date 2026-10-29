@@ -104,7 +104,6 @@ public final class EvoSuiteSolver extends Solver {
             }
         }
 
-        // distance = DistanceEstimator.getDistance(constraints);
         if (distance <= 0) {
             log.debug("Distance is " + distance + ", found solution");
             Map<String, Object> newModel = getConcreteValues(variables);

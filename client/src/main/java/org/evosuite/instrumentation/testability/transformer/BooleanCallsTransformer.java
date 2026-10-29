@@ -74,7 +74,6 @@ public class BooleanCallsTransformer extends MethodNodeTransformer {
                 }
                 if (firstBooleanParameterIndex != -1) {
                     int numOfPushs = types.length - 1 - firstBooleanParameterIndex;
-                    //                        int numOfPushs = types.length - firstBooleanParameterIndex;
 
                     if (numOfPushs == 0) {
                         AbstractInsnNode prev = methodNode.getPrevious();

@@ -291,9 +291,6 @@ public class ExecutionTracer {
         trace.finishCalls();
         return trace;
 
-        // ExecutionTrace copy = trace.clone();
-        // // copy.finishCalls();
-        // return copy;
     }
 
     /**
@@ -322,7 +319,6 @@ public class ExecutionTracer {
 
         checkTimeout();
 
-        //logger.trace("Entering method " + classname + "." + methodname);
         tracer.trace.enteredMethod(classname, methodname, caller);
     }
 
@@ -339,7 +335,6 @@ public class ExecutionTracer {
             return;
         }
 
-        //logger.trace("Return value: " + value);
         tracer.trace.returnValue(className, methodName, value);
     }
 
@@ -403,7 +398,6 @@ public class ExecutionTracer {
         }
 
         tracer.trace.exitMethod(classname, methodname);
-        // logger.trace("Left method " + classname + "." + methodname);
     }
 
     /**
@@ -472,7 +466,6 @@ public class ExecutionTracer {
     public static void passedBranch(int val, int opcode, int branch, int bytecodeId) {
 
         ExecutionTracer tracer = getExecutionTracer();
-        // logger.info("passedBranch val="+val+", opcode="+opcode+", branch="+branch+", bytecode_id="+bytecode_id);
         if (tracer.disabled) {
             return;
         }
@@ -528,8 +521,6 @@ public class ExecutionTracer {
                 logger.error("Unknown opcode: " + opcode);
 
         }
-        // logger.trace("1 Branch distance true : " + distance_true);
-        // logger.trace("1 Branch distance false: " + distance_false);
 
         // Add current branch to control trace
         if (Properties.LLM_BRANCH_OPERAND_HINTS) {
@@ -709,15 +700,12 @@ public class ExecutionTracer {
             default:
                 logger.error("Unknown opcode: " + opcode);
         }
-        // logger.trace("2 Branch distance true: " + distance_true);
-        // logger.trace("2 Branch distance false: " + distance_false);
 
         // Add current branch to control trace
         if (Properties.LLM_BRANCH_OPERAND_HINTS) {
             tracer.trace.branchOperandsSeen(branch, val1, val2, opcode);
         }
         tracer.trace.branchPassed(branch, bytecodeId, distanceTrue, distanceFalse);
-        // tracer.trace.branchPassed(branch, distance_true, distance_false);
 
     }
 
@@ -739,7 +727,6 @@ public class ExecutionTracer {
 
         double distanceTrue = 0;
         double distanceFalse = 0;
-        // logger.warn("Disabling tracer: passedBranch with 2 Objects");
 
         switch (opcode) {
             case Opcodes.IF_ACMPEQ:
@@ -790,10 +777,6 @@ public class ExecutionTracer {
                 logger.error("Warning: encountered opcode " + opcode);
         }
         distanceFalse = distanceTrue == 0 ? 1.0 : 0.0;
-        // enable();
-
-        // logger.trace("Branch distance true: " + distance_true);
-        // logger.trace("Branch distance false: " + distance_false);
 
         // Add current branch to control trace
         if (Properties.LLM_BRANCH_OPERAND_HINTS) {

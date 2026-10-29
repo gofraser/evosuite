@@ -179,7 +179,6 @@ public class ReplaceVariable implements MutationOperator {
             try {
                 LocalVariableNode origVar = MutationUtils.getLocal(mn, node, var.var);
 
-                //LocalVariableNode origVar = (LocalVariableNode) mn.localVariables.get(var.var);
                 logger.trace("Looking for replacements for {} of type {} at index {}",
                         origVar.name, origVar.desc, origVar.index);
 

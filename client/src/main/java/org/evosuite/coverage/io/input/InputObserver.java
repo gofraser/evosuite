@@ -76,7 +76,6 @@ public class InputObserver extends ExecutionObserver {
 
             inputCoverage.put(statement.getPosition(), InputCoverageGoal.createCoveredGoalsFromParameters(className,
                     methodName, methodDesc, argObjects));
-            // argumentsValues.put((EntityWithParametersStatement) statement, argObjects);
         }
     }
 

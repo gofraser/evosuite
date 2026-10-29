@@ -48,7 +48,6 @@ public class BooleanReturnTransformer extends MethodNodeTransformer {
 
     @Override
     protected AbstractInsnNode transformInsnNode(MethodNode mn, InsnNode insnNode) {
-        //String desc = DescriptorMapping.getInstance().getMethodDesc(className, mn.name, mn.desc);
         Type returnType = Type.getReturnType(mn.desc);
         if (!returnType.equals(Type.BOOLEAN_TYPE)) {
             return insnNode;

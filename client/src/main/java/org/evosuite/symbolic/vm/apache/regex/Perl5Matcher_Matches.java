@@ -58,7 +58,6 @@ public final class Perl5Matcher_Matches extends SymbolicFunction {
 
         ReferenceConstant symbStringRef = (ReferenceConstant) this
                 .getSymbArgument(0);
-        // Reference symb_pattern_ref = this.getSymbArgument(1);
 
         String concString = (String) this.getConcArgument(0);
         Pattern concPattern = (Pattern) this.getConcArgument(1);

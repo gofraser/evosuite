@@ -118,7 +118,6 @@ public class ValueMinimizer extends TestVisitor {
             individual.setChanged(true);
             suite.setTestChromosome(testIndex, individual);
             double newFitness = fitness.getFitness(suite);
-            // individual.setChanged(true);
             boolean worse = false;
             if (fitness.isMaximizationFunction()) {
                 if (newFitness < lastFitness) {
@@ -286,7 +285,6 @@ public class ValueMinimizer extends TestVisitor {
                     || constantValue.getValue().equals(max)) {
                 done = true;
                 logger.info("Fixpoint.");
-                //assert (objective.isNotWorse());
             }
             if (objective.isNotWorse()) {
                 logger.info("Fitness hasn't decreased");

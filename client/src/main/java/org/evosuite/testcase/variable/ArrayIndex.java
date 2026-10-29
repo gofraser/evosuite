@@ -69,10 +69,8 @@ public class ArrayIndex extends VariableReferenceImpl {
     private static Type getReturnType(ArrayReference array, int indicesCnt) {
         assert indicesCnt >= 1;
         Type result = array.getComponentType();
-        // Class<?> result = (Class<?>) array.getComponentType();
         for (int idx = 1; idx < indicesCnt; idx++) {
             result = GenericTypeReflector.getArrayComponentType(result);
-            //result = result.getComponentType();
         }
         return result;
     }

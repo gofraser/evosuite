@@ -88,11 +88,6 @@ public class MethodCall implements Cloneable {
         ret.append(":");
         ret.append(methodName);
         ret.append("\n");
-        // ret.append("Lines: ");
-        // for(Integer line : line_trace) {
-        // ret.append(" "+line);
-        // }
-        // ret.append("\n");
         ret.append("Branches: ");
         for (Integer branch : branchTrace) {
             ret.append(" " + branch);

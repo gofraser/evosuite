@@ -52,7 +52,6 @@ public class BooleanIfTransformer extends MethodNodeTransformer {
         if (jumpNode.getOpcode() == Opcodes.IFNE) {
             if (this.booleanTestabilityTransformation.isBooleanOnStack(mn, jumpNode, 0)) {
                 TransformationStatistics.transformedBooleanComparison();
-                // BooleanTestabilityTransformation.logger.info("Changing IFNE");
                 jumpNode.setOpcode(Opcodes.IFGT);
             } else {
                 AbstractInsnNode insn = jumpNode.getPrevious();
@@ -61,7 +60,6 @@ public class BooleanIfTransformer extends MethodNodeTransformer {
                     if (Type.getReturnType(DescriptorMapping.getInstance().getMethodDesc(mi.owner,
                             mi.name,
                             mi.desc)) == Type.BOOLEAN_TYPE) {
-                        // BooleanTestabilityTransformation.logger.info("Changing IFNE");
                         jumpNode.setOpcode(Opcodes.IFGT);
                     }
                 }
@@ -69,7 +67,6 @@ public class BooleanIfTransformer extends MethodNodeTransformer {
         } else if (jumpNode.getOpcode() == Opcodes.IFEQ) {
             if (this.booleanTestabilityTransformation.isBooleanOnStack(mn, jumpNode, 0)) {
                 TransformationStatistics.transformedBooleanComparison();
-                // BooleanTestabilityTransformation.logger.info("Changing IFEQ");
                 jumpNode.setOpcode(Opcodes.IFLE);
             } else {
                 AbstractInsnNode insn = jumpNode.getPrevious();
@@ -77,7 +74,6 @@ public class BooleanIfTransformer extends MethodNodeTransformer {
                     MethodInsnNode mi = (MethodInsnNode) insn;
                     if (Type.getReturnType(BooleanTestabilityTransformation.getOriginalDesc(mi.owner,
                             mi.name, mi.desc)) == Type.BOOLEAN_TYPE) {
-                        // BooleanTestabilityTransformation.logger.info("Changing IFEQ");
                         jumpNode.setOpcode(Opcodes.IFLE);
                     }
                 }

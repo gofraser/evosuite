@@ -92,11 +92,6 @@ public class ProgressMonitor<T extends Chromosome<T>> implements SearchListener<
         ClientServices.getInstance().getClientNode().changeState(state, information);
         lastProgress = percent;
         lastCoverage = currentCoverage;
-        //out.writeInt(percent);
-        //out.writeInt(currentPhase);
-        //out.writeInt(phases);
-        //out.writeInt(currentCoverage);
-        //out.writeObject(currentTask);
     }
 
     @Override

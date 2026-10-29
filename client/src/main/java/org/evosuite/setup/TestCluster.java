@@ -538,7 +538,6 @@ public class TestCluster {
                                  */
                                 newGenerator = newGenerator.getGenericInstantiationFromReturnValue(clazz);
                                 hadTypeParameters = true;
-                                // newGenerator = newGenerator.getGenericInstantiation(clazz);
                             }
 
                             logger.debug("Current generator: {}", newGenerator);
@@ -632,7 +631,6 @@ public class TestCluster {
             logger.debug("Is parameterized class");
             for (Entry<GenericClass<?>, Set<GenericAccessibleObject<?>>> entry : modifiers.entrySet()) {
                 logger.debug("Considering " + entry.getKey());
-                //if (entry.getKey().canBeInstantiatedTo(clazz)) {
 
                 if (entry.getKey().getWithWildcardTypes().isGenericSuperTypeOf(clazz)) {
                     logger.debug(entry.getKey() + " can be instantiated to " + clazz);

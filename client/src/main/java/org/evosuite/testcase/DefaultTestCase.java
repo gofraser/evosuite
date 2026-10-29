@@ -383,8 +383,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         // fail()/assertions, so a clone that is rendered must keep it.
         t.unstable = unstable;
         t.id = idGenerator.getAndIncrement(); //always create new ID when making a clone
-        //t.exception_statement = exception_statement;
-        //t.exceptionThrown = exceptionThrown;
         TestPresentationMetadata.copyTo(this, t, 0);
         return t;
     }
@@ -613,7 +611,6 @@ public class DefaultTestCase implements TestCase, Serializable {
                 variables.add(value);
                 addFields(variables, value, null);
             }
-            // logger.trace(statements.get(i).retval.getSimpleClassName());
         }
 
         return variables;
@@ -721,8 +718,6 @@ public class DefaultTestCase implements TestCase, Serializable {
             return references;
         }
 
-        // references.add(var);
-
         for (int i = var.getStPosition() + 1; i < statements.size(); i++) {
             Set<VariableReference> temp = new LinkedHashSet<>();
             if (statements.get(i).references(var)) {
@@ -776,9 +771,6 @@ public class DefaultTestCase implements TestCase, Serializable {
      *
      * <p>Equality check
      */
-    // public boolean equals(TestCase t) {
-    // return statements.size() == t.statements.size() && isPrefix(t);
-    // }
     @Override
     public int hashCode() {
         return statements.hashCode();
@@ -845,7 +837,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     private boolean isClassUtilsBug(Class<?> rawClass, Class<?> arrayClass) {
         while (arrayClass != null && arrayClass.isArray()) {
             if (rawClass.isAssignableFrom(arrayClass.getComponentType())) {
-                //            if (arrayClass.getComponentType().equals(rawClass)) {
                 return true;
             }
             arrayClass = arrayClass.getComponentType();

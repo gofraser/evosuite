@@ -97,7 +97,6 @@ public class TestCaseExpander {
                 owner.getStPosition() + 1);
         if (!variableMapping.containsKey(owner.getStPosition())) {
             variableMapping.put(owner.getStPosition(), new HashSet<>());
-            // variableMapping.get(owner.getStPosition()).add(owner);
         }
         variableMapping.get(owner.getStPosition()).add(copy);
         return copy;

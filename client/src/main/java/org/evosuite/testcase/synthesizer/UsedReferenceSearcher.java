@@ -171,7 +171,6 @@ public class UsedReferenceSearcher {
                         }
                     }
                 } else if (stat instanceof AssignmentStatement) {
-                    // obj.name = string;
                     AssignmentStatement assignStat = (AssignmentStatement) stat;
                     String returnName = assignStat.getReturnValue().getName();
                     if (returnName.contains(".")) {

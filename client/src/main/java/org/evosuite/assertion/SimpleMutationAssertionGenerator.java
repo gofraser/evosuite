@@ -114,7 +114,6 @@ public class SimpleMutationAssertionGenerator extends AssertionGenerator {
      */
     protected ExecutionResult runTest(TestCase test, Mutation mutant) {
         ExecutionResult result = new ExecutionResult(test, mutant);
-        // resetObservers();
         clearObservers();
         try {
             logger.debug("Executing test");
@@ -176,7 +175,6 @@ public class SimpleMutationAssertionGenerator extends AssertionGenerator {
     protected void calculateMutationScore(Set<Integer> tkilled) {
         if (MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                 .getMutantCounter() == 0) {
-            // SearchStatistics.getInstance().mutationScore(1.0);
             LoggingUtils.getEvoLogger()
                     .info("* Resulting test suite's mutation score: " + NumberFormat.getPercentInstance().format(1.0));
             ClientServices.track(RuntimeVariable.MutationScore, 1.0);
@@ -184,7 +182,6 @@ public class SimpleMutationAssertionGenerator extends AssertionGenerator {
         } else {
             double score = (double) tkilled.size() / (double) MutationPool.getInstance(
                     TestGenerationContext.getInstance().getClassLoaderForSUT()).getMutantCounter();
-            // SearchStatistics.getInstance().mutationScore(score);
             ClientServices.track(RuntimeVariable.MutationScore, score);
             LoggingUtils.getEvoLogger().info(
                     "* Resulting test suite's mutation score: " + NumberFormat.getPercentInstance().format(score));
@@ -360,7 +357,6 @@ public class SimpleMutationAssertionGenerator extends AssertionGenerator {
                 generator.addAssertions(test);
                 numTest++;
             } else {
-                // Set<Integer> killed = new HashSet<Integer>();
                 addAssertions(test, tkilled);
                 //progressMonitor.updateStatus((100 * numTest++) / tests.size());
                 // Report progress only when the percentage changes: every report is a remote
@@ -415,8 +411,6 @@ public class SimpleMutationAssertionGenerator extends AssertionGenerator {
 
         for (Integer mutationId : origResult.getTrace().getTouchedMutants()) {
             if (!mutants.containsKey(mutationId)) {
-                //logger.warn("Mutation ID unknown: " + mutationId);
-                //logger.warn(mutants.keySet().toString());
             } else {
                 executedMutants.add(mutants.get(mutationId));
             }
@@ -508,7 +502,6 @@ public class SimpleMutationAssertionGenerator extends AssertionGenerator {
                 }
             }
             killMap.put(num, killedMutations);
-            //logger.info("Assertion " + num + " kills mutants " + killedMutations);
             num++;
         }
 
@@ -788,7 +781,6 @@ public class SimpleMutationAssertionGenerator extends AssertionGenerator {
 
         boolean done = false;
         while (!done) {
-            // logger.info("Have to kill "+to_kill.size());
             List<Pair> a = new ArrayList<>();
             for (Entry<Integer, Set<Integer>> entry : killMap.entrySet()) {
                 int num = 0;
@@ -805,10 +797,8 @@ public class SimpleMutationAssertionGenerator extends AssertionGenerator {
                 done = true;
             } else {
                 Pair best = Collections.max(a);
-                // logger.info("Chosen "+best.assertion);
                 result.add(assertions.get(best.assertion));
                 for (Integer m : killMap.get(best.assertion)) {
-                    // logger.info("Killed "+m);
                     killed.add(m);
                     toKill.remove(m);
                 }

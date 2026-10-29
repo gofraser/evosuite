@@ -334,7 +334,6 @@ public class CreateClassResetClassAdapter extends ClassVisitor {
             }
 
             logger.info("Found static initializer in class " + className);
-            // determineSerialisableUID();
 
             // duplicates existing <clinit>
             // TODO: Removed | Opcodes.ACC_PUBLIC
@@ -373,13 +372,10 @@ public class CreateClassResetClassAdapter extends ClassVisitor {
         if (!clinitFound && !isInterface && !isAnonymous && !resetMethodAdded) {
             // create brand new __STATIC_RESET
             if (!definesUid) {
-                // determineSerialisableUID();
-                // createSerialisableUID();
             }
             createEmptyStaticReset();
         } else if (clinitFound) {
             if (!definesUid) {
-                // createSerialisableUID();
             }
         }
         if (!modifiedStaticFields.isEmpty()) {

@@ -670,7 +670,6 @@ public final class ConcolicMethodAdapter extends GeneratorAdapter {
 
             /* INVOKE_X with receiver */
 
-            // signInvoke = LGGG_V;
             signInvoke = LGGG_V;
             stack.pushStrings(owner, name, descriptor);
             insertCallback(BYTECODE_NAME[opcode], signInvoke, false);

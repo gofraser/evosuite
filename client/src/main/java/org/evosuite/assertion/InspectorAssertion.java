@@ -29,7 +29,6 @@ public class InspectorAssertion extends Assertion {
 
     private static final long serialVersionUID = -4080051661226820222L;
 
-    // VariableReference value;
     protected Inspector inspector;
 
     public InspectorAssertion() {

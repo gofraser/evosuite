@@ -139,7 +139,6 @@ public enum JdkPureMethodsList {
             newParams = new StringBuilder(newParams.substring(1));
         }
         toAnalyze += "(" + newParams + ")";
-        //System.out.println(toAnalyze);
 
         return checkPurity(toAnalyze);
     }

@@ -68,7 +68,6 @@ public class TypeBasedVariableNameStrategy extends AbstractVariableNameStrategy 
             if (!variableName.isEmpty() && CharUtils.isAsciiNumeric(variableName.charAt(variableName.length() - 1))) {
                 variableName += "_";
             }
-            // }
 
         }
         return variableName;

@@ -120,7 +120,6 @@ public class DefUse extends BytecodeInstruction {
             return false;
         }
 
-        // Definition otherDef = DefUseFactory.makeDefinition(instruction);
         return sharesVariableWith(instruction);
     }
 

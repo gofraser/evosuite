@@ -133,7 +133,6 @@ public class InheritanceTreeGenerator {
                         TestGenerationContext.getInstance().getClassLoaderForSUT()).getClassAsStream(className), false);
             }
 
-            // analyze(inheritanceTree, classPathEntry);
         }
         return inheritanceTree;
     }
@@ -404,15 +403,6 @@ public class InheritanceTreeGenerator {
         // If the SUT is not in the default package, then
         // we cannot import classes that are in the default
         // package
-        /*
-        if ((cn.access & Opcodes.ACC_PUBLIC) != Opcodes.ACC_PUBLIC) {
-            String nameWithDots = cn.name.replace('/', '.');
-            String packageName = ClassUtils.getPackageName(nameWithDots);
-            if (!packageName.equals(Properties.CLASS_PREFIX)) {
-                return false;
-            }
-        }
-        */
 
         // ASM has some problem with the access of inner classes
         // so we check if the inner class name is the current class name
@@ -421,19 +411,9 @@ public class InheritanceTreeGenerator {
         List<InnerClassNode> in = cn.innerClasses;
         for (InnerClassNode inc : in) {
             if (cn.name.equals(inc.name)) {
-                // logger.debug("ASM weird behaviour: Inner class equals class: " + inc.name);
                 if ((inc.access & Opcodes.ACC_PRIVATE) == Opcodes.ACC_PRIVATE) {
                     return false;
                 }
-                /*
-                if ((inc.access & Opcodes.ACC_PUBLIC) != Opcodes.ACC_PUBLIC) {
-                    String nameWithDots = inc.name.replace('/', '.');
-                    String packageName = ClassUtils.getPackageName(nameWithDots);
-                    if (!packageName.equals(Properties.CLASS_PREFIX)) {
-                        return false;
-                    }
-                }
-                */
                 logger.debug("Can use inner class: " + inc.name);
                 return true;
             }

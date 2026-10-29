@@ -77,7 +77,6 @@ public class RelativeSuiteLengthBloatControl<T extends Chromosome<T>> implements
             return false;
         }
 
-        // logger.debug("Current - max: "+((TestSuiteChromosome)chromosome).length()+" - "+currentMax);
         if (currentMax > 0) {
             // if(((TestSuiteChromosome)chromosome).length() > bloat_factor *
             // currentMax)

@@ -1352,12 +1352,10 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
                 Method getWrite = JComponent.class.getMethod("getWriteObjCounter", JComponent.class);
                 getWrite.setAccessible(true);
                 byte count = (Byte) getWrite.invoke(null, this);
-                //byte count = JComponent.getWriteObjCounter(this);
 
                 Method setWrite = JComponent.class.getMethod("setWriteObjCounter", JComponent.class, Byte.TYPE);
                 setWrite.setAccessible(true);
                 setWrite.invoke(null, this, --count);
-                //JComponent.setWriteObjCounter(this, --count);
 
                 if (count == 0 && ui != null) {
                     ui.installUI(this);

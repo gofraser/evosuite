@@ -224,8 +224,6 @@ public class MockDatagramSocket extends DatagramSocket implements OverrideMock {
      */
     private void createImpl() throws SocketException {
         if (impl == null) {
-            //boolean isMulticast = (this instanceof MulticastSocket) ? true : false;
-            //impl = DefaultDatagramSocketImplFactory.createDatagramSocketImpl(isMulticast);
             impl = new EvoDatagramSocketImpl();
 
         }

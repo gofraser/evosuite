@@ -349,7 +349,6 @@ public final class TestChromosome extends ExecutableChromosome<TestChromosome> {
         if (other.lastMutationResult != null) {
             for (Mutation mutation : other.lastMutationResult.keySet()) {
                 MutationExecutionResult copy = other.lastMutationResult.get(mutation); //.clone();
-                //copy.test = test;
                 this.lastMutationResult.put(mutation, copy);
             }
         }

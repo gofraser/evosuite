@@ -96,7 +96,6 @@ public class SteadyStateGA<T extends Chromosome<T>> extends MonotonicGA<T> {
         }
 
 
-        // if (replacement_function.keepOffspring(parent1, parent2, offspring1,
         if (!Properties.PARENT_CHECK
                 || keepOffspring(parent1, parent2, offspring1, offspring2)) {
             logger.debug("Keeping offspring");

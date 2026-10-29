@@ -183,11 +183,6 @@ public abstract class ASMWrapper {
         return (isJump() && !isGoto());
     }
 
-    // public int getBranchId() {
-    // // return ((Integer)((LabelNode)node).getLabel().info).intValue();
-    // return line_no;
-    // }
-
     public boolean isIfNull() {
         if (asmNode instanceof JumpInsnNode) {
             return (asmNode.getOpcode() == Opcodes.IFNULL);
@@ -257,15 +252,10 @@ public abstract class ASMWrapper {
      */
     public int getCalledMethodsArgumentCount() {
         if (isMethodCall()) {
-            // int r = 0;
             MethodInsnNode mn = (MethodInsnNode) asmNode;
             Type[] argTypes = Type.getArgumentTypes(mn.desc);
 
             return argTypes.length;
-            // for(Type argType : argTypes) {
-            // r+=argType.getSize();
-            // }
-            // return r;
         }
         return -1;
     }
@@ -381,19 +371,16 @@ public abstract class ASMWrapper {
     protected String getFieldSimpleName() {
         FieldInsnNode fieldNode = (FieldInsnNode) asmNode;
         return fieldNode.name;
-        // return fieldNode.name;
     }
 
     protected String getFieldName() {
         FieldInsnNode fieldNode = (FieldInsnNode) asmNode;
         return fieldNode.owner + "." + fieldNode.name;
-        // return fieldNode.name;
     }
 
     public String getFieldType() {
         FieldInsnNode fieldNode = (FieldInsnNode) asmNode;
         return fieldNode.desc;
-        // return fieldNode.name;
     }
 
     protected String getLocalVariableName() {

@@ -387,7 +387,6 @@ public final class CaptureLogAnalyzer {
                 break;
             }
 
-            //            for(; currentRecord <= end; currentRecord++) {
             currentOid = log.objectIds.get(currentRecord);
             returnValueObj = log.returnValues.get(currentRecord);
             returnValue = returnValueObj.equals(CaptureLog.RETURN_TYPE_VOID) ? -1 : (Integer) returnValueObj;
@@ -679,7 +678,6 @@ public final class CaptureLogAnalyzer {
         do {
             callerOid = this.findCaller(log, ++r);
         } while (this.isBlackListed(callerOid, blackList, log));
-        //   blackList.contains(this.getClassFromOID(log, callerOid)));
 
         blackList.add(this.getClassFromOID(log, oid));
 

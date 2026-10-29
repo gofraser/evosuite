@@ -59,8 +59,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
             return GenericArrayTypeImpl.createArrayType(addTypeParameters(clazz.getComponentType()));
         } else if (GenericClassUtils.isMissingTypeParameters(clazz)) {
             TypeVariable<?>[] vars = clazz.getTypeParameters();
-            // Type[] arguments = new Type[vars.length];
-            // Arrays.fill(arguments, UNBOUND_WILDCARD);
             Type owner = clazz.getDeclaringClass() == null ? null
                     : addTypeParameters(clazz.getDeclaringClass());
             return new ParameterizedTypeImpl(clazz, vars, owner);
@@ -271,7 +269,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
     public GenericClassImpl(Type type) {
         if (type instanceof Class<?>) {
             this.type = addTypeParameters((Class<?>) type);
-            //GenericTypeReflector.addWildcardParameters((Class<?>) type);
             this.rawClass = (Class<?>) type;
         } else {
             if (!handleGenericArraySpecialCase(type)) {
@@ -382,18 +379,14 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
             }
             if (type instanceof ParameterizedType) {
                 ParameterizedType pt = (ParameterizedType) type;
-                // GenericClass rawType = new GenericClass(pt.getRawType());
-                // rawType.changeClassLoader(loader);
                 GenericClass<?> ownerType = null;
                 if (pt.getOwnerType() != null) {
                     ownerType = new GenericClassImpl(pt.getOwnerType());
-                    // ownerType.type = pt.getOwnerType();
                     ownerType.changeClassLoader(loader);
                 }
                 List<GenericClass<?>> parameterClasses = new ArrayList<>();
                 for (Type parameterType : pt.getActualTypeArguments()) {
                     GenericClass<?> parameter = new GenericClassImpl(parameterType);
-                    // parameter.type = parameterType;
                     parameter.changeClassLoader(loader);
                     parameterClasses.add(parameter);
                 }
@@ -415,13 +408,11 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
 
                 for (int i = 0; i < oldUpperBounds.length; i++) {
                     GenericClass<?> bound = new GenericClassImpl(oldUpperBounds[i]);
-                    // bound.type = oldUpperBounds[i];
                     bound.changeClassLoader(loader);
                     upperBounds[i] = bound.getType();
                 }
                 for (int i = 0; i < oldLowerBounds.length; i++) {
                     GenericClass<?> bound = new GenericClassImpl(oldLowerBounds[i]);
-                    // bound.type = oldLowerBounds[i];
                     bound.changeClassLoader(loader);
                     lowerBounds[i] = bound.getType();
                 }
@@ -477,7 +468,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         } else if (!type.equals(other.type))
             return false;
             */
-        // return true;
     }
 
     /**
@@ -1113,7 +1103,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      */
     public Map<TypeVariable<?>, Type> getTypeVariableMap() {
         if (typeVariableMap == null) {
-            //logger.debug("Getting type variable map for " + type);
             List<TypeVariable<?>> typeVariables = getTypeVariables();
             List<Type> types = getParameterTypes();
             Map<TypeVariable<?>, Type> typeMap = new LinkedHashMap<>();
@@ -1123,16 +1112,12 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
                         && !rawClass.getSuperclass().isAnonymousClass()
                         && !(hasOwnerType() && getOwnerType().getRawClass().isAnonymousClass())) {
                     GenericClass<?> superClass = getSuperClass();
-                    //logger.debug("Superclass of " + type + ": " + superClass);
                     Map<TypeVariable<?>, Type> superMap = superClass.getTypeVariableMap();
-                    //logger.debug("Super map after " + superClass + ": " + superMap);
                     typeMap.putAll(superMap);
                 }
                 for (Class<?> interFace : rawClass.getInterfaces()) {
                     GenericClass<?> interFaceClass = new GenericClassImpl(interFace);
-                    //logger.debug("Interface of " + type + ": " + interFaceClass);
                     Map<TypeVariable<?>, Type> superMap = interFaceClass.getTypeVariableMap();
-                    //logger.debug("Super map after " + superClass + ": " + superMap);
                     typeMap.putAll(superMap);
                 }
                 if (isTypeVariable()) {
@@ -1163,7 +1148,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
                 }
             }
 
-            // logger.debug("Type map: " + typeMap);
             typeVariableMap = typeMap;
         }
         return new LinkedHashMap<>(typeVariableMap);
@@ -1178,10 +1162,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
     public List<TypeVariable<?>> getTypeVariables() {
         List<TypeVariable<?>> typeVariables = new ArrayList<>();
         if (type instanceof ParameterizedType) {
-            //logger.debug("Type variables of "+rawClass+": ");
-            //for(TypeVariable<?> var : rawClass.getTypeParameters()) {
-            //  logger.debug("Var "+var+" of "+var.getGenericDeclaration());
-            //}
             typeVariables.addAll(Arrays.asList(rawClass.getTypeParameters()));
         }
         return typeVariables;
@@ -1401,8 +1381,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         final int prime = 31;
         int result = 1;
         result = prime * result + getTypeName().hashCode();
-        //result = prime * result + ((raw_class == null) ? 0 : raw_class.hashCode());
-        //result = prime * result + ((type == null) ? 0 : type.hashCode());
         return result;
     }
 
@@ -1753,7 +1731,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
     private boolean computeSatisfiesBoundaries(TypeVariable<?> typeVariable,
                                        Map<TypeVariable<?>, Type> typeMap) {
         boolean isAssignable = true;
-        // logger.debug("Checking class: " + type + " against type variable " + typeVariable+" with map "+typeMap);
         Map<TypeVariable<?>, Type> ownerVariableMap = getTypeVariableMap();
         for (Type bound : typeVariable.getBounds()) {
             if (bound instanceof ParameterizedType) {
@@ -1802,7 +1779,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
 
         GenericClassImpl concreteClass = new GenericClassImpl(
                 GenericUtils.replaceTypeVariables(type, ownerVariableMap));
-        //logger.debug("Concrete class after variable replacement: " + concreteClass);
 
         for (Type theType : typeVariable.getBounds()) {
             //logger.debug("Current boundary of " + typeVariable + ": " + theType);
@@ -1811,8 +1787,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
                 //logger.debug("Is ENUM case");
                 // if this is an enum then it's ok.
                 if (isEnum()) {
-                    //logger.debug("Class " + toString() + " is an enum!");
-
                     continue;
                 } else {
                     // If it's not an enum, it cannot be assignable to enum!
@@ -1827,7 +1801,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
                     getType());
             boundType = GenericUtils.replaceTypeVariablesWithWildcards(boundType);
 
-            //logger.debug("Bound after variable replacement: " + boundType);
             if (violatesConcreteParameterizedBound(concreteClass.getType(), boundType)) {
                 isAssignable = false;
                 break;
@@ -1848,8 +1821,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
                         isAssignable = false;
                         break;
                     }
-                    // GenericClass instanceClass = new GenericClass(instanceType,
-                    //      getRawClass());
 
                     // logger.debug("Instance type is " + instanceType);
                     // if (instanceClass.hasTypeVariables())
@@ -1859,7 +1830,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
 
                     boundType = GenericUtils.replaceTypeVariable(theType, typeVariable,
                             instanceType);
-                    // logger.debug("Instance type after replacement is " + boundType);
                     if (GenericClassImpl.isAssignable(boundType, instanceType)) {
                         //logger.debug("Found assignable generic exact type: "
                         //        + instanceType);
@@ -1873,7 +1843,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
                 break;
             }
         }
-        //logger.debug("Result: is assignable " + isAssignable);
         return isAssignable;
     }
 
@@ -1914,7 +1883,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
                 isAssignable = false;
                 break;
             }
-            //logger.debug("Bound after variable replacement: " + type);
             if (!isAssignableTo(type)) {
                 // If the boundary is not assignable it may still be possible
                 // to instantiate the generic to an assignable type

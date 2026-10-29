@@ -58,10 +58,6 @@ public class BooleanDefinitionTransformer extends MethodNodeTransformer {
                 && this.booleanTestabilityTransformation.isBooleanAssignment(insnNode, mn)) {
             TransformationStatistics.insertedGet();
             this.booleanTestabilityTransformation.insertGet(insnNode, mn.instructions);
-            // } else if (insnNode.getOpcode() == Opcodes.IRETURN
-            //         && isBooleanAssignment(insnNode, mn)) {
-            //     TransformationStatistics.insertedGet();
-            //     insertGetBefore(insnNode, mn.instructions);
         }
         return insnNode;
     }

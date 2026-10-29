@@ -125,8 +125,6 @@ public class EvoRunner extends BlockJUnit4ClassRunner {
              *  properties like REPLACE_CALLS will be set directly in the JUnit files
              */
 
-            // LoggingUtils.loadLogbackForEvoSuite();
-
             /*
              * This approach does throw away all the possible instrumentation done on the input clazz,
              * eg code coverage of Emma, Cobertura, Javalanche, etc.

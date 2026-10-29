@@ -188,7 +188,6 @@ public class NumberFormatter {
                 } else {
                     return "Enum.valueOf(" + className + "class /* " + t + " */, \"" + value + "\")";
                 }
-                // return className + "valueOf(\"" + value + "\")";
             }
         } else if (value.getClass().equals(Boolean.class)) {
             return value.toString();

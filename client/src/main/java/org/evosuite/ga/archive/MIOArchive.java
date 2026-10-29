@@ -185,9 +185,6 @@ public class MIOArchive extends Archive {
         // Instead of choosing a target at random, we choose the one with the lowest counter value.
         // (See Section 3.3 of the paper that describes this archive for more details)
 
-        // F target = Randomness.choice(potentialTargets);
-        // T randomSolution = (T) this.archive.get(target).sampleSolution();
-
         // ASC sort, i.e., from the population with the lowest counter to the population with the
         // highest counter
         potentialTargets.sort(Comparator.comparingInt(f -> archive.get(f).counter()));

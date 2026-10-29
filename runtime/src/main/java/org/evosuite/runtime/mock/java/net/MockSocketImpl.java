@@ -92,25 +92,21 @@ public abstract class MockSocketImpl extends SocketImpl implements OverrideMock 
 
     @Override
     protected FileDescriptor getFileDescriptor() {
-        //return fd;
         return super.getFileDescriptor();
     }
 
     @Override
     protected InetAddress getInetAddress() {
-        //return address;
         return super.getInetAddress();
     }
 
     @Override
     protected int getPort() {
-        //return port;
         return super.getPort();
     }
 
     @Override
     protected int getLocalPort() {
-        //return localport;
         return super.getLocalPort();
     }
 

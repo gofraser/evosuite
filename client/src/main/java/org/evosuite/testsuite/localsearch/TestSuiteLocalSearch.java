@@ -324,7 +324,6 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
 
         updateFitness(suite, objective.getFitnessFunctions());
         double fitnessBefore = suite.getFitness();
-        // logger.info("Test suite before local search: " + individual);
 
         List<TestChromosome> originalTests = new ArrayList<>(suite.getTestChromosomes());
         List<TestChromosome> tests = suite.getTestChromosomes();

@@ -86,7 +86,6 @@ public class EqualsNullContract extends Contract {
         VariableReference var = variables.get(0);
         assertion.setSource(var);
         assertion.setDest(new ConstantValue(statement.getTestCase(), Object.class));
-        //assertion.setDest(new NullReference(statement.getTestCase(), var.getType()));
         assertion.setValue(false);
         statement.addAssertion(assertion);
         statement.addComment("Violates contract equals(null)");

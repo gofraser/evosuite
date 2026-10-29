@@ -415,8 +415,6 @@ public class TestGeneration {
         ExecutionModeUtils.addLogFolderPropertyIfPresent(cmdLine);
         //------------------------------------------------
 
-        // cmdLine.add("-Dminimize_values=true");
-
         if (!Properties.PROFILE.isEmpty()) {
             // enabling debugging mode to e.g. connect the eclipse remote debugger to the given port
             File agentFile = new File(Properties.PROFILE);

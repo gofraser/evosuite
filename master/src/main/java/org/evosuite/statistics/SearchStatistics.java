@@ -179,7 +179,6 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         sequenceOutputVariableFactories.put(RuntimeVariable.LLM_Parsed_Statement_Ratio_Timeline.name(),
                 DirectSequenceOutputVariableFactory.getDouble(RuntimeVariable.LLM_Parsed_Statement_Ratio_Timeline));
 
-        // sequenceOutputVariableFactories.put("Generation_History", new GenerationSequenceOutputVariableFactory());
         if (MasterServices.getInstance().getMasterNode() != null) {
             MasterServices.getInstance().getMasterNode().addListener(this);
         }

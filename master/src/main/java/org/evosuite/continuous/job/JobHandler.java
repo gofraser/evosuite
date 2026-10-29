@@ -131,7 +131,6 @@ public class JobHandler extends Thread {
                 String baseDir = System.getProperty("user.dir");
                 File dir = new File(baseDir);
 
-                // String[] parsedCommand = parseCommand(command);
                 String[] parsedCommand = new String[commands.size()];
                 commands.toArray(parsedCommand);
 
@@ -348,7 +347,6 @@ public class JobHandler extends Thread {
         /*
          * TODO for now we ignore the job configuration (ie special parameter settings)
          */
-        //cmd += " -D<TODO>="+job.configurationId;
 
         /*
          * TODO we should check on whether the dependent CUTs have been
@@ -510,7 +508,6 @@ public class JobHandler extends Thread {
             if (Properties.CTG_TIME_PER_CLASS != null) {
                 cmd.append(",ctg_time_per_class");
             }
-            //cmd.append("," + RuntimeVariable.NumberOfInputPoolObjects);
             cmd.append("," + RuntimeVariable.Size);
             cmd.append("," + RuntimeVariable.Length);
             cmd.append("," + RuntimeVariable.Total_Time);

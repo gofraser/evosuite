@@ -102,7 +102,6 @@ public final class EvoTestCaseCodeGenerator {
 
                     testCase.addStatement(m);
                 } else {
-                    // final org.objectweb.asm.Type returnType = org.objectweb.asm.Type.getReturnType(methodDesc);
                     logger.debug("Callee: {} ({})", this.oidToVarRefMap.get(oid), this.oidToVarRefMap.keySet());
                     // Person var0 = var.getPerson();
                     final MethodStatement m = new MethodStatement(
@@ -294,13 +293,10 @@ public final class EvoTestCaseCodeGenerator {
             if (this.oidToVarRefMap.containsKey(returnValueId)) {
                 return;
             }
-            //            final String descriptor = log.descList.get(logRecNo);
-            //            final org.objectweb.asm.Type fieldTypeType = org.objectweb.asm.Type.getType(descriptor);
             final String typeName = log.getTypeName(oid);
             final String fieldName = log.getNameOfAccessedFields(captureId);
 
             try {
-                //                final Class<?> fieldType = getClassFromType(fieldTypeType);
                 final Class<?> type = getClassForName(typeName);
 
                 //                final FieldReference valueRef = new FieldReference(testCase,

@@ -287,7 +287,6 @@ public class System {
      * @return Current time in milliseconds
      */
     public static synchronized long getCurrentTimeMillisForVFS() {
-        //wasTimeAccessed = true;
         return currentTime;
     }
 

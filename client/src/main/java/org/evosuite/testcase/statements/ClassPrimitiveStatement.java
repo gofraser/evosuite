@@ -66,12 +66,10 @@ public class ClassPrimitiveStatement extends PrimitiveStatement<Class<?>> {
      * @param value the class value
      */
     public ClassPrimitiveStatement(TestCase tc, Class<?> value) {
-        //        super(tc, new GenericClass(Class.class).getWithWildcardTypes(), value);
         super(
                 tc,
                 GenericClassFactory.get(Class.class).getWithParameterTypes(new Type[]{value}),
                 value);
-        //        super(tc, new GenericClass(value.getClass()), value);
         this.assignableClasses.add(value);
     }
 
@@ -81,14 +79,11 @@ public class ClassPrimitiveStatement extends PrimitiveStatement<Class<?>> {
      * @param tc the test case
      */
     public ClassPrimitiveStatement(TestCase tc) {
-        //        super(tc, new GenericClass(Class.class).getWithWildcardTypes(),
         super(
                 tc,
                 GenericClassFactory.get(Class.class)
                         .getWithParameterTypes(new Type[]{Properties.getTargetClassAndDontInitialise()}),
                 Properties.getTargetClassAndDontInitialise());
-        //        super(tc, new GenericClass(Properties.getTargetClass()),
-        //                Properties.getTargetClass());
     }
 
     @Override

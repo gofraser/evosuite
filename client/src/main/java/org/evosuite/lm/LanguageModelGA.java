@@ -65,7 +65,6 @@ public class LanguageModelGA extends LanguageModelSearch {
 
         while (population.size() < POPULATION_SIZE - 1) {
             population.add(mutate(originalValue));
-            //population.add(mutate(originalValue));
         }
     }
 

@@ -318,7 +318,6 @@ public class TestClusterGenerator {
             if (!added) {
                 blackList.add(className);
             }
-            // }
         }
 
     }
@@ -412,8 +411,6 @@ public class TestClusterGenerator {
                              * 124_closure-compiler is not testable
                              */
                             && !innerClassName.contains("Map$Entry")) {
-                        // && !innerClassName.matches(".*\\$\\d+(\\$.*)?$")) {
-
                         logger.info("Adding inner class {}", innerClassName);
                         targetClasses.add(innerClass);
                         ClassNode innerClassNode = DependencyAnalysis.getClassNode(innerClassName);

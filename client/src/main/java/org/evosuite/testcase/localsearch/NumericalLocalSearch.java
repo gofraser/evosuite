@@ -143,12 +143,10 @@ public abstract class NumericalLocalSearch<T> extends StatementLocalSearch {
             p.increment(delta);
             logger.debug("Trying increment {} of {}", delta, p.getCode());
         }
-        // logger.info("No improvement on " + p.getCode());
 
         p.setValue(oldValue);
         test.setLastExecutionResult(oldResult);
         test.setChanged(false);
-        // logger.info("Final value of this iteration: " + p.getValue());
 
         return improvement;
     }

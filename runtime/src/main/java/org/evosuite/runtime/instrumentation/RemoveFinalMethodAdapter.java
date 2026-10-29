@@ -53,7 +53,6 @@ public class RemoveFinalMethodAdapter extends MethodVisitor {
                 //        + owner);
                 super.visitFieldInsn(opcode, owner, name, desc);
             } else {
-                //System.out.println("Omitting final field " + name + " in class " + owner);
                 Type type = Type.getType(desc);
                 if (type.getSize() == 1) {
                     super.visitInsn(Opcodes.POP);

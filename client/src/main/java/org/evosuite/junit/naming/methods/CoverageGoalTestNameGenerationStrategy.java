@@ -553,7 +553,6 @@ public class CoverageGoalTestNameGenerationStrategy implements TestNameGeneratio
             for (int i = 1; i < goalList.size(); i++) {
                 name += STR_AND + getGoalName(goalList.get(i));
             }
-            // name += capitalize(getGoalName(chooseRepresentativeGoal(test, goalList)));
         }
         return name;
     }
@@ -641,7 +640,6 @@ public class CoverageGoalTestNameGenerationStrategy implements TestNameGeneratio
             return getGoalName((OutputCoverageTestFitness) goal);
         } else {
             return formatMethodName(goal.getTargetClass(), goal.getTargetMethod());
-            // throw new RuntimeException("Not implemented yet: "+goal.getClass());
         }
     }
 

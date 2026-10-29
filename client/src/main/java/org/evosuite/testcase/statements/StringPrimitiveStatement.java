@@ -74,9 +74,7 @@ public class StringPrimitiveStatement extends PrimitiveStatement<String> {
         while (Randomness.nextDouble() <= Math.pow(alpha, count)
                 && s.length() < Properties.STRING_LENGTH) {
             count++;
-            // logger.info("Before insert: '"+s+"'");
             s = insertCharAt(s, pos, Randomness.nextChar());
-            // logger.info("After insert: '"+s+"'");
         }
         return s;
     }
@@ -96,9 +94,7 @@ public class StringPrimitiveStatement extends PrimitiveStatement<String> {
         if (Randomness.nextDouble() < p2) {
             for (int i = s.length(); i > 0; i--) {
                 if (Randomness.nextDouble() < p) {
-                    // logger.info("Before remove at "+i+": '"+s+"'");
                     s = removeCharAt(s, i - 1);
-                    // logger.info("After remove: '"+s+"'");
                 }
             }
         }
@@ -107,27 +103,20 @@ public class StringPrimitiveStatement extends PrimitiveStatement<String> {
         if (Randomness.nextDouble() < p2) {
             for (int i = 0; i < s.length(); i++) {
                 if (Randomness.nextDouble() < p) {
-                    // logger.info("Before change: '"+s+"'");
                     s = replaceCharAt(s, i, Randomness.nextChar());
-                    // logger.info("After change: '"+s+"'");
                 }
             }
         }
 
         // Insert
         if (Randomness.nextDouble() < p2) {
-            // for(int i = 0; i < s.length(); i++) {
-            // if(Randomness.nextDouble() < P) {
             int pos = 0;
             if (s.length() > 0) {
                 pos = Randomness.nextInt(s.length());
             }
             s = stringInsert(s, pos);
-            // }
-            // }
         }
         value = s;
-        // logger.info("Mutated string now is: "+value);
     }
 
     public void increment() {

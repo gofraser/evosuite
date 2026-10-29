@@ -86,7 +86,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
      * Enable context.
      */
     public static void enableContext() {
-        // enableTraceCalls();
         disableContext = false;
     }
 
@@ -339,7 +338,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
             coveredTrueContext.put(branch, new HashMap<>());
             coveredFalseContext.put(branch, new HashMap<>());
         }
-        //CallContext context = new CallContext(new Throwable().getStackTrace());
         CallContext context = new CallContext(stack);
 
         coveredPredicateContext.get(branch).merge(context, 1, Integer::sum);
@@ -357,8 +355,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         finishedCalls = new ArrayList<>();
         stack = new LinkedList<>();
 
-        // stack.clear();
-        // finished_calls.clear();
         stack.add(new MethodCall("", "", 0, 0, 0)); // Main method
         coverage = new HashMap<>();
         returnData = new HashMap<>();
@@ -419,7 +415,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
                 copy.finishedCalls.add(call.clone());
             }
         }
-        // copy.finished_calls.addAll(finished_calls);
         copy.coverage = new HashMap<>();
         if (coverage != null) {
             copy.coverage.putAll(coverage);
@@ -582,7 +577,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
      */
     private void updateMethodContextMaps(String className, String methodName, Object caller) {
         String id = className + "." + methodName;
-        // CallContext context = new CallContext(new Throwable().getStackTrace());
         CallContext context = new CallContext(stack);
 
         coveredMethodContext.computeIfAbsent(id, k -> new HashMap<>()).merge(context, 1, Integer::sum);

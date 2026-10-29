@@ -222,7 +222,6 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
         clone.setValue(value);
         clone.setObjectRuleSlot(objectRuleSlot);
         copyProvenanceFrom(clone, this);
-        // clone.assertions = copyAssertions(newTestCase, offset);
         return clone;
     }
 

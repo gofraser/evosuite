@@ -59,7 +59,6 @@ public class BranchCoverageFactory extends
 
         BranchPool branchPool = BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT());
 
-        // logger.info("Getting branches");
         for (String className : branchPool.knownClasses()) {
             //when limitToCUT== true, if not the class under test of a inner/anonymous class, continue
             if (limitToCUT && !TargetClasses.isCutOrUnset(className)) {

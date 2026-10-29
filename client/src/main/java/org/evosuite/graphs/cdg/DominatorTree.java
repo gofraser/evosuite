@@ -298,7 +298,6 @@ public class DominatorTree<V> extends EvoSuiteGraph<DominatorNode<V>, DefaultEdg
                 w.immediateDominator = w.immediateDominator.immediateDominator;
             }
 
-            // logger.debug("iDom for node "+i+" was: "+w.immediateDominator.dfsNumber);
         }
 
         rootNode.immediateDominator = null;

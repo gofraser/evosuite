@@ -234,10 +234,8 @@ public final class Instrumenter {
                     && !TransformerUtil.isNative(methodNode.access)
                     && !methodNode.name.equals("<clinit>")) {
                 if (!TransformerUtil.isPublic(methodNode.access)) {
-                    //if(!Properties.CLASS_PREFIX.equals(packageName)) {
                     transformWrapperCalls(methodNode);
                     continue;
-                    //}
                 }
                 if (methodNode.name.equals("<init>")) {
                     if (TransformerUtil.isAbstract(cn.access)) {

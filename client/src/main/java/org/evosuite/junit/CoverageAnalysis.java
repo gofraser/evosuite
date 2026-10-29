@@ -131,7 +131,6 @@ public class CoverageAnalysis {
             Sandbox.doneWithExecutingSUTCode();
             TestGenerationContext.getInstance().doneWithExecutingSUTCode();
         }
-        // TestCluster.getInstance();
 
         List<Class<?>> testClasses = getTestClasses();
         LoggingUtils.clientInfo("Found " + testClasses.size()

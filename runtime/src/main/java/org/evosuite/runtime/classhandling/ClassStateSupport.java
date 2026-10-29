@@ -234,8 +234,6 @@ public class ClassStateSupport {
         try {
             boolean safe = Sandbox.isSafeToExecuteSUTCode();
 
-            //assert !Sandbox.isSecurityManagerInitialized() || Sandbox.isOnAndExecutingSUTCode();
-
             for (final String className : classNames) {
                 boolean startedSutExecution = false;
                 boolean startedUnsafeExecution = false;

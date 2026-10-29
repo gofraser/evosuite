@@ -188,7 +188,6 @@ public class DefUseCoverageFactory extends
                     toAnalyze = fieldMethodCall.getCalledMethodsClass() + "."
                             + fieldMethodCall.getCalledMethodName() + "(" + newParams
                             + ")";
-                    //System.out.println(toAnalyze);
 
                     if (JdkPureMethodsList.instance.checkPurity(toAnalyze)) {
                         if (!DefUsePool.addAsUse(fieldMethodCall)) {
@@ -239,7 +238,6 @@ public class DefUseCoverageFactory extends
         if (registerGoal(goal)) {
             return goal;
         } else {
-            // System.out.println("Discarding goal: "+goal.toString());
             return null;
         }
     }
@@ -292,7 +290,6 @@ public class DefUseCoverageFactory extends
         }
         goalCounts.put(goal.getType(), goalCounts.get(goal.getType()) + 1);
 
-        //      LoggingUtils.getEvoLogger().info(goal.toString());
     }
 
     public static DefUseCoverageTestFitness retrieveGoal(int defId, int useId) {
@@ -326,8 +323,6 @@ public class DefUseCoverageFactory extends
             r.add(goal);
             countGoal(goal);
         }
-        // paramGoalsCount = r.size();
-        //      LoggingUtils.getEvoLogger().debug("# Parameter-Uses: " + r.size());
         return r;
     }
 

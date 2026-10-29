@@ -193,7 +193,6 @@ public class StrongMutationTestFitness extends MutationTestFitness {
                             differ.add(entry.getKey() + "." + methodEntry.getKey());
 
                             logger.debug("Found other difference: " + entry.getKey());
-                            // logger.info("Coverage difference on : "+entry.getKey()+":"+methodEntry.getKey());
                         }
                     }
                 }
@@ -222,8 +221,6 @@ public class StrongMutationTestFitness extends MutationTestFitness {
 
         // TODO: Also sum up differences in branch distances as part of impact!
 
-        // double sum = getCoverageDifference(getCoverage(origTrace),
-        // getCoverage(mutantTrace));
         logger.debug("Calculating coverage impact");
         double coverageImpact = getCoverageDifference(origTrace.getCoverageData(),
                 mutantTrace.getCoverageData());
@@ -384,15 +381,10 @@ public class StrongMutationTestFitness extends MutationTestFitness {
         }
         logger.debug("Individual fitness: " + impactDistance + " + " + infectionDistance
                 + " + " + executionDistance + " = " + fitness);
-        //if (fitness == 0.0) {
-        //    assert (getNumAssertions(individual.getLastExecutionResult(),
-        //                             individual.getLastExecutionResult(mutation)) > 0);
-        //}
 
         updateIndividual(individual, fitness);
         if (fitness == 0.0) {
             individual.getTestCase().addCoveredGoal(this);
-            //assert(isCovered(individual, result));
         }
         assert (fitness >= 0.0);
         assert (fitness <= executionDistance + 2.0);

@@ -84,12 +84,6 @@ public final class FieldRegistry {
 
                 collectAccessibleFields(observedFields, clazz, null);
 
-                //if (observedFields.isEmpty()) {
-                //    logger.debug("Class {} has no observable fields", clazz);
-                //    classFieldsMapping.put(internalClassName, Collections.EMPTY_MAP);
-                //} else {
-                //    classFieldsMapping.put(internalClassName, observedFields);
-                //}
             }
         } catch (Throwable t) {
             logger.debug("ARgh");

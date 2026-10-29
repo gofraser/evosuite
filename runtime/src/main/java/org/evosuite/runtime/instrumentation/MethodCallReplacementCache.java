@@ -621,7 +621,6 @@ public class MethodCallReplacementCache {
                     logger.debug("Skipping non-static mock method: {}", mockMethod);
                 }
             } catch (NoSuchMethodException e) {
-                // logger.debug("Skipping method " + m.getName());
                 continue;
             }
         }
@@ -708,7 +707,6 @@ public class MethodCallReplacementCache {
                     + " is not an instance of " + target);
         }
 
-        // logger.debug("Static Mock: " + mockClass.getCanonicalName() + " for " + target.getCanonicalName());
         for (Method method : mockClass.getMethods()) {
             String desc = Type.getMethodDescriptor(method);
             addSpecialReplacementCall(new MethodCallReplacement(target.getCanonicalName().replace('.', '/'),

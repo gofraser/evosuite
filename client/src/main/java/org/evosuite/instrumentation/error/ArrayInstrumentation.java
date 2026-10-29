@@ -41,7 +41,6 @@ public class ArrayInstrumentation extends ErrorBranchInstrumenter {
 
             mv.visitInsn(Opcodes.DUP2);
             mv.visitInsn(Opcodes.SWAP);
-            //mv.visitInsn(Opcodes.POP);
             mv.visitInsn(Opcodes.ARRAYLENGTH);
             insertBranch(Opcodes.IF_ICMPLT, "java/lang/ArrayIndexOutOfBoundsException");
 
@@ -78,7 +77,6 @@ public class ArrayInstrumentation extends ErrorBranchInstrumenter {
 
             mv.visitInsn(Opcodes.DUP2);
             mv.visitInsn(Opcodes.SWAP);
-            //mv.visitInsn(Opcodes.POP);
             mv.visitInsn(Opcodes.ARRAYLENGTH);
             insertBranch(Opcodes.IF_ICMPLT, "java/lang/ArrayIndexOutOfBoundsException");
 

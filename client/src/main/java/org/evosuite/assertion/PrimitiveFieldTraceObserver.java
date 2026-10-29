@@ -82,7 +82,6 @@ public class PrimitiveFieldTraceObserver extends
             }
         } catch (CodeUnderTestException e) {
             logger.debug("", e);
-            //throw new UnsupportedOperationException();
         }
     }
 

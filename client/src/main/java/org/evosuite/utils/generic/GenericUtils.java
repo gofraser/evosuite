@@ -329,26 +329,6 @@ public class GenericUtils {
                         variable, variableType, depth + 1);
             }
 
-            /*
-            if (variableType instanceof ParameterizedType) {
-                ParameterizedType parameterizedVars = (ParameterizedType) variableType;
-                Map<TypeVariable<?>, Type> subTypes = TypeUtils.getTypeArguments(parameterizedVars);
-                for (Entry<TypeVariable<?>, Type> subTypeEntry : subTypes.entrySet()) {
-                    if (pType.getOwnerType() != null) {
-                        ownerType = replaceTypeVariable(pType.getOwnerType(),
-                                                        subTypeEntry.getKey(),
-                                                        subTypeEntry.getValue());
-                    }
-                    for (int i = 0; i < originalParameterTypes.length; i++) {
-                        parameterTypes[i] = replaceTypeVariable(originalParameterTypes[i],
-                                                                subTypeEntry.getKey(),
-                                                                subTypeEntry.getValue());
-                    }
-
-                }
-            }
-            */
-
             return new ParameterizedTypeImpl((Class<?>) parameterizedType.getRawType(),
                     parameterTypes, ownerType);
 
@@ -371,7 +351,6 @@ public class GenericUtils {
             return new WildcardTypeImpl(upperBounds, lowerBounds);
         } else if (targetType instanceof TypeVariable<?>) {
             if (targetType.equals(variable)) {
-                //logger.debug("Do equal: " + variable + "/" + targetType);
                 return variableType;
             } else {
                 //logger.debug("Do not equal: " + variable + "/" + targetType);

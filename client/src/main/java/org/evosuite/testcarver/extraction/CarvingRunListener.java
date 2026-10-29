@@ -158,7 +158,6 @@ public class CarvingRunListener extends RunListener {
             }
             try {
                 GenericTypeInference inference = new GenericTypeInference();
-                //test.accept(inference);
                 inference.inferTypes(test);
             } catch (Throwable t) {
                 LoggingUtils.getEvoLogger().info("Exception during carving: {}", t.toString());

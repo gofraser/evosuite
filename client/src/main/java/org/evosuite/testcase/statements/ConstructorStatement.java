@@ -162,7 +162,6 @@ public class ConstructorStatement extends EntityWithParametersStatement {
                             && !Modifier.isStatic(constructor.getConstructor().getDeclaringClass()
                             .getModifiers())) {
                         if (inputs[0] == null) {
-                            // throw new NullPointerException();
                             throw new CodeUnderTestException(new NullPointerException());
                         }
                     }

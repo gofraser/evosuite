@@ -617,7 +617,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
                         new StringEdgeNameProvider<>(),
                         vertexAttributeProvider, edgeAttributeProvider);
 
-                // new IntegerEdgeNameProvider<E>());
                 exporter.export(out, graph);
 
                 logger.info("exported " + getName());

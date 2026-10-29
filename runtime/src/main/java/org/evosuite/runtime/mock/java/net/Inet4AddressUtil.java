@@ -53,9 +53,6 @@ public class Inet4AddressUtil {
             constructorStringInt = Inet4Address.class.getDeclaredConstructor(String.class, int.class);
             constructorStringInt.setAccessible(true);
 
-            //holderField = InetAddress.class.getDeclaredField("holder");
-            //holderField.setAccessible(true);
-
         } catch (NoSuchMethodException | SecurityException e) { // | NoSuchFieldException e) {
             logger.error("Failed to initialize due to reflection problems: " + e.getMessage());
         }

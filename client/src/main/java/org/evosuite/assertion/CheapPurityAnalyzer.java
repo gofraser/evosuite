@@ -272,9 +272,6 @@ public class CheapPurityAnalyzer {
         InheritanceTree inheritanceTree = DependencyAnalysis.getInheritanceTree();
 
         String className = "" + entry.className;
-        // while (className.contains("[L")) {
-        //     className = className.substring(2, className.length() - 1);
-        // }
 
         if (!inheritanceTree.hasClass(className)) {
             logger.warn(className

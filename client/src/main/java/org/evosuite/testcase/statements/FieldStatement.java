@@ -152,14 +152,12 @@ public class FieldStatement extends AbstractStatement {
             FieldStatement s = new FieldStatement(newTestCase, field.copy(), null);
             s.getReturnValue().setType(retval.getType()); // Actual type may have changed, e.g. subtype
             copyProvenanceFrom(s, this);
-            // s.assertions = copyAssertions(newTestCase, offset);
             return s;
         } else {
             VariableReference newSource = source.copy(newTestCase, offset);
             FieldStatement s = new FieldStatement(newTestCase, field.copy(), newSource);
             s.getReturnValue().setType(retval.getType()); // Actual type may have changed, e.g. subtype
             copyProvenanceFrom(s, this);
-            // s.assertions = copyAssertions(newTestCase, offset);
             return s;
         }
 
@@ -191,8 +189,6 @@ public class FieldStatement extends AbstractStatement {
                             retval.setObject(scope, null);
                             throw new CodeUnderTestException(new NullPointerException());
                         }
-                        //} catch (CodeUnderTestException e) {
-                        //    throw CodeUnderTestException.throwException(e.getCause());
                     } catch (CodeUnderTestException e) {
                         throw e;
                     } catch (Throwable e) {
@@ -213,7 +209,6 @@ public class FieldStatement extends AbstractStatement {
                         retval.setObject(scope, ret);
                     } catch (CodeUnderTestException e) {
                         throw e;
-                        // throw CodeUnderTestException.throwException(e);
                     } catch (Throwable e) {
                         throw new EvosuiteError(e);
                     }
@@ -336,7 +331,6 @@ public class FieldStatement extends AbstractStatement {
     }
 
     public void setField(GenericField field) {
-        // assert (this.field.getType().equals(field.getType()));
         this.field = field;
     }
 

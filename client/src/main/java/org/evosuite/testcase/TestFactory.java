@@ -995,12 +995,8 @@ public class TestFactory {
 
         logger.trace("Creating array of type {}", arrayClass.getTypeName());
         if (arrayClass.hasWildcardOrTypeVariables()) {
-            // if (arrayClass.getComponentClass().isClass()) {
-            //    arrayClass = arrayClass.getWithWildcardTypes();
-            // } else {
             arrayClass = arrayClass.getGenericInstantiation();
             logger.trace("Setting generic array to type {}", arrayClass.getTypeName());
-            // }
         }
         // Create array with random size
         ArrayStatement statement = new ArrayStatement(test, arrayClass.getType());

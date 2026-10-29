@@ -185,7 +185,6 @@ public class MockPrintWriter extends PrintWriter implements OverrideMock {
 
     private static Charset toCharset(String csn)
             throws UnsupportedEncodingException {
-        // Objects.requireNonNull(csn, "charsetName");
         if (csn == null) {
             throw new MockNullPointerException("charsetName");
         }

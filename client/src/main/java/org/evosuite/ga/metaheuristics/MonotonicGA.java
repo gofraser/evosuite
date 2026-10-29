@@ -391,7 +391,6 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
                  * performance (likely significantly). it is definitively a bug
                  * somewhere...
                  */
-                // sortPopulation();
 
                 double newFitness = getBestFitness();
 

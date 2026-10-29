@@ -320,7 +320,6 @@ public class MockRuntime implements StaticReplacementMock {
      * @param filename the file to load.
      */
     public static void load(Runtime runtime, String filename) {
-        //load0(Reflection.getCallerClass(), filename);
         runtime.load(filename); // we need to load the actuall stuff
     }
 
@@ -331,7 +330,6 @@ public class MockRuntime implements StaticReplacementMock {
      * @param libname the name of the library.
      */
     public static void loadLibrary(Runtime runtime, String libname) {
-        //loadLibrary0(Reflection.getCallerClass(), libname);
         runtime.loadLibrary(libname); // we need to load the actuall stuff
     }
 

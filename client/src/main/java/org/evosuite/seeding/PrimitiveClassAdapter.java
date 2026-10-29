@@ -31,12 +31,8 @@ public class PrimitiveClassAdapter extends ClassVisitor {
 
     private final String className;
 
-    //private static String target_class = Properties.TARGET_CLASS;
-
     //private static final boolean REPLACE_STRING = Properties.STRING_REPLACEMENT
     //        && !Properties.TT;
-
-    // private final PrimitivePool primitive_pool = PrimitivePool.getInstance();
 
     private final ConstantPoolManager poolManager = ConstantPoolManager.getInstance();
 
@@ -82,7 +78,6 @@ public class PrimitiveClassAdapter extends ClassVisitor {
                     }
                 }
             }
-            // primitive_pool.add(value);
         }
         return super.visitField(access, name, desc, signature, value);
     }

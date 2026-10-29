@@ -54,7 +54,6 @@ public class SingleContractChecker extends ExecutionObserver {
         try {
             logger.debug("Checking contract " + contract);
             if (contract.check(statement, scope, exception) != null) {
-                //FailingTestSet.addFailingTest(currentTest, contract, statement, exception);
                 valid = false;
             }
         } catch (Throwable t) {

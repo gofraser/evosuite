@@ -93,7 +93,6 @@ public class LangModel {
         int ngramLen = 0; //size of the n-grams we're reading (i.e. ngram_len = 5 implies 5-grams).
 
         InputStream fstream = LangModel.class.getClassLoader().getResourceAsStream(lmFileName);
-        // FileInputStream fstream = new FileInputStream(lmFileName);
 
         DataInputStream in = new DataInputStream(fstream);
         BufferedReader br = new BufferedReader(new InputStreamReader(in));
@@ -272,7 +271,6 @@ public class LangModel {
                 double unigramBackoffProb = unigramBackoffProbs
                         .get(firstChar);
                 logProb = logProb + unigramBackoffProb;
-                // logger.debug("Unigram ("+first_char+") backoff prob: "+unigram_backoff_prob);
 
 
                 double unigramProb = unigramProbs.get(secondChar);

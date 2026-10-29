@@ -70,9 +70,6 @@ public class AllDefsCoverageSuiteFitness extends TestSuiteFitnessFunction {
                 }
                 if (goalFitness == 0.0) {
                     result.test.addCoveredGoal(goal);
-                    // System.out.println(goal.toString());
-                    // System.out.println(result.test.toCode());
-                    // System.out.println(resultFitness);
                     coveredGoals.add(goal);
                     break;
                 }

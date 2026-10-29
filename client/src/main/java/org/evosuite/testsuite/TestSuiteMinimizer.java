@@ -422,7 +422,6 @@ public class TestSuiteMinimizer {
                 Set<TestFitnessFunction> coveredGoals = CoverageAnalysis.getCoveredGoals(junitClass, goals);
                 LoggingUtils.getEvoLogger().info("* Removing " + coveredGoals.size()
                         + " goals already covered by JUnit (total: " + goals.size() + ")");
-                //logger.warn("Removing " + coveredGoals + " goals already covered by JUnit (total: " + goals + ")");
                 goals.removeAll(coveredGoals);
                 logger.info("Remaining goals: " + goals.size() + ": " + goals);
             } catch (ClassNotFoundException e) {

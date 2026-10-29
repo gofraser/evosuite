@@ -216,7 +216,6 @@ public final class Capturer {
         }
         try {
             if (isCapturing()) {
-                //(currentLog) {
                 setCapturing(false);
 
                 if (logger.isDebugEnabled()) {
@@ -231,7 +230,6 @@ public final class Capturer {
                 if (TimeController.getInstance().isThereStillTimeInThisPhase()) {
                     setCapturing(true);
                 }
-                //}
             }
         } catch (Throwable t) {
             // TODO: Handle properly?
@@ -260,7 +258,6 @@ public final class Capturer {
                               final Object returnValue) {
         try {
             if (isCapturing()) {
-                //(currentLog) {
                 setCapturing(false);
 
                 if (logger.isDebugEnabled()) {
@@ -273,7 +270,6 @@ public final class Capturer {
 
                 currentLog.logEnd(captureId, receiver, returnValue);
                 setCapturing(true);
-                //}
             }
         } catch (Throwable t) {
             // TODO: Handle properly

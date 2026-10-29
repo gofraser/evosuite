@@ -332,7 +332,6 @@ public class BranchCoverageSuiteFitness extends TestSuiteFitnessFunction {
                 totalMethods--;
                 methods.remove(method);
                 removedRootBranches.add(method);
-                //removeTestCall(f.getTargetClass(), f.getTargetMethod());
             } else {
                 throw new IllegalStateException("goal to remove not found");
             }
@@ -344,9 +343,6 @@ public class BranchCoverageSuiteFitness extends TestSuiteFitnessFunction {
                 removedBranchesT.add(branch);
                 if (removedBranchesF.contains(branch)) {
                     totalBranches--;
-                    //if(isFullyCovered(f.getTargetClass(), f.getTargetMethod())) {
-                    //    removeTestCall(f.getTargetClass(), f.getTargetMethod());
-                    //}
                 }
             } else {
                 throw new IllegalStateException("goal to remove not found");
@@ -358,9 +354,6 @@ public class BranchCoverageSuiteFitness extends TestSuiteFitnessFunction {
                 removedBranchesF.add(branch);
                 if (removedBranchesT.contains(branch)) {
                     totalBranches--;
-                    //if(isFullyCovered(f.getTargetClass(), f.getTargetMethod())) {
-                    //    removeTestCall(f.getTargetClass(), f.getTargetMethod());
-                    //}
                 }
             } else {
                 throw new IllegalStateException("goal to remove not found");
@@ -475,7 +468,6 @@ public class BranchCoverageSuiteFitness extends TestSuiteFitnessFunction {
             logger.info("Test suite has timed out, setting fitness to max value "
                     + (totalBranches * 2 + totalMethods));
             fitness = totalBranches * 2 + totalMethods;
-            //suite.setCoverage(0.0);
         }
 
         updateIndividual(suite, fitness);

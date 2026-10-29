@@ -278,7 +278,6 @@ public class ClientNodeImpl<T extends Chromosome<T>>
              *  be able to properly create the JUnit files in the
              *  system test cases after the search
              */
-            //org.evosuite.runtime.System.fullReset();
     }
 
     private static void safePrintToStderr(String message) {

@@ -144,7 +144,6 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
                 }
 
                 if (!passedDefinitionCount.containsKey(def)) {
-                    //logger.warn("Weird, definition is not known: " + def);
                     passedDefinitionCount.put(def, 0);
                 }
                 passedDefinitions.get(def).add(test);
@@ -178,9 +177,7 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
         // 1. Need to reach each definition
         double fitness = branchFitness.getFitness(suite);
-        // logger.info("Branch fitness: " + fitness);
 
-        // Set<DefUseCoverageTestFitness> coveredGoalsSet = DefUseExecutionTraceAnalyzer.getCoveredGoals(results);
         Set<DefUseCoverageTestFitness> coveredGoalsSet = new HashSet<>();
 
         initCoverageMaps();
@@ -213,14 +210,10 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
                         + goal);
 
             }
-            //          for (TestChromosome test : passedDefinitions.get(goal.getGoalDefinition())) {
             for (TestChromosome test : coveringTests) {
-                // for (TestChromosome test : suite.getTestChromosomes()) {
-
                 ExecutionResult result = test.getLastExecutionResult();
                 DefUseFitnessCalculator calculator = new DefUseFitnessCalculator(goal,
                         test, result);
-                //double resultFitness = goal.getFitness(test, result);
                 double resultFitness = calculator.calculateDUFitness();
 
                 if (resultFitness < goalFitness) {
