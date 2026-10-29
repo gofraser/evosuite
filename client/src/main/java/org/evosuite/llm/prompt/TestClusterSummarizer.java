@@ -1128,7 +1128,7 @@ public class TestClusterSummarizer {
                 String key = methodFrequencyKey(method);
                 lookup.computeIfAbsent(className, k -> new HashMap<>());
                 Map<String, Integer> byMethod = lookup.get(className);
-                byMethod.put(key, byMethod.getOrDefault(key, 0) + 1);
+                byMethod.merge(key, 1, Integer::sum);
             } catch (Exception e) {
                 logger.debug("Failed to compute modifier frequency for {}", mod, e);
             }

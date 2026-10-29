@@ -292,7 +292,7 @@ public class ProblemCardExtractor {
             if (card == null || card.getType() == null) {
                 continue;
             }
-            counts.put(card.getType(), counts.getOrDefault(card.getType(), 0) + 1);
+            counts.merge(card.getType(), 1, Integer::sum);
         }
         return counts.toString();
     }

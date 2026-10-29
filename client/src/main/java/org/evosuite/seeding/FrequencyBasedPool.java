@@ -44,7 +44,7 @@ public class FrequencyBasedPool<T> implements ConstantBag<T> {
             return;
         }
         numConstants++;
-        constants.put(value, constants.getOrDefault(value, 0) + 1);
+        constants.merge(value, 1, Integer::sum);
     }
 
     /**

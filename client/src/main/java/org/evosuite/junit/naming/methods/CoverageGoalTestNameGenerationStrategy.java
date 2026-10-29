@@ -501,10 +501,7 @@ public class CoverageGoalTestNameGenerationStrategy implements TestNameGeneratio
         Map<String, Integer> nameCount = new LinkedHashMap<>();
         Map<String, Integer> testCount = new LinkedHashMap<>();
         for (String methodName : testToName.values()) {
-            if (nameCount.containsKey(methodName)) {
-                nameCount.put(methodName, nameCount.get(methodName) + 1);
-            } else {
-                nameCount.put(methodName, 1);
+            if (nameCount.merge(methodName, 1, Integer::sum) == 1) {
                 testCount.put(methodName, 0);
             }
         }
@@ -910,11 +907,7 @@ public class CoverageGoalTestNameGenerationStrategy implements TestNameGeneratio
         Map<String, Integer> typeDescs = new LinkedHashMap<>();
         for (Type t : argumentTypes) {
             String d = capitalize(getShortClassName(t.getClassName()));
-            if (!typeDescs.containsKey(d)) {
-                typeDescs.put(d, 1);
-            } else {
-                typeDescs.put(d, typeDescs.get(d) + 1);
-            }
+            typeDescs.merge(d, 1, Integer::sum);
         }
 
         StringBuilder builder = new StringBuilder();

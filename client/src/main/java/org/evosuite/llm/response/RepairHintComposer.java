@@ -187,7 +187,7 @@ final class RepairHintComposer {
                     && !anonymousConstructedType.isEmpty()
                     && isMalformedAnonymousSnippetSyntaxError(executionError)) {
                 String key = "anon:" + anonymousConstructedType;
-                counts.put(key, counts.containsKey(key) ? counts.get(key) + 1 : 1);
+                counts.merge(key, 1, Integer::sum);
                 hints.putIfAbsent(key, buildSharedAnonymousSnippetFailureHint(anonymousConstructedType));
                 continue;
             }
@@ -195,7 +195,7 @@ final class RepairHintComposer {
             NpeDereferenceInfo dereferenceInfo = extractNpeDereferenceInfo(executionError);
             if (dereferenceInfo != null) {
                 String key = "npe:" + dereferenceInfo.memberSignature + "::" + dereferenceInfo.nullVariable;
-                counts.put(key, counts.containsKey(key) ? counts.get(key) + 1 : 1);
+                counts.merge(key, 1, Integer::sum);
                 hints.putIfAbsent(key, buildSharedNpeExecutionFailureHint(dereferenceInfo));
                 continue;
             }
@@ -203,7 +203,7 @@ final class RepairHintComposer {
             String initializationFailureClass = extractInitializationFailureClassName(executionError);
             if (initializationFailureClass != null && !initializationFailureClass.isEmpty()) {
                 String key = "init:" + initializationFailureClass;
-                counts.put(key, counts.containsKey(key) ? counts.get(key) + 1 : 1);
+                counts.merge(key, 1, Integer::sum);
                 hints.putIfAbsent(key, "Multiple dropped tests share the same initialization failure in '"
                         + initializationFailureClass
                         + "'. Repair the shared environment/setup once or avoid that path instead of deleting those "
@@ -213,7 +213,7 @@ final class RepairHintComposer {
 
             if (RepairFailureKinds.of(executionError).isIndexedFixtureShape()) {
                 String key = "shape:indexed-fixture";
-                counts.put(key, counts.containsKey(key) ? counts.get(key) + 1 : 1);
+                counts.merge(key, 1, Integer::sum);
                 hints.putIfAbsent(key, buildSharedIndexedFixtureFailureHint());
                 continue;
             }
@@ -223,7 +223,7 @@ final class RepairHintComposer {
                 String key = mockMethodName == null || mockMethodName.isEmpty()
                         ? "mockfp:generic"
                         : "mockfp:" + mockMethodName;
-                counts.put(key, counts.containsKey(key) ? counts.get(key) + 1 : 1);
+                counts.merge(key, 1, Integer::sum);
                 hints.putIfAbsent(key, buildSharedFalsePositiveMockFailureHint(mockMethodName));
             }
         }

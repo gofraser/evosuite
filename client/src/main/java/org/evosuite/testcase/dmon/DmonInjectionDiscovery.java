@@ -394,7 +394,7 @@ public final class DmonInjectionDiscovery {
                             continue;
                         }
                         String methodKey = mi.name + "#" + descriptorFirstParamType(mi.desc);
-                        result.put(methodKey, result.getOrDefault(methodKey, 0) + 1);
+                        result.merge(methodKey, 1, Integer::sum);
                     }
                 }
             }

@@ -282,41 +282,19 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         updateTopStackMethodCall(branch, bytecodeId, trueDistance, falseDistance);
 
         if (traceCoverage) {
-            if (!coveredPredicates.containsKey(branch)) {
-                coveredPredicates.put(branch, 1);
-            } else {
-                coveredPredicates.put(branch, coveredPredicates.get(branch) + 1);
-            }
+            coveredPredicates.merge(branch, 1, Integer::sum);
 
             if (trueDistance == 0.0) {
-                if (!coveredTrue.containsKey(branch)) {
-                    coveredTrue.put(branch, 1);
-                } else {
-                    coveredTrue.put(branch, coveredTrue.get(branch) + 1);
-                }
-
+                coveredTrue.merge(branch, 1, Integer::sum);
             }
 
             if (falseDistance == 0.0) {
-                if (!coveredFalse.containsKey(branch)) {
-                    coveredFalse.put(branch, 1);
-                } else {
-                    coveredFalse.put(branch, coveredFalse.get(branch) + 1);
-                }
+                coveredFalse.merge(branch, 1, Integer::sum);
             }
         }
 
-        if (!trueDistances.containsKey(branch)) {
-            trueDistances.put(branch, trueDistance);
-        } else {
-            trueDistances.put(branch, Math.min(trueDistances.get(branch), trueDistance));
-        }
-
-        if (!falseDistances.containsKey(branch)) {
-            falseDistances.put(branch, falseDistance);
-        } else {
-            falseDistances.put(branch, Math.min(falseDistances.get(branch), falseDistance));
-        }
+        trueDistances.merge(branch, trueDistance, Math::min);
+        falseDistances.merge(branch, falseDistance, Math::min);
 
         if (isContextTracked()) {
             updateBranchContextMaps(branch, trueDistance, falseDistance);
@@ -394,17 +372,9 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         //CallContext context = new CallContext(new Throwable().getStackTrace());
         CallContext context = new CallContext(stack);
 
-        if (!coveredPredicateContext.get(branch).containsKey(context)) {
-            coveredPredicateContext.get(branch).put(context, 1);
-            coveredTrueContext.get(branch).put(context, trueDistance);
-            coveredFalseContext.get(branch).put(context, falseDistance);
-        } else {
-            coveredPredicateContext.get(branch).put(context, coveredPredicateContext.get(branch).get(context) + 1);
-            coveredTrueContext.get(branch).put(context,
-                    Math.min(coveredTrueContext.get(branch).get(context), trueDistance));
-            coveredFalseContext.get(branch).put(context,
-                    Math.min(coveredFalseContext.get(branch).get(context), falseDistance));
-        }
+        coveredPredicateContext.get(branch).merge(context, 1, Integer::sum);
+        coveredTrueContext.get(branch).merge(context, trueDistance, Math::min);
+        coveredFalseContext.get(branch).merge(context, falseDistance, Math::min);
     }
 
     /**
@@ -562,11 +532,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         if (def == null) {
             throw new IllegalStateException("expect DefUsePool to known defIDs that are passed by instrumented code");
         }
-        if (!coveredDefs.containsKey(defId)) {
-            coveredDefs.put(defId, 0);
-        } else {
-            coveredDefs.put(defId, coveredDefs.get(defId) + 1);
-        }
+        coveredDefs.merge(defId, 0, (count, first) -> count + 1);
         String varName = def.getVariableName();
 
         int objectId = registerObject(caller);
@@ -605,19 +571,11 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
     public void enteredMethod(String className, String methodName, Object caller) {
         if (traceCoverage) {
             String id = className + "." + methodName;
-            if (!coveredMethods.containsKey(id)) {
-                coveredMethods.put(id, 1);
-            } else {
-                coveredMethods.put(id, coveredMethods.get(id) + 1);
-            }
+            coveredMethods.merge(id, 1, Integer::sum);
 
             if (BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                     .isBranchlessMethod(className, id)) {
-                if (!coveredBranchlessMethods.containsKey(id)) {
-                    coveredBranchlessMethods.put(id, 1);
-                } else {
-                    coveredBranchlessMethods.put(id, coveredBranchlessMethods.get(id) + 1);
-                }
+                coveredBranchlessMethods.merge(id, 1, Integer::sum);
             }
         }
         if (!className.isEmpty() && !methodName.isEmpty()) {
@@ -654,18 +612,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
      */
     private void updateMethodContextMaps(String className, String methodName, Object caller) {
         String id = className + "." + methodName;
-        if (!coveredMethodContext.containsKey(id)) {
-            coveredMethodContext.put(id, new HashMap<>());
-        }
-
         // CallContext context = new CallContext(new Throwable().getStackTrace());
         CallContext context = new CallContext(stack);
 
-        if (!coveredMethodContext.get(id).containsKey(context)) {
-            coveredMethodContext.get(id).put(context, 1);
-        } else {
-            coveredMethodContext.get(id).put(context, coveredMethodContext.get(id).get(context) + 1);
-        }
+        coveredMethodContext.computeIfAbsent(id, k -> new HashMap<>()).merge(context, 1, Integer::sum);
     }
 
     /**
@@ -1431,20 +1381,9 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
             }
         }
         if (traceCoverage) {
-            if (!coverage.containsKey(className)) {
-                coverage.put(className, new HashMap<>());
-            }
-
-            if (!coverage.get(className).containsKey(methodName)) {
-                coverage.get(className).put(methodName, new HashMap<>());
-            }
-
-            if (!coverage.get(className).get(methodName).containsKey(line)) {
-                coverage.get(className).get(methodName).put(line, 1);
-            } else {
-                coverage.get(className).get(methodName).put(line,
-                        coverage.get(className).get(methodName).get(line) + 1);
-            }
+            coverage.computeIfAbsent(className, k -> new HashMap<>())
+                    .computeIfAbsent(methodName, k -> new HashMap<>())
+                    .merge(line, 1, Integer::sum);
         }
     }
 
@@ -1455,11 +1394,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
     public void mutationPassed(int mutationId, double distance) {
 
         touchedMutants.add(mutationId);
-        if (!mutantDistances.containsKey(mutationId)) {
-            mutantDistances.put(mutationId, distance);
-        } else {
-            mutantDistances.put(mutationId, Math.min(distance, mutantDistances.get(mutationId)));
-        }
+        mutantDistances.merge(mutationId, distance, Math::min);
     }
 
     /**
@@ -1489,22 +1424,9 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
      */
     @Override
     public void returnValue(String className, String methodName, int value) {
-        if (!returnData.containsKey(className)) {
-            returnData.put(className, new HashMap<>());
-        }
-
-        if (!returnData.get(className).containsKey(methodName)) {
-            returnData.get(className).put(methodName, new HashMap<>());
-        }
-
-        if (!returnData.get(className).get(methodName).containsKey(value)) {
-            // logger.info("Got return value "+value);
-            returnData.get(className).get(methodName).put(value, 1);
-        } else {
-            // logger.info("Got return value again "+value);
-            returnData.get(className).get(methodName).put(value,
-                    returnData.get(className).get(methodName).get(value) + 1);
-        }
+        returnData.computeIfAbsent(className, k -> new HashMap<>())
+                .computeIfAbsent(methodName, k -> new HashMap<>())
+                .merge(value, 1, Integer::sum);
     }
 
     /**

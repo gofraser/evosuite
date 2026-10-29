@@ -78,11 +78,7 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
         for (DefUseCoverageTestFitness defUse : goals) {
             if (defUse.isParameterGoal()) {
                 String methodName = defUse.getGoalUse().getMethodName();
-                if (!maxMethodCount.containsKey(methodName)) {
-                    maxMethodCount.put(methodName, 0);
-                }
-
-                maxMethodCount.put(methodName, maxMethodCount.get(methodName) + 1);
+                maxMethodCount.merge(methodName, 1, Integer::sum);
             } else {
 
                 Definition def = defUse.getGoalDefinition();
@@ -90,10 +86,7 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
                     // TODO: For this def we need to count method invocations
                     logger.warn("Def is null for " + defUse);
                 }
-                if (!maxDefinitionCount.containsKey(def)) {
-                    maxDefinitionCount.put(def, 0);
-                }
-                maxDefinitionCount.put(def, maxDefinitionCount.get(def) + 1);
+                maxDefinitionCount.merge(def, 1, Integer::sum);
             }
         }
         // Why should this be a warning??

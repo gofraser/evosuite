@@ -126,15 +126,7 @@ public class PermissionStatistics {
         rememberRecentReadFilePermissions(permission);
         String name = permission.getClass().getName();
         String type = getPermissionType(permission);
-        if (!allowedCount.containsKey(name)) {
-            allowedCount.put(name, new HashMap<>());
-        }
-
-        if (allowedCount.get(name).containsKey(type)) {
-            allowedCount.get(name).put(type, allowedCount.get(name).get(type) + 1);
-        } else {
-            allowedCount.get(name).put(type, 1);
-        }
+        allowedCount.computeIfAbsent(name, k -> new HashMap<>()).merge(type, 1, Integer::sum);
     }
 
     private int getCurrentCount(Class<?> permissionClass) {

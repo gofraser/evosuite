@@ -399,7 +399,7 @@ public class DiagnosticCardSelector {
                 if (discarded == null || discarded.getReason() == null) {
                     continue;
                 }
-                counts.put(discarded.getReason(), counts.getOrDefault(discarded.getReason(), 0) + 1);
+                counts.merge(discarded.getReason(), 1, Integer::sum);
             }
             return counts.toString();
         }

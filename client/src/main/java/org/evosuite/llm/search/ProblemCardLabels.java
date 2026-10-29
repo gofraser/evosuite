@@ -38,7 +38,7 @@ final class ProblemCardLabels {
         if (counts == null || label == null || label.isEmpty()) {
             return;
         }
-        counts.put(label, counts.getOrDefault(label, 0) + 1);
+        counts.merge(label, 1, Integer::sum);
     }
 
     static void mergeLabelCounts(Map<String, Integer> destination, Map<String, Integer> source) {

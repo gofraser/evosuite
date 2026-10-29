@@ -39,14 +39,14 @@ final class ExtractorTelemetry {
         if (reason == null) {
             return;
         }
-        rejectCounts.put(reason, rejectCounts.getOrDefault(reason, 0) + 1);
+        rejectCounts.merge(reason, 1, Integer::sum);
     }
 
     void increment(ExtractorCandidateMetric metric) {
         if (metric == null) {
             return;
         }
-        candidateCounts.put(metric, candidateCounts.getOrDefault(metric, 0) + 1);
+        candidateCounts.merge(metric, 1, Integer::sum);
     }
 
     void recordUpstreamExceptionObservation(String executionKey) {

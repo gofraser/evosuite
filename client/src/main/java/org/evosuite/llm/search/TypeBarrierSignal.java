@@ -129,7 +129,7 @@ final class TypeBarrierSignal {
         }
         setupAttempts++;
         failingSetupMethods.add(methodKey);
-        failingSetupMethodCounts.put(methodKey, failingSetupMethodCounts.getOrDefault(methodKey, 0) + 1);
+        failingSetupMethodCounts.merge(methodKey, 1, Integer::sum);
         if (displayLabel != null && !displayLabel.isEmpty()) {
             failingSetupLabelsByKey.put(methodKey, displayLabel);
         }
