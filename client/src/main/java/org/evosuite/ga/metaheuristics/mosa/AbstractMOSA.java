@@ -2267,23 +2267,6 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         this.notifyIteration();
     }
 
-    @Override
-    protected int injectInitialSeeds(List<TestChromosome> llmSeeds) {
-        if (llmSeeds == null || llmSeeds.isEmpty()) {
-            return 0;
-        }
-        int injected = 0;
-        for (TestChromosome seed : llmSeeds) {
-            if (population.size() >= Properties.POPULATION) {
-                break;
-            }
-            this.fitnessFunctions.forEach(seed::addFitness);
-            population.add(seed);
-            injected++;
-        }
-        return injected;
-    }
-
     /**
      * Returns the goals that have been covered by the test cases stored in the archive.
      *
