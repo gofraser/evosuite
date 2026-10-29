@@ -22,7 +22,6 @@ package org.evosuite.ga;
 import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.Properties;
 import org.evosuite.ga.localsearch.LocalSearchObjective;
-import org.evosuite.utils.PublicCloneable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,7 +38,7 @@ import static java.util.stream.Collectors.averagingDouble;
  * @author Gordon Fraser, Jose Miguel Rojas
  */
 public abstract class Chromosome<T extends Chromosome<T>>
-        implements Comparable<T>, Serializable, PublicCloneable<T>, SelfTyped<T> {
+        implements Comparable<T>, Serializable, Cloneable, SelfTyped<T> {
 
     private static final long serialVersionUID = -6921897301005213358L;
 
@@ -277,9 +276,9 @@ public abstract class Chromosome<T extends Chromosome<T>>
     }
 
     /**
-     * {@inheritDoc}
+     * Create a deep copy of the chromosome
      *
-     * <p>Create a deep copy of the chromosome
+     * @return a deep copy of this chromosome
      */
     @Override
     public abstract T clone();
