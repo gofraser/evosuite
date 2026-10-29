@@ -404,7 +404,7 @@ public class ConstructionPathSynthesizer {
             List<DepVariableWrapper> roots,
             Map<DepVariableWrapper, VarRelevance> map) {
         EntityWithParametersStatement targetCall =
-                test == null ? null : test.findTargetExecutableStatement();
+                test == null ? null : TargetContext.findTargetExecutableStatement(test);
         if (targetCall == null) {
             return;
         }
@@ -456,7 +456,7 @@ public class ConstructionPathSynthesizer {
     private void validateRequiredRoots(TestCase test, PartialGraph graph) {
         unresolvedRequiredRoot = false;
         EntityWithParametersStatement targetCall =
-                test == null ? null : test.findTargetExecutableStatement();
+                test == null ? null : TargetContext.findTargetExecutableStatement(test);
         for (DepVariableWrapper root : graph.getTopLayer()) {
             if (!root.var.isParameter() || root.children.isEmpty()) {
                 continue;

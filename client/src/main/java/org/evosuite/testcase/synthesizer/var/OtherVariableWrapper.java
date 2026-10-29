@@ -1,5 +1,6 @@
 package org.evosuite.testcase.synthesizer.var;
 
+import org.evosuite.testcase.synthesizer.TargetContext;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.assertion.CheapPurityAnalyzer;
 import org.evosuite.coverage.branch.Branch;
@@ -726,7 +727,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
             if (!(constant instanceof String)) {
                 return null;
             }
-            EntityWithParametersStatement target = test.findTargetExecutableStatement();
+            EntityWithParametersStatement target = TargetContext.findTargetExecutableStatement(test);
             int position = target == null ? test.size() : target.getPosition();
             VariableReference literal =
                     test.addStatement(

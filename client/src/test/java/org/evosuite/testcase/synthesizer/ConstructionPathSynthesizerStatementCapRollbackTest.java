@@ -89,13 +89,13 @@ public class ConstructionPathSynthesizerStatementCapRollbackTest {
         for (int i = 0; i < test.size(); i++) {
             original.add(test.getStatement(i));
         }
-        MethodStatement target = test.findTargetMethodCallStatement();
+        MethodStatement target = TargetContext.findTargetMethodCallStatement(test);
 
         // Any expansion that adds a statement crosses this cap and must be undone.
         new ConstructionPathSynthesizer().buildNodeStatementCorrespondence(
                 test, branch, false, null, sizeBefore + 1);
 
-        assertSame(target, test.findTargetMethodCallStatement(),
+        assertSame(target, TargetContext.findTargetMethodCallStatement(test),
                 "the target call must survive the statement-cap rollback; test is now:\n"
                         + test.toCode());
         Map<Statement, Boolean> remaining = new IdentityHashMap<>();
@@ -179,7 +179,7 @@ public class ConstructionPathSynthesizerStatementCapRollbackTest {
         }
         test.addStatement(new MethodStatement(test, new GenericMethod(m, sutClass), callee, params),
                 test.size());
-        assertNotNull(test.findTargetMethodCallStatement(),
+        assertNotNull(TargetContext.findTargetMethodCallStatement(test),
                 "initial test must contain the target-method call");
         return test;
     }

@@ -131,7 +131,7 @@ public class RealWorldExcerptSynthesisTest {
         for (int attempt = 0; attempt < 60 && !produced; attempt++) {
             org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getSession().setWorkingTarget(0, stateBranch, java.util.Collections.emptyList());
             TestCase test = factory.getChromosome().getTestCase();
-            if (test.findTargetMethodCallStatement() != null) {
+            if (TargetContext.findTargetMethodCallStatement(test) != null) {
                 produced = true;
                 assertNotNull(TestCaseExecutor.getInstance().execute(test, Integer.MAX_VALUE),
                         "the ArjArchiveEntry template should execute");

@@ -1,5 +1,6 @@
 package org.evosuite.testcase.synthesizer.var;
 
+import org.evosuite.testcase.synthesizer.TargetContext;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.utils.ConstructionFailedException;
@@ -185,7 +186,7 @@ public class FieldVariableWrapper extends DepVariableWrapper {
                     if (!genericField.isStatic() && source == null) {
                         return null;
                     }
-                    EntityWithParametersStatement targetCall = test.findTargetExecutableStatement();
+                    EntityWithParametersStatement targetCall = TargetContext.findTargetExecutableStatement(test);
                     int insertionPosition =
                             targetCall == null ? test.size() : targetCall.getPosition();
                     if (source != null) {

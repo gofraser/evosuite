@@ -26,6 +26,11 @@ import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.setup.callgraph.CallGraph;
 import org.evosuite.setup.callgraph.CallGraphEntry;
+import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.EntityWithParametersStatement;
+import org.evosuite.testcase.statements.MethodStatement;
+import org.evosuite.testcase.statements.Statement;
 import org.evosuite.utils.MethodUtil;
 
 import java.lang.reflect.Method;
@@ -256,5 +261,82 @@ public class TargetContext {
         TargetContext context = getActive();
         return context != null && context.constructorEntry
                 && (Properties.TARGET_METHOD == null || Properties.TARGET_METHOD.isEmpty());
+    }
+
+    /**
+     * Find the first {@link MethodStatement} of the test whose name+descriptor equals the active
+     * target method (EvoObj, method-level targeting). Returns null if the test does not call the
+     * target method, or if no target method is set.
+     *
+     * @param test the test to search
+     * @return the target-method call statement, or null
+     */
+    public static MethodStatement findTargetMethodCallStatement(TestCase test) {
+        // In whole-class mode TARGET_METHOD is unset; the active TargetContext supplies
+        // the class and method signature. Matching the class is essential for common inherited or
+        // sibling signatures (eg ByteTransition implementations all exposing getTransitions()).
+        return findMethodCallStatement(test, activeClassName(), activeMethodSignature());
+    }
+
+    /**
+     * Find the selected EvoObj entry invocation. Unlike
+     * {@link #findTargetMethodCallStatement(TestCase)}, this also returns constructor entries enabled
+     * by {@code object_rule_expanded_entries}.
+     *
+     * @param test the test to search
+     * @return the target method or constructor statement, or null
+     */
+    public static EntityWithParametersStatement findTargetExecutableStatement(TestCase test) {
+        String className = activeClassName();
+        String signature = activeMethodSignature();
+        if (className == null || className.isEmpty()
+                || signature == null || signature.isEmpty()) {
+            return null;
+        }
+        if (!signature.startsWith("<init>")) {
+            return findMethodCallStatement(test, className, signature);
+        }
+        for (int i = 0; i < test.size(); i++) {
+            Statement statement = test.getStatement(i);
+            if (!(statement instanceof ConstructorStatement)) {
+                continue;
+            }
+            ConstructorStatement constructor = (ConstructorStatement) statement;
+            if (constructor.getConstructor().getNameWithDescriptor().equals(signature)
+                    && constructor.getConstructor().getDeclaringClass().getName().equals(className)) {
+                return constructor;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Find the first method call whose declaring class and name+descriptor both match. This is the
+     * target-safe variant used by EvoObj whole-class mode, where unrelated classes commonly expose
+     * identical signatures such as {@code getTransitions()Ljava/util/Set;}.
+     *
+     * @param test the test to search
+     * @param className fully qualified declaring class name
+     * @param methodSignature method name+descriptor
+     * @return the matching call statement, or null
+     */
+    public static MethodStatement findMethodCallStatement(
+            TestCase test, String className, String methodSignature) {
+        if (className == null || className.isEmpty()
+                || methodSignature == null || methodSignature.isEmpty()) {
+            return null;
+        }
+        for (int i = 0; i < test.size(); i++) {
+            Statement statement = test.getStatement(i);
+            if (!(statement instanceof MethodStatement)) {
+                continue;
+            }
+            MethodStatement methodStatement = (MethodStatement) statement;
+            if (methodStatement.getMethod().getNameWithDescriptor().equals(methodSignature)
+                    && methodStatement.getMethod().getDeclaringClass().getName().equals(className)) {
+                return methodStatement;
+            }
+        }
+        return null;
     }
 }

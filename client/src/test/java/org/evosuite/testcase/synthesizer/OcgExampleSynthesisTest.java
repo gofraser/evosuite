@@ -136,7 +136,7 @@ public class OcgExampleSynthesisTest {
             org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getSession().setWorkingTarget(0, stateBranch, java.util.Collections.emptyList());
             TestChromosome chromosome = factory.getChromosome();
             TestCase test = chromosome.getTestCase();
-            if (test.findTargetMethodCallStatement() != null) {
+            if (TargetContext.findTargetMethodCallStatement(test) != null) {
                 produced = true;
                 assertNotNull(TestCaseExecutor.getInstance().execute(test, Integer.MAX_VALUE),
                         "the synthesized template should execute for " + clazz.getSimpleName());

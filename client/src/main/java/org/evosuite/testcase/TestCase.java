@@ -265,38 +265,6 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
     Statement getStatement(int position);
 
     /**
-     * Find the first {@link org.evosuite.testcase.statements.MethodStatement}
-     * whose name+descriptor equals {@code Properties.TARGET_METHOD} (EvoObj,
-     * method-level targeting). Returns null if the test does not call the
-     * target method, or if no target method is set.
-     *
-     * @return the target-method call statement, or null
-     */
-    org.evosuite.testcase.statements.MethodStatement findTargetMethodCallStatement();
-
-    /**
-     * Find the selected EvoObj entry invocation. Unlike
-     * {@link #findTargetMethodCallStatement()}, this also returns constructor entries enabled by
-     * {@code object_rule_expanded_entries}.
-     *
-     * @return the target method or constructor statement, or null
-     */
-    org.evosuite.testcase.statements.EntityWithParametersStatement
-            findTargetExecutableStatement();
-
-    /**
-     * Find the first method call whose declaring class and name+descriptor both match. This is the
-     * target-safe variant used by EvoObj whole-class mode, where unrelated classes commonly expose
-     * identical signatures such as {@code getTransitions()Ljava/util/Set;}.
-     *
-     * @param className fully qualified declaring class name
-     * @param methodSignature method name+descriptor
-     * @return the matching call statement, or null
-     */
-    org.evosuite.testcase.statements.MethodStatement findMethodCallStatement(
-            String className, String methodSignature);
-
-    /**
      * Check if there is a statement at the given position.
      *
      * @param position Index of statement

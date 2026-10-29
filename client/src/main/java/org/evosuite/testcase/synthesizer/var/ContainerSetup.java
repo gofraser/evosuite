@@ -19,6 +19,7 @@
  */
 package org.evosuite.testcase.synthesizer.var;
 
+import org.evosuite.testcase.synthesizer.TargetContext;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -95,7 +96,7 @@ final class ContainerSetup {
 
     /** The position just before the target call, or the end of a test that has none. */
     static int insertionPosition(TestCase test) {
-        EntityWithParametersStatement targetCall = test.findTargetExecutableStatement();
+        EntityWithParametersStatement targetCall = TargetContext.findTargetExecutableStatement(test);
         return targetCall == null ? test.size() : targetCall.getPosition();
     }
 

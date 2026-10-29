@@ -50,8 +50,8 @@ class TargetMethodLookupTest {
 
         TargetContext.setActive(new TargetContext(String.class.getName(), signature, null));
 
-        Assertions.assertNotNull(test.findMethodCallStatement(StringBuilder.class.getName(), signature));
-        Assertions.assertNull(test.findTargetMethodCallStatement(),
+        Assertions.assertNotNull(TargetContext.findMethodCallStatement(test, StringBuilder.class.getName(), signature));
+        Assertions.assertNull(TargetContext.findTargetMethodCallStatement(test),
                 "a same-signature call on another class is not the target");
 
         StringPrimitiveStatement targetReceiver = new StringPrimitiveStatement(test, "value");
@@ -61,7 +61,7 @@ class TargetMethodLookupTest {
                 new GenericMethod(targetLength, String.class), string, Collections.emptyList());
         test.addStatement(expected);
 
-        Assertions.assertSame(expected, test.findTargetMethodCallStatement());
+        Assertions.assertSame(expected, TargetContext.findTargetMethodCallStatement(test));
     }
 
     @Test
@@ -81,8 +81,8 @@ class TargetMethodLookupTest {
                 null,
                 true));
 
-        Assertions.assertSame(expected, test.findTargetExecutableStatement());
-        Assertions.assertNull(test.findTargetMethodCallStatement(),
+        Assertions.assertSame(expected, TargetContext.findTargetExecutableStatement(test));
+        Assertions.assertNull(TargetContext.findTargetMethodCallStatement(test),
                 "the legacy method-only lookup must remain method-only");
     }
 

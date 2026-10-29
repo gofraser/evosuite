@@ -1,5 +1,6 @@
 package org.evosuite.testcase.synthesizer.var;
 
+import org.evosuite.testcase.synthesizer.TargetContext;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.branch.Branch;
@@ -114,7 +115,7 @@ public class ParameterVariableWrapper extends DepVariableWrapper {
                 return callerObject;
             }
 
-            EntityWithParametersStatement targetStatement = test.findTargetExecutableStatement();
+            EntityWithParametersStatement targetStatement = TargetContext.findTargetExecutableStatement(test);
             if (targetStatement != null) {
                 VariableReference oldParamRef =
                         targetStatement.getParameterReferences().get(this.var.getParamOrder() - 1);
@@ -127,7 +128,7 @@ public class ParameterVariableWrapper extends DepVariableWrapper {
         } else {
 
             // find the existing parameters
-            EntityWithParametersStatement methodStat = test.findTargetExecutableStatement();
+            EntityWithParametersStatement methodStat = TargetContext.findTargetExecutableStatement(test);
             if (methodStat == null) {
                 return null;
             }
@@ -229,7 +230,7 @@ public class ParameterVariableWrapper extends DepVariableWrapper {
                 selectConstructor(paramDeclaringClazz.getRawClass().getConstructors());
         if (constructor != null) {
             GenericConstructor gc = new GenericConstructor(constructor, paramDeclaringClazz);
-            EntityWithParametersStatement methodStat = test.findTargetExecutableStatement();
+            EntityWithParametersStatement methodStat = TargetContext.findTargetExecutableStatement(test);
             if (methodStat == null) {
                 return null;
             }

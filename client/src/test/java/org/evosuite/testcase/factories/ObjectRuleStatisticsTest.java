@@ -177,14 +177,14 @@ public class ObjectRuleStatisticsTest {
             TestChromosome chromosome = factory.getChromosome();
             TestCase candidate = chromosome.getTestCase();
             if (session().templateInjections > injectionsBeforeAttempt
-                    && candidate.findTargetMethodCallStatement() != null) {
+                    && TargetContext.findTargetMethodCallStatement(candidate) != null) {
                 template = candidate;
             }
         }
 
         assertNotNull(template,
                 "a scoring failure must not discard a structurally usable first-shot template");
-        assertNotNull(template.findTargetMethodCallStatement(),
+        assertNotNull(TargetContext.findTargetMethodCallStatement(template),
                 "the returned template must still contain the target invocation");
         assertNotNull(TestCaseExecutor.getInstance().execute(template, Integer.MAX_VALUE),
                 "the returned template must remain executable after scoring fails");

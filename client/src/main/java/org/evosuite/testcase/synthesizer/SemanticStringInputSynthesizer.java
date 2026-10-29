@@ -60,7 +60,7 @@ final class SemanticStringInputSynthesizer {
         if (plan == null || test == null) {
             return false;
         }
-        EntityWithParametersStatement target = test.findTargetExecutableStatement();
+        EntityWithParametersStatement target = TargetContext.findTargetExecutableStatement(test);
         int targetPosition = statementPosition(test, target);
         if (target == null || targetPosition < 0) {
             return false;

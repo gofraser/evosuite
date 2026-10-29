@@ -1,5 +1,6 @@
 package org.evosuite.testcase.synthesizer.var;
 
+import org.evosuite.testcase.synthesizer.TargetContext;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.testcase.TestCase;
@@ -37,7 +38,7 @@ public class ThisVariableWrapper extends DepVariableWrapper {
                     return constructorStat.getReturnValue();
                 }
             }
-            MethodStatement methodStat = test.findTargetMethodCallStatement();
+            MethodStatement methodStat = TargetContext.findTargetMethodCallStatement(test);
             if (methodStat != null) {
                 VariableReference generatedVariable = methodStat.getCallee();
                 return generatedVariable;

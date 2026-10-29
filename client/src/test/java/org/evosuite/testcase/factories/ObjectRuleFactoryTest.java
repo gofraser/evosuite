@@ -19,6 +19,7 @@
  */
 package org.evosuite.testcase.factories;
 
+import org.evosuite.testcase.synthesizer.TargetContext;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
@@ -200,7 +201,7 @@ public class ObjectRuleFactoryTest {
             TestChromosome chromosome = factory.getChromosome();
             TestCase test = chromosome.getTestCase();
 
-            if (test.findTargetMethodCallStatement() != null && hasConstructorOf(test, studentType)) {
+            if (TargetContext.findTargetMethodCallStatement(test) != null && hasConstructorOf(test, studentType)) {
                 templateApplied = true;
                 // The synthesized template must still execute (produce a result).
                 assertNotNull(TestCaseExecutor.getInstance().execute(test, Integer.MAX_VALUE),

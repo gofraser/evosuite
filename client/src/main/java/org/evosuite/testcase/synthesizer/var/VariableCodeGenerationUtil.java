@@ -1,5 +1,6 @@
 package org.evosuite.testcase.synthesizer.var;
 
+import org.evosuite.testcase.synthesizer.TargetContext;
 import org.apache.commons.lang3.ClassUtils;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.branch.Branch;
@@ -249,7 +250,7 @@ public class VariableCodeGenerationUtil {
                     insertionPostion = targetObjectReference.getStPosition() + 1;
                 }
             } else if (targetObjectReference == null) {
-                EntityWithParametersStatement methodStat = test.findTargetExecutableStatement();
+                EntityWithParametersStatement methodStat = TargetContext.findTargetExecutableStatement(test);
                 insertionPostion = methodStat.getPosition() - 1;
             } else {
                 insertionPostion = targetObjectReference.getStPosition() + 1;
@@ -531,7 +532,7 @@ public class VariableCodeGenerationUtil {
                         new GenericMethod((Method) setter, setter.getDeclaringClass());
                 VariableReference generatedSetter = null;
                 if (targetObjectReference == null) {
-                    EntityWithParametersStatement methodStat = test.findTargetExecutableStatement();
+                    EntityWithParametersStatement methodStat = TargetContext.findTargetExecutableStatement(test);
                     generatedSetter =
                             TestFactory.getInstance()
                                     .addMethod(
@@ -622,7 +623,7 @@ public class VariableCodeGenerationUtil {
             return null;
         }
         int targetParameter = DataDependencyUtil.membershipTargetParameter(field);
-        EntityWithParametersStatement target = test.findTargetExecutableStatement();
+        EntityWithParametersStatement target = TargetContext.findTargetExecutableStatement(test);
         if (targetParameter < 0
                 || target == null
                 || targetParameter >= target.getParameterReferences().size()) {
@@ -902,7 +903,7 @@ public class VariableCodeGenerationUtil {
                 || !(test.getStatement(definition) instanceof ConstructorStatement)) {
             return false;
         }
-        EntityWithParametersStatement target = test.findTargetExecutableStatement();
+        EntityWithParametersStatement target = TargetContext.findTargetExecutableStatement(test);
         int limit = target == null ? test.size() : target.getPosition();
         for (int position = definition + 1; position < limit; position++) {
             Statement statement = test.getStatement(position);
@@ -1132,7 +1133,7 @@ public class VariableCodeGenerationUtil {
             FieldInitializer fieldInitializer,
             boolean allowNullValue)
             throws ConstructionFailedException {
-        EntityWithParametersStatement methodStat = test.findTargetExecutableStatement();
+        EntityWithParametersStatement methodStat = TargetContext.findTargetExecutableStatement(test);
         int insertionPosition =
                 (parentVarRef != null) ? parentVarRef.getStPosition() + 1 : methodStat.getPosition() - 1;
 

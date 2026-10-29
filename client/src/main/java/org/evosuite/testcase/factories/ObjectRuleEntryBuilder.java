@@ -11,6 +11,7 @@
  */
 package org.evosuite.testcase.factories;
 
+import org.evosuite.testcase.synthesizer.TargetContext;
 import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.GenerationContext;
@@ -111,7 +112,7 @@ class ObjectRuleEntryBuilder {
                 insertStableEntryInvocation(
                         test, boundEntry, receiver, boundEntry.getParameterTypes());
             }
-            return test.findMethodCallStatement(context.getClassName(),
+            return TargetContext.findMethodCallStatement(test, context.getClassName(),
                     context.getMethodSignature()) != null
                     ? EntryInsertionResult.SUCCESS : EntryInsertionResult.RETRYABLE_FAILURE;
         } catch (Throwable t) {
@@ -698,7 +699,7 @@ class ObjectRuleEntryBuilder {
             return findConstructorCallStatement(test, context.getClassName(),
                     context.getMethodSignature()) != null;
         }
-        if (test.findMethodCallStatement(context.getClassName(), context.getMethodSignature()) != null) {
+        if (TargetContext.findMethodCallStatement(test, context.getClassName(), context.getMethodSignature()) != null) {
             return true;
         }
         try {
@@ -740,7 +741,7 @@ class ObjectRuleEntryBuilder {
                         .copyWithNewOwner(receiver.getGenericClass());
                 TestFactory.getInstance().addMethodFor(
                         test, receiver, method, test.size(), new GenerationContext());
-                return test.findMethodCallStatement(context.getClassName(),
+                return TargetContext.findMethodCallStatement(test, context.getClassName(),
                         context.getMethodSignature()) != null;
             }
         } catch (Throwable t) {

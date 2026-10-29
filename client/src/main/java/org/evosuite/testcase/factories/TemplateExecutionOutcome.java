@@ -3,6 +3,7 @@
  */
 package org.evosuite.testcase.factories;
 
+import org.evosuite.testcase.synthesizer.TargetContext;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.ExecutionResult;
 
@@ -30,7 +31,7 @@ final class TemplateExecutionOutcome {
         boolean reached = false;
         if (test != null && result != null && !result.hasTimeout()
                 && result.noThrownExceptions()) {
-            org.evosuite.testcase.statements.Statement entry = test.findTargetExecutableStatement();
+            org.evosuite.testcase.statements.Statement entry = TargetContext.findTargetExecutableStatement(test);
             reached = entry != null && result.getExecutedStatements() > entry.getPosition();
         }
         return new TemplateExecutionOutcome(result, reached, workingGoalFitness);

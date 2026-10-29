@@ -180,7 +180,7 @@ public class ObjectConstructionSynthesisTest {
 				new org.evosuite.testcase.statements.MethodStatement(test, gm, callee, params);
 		test.addStatement(call, test.size());
 
-		assertNotNull(test.findTargetMethodCallStatement(),
+		assertNotNull(TargetContext.findTargetMethodCallStatement(test),
 				"initial test must contain the target-method call");
 		return test;
 	}
@@ -552,7 +552,7 @@ public class ObjectConstructionSynthesisTest {
 				"the synthesized test must have no dangling references and remain GA-cloneable");
 		assertTrue(clone.isValid());
 
-		MethodStatement targetCall = test.findTargetMethodCallStatement();
+		MethodStatement targetCall = TargetContext.findTargetMethodCallStatement(test);
 		assertNotNull(targetCall);
 		// Execute every synthesized statement directly. This still exercises the real Statement
 		// implementations while avoiding the platform-dependent executor/sandbox worker used by
