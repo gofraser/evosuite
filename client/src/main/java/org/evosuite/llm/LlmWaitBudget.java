@@ -68,7 +68,7 @@ public final class LlmWaitBudget {
     public static long repairAwareWaitMillis() {
         // Only the timing settings matter here; a snapshot of the others could reject values
         // that have nothing to do with how long to wait.
-        return repairAwareWaitMillisFor(LlmConfiguration.builder()
+        return repairAwareWaitMillisFor(Properties.LLM_REPAIR_ATTEMPTS, LlmConfiguration.builder()
                 .timeoutSeconds(Math.max(1, Properties.LLM_TIMEOUT_SECONDS))
                 .retryMaxAttempts(Math.max(0, Properties.LLM_RETRY_MAX_ATTEMPTS))
                 .retryBaseDelayMs(Math.max(1, Properties.LLM_RETRY_BASE_DELAY_MS))
@@ -76,10 +76,11 @@ public final class LlmWaitBudget {
     }
 
     /**
-     * Worst-case wall-clock wait in milliseconds, unclamped, for the given configuration.
+     * Worst-case wall-clock wait in milliseconds, unclamped, for the given configuration and
+     * number of repair attempts; reads no global.
      */
-    public static long repairAwareWaitMillisFor(LlmConfiguration configuration) {
-        long attempts = Math.max(0L, Properties.LLM_REPAIR_ATTEMPTS);
+    public static long repairAwareWaitMillisFor(int repairAttempts, LlmConfiguration configuration) {
+        long attempts = Math.max(0L, repairAttempts);
         long perCall = saturatingMultiply(worstCaseCallMillis(configuration), attempts + 1L);
         return Math.max(1000L, perCall);
     }

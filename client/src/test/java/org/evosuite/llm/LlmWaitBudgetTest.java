@@ -71,7 +71,22 @@ class LlmWaitBudgetTest {
         LlmConfiguration configuration = LlmConfiguration.builder()
                 .timeoutSeconds(60).retryMaxAttempts(2).retryBaseDelayMs(250).build();
 
-        assertEquals(180_900L, LlmWaitBudget.repairAwareWaitMillisFor(configuration));
+        assertEquals(180_900L, LlmWaitBudget.repairAwareWaitMillisFor(0, configuration));
+    }
+
+    @Test
+    void anExplicitWaitIgnoresLaterChangesToTheGlobals() {
+        Properties.LLM_TIMEOUT_SECONDS = 999;
+        Properties.LLM_REPAIR_ATTEMPTS = 0;
+        LlmConfiguration configuration = LlmConfiguration.builder()
+                .timeoutSeconds(10).retryMaxAttempts(0).retryBaseDelayMs(250).build();
+        long before = LlmWaitBudget.repairAwareWaitMillisFor(1, configuration);
+
+        Properties.LLM_REPAIR_ATTEMPTS = 7;
+        Properties.LLM_TIMEOUT_SECONDS = 1;
+
+        assertEquals(20_000L, before);
+        assertEquals(before, LlmWaitBudget.repairAwareWaitMillisFor(1, configuration));
     }
 
     @Test
@@ -84,7 +99,7 @@ class LlmWaitBudgetTest {
         for (int attempt = 1; attempt <= 25; attempt++) {
             longest += configuration.backoffMillis(attempt, Math.nextDown(1.0));
         }
-        assertTrue(LlmWaitBudget.repairAwareWaitMillisFor(configuration) >= longest);
+        assertTrue(LlmWaitBudget.repairAwareWaitMillisFor(0, configuration) >= longest);
     }
 
     @Test
