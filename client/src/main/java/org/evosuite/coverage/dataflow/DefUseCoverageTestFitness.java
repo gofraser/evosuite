@@ -173,8 +173,6 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
      */
     @Override
     public double getFitness(TestChromosome individual, ExecutionResult result) {
-        preFitnessDebugInfo(result, true);
-
         DefUseFitnessCalculator calculator = new DefUseFitnessCalculator(this,
                 individual, result);
 
@@ -236,23 +234,10 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
         }
     }
 
-    private void preFitnessDebugInfo(ExecutionResult result, boolean respectPrintFlag) {
-        if (PRINT_DEBUG || !respectPrintFlag) {
-            System.out.println("==============================================================");
-            System.out.println("current goal: " + this);
-            System.out.println("current test:");
-            System.out.println(result.test.toCode());
-        }
-    }
-
     private void postFitnessDebugInfo(Chromosome<?> individual, ExecutionResult result,
                                       double fitness) {
         if (DEBUG) {
             if (fitness != 0) {
-                if (PRINT_DEBUG) {
-                    System.out.println("goal NOT COVERED. fitness: " + fitness);
-                    System.out.println("==============================================================");
-                }
                 if (DefUseFitnessCalculator.traceCoversGoal(this, individual,
                         result.getTrace())) {
                     throw new IllegalStateException(

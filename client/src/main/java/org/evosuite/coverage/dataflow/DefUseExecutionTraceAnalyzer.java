@@ -272,27 +272,6 @@ public abstract class DefUseExecutionTraceAnalyzer {
     }
 
     /**
-     * Prints all information found concerning finished calls of the given
-     * ExecutionTrace.
-     *
-     * @param trace a {@link org.evosuite.testcase.execution.ExecutionTrace} object.
-     */
-    public static void printFinishCalls(ExecutionTrace trace) {
-        for (MethodCall call : trace.getMethodCalls()) {
-            System.out.println("Found MethodCall for: " + call.methodName + " on object "
-                    + call.callingObjectId);
-            System.out.println("#passed branches: " + call.branchTrace.size());
-            for (int i = 0; i < call.defuseCounterTrace.size(); i++) {
-                System.out.println(i + ". at Branch " + call.branchTrace.get(i)
-                        + " true_dist: " + call.trueDistanceTrace.get(i)
-                        + " false_dist: " + call.falseDistanceTrace.get(i)
-                        + " duCounter: " + call.defuseCounterTrace.get(i));
-                System.out.println();
-            }
-        }
-    }
-
-    /**
      * getCoveredGoals.
      *
      * @param results a {@link java.util.List} object.
