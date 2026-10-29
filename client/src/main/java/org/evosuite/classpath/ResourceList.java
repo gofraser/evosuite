@@ -127,11 +127,11 @@ public class ResourceList {
         }
 
         /**
-         * The classpath the entries of {@link #resourceEntries} were derived from. The target
-         * classpath can grow during a run, so a change rebuilds the entries.
+         * The target classpath every index of this cache was derived from. The target classpath can
+         * grow during a run, and a cache for a different classpath is dropped as a whole.
          */
-        String resourceClasspath;
-        List<ResourceEntry> resourceEntries = Collections.emptyList();
+        String classpath;
+        List<ResourceEntry> resourceEntries;
 
         /**
          * Key -> a resource name.
@@ -610,29 +610,23 @@ public class ResourceList {
     }
 
     private List<ResourceEntry> resourceEntries(Cache c) {
-        String targetClasspath = ClassPathHandler.getInstance().getTargetProjectClasspath();
-        if (targetClasspath == null) {
-            targetClasspath = "";
-        }
-        if (!targetClasspath.equals(c.resourceClasspath)) {
-            List<ResourceEntry> fresh = new ArrayList<>();
-            for (String entry : targetClasspath.split(File.pathSeparator)) {
+        if (c.resourceEntries == null) {
+            List<ResourceEntry> entries = new ArrayList<>();
+            for (String entry : c.classpath.split(File.pathSeparator)) {
                 if (entry.isEmpty()) {
                     continue;
                 }
                 File cpEntry = new File(entry);
                 if (cpEntry.isDirectory()) {
-                    fresh.add(new ResourceEntry(cpEntry, true));
+                    entries.add(new ResourceEntry(cpEntry, true));
                 } else if (cpEntry.exists()) {
                     String lower = cpEntry.getName().toLowerCase(Locale.ROOT);
                     if (lower.endsWith(".jar") || lower.endsWith(".war")) {
-                        fresh.add(new ResourceEntry(cpEntry, false));
+                        entries.add(new ResourceEntry(cpEntry, false));
                     }
                 }
             }
-            c.resourceEntries = fresh;
-            c.resourceClasspath = targetClasspath;
-            c.firstResource.clear();
+            c.resourceEntries = entries;
         }
         return c.resourceEntries;
     }
@@ -661,11 +655,14 @@ public class ResourceList {
     }
 
     /**
-     * Init the cache if null.
+     * Init the cache if null, and rebuild it if the target classpath changed since it was built.
      *
      * @return the cache
      */
     private synchronized Cache getCache() {
+        if (cache != null && !cache.classpath.equals(currentClasspath())) {
+            resetCache();
+        }
         if (cache == null) {
             initCache();
         }
@@ -674,10 +671,16 @@ public class ResourceList {
     }
 
 
+    private static String currentClasspath() {
+        String cp = ClassPathHandler.getInstance().getTargetProjectClasspath();
+        return cp == null ? "" : cp;
+    }
+
     private void initCache() {
         cache = new Cache();
 
-        String cp = ClassPathHandler.getInstance().getTargetProjectClasspath();
+        String cp = currentClasspath();
+        cache.classpath = cp;
 
         for (String entry : cp.split(File.pathSeparator)) {
             try {

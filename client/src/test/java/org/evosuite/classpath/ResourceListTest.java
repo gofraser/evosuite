@@ -60,6 +60,24 @@ public class ResourceListTest {
     }
 
     @Test
+    public void testIndexesAgreeAfterClasspathGrowth() throws Exception {
+        ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
+        ResourceList list = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT());
+        // Build every index for the initial classpath first.
+        Assertions.assertFalse(list.hasClass("foo.ExternalClass"));
+        Assertions.assertNull(list.findResource("foo/ExternalClass.class"));
+
+        File localFolder = new File("local_test_data" + File.separator + "aCpEntry");
+        ClassPathHandler.getInstance().addElementToTargetProjectClassPath(localFolder.getAbsolutePath());
+
+        Assertions.assertNotNull(list.findResource("foo/ExternalClass.class"));
+        Assertions.assertTrue(list.hasClass("foo.ExternalClass"));
+        try (InputStream stream = list.getClassAsStream("foo.ExternalClass")) {
+            Assertions.assertNotNull(stream);
+        }
+    }
+
+    @Test
     public void testStreamFromFolder() throws Exception {
         File localFolder = new File("local_test_data" + File.separator + "aCpEntry");
         Assertions.assertTrue(localFolder.exists(), "ERROR: file " + localFolder + " should be available on local file system");
