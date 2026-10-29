@@ -452,31 +452,18 @@ public class TestUsageChecker {
 
     private static int readEnclosingInnerClassAccess(Class<?> type, Class<?> enclosing,
                                                      int reflected) {
-        ClassLoader loader = enclosing.getClassLoader();
-        String resource = enclosing.getName().replace('.', '/') + ".class";
         String internalName = type.getName().replace('.', '/');
-        int[] found = {reflected};
-        try (InputStream input = loader == null
-                ? ClassLoader.getSystemResourceAsStream(resource)
-                : loader.getResourceAsStream(resource)) {
-            if (input != null) {
-                new ClassReader(input).accept(new ClassVisitor(Opcodes.ASM9) {
-                    @Override
-                    public void visitInnerClass(String name, String outerName, String innerName,
-                                                int access) {
-                        if (internalName.equals(name) && outerName != null) {
-                            // A promoted (instrumented) class reflects as more visible than its
-                            // original; only the access levels are taken over from the table.
-                            int levels = Modifier.PUBLIC | Modifier.PROTECTED | Modifier.PRIVATE;
-                            found[0] = (reflected & ~levels) | (access & levels);
-                        }
-                    }
-                }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        int found = reflected;
+        for (InnerClassTable.Entry entry : InnerClassTable.read(enclosing.getClassLoader(),
+                enclosing.getName().replace('.', '/') + ".class")) {
+            if (internalName.equals(entry.name)) {
+                // A promoted (instrumented) class reflects as more visible than its
+                // original; only the access levels are taken over from the table.
+                int levels = Modifier.PUBLIC | Modifier.PROTECTED | Modifier.PRIVATE;
+                found = (reflected & ~levels) | (entry.access & levels);
             }
-        } catch (java.io.IOException | RuntimeException e) {
-            logger.debug("Cannot read the InnerClasses table of {}", enclosing.getName(), e);
         }
-        return found[0];
+        return found;
     }
 
     /**

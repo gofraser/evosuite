@@ -21,14 +21,9 @@ package org.evosuite.setup;
 
 import org.evosuite.Properties;
 import org.evosuite.runtime.instrumentation.InstrumentedClass;
-import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.ClassVisitor;
-import org.objectweb.asm.Opcodes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayDeque;
@@ -439,23 +434,13 @@ public final class GeneratedTestAccess {
         for (int dollar = binaryName.lastIndexOf('$'); dollar > simpleNameStart;
                 dollar = binaryName.lastIndexOf('$', dollar - 1)) {
             String resource = binaryName.substring(0, dollar).replace('.', '/') + ".class";
-            try (InputStream input = loader.getResourceAsStream(resource)) {
-                if (input == null) {
-                    continue;
-                }
-                new ClassReader(input).accept(new ClassVisitor(Opcodes.ASM9) {
-                    @Override
-                    public void visitInnerClass(String name, String outerName, String innerName,
-                                                int access) {
-                        if (outerName != null) {
-                            enclosingTypes.putIfAbsent(name, outerName);
-                            memberAccess.putIfAbsent(name, access);
-                        }
-                    }
-                }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
-            } catch (IOException | RuntimeException exception) {
-                // Missing/unreadable metadata keeps the established reflection fallback.
-                logger.debug("Cannot inspect enclosing metadata for {}", binaryName, exception);
+            if (loader == null) {
+                // Bootstrap classes keep the established reflection fallback.
+                continue;
+            }
+            for (InnerClassTable.Entry entry : InnerClassTable.read(loader, resource)) {
+                enclosingTypes.putIfAbsent(entry.name, entry.outerName);
+                memberAccess.putIfAbsent(entry.name, entry.access);
             }
         }
         // Only an exact member entry establishes nesting. A private binary-name
