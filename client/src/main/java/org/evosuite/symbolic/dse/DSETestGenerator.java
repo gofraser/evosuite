@@ -30,7 +30,7 @@ import org.evosuite.symbolic.solver.SolverResult;
 import org.evosuite.symbolic.solver.SolverUtils;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
-import org.evosuite.testcase.TestCaseUpdater;
+import org.evosuite.symbolic.TestCaseUpdater;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.variable.VariableReference;

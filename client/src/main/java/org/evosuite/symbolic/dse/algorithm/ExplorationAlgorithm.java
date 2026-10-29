@@ -33,7 +33,7 @@ import org.evosuite.symbolic.expr.Constraint;
 import org.evosuite.symbolic.solver.*;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
-import org.evosuite.testcase.TestCaseUpdater;
+import org.evosuite.symbolic.TestCaseUpdater;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.ClassUtil;

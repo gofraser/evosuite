@@ -74,7 +74,7 @@ import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.testcase.statements.numeric.LongPrimitiveStatement;
 import org.evosuite.testcase.statements.numeric.ShortPrimitiveStatement;
 import org.evosuite.testcase.variable.ArrayIndex;
-import org.evosuite.testcase.variable.ArrayLengthSymbolicUtil;
+import org.evosuite.symbolic.ArrayLengthSymbolicUtil;
 import org.evosuite.testcase.variable.ArrayReference;
 import org.evosuite.testcase.variable.ArraySymbolicLengthName;
 import org.evosuite.testcase.variable.FieldReference;
@@ -91,7 +91,7 @@ import java.util.Map;
 import java.util.function.BiFunction;
 
 import static org.evosuite.symbolic.vm.HeapVM.ARRAY_LENGTH;
-import static org.evosuite.testcase.variable.ArrayLengthSymbolicUtil.UNIDIMENSIONAL_ARRAY_VALUE;
+import static org.evosuite.symbolic.ArrayLengthSymbolicUtil.UNIDIMENSIONAL_ARRAY_VALUE;
 
 /**
  * Observes the execution of a test case and records the symbolic constraints.

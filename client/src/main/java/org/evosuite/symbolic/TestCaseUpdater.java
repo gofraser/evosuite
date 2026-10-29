@@ -17,12 +17,15 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
-package org.evosuite.testcase;
+package org.evosuite.symbolic;
 
 import org.evosuite.Properties;
 import org.evosuite.symbolic.TestCaseBuilder;
 import org.evosuite.symbolic.expr.ref.ReferenceVariableUtil;
 import org.evosuite.symbolic.expr.ref.array.SymbolicArrayUtil;
+import org.evosuite.testcase.DefaultTestCase;
+import org.evosuite.testcase.DefaultValueChecker;
+import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.statements.ArrayStatement;
 import org.evosuite.testcase.statements.AssignmentStatement;
 import org.evosuite.testcase.statements.ConstructorStatement;
