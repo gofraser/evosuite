@@ -249,8 +249,8 @@ class MockitoPatternParser {
         GenericClass<?> targetGenericClass = targetType instanceof java.lang.reflect.ParameterizedType
                 ? GenericClassFactory.get(targetType)
                 : GenericClassFactory.get(rawTargetClass);
-        parser.addWarning(expr,
-                "Normalized anonymous interface implementation to FunctionalMockStatement; discarded anonymous body");
+        parser.addWarning(expr, StatementParser.DiagnosticMessage.unclassified(
+                "Normalized anonymous interface implementation to FunctionalMockStatement; discarded anonymous body"));
         return parser.addStatement(new FunctionalMockStatement(
                 testCase, rawTargetClass, targetGenericClass));
     }
@@ -1005,7 +1005,7 @@ class MockitoPatternParser {
             if (ref == null && parser.isBestEffort()) {
                 ref = parser.fallbackForInaccessibleMember(
                         arg,
-                        "Unresolved stubbing return value: " + arg,
+                        StatementParser.DiagnosticMessage.unclassified("Unresolved stubbing return value: " + arg),
                         returnType != null ? returnType : Object.class);
             }
             if (ref != null) {

@@ -313,7 +313,7 @@ public class StatementParser {
                 fallbackForUnresolvedExpression(
                         expr,
                         Object.class,
-                        "Unsupported expression statement in LLM mode");
+                        DiagnosticMessage.unclassified("Unsupported expression statement in LLM mode"));
                 return 1;
             }
             // Strict mode fallback: preserve raw source.
@@ -639,7 +639,8 @@ public class StatementParser {
                 // which can force false argument mismatches for generic APIs and leak
                 // uncompilable casts into emitted tests. Keep only the null literal and
                 // let method/constructor resolution retype it to the formal parameter.
-                addWarning(expr, "Ignoring cast on null literal in LLM mode: " + castExpr.getType());
+                addWarning(expr, DiagnosticMessage.unclassified(
+                        "Ignoring cast on null literal in LLM mode: " + castExpr.getType()));
                 return handleExpression(varName, castExpr.getExpression(), declaredType, depth + 1, originalExpr);
             }
             try {
@@ -772,7 +773,8 @@ public class StatementParser {
             if (!isFunctionalInterfaceType(effectiveType)) {
                 String message = "Lambda expression requires a functional interface target type";
                 if (bestEffort) {
-                    return fallbackForUnresolvedExpression(expr, effectiveType, message);
+                    return fallbackForUnresolvedExpression(expr, effectiveType,
+                            DiagnosticMessage.tagged(DiagnosticKind.LAMBDA_TARGET_TYPE_REQUIRED, message));
                 }
                 addError(expr, DiagnosticKind.LAMBDA_TARGET_TYPE_REQUIRED, effectiveType.getTypeName());
                 return null;
@@ -784,7 +786,8 @@ public class StatementParser {
             }
             String message = "Standalone lambda expression has no declaration target type";
             if (bestEffort) {
-                return fallbackForUnresolvedExpression(expr, effectiveType, message);
+                return fallbackForUnresolvedExpression(expr, effectiveType,
+                        DiagnosticMessage.tagged(DiagnosticKind.LAMBDA_TARGET_TYPE_REQUIRED, message));
             }
             addError(expr, DiagnosticKind.LAMBDA_TARGET_TYPE_REQUIRED, message);
             return null;
@@ -1047,7 +1050,7 @@ public class StatementParser {
         } catch (Exception e) {
             return failOrFallbackWithRollback(expr, declaredType, rawClass,
                     testCase.size(),
-                    "Failed to parse constructor: " + e.getMessage());
+                    parseFailure("Failed to parse constructor: ", e, true));
         }
     }
 
@@ -1443,7 +1446,7 @@ public class StatementParser {
             if (mismatch != null) {
                 return failOrTypedFallbackWithRollback(expr, declaredType, method.getGenericReturnType(), targetVarName,
                         argumentCheckpoint,
-                        mismatch.withContextPrefix("Method argument mismatch: "));
+                        mismatch.asMethodArgumentMismatch());
             }
             argRefs = normalizeVarArgsArguments(argRefs, method.getParameterTypes(), method.isVarArgs());
 
@@ -1463,7 +1466,7 @@ public class StatementParser {
         } catch (Exception e) {
             rollbackTemporaryStatements(expressionCheckpoint);
             return failOrFallback(expr, declaredType, null,
-                    "Failed to parse method call: " + e.getMessage());
+                    parseFailure("Failed to parse method call: ", e, false));
         }
     }
 
@@ -1642,28 +1645,9 @@ public class StatementParser {
                                                               Type knownType,
                                                               String targetVarName,
                                                               int checkpointSize,
-                                                              String errorMsg) {
-        rollbackTemporaryStatements(checkpointSize);
-        return failOrTypedFallback(expr, declaredType, knownType, targetVarName, errorMsg);
-    }
-
-    private VariableReference failOrTypedFallbackWithRollback(Expression expr,
-                                                              Type declaredType,
-                                                              Type knownType,
-                                                              String targetVarName,
-                                                              int checkpointSize,
                                                               DiagnosticMessage diagnostic) {
         rollbackTemporaryStatements(checkpointSize);
         return failOrTypedFallback(expr, declaredType, knownType, targetVarName, diagnostic);
-    }
-
-    private VariableReference failOrFallbackWithRollback(Expression expr,
-                                                         Type declaredType,
-                                                         Type knownType,
-                                                         int checkpointSize,
-                                                         String errorMsg) {
-        rollbackTemporaryStatements(checkpointSize);
-        return failOrFallback(expr, declaredType, knownType, errorMsg);
     }
 
     private VariableReference failOrFallbackWithRollback(Expression expr,
@@ -1835,7 +1819,8 @@ public class StatementParser {
                     field = targetClass.getDeclaredField(fieldName);
                 } catch (NoSuchFieldException missingField) {
                     return failOrTypedFallback(expr, declaredType, null, targetVarName,
-                            "Unknown field " + fieldName + " in " + targetClass.getSimpleName());
+                            DiagnosticMessage.unclassified(
+                                    "Unknown field " + fieldName + " in " + targetClass.getSimpleName()));
                 }
             }
             if (!isAccessibleMember(field)) {
@@ -2238,7 +2223,7 @@ public class StatementParser {
             // General type mismatch — already handled by method resolution compatibility,
             // but catch stragglers
             if (!paramClass.isPrimitive() && !paramClass.isAssignableFrom(argClass)) {
-                return DiagnosticMessage.freeForm("Argument " + i + " type " + argClass.getSimpleName()
+                return DiagnosticMessage.unclassified("Argument " + i + " type " + argClass.getSimpleName()
                         + " is not compatible with parameter type " + paramClass.getSimpleName());
             }
         }
@@ -3132,13 +3117,6 @@ public class StatementParser {
     private VariableReference failOrFallback(Expression expr,
                                              Type declaredType,
                                              Type knownType,
-                                             String errorMsg) {
-        return failOrFallback(expr, declaredType, knownType, DiagnosticMessage.freeForm(errorMsg));
-    }
-
-    private VariableReference failOrFallback(Expression expr,
-                                             Type declaredType,
-                                             Type knownType,
                                              DiagnosticMessage diagnostic) {
         if (bestEffort) {
             return fallbackForUnresolvedExpression(expr, chooseFallbackType(declaredType, knownType), diagnostic);
@@ -3152,15 +3130,6 @@ public class StatementParser {
      * (e.g. 0, false, null) so the enclosing expression still has a well-typed
      * argument; in strict mode records an ERROR and returns {@code null}.
      */
-    private VariableReference failOrTypedFallback(Expression expr,
-                                                  Type declaredType,
-                                                  Type knownType,
-                                                  String targetVarName,
-                                                  String errorMsg) {
-        return failOrTypedFallback(expr, declaredType, knownType, targetVarName,
-                DiagnosticMessage.freeForm(errorMsg));
-    }
-
     private VariableReference failOrTypedFallback(Expression expr,
                                                   Type declaredType,
                                                   Type knownType,
@@ -3179,6 +3148,20 @@ public class StatementParser {
         return null;
     }
 
+    /**
+     * A parse failure caused by an exception. Exceptions that report an unresolvable class or
+     * type are tagged as such; a constructor failure that merely mentions a class is as well.
+     */
+    private static DiagnosticMessage parseFailure(String prefix, Exception cause, boolean constructor) {
+        String detail = String.valueOf(cause.getMessage());
+        String lower = detail.toLowerCase();
+        boolean unresolvedType = lower.contains("cannot resolve class")
+                || (lower.contains("cannot resolve type") && !lower.contains("class literal"))
+                || (constructor && (prefix + detail).toLowerCase().contains("class"));
+        return DiagnosticMessage.tagged(
+                unresolvedType ? DiagnosticKind.UNRESOLVED_TYPE : DiagnosticKind.PARSE_FAILURE, prefix + detail);
+    }
+
     private boolean isSyntheticArgumentTarget(String targetVarName) {
         return targetVarName != null && targetVarName.startsWith("__arg");
     }
@@ -3193,11 +3176,7 @@ public class StatementParser {
                 || kind == DiagnosticKind.GENERIC_TYPE_MISMATCH) {
             return true;
         }
-        String errorMsg = diagnostic.rawText();
-        return errorMsg.startsWith("No matching method:")
-                || errorMsg.startsWith("No method named ")
-                || errorMsg.startsWith("No static method named ")
-                || errorMsg.startsWith("Method argument mismatch:");
+        return diagnostic.methodArgumentMismatch;
     }
 
     private VariableReference preserveUnresolvedTopLevelChainedMethodCall(MethodCallExpr expr,
@@ -3339,14 +3318,8 @@ public class StatementParser {
 
     // Internal API for helpers: replace an inaccessible/unresolvable expression with a typed fallback.
     VariableReference fallbackForInaccessibleMember(Expression expr,
-                                                    String message,
+                                                    DiagnosticMessage diagnostic,
                                                     Type expectedType) {
-        return fallbackForInaccessibleMember(expr, DiagnosticMessage.freeForm(message), expectedType);
-    }
-
-    private VariableReference fallbackForInaccessibleMember(Expression expr,
-                                                            DiagnosticMessage diagnostic,
-                                                            Type expectedType) {
         addWarning(expr, diagnostic.withAppendedText(" — using typed fallback value"));
         Class<?> raw = GenericUtils.rawClassOrObject(expectedType);
         if (raw == void.class || raw == Void.class) {
@@ -3358,12 +3331,6 @@ public class StatementParser {
         }
         return addStatement(new NullStatement(testCase,
                 accessibleNullType(expectedType)));
-    }
-
-    private VariableReference fallbackForUnresolvedExpression(Expression expr,
-                                                              Type expectedType,
-                                                              String message) {
-        return fallbackForUnresolvedExpression(expr, expectedType, DiagnosticMessage.freeForm(message));
     }
 
     private VariableReference fallbackForUnresolvedExpression(Expression expr,
@@ -3738,44 +3705,51 @@ public class StatementParser {
 
         private final DiagnosticKind kind;
         private final String text;
+        private final boolean verbatim;
+        private final boolean methodArgumentMismatch;
 
-        private DiagnosticMessage(DiagnosticKind kind, String text) {
+        private DiagnosticMessage(DiagnosticKind kind, String text, boolean verbatim,
+                                  boolean methodArgumentMismatch) {
             this.kind = kind;
             this.text = text;
+            this.verbatim = verbatim;
+            this.methodArgumentMismatch = methodArgumentMismatch;
         }
 
-        private static DiagnosticMessage freeForm(String message) {
-            return new DiagnosticMessage(null, message);
-        }
-
+        /** A message of the given kind, rendered as the kind's template followed by the details. */
         private static DiagnosticMessage categorized(DiagnosticKind kind, String details) {
-            return new DiagnosticMessage(kind, details);
+            return new DiagnosticMessage(kind, details, false, false);
+        }
+
+        /** A message of the given kind (or none) that is rendered exactly as written. */
+        static DiagnosticMessage tagged(DiagnosticKind kind, String text) {
+            return new DiagnosticMessage(kind, text, true, false);
+        }
+
+        /** A message that matches no kind, rendered exactly as written. */
+        static DiagnosticMessage unclassified(String text) {
+            return new DiagnosticMessage(null, text, true, false);
         }
 
         private DiagnosticKind getKind() {
             return kind;
         }
 
-        private String rawText() {
-            return text;
-        }
-
         String render() {
-            return kind == null ? text : kind.format(text);
+            return kind == null || verbatim ? text : kind.format(text);
         }
 
         private DiagnosticMessage withAppendedText(String suffix) {
-            return new DiagnosticMessage(kind, text + suffix);
+            return new DiagnosticMessage(kind, text + suffix, verbatim, methodArgumentMismatch);
         }
 
         private DiagnosticMessage withContextPrefix(String prefix) {
-            return new DiagnosticMessage(kind, prefix + text);
+            return new DiagnosticMessage(kind, prefix + text, verbatim, methodArgumentMismatch);
         }
-    }
 
-    // Internal API for helpers: report an uncategorized parser error on the originating AST node.
-    void addError(com.github.javaparser.ast.Node node, String message) {
-        addError(node, DiagnosticMessage.freeForm(message));
+        private DiagnosticMessage asMethodArgumentMismatch() {
+            return new DiagnosticMessage(kind, "Method argument mismatch: " + text, verbatim, true);
+        }
     }
 
     // Internal API for helpers: report a categorized parser error on the originating AST node.
@@ -3784,7 +3758,7 @@ public class StatementParser {
     }
 
     private void addError(com.github.javaparser.ast.Node node, DiagnosticMessage diagnostic) {
-        DiagnosticKind kind = resolveEffectiveDiagnosticKind(diagnostic);
+        DiagnosticKind kind = diagnostic.getKind();
         String enriched = enrichDiagnosticForLlmRepair(kind, diagnostic.render());
         int line = resolveDiagnosticLine(node);
         result.addDiagnostic(new ParseDiagnostic(
@@ -3795,18 +3769,13 @@ public class StatementParser {
                 node.toString()));
     }
 
-    // Internal API for helpers: report an uncategorized parser warning on the originating AST node.
-    void addWarning(com.github.javaparser.ast.Node node, String message) {
-        addWarning(node, DiagnosticMessage.freeForm(message));
-    }
-
     // Internal API for helpers: report a categorized parser warning on the originating AST node.
     void addWarning(com.github.javaparser.ast.Node node, DiagnosticKind kind, String details) {
         addWarning(node, DiagnosticMessage.categorized(kind, details));
     }
 
     void addWarning(com.github.javaparser.ast.Node node, DiagnosticMessage diagnostic) {
-        DiagnosticKind kind = resolveEffectiveDiagnosticKind(diagnostic);
+        DiagnosticKind kind = diagnostic.getKind();
         String enriched = enrichDiagnosticForLlmRepair(kind, diagnostic.render());
         int line = resolveDiagnosticLine(node);
         result.addDiagnostic(new ParseDiagnostic(
@@ -3868,143 +3837,7 @@ public class StatementParser {
     }
 
     private String enrichDiagnosticForLlmRepair(DiagnosticKind kind, String message) {
-        if (message == null || message.isEmpty()
-                || message.contains(DiagnosticKind.ACTION_REQUIRED_PREFIX)) {
-            return message;
-        }
-
-        DiagnosticKind effectiveKind = kind != null ? kind : inferDiagnosticKind(message);
-        if (effectiveKind == null) {
-            return message;
-        }
-        return effectiveKind.appendRepairAction(message);
-    }
-
-    private DiagnosticKind resolveEffectiveDiagnosticKind(DiagnosticMessage diagnostic) {
-        if (diagnostic == null) {
-            return null;
-        }
-        DiagnosticKind kind = diagnostic.getKind();
-        return kind != null ? kind : inferDiagnosticKind(diagnostic.render());
-    }
-
-    private DiagnosticKind inferDiagnosticKind(String message) {
-        logger.debug("Inferring DiagnosticKind for free-form diagnostic: {}", message);
-        if (message == null) {
-            return null;
-        }
-        String lower = message.toLowerCase();
-        if (lower.contains("resolved inferred mock-prefixed type")) {
-            return DiagnosticKind.MOCK_PREFIX_TYPE_INFERRED;
-        }
-        if (lower.contains("incompatible declaration alias")
-                || lower.contains("inserted typed cast to preserve compilability for incompatible alias declaration")) {
-            return DiagnosticKind.INCOMPATIBLE_ALIAS_DECLARATION;
-        }
-        if (lower.contains("cannot resolve cast type")) {
-            return DiagnosticKind.UNRESOLVED_CAST_TYPE;
-        }
-        if (lower.contains("cannot resolve assertion condition")) {
-            return DiagnosticKind.ASSERTION_CONDITION_UNRESOLVED;
-        }
-        if (lower.contains("unresolved variable in assertion argument")) {
-            return DiagnosticKind.ASSERTION_ARGUMENT_UNRESOLVED;
-        }
-        if (lower.contains("lambda expression requires a functional interface target type")
-                || lower.contains("standalone lambda expression has no declaration target type")) {
-            return DiagnosticKind.LAMBDA_TARGET_TYPE_REQUIRED;
-        }
-        if (lower.contains("expression nesting depth exceeded")) {
-            return DiagnosticKind.EXPRESSION_DEPTH_EXCEEDED;
-        }
-        if (lower.contains("legacy helper")) {
-            return DiagnosticKind.LEGACY_HELPER_CALL;
-        }
-        if (lower.contains("cannot resolve method scope")) {
-            return DiagnosticKind.NO_METHOD_SCOPE;
-        }
-        if (lower.contains("cannot resolve unscoped method call")) {
-            return DiagnosticKind.NO_UNSCOPED_METHOD;
-        }
-        if (lower.contains("unknown array variable")) {
-            return DiagnosticKind.UNKNOWN_ARRAY_VAR;
-        }
-        if (lower.contains("variable is not an array")) {
-            return DiagnosticKind.VARIABLE_NOT_ARRAY;
-        }
-        if (lower.contains("unknown variable for field access")
-                || lower.contains("cannot resolve field scope")) {
-            return DiagnosticKind.UNKNOWN_FIELD_SCOPE;
-        }
-        if (lower.contains("has private access") || lower.contains("has protected access")) {
-            return DiagnosticKind.INACCESSIBLE_MEMBER;
-        }
-        if (lower.contains("cannot resolve class literal")) {
-            return DiagnosticKind.UNRESOLVED_CLASS_LITERAL;
-        }
-        if (lower.contains("cannot resolve class")
-                || (lower.contains("cannot resolve type") && !lower.contains("class literal"))
-                || (lower.contains("failed to parse constructor") && lower.contains("class"))) {
-            return DiagnosticKind.UNRESOLVED_TYPE;
-        }
-        if (lower.contains("unresolved variable")) {
-            return DiagnosticKind.UNRESOLVED_VARIABLE;
-        }
-        if (lower.contains("no matching constructor")) {
-            return DiagnosticKind.NO_MATCHING_CONSTRUCTOR;
-        }
-        if (lower.contains("no matching method")
-                || lower.contains("no method named ")
-                || lower.contains("no static method named ")) {
-            return DiagnosticKind.NO_MATCHING_METHOD;
-        }
-        if (lower.contains("failed to resolve enum constant")) {
-            return DiagnosticKind.ENUM_CONSTANT_UNRESOLVED;
-        }
-        if (lower.contains("non-literal array dimension")) {
-            return DiagnosticKind.NON_LITERAL_ARRAY_DIMENSION;
-        }
-        if (lower.contains("non-literal array index")) {
-            return DiagnosticKind.NON_LITERAL_ARRAY_INDEX;
-        }
-        if (lower.contains("no such field")) {
-            return DiagnosticKind.NO_SUCH_FIELD;
-        }
-        if (lower.contains("non-static field") && lower.contains("requires an instance")) {
-            return DiagnosticKind.NON_STATIC_FIELD_REQUIRES_INSTANCE;
-        }
-        if (lower.contains("invalid variable assignment")
-                || lower.contains("invalid array assignment")
-                || lower.contains("invalid field assignment")
-                || lower.startsWith("invalid assignment:")
-                || lower.contains("unsupported assignment target")
-                || lower.contains("unresolved array assignment preserved as uninterpreted")) {
-            return DiagnosticKind.INVALID_ASSIGNMENT;
-        }
-        if (lower.contains("lambda expression preserved as uninterpretedstatement")
-                || lower.contains("unsupported expression type")
-                || lower.contains("unsupported unary operator preserved as uninterpretedstatement")
-                || lower.contains("preserved anonymous class implementation as raw java source")
-                || lower.contains("preserved mockito throw-stubbing as uninterpretedstatement")) {
-            return DiagnosticKind.UNSUPPORTED_CONSTRUCT_PRESERVED;
-        }
-        if (lower.contains("is object but parameter expects")) {
-            return DiagnosticKind.OBJECT_TO_SUBTYPE_MISMATCH;
-        }
-        if (lower.contains("generic type mismatch")) {
-            return DiagnosticKind.GENERIC_TYPE_MISMATCH;
-        }
-        if (lower.contains("primitive declaration cannot be initialized with null")) {
-            return DiagnosticKind.PRIMITIVE_INIT_WITH_NULL;
-        }
-        if (lower.contains("bare class name used as value expression")
-                || lower.contains("bare class name used as argument")) {
-            return DiagnosticKind.BARE_CLASS_NAME_AS_VALUE;
-        }
-        if (lower.contains("failed to parse")) {
-            return DiagnosticKind.PARSE_FAILURE;
-        }
-        return null;
+        return kind == null ? message : kind.appendRepairAction(message);
     }
 
     // Internal API for helpers: preserve a full AST statement as raw Java source.

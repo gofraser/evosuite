@@ -59,9 +59,9 @@ final class UnsupportedStatementScrubber {
         if (invalid == null) {
             return false;
         }
-        parser.addWarning(invalid.call,
+        parser.addWarning(invalid.call, StatementParser.DiagnosticMessage.unclassified(
                 "Dropped unsupported statement in LLM best-effort mode because it contains "
-                        + "an invalid method call that would not compile");
+                        + "an invalid method call that would not compile"));
         return true;
     }
 
