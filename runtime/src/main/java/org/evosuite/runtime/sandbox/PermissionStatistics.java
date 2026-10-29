@@ -100,7 +100,16 @@ public class PermissionStatistics {
         rememberRecentReadFilePermissions(permission);
         String name = permission.getClass().getName();
         String type = getPermissionType(permission);
-        allowedCount.computeIfAbsent(name, k -> new HashMap<>()).merge(type, 1, Integer::sum);
+        // No lambdas or method references here: this runs inside the security manager's permission
+        // check, and bootstrapping a lambda checks permissions again, which recurses until the stack
+        // overflows.
+        Map<String, Integer> counts = allowedCount.get(name);
+        if (counts == null) {
+            counts = new HashMap<>();
+            allowedCount.put(name, counts);
+        }
+        Integer count = counts.get(type);
+        counts.put(type, count == null ? 1 : count + 1);
     }
 
     private int getCurrentCount(Class<?> permissionClass) {
