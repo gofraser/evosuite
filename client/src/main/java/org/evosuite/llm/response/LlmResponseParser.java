@@ -133,29 +133,37 @@ public class LlmResponseParser {
      * Extraction result carrying synthesized source and recovery metadata.
      */
     public static final class ExtractionResult {
+        private static final ExtractionResult NO_CODE =
+                new ExtractionResult(null, Recovery.NONE, "disabled");
+
         private final String source;
         private final Recovery recovery;
         private final String recoveryReason;
-        private final boolean emptyFallback;
+        private final CompilationUnit parsedUnit;
+        private final int reflectiveRewrites;
+        private final Throwable invalidSource;
 
         ExtractionResult(String source, Recovery recovery, String recoveryReason) {
-            this(source, recovery, recoveryReason, false);
+            this(source, recovery, recoveryReason, null, 0, null);
         }
 
         private ExtractionResult(String source, Recovery recovery, String recoveryReason,
-                                 boolean emptyFallback) {
+                                 CompilationUnit parsedUnit, int reflectiveRewrites,
+                                 Throwable invalidSource) {
             this.source = source;
             this.recovery = recovery;
             this.recoveryReason = recoveryReason;
-            this.emptyFallback = emptyFallback;
+            this.parsedUnit = parsedUnit;
+            this.reflectiveRewrites = reflectiveRewrites;
+            this.invalidSource = invalidSource;
         }
 
         /**
-         * True when the response held no code and {@link #getSource()} is a placeholder class
-         * with an empty test method, which callers must not treat as a generated test.
+         * False when the response held no code: {@link #getSource()} is then null and the block
+         * is not a generated test.
          */
-        public boolean isEmptyFallback() {
-            return emptyFallback;
+        public boolean hasCode() {
+            return source != null;
         }
 
         public String getSource() {
@@ -169,23 +177,46 @@ public class LlmResponseParser {
         public String getRecoveryReason() {
             return recoveryReason;
         }
+
+        /** The number of reflective {@code assertThrows} calls rewritten in {@link #getSource()}. */
+        public int getReflectiveRewrites() {
+            return reflectiveRewrites;
+        }
+
+        /** Why a recovered or normalized source is still not valid Java, or null when it is. */
+        public Throwable getInvalidSource() {
+            return invalidSource;
+        }
+
+        ExtractionResult withParsedUnit(CompilationUnit unit) {
+            return new ExtractionResult(source, recovery, recoveryReason, unit, 0, null);
+        }
+
+        ExtractionResult withSource(String rewrittenSource, int rewrites) {
+            return new ExtractionResult(rewrittenSource, recovery, recoveryReason, null, rewrites, null);
+        }
+
+        ExtractionResult withInvalidSource(Throwable failure) {
+            return new ExtractionResult(source, recovery, recoveryReason, null, 0, failure);
+        }
     }
 
     /**
      * Extracts or synthesises complete Java classes from all detected code blocks
-     * and returns recovery metadata for each block.
+     * and returns recovery metadata for each block. Each source is normalised here:
+     * a recovered source is checked, and reflective {@code assertThrows} calls are
+     * rewritten to expect the {@code InvocationTargetException}.
      */
     public List<ExtractionResult> extractAllTestClassesWithMetadata(String response,
                                                                     String className,
                                                                     String packageName) {
         List<String> blocks = extractCodeBlocks(response);
         if (blocks.isEmpty()) {
-            return Collections.singletonList(
-                    emptyFallbackResult(className, packageName));
+            return Collections.singletonList(ExtractionResult.NO_CODE);
         }
         List<ExtractionResult> results = new ArrayList<>();
         for (String block : blocks) {
-            results.add(extractFromCodeBlockWithMetadata(block, className, packageName));
+            results.add(normalize(extractFromCodeBlockWithMetadata(block, className, packageName)));
         }
         return results;
     }
@@ -195,7 +226,7 @@ public class LlmResponseParser {
                                                               String packageName) {
         code = TestMethodParser.sanitizeAliasImports(code);
         if (code.isEmpty()) {
-            return emptyFallbackResult(className, packageName);
+            return ExtractionResult.NO_CODE;
         }
 
         ExtractionResult normalizedWrapper = normalizeSingleWrapperClass(code, className, packageName);
@@ -294,26 +325,14 @@ public class LlmResponseParser {
         return maybeRecoverNormalized(source.toString());
     }
 
-    private ExtractionResult emptyFallbackResult(String className, String packageName) {
-        return new ExtractionResult(emptyFallbackClass(className, packageName), Recovery.NONE, "disabled", true);
-    }
-
-    private String emptyFallbackClass(String className, String packageName) {
-        return packageDeclaration(packageName)
-                + "public class " + className + " {\n"
-                + "    " + getTestAnnotation() + "\n"
-                + "    public void generatedTest() {\n"
-                + "    }\n"
-                + "}";
-    }
-
     private ExtractionResult maybeRecover(String source) {
         if (!Properties.LLM_ENABLE_TRUNCATION_RECOVERY) {
             return new ExtractionResult(source, Recovery.NONE, "disabled");
         }
         TruncatedJavaRecovery.RecoveryResult recovery = truncatedJavaRecovery.recover(source);
         return new ExtractionResult(recovery.getSource(),
-                recovery.isRecovered() ? Recovery.TRUNCATED : Recovery.NONE, recovery.getReason());
+                recovery.isRecovered() ? Recovery.TRUNCATED : Recovery.NONE, recovery.getReason())
+                .withParsedUnit(recovery.getParsedUnit());
     }
 
     private ExtractionResult maybeRecoverNormalized(String source) {
@@ -323,7 +342,8 @@ public class LlmResponseParser {
                 && !"disabled".equals(base.getRecoveryReason())) {
             reason.append(";").append(base.getRecoveryReason());
         }
-        return new ExtractionResult(base.getSource(), Recovery.WRAPPER_NORMALIZED, reason.toString());
+        return new ExtractionResult(base.getSource(), Recovery.WRAPPER_NORMALIZED, reason.toString())
+                .withParsedUnit(base.parsedUnit);
     }
 
     /**
@@ -388,45 +408,39 @@ public class LlmResponseParser {
     }
 
     /**
-     * Rejects a block whose truncation or wrapper recovery still left invalid Java.
-     *
-     * @throws IllegalArgumentException when the recovered source does not parse
+     * Rejects a recovered source that is still not valid Java and rewrites its reflective
+     * {@code assertThrows} calls, on the tree the recovery already parsed when it has one.
      */
-    static void validateRecoveredSource(String source) {
-        try {
-            StaticJavaParser.parse(source);
-        } catch (ParseProblemException parseProblemException) {
-            throw new IllegalArgumentException("Recovered source is still not valid Java: "
-                    + parseProblemException.getMessage(), parseProblemException);
+    private ExtractionResult normalize(ExtractionResult extraction) {
+        if (!extraction.hasCode()) {
+            return extraction;
         }
-    }
-
-    static final class ReflectiveAssertThrowsRewriteResult {
-        final String source;
-        final int rewrites;
-
-        private ReflectiveAssertThrowsRewriteResult(String source, int rewrites) {
-            this.source = source;
-            this.rewrites = rewrites;
+        CompilationUnit unit = extraction.parsedUnit;
+        if (unit == null) {
+            try {
+                unit = StaticJavaParser.parse(extraction.source);
+            } catch (ParseProblemException parseProblem) {
+                if (extraction.recovery == Recovery.NONE) {
+                    return extraction;
+                }
+                return extraction.withInvalidSource(new IllegalArgumentException(
+                        "Recovered source is still not valid Java: " + parseProblem.getMessage(),
+                        parseProblem));
+            } catch (Throwable ignored) {
+                // Best-effort normalization only; keep the original source if parsing fails.
+                return extraction;
+            }
         }
+        return rewriteReflectiveAssertThrowsAssertions(unit, extraction);
     }
 
     /**
      * Rewrites {@code assertThrows(X.class, () -> method.invoke(..))} on a reflective
      * {@code Method} so that it expects the {@code InvocationTargetException} and casts its
-     * cause to {@code X}. Best effort: the source is returned unchanged when it does not parse.
+     * cause to {@code X}. The tree is edited in place and printed only when a call was rewritten.
      */
-    static ReflectiveAssertThrowsRewriteResult rewriteReflectiveAssertThrowsAssertions(String source) {
-        if (source == null || source.isEmpty()) {
-            return new ReflectiveAssertThrowsRewriteResult(source, 0);
-        }
-        final CompilationUnit compilationUnit;
-        try {
-            compilationUnit = StaticJavaParser.parse(source);
-        } catch (Throwable ignored) {
-            // Best-effort normalization only; keep original source if parsing fails.
-            return new ReflectiveAssertThrowsRewriteResult(source, 0);
-        }
+    private static ExtractionResult rewriteReflectiveAssertThrowsAssertions(CompilationUnit compilationUnit,
+                                                                            ExtractionResult extraction) {
 
         int rewrites = 0;
         List<MethodCallExpr> assertThrowsCalls = new ArrayList<>(compilationUnit.findAll(MethodCallExpr.class));
@@ -498,9 +512,9 @@ public class LlmResponseParser {
         }
 
         if (rewrites == 0) {
-            return new ReflectiveAssertThrowsRewriteResult(source, 0);
+            return extraction;
         }
-        return new ReflectiveAssertThrowsRewriteResult(compilationUnit.toString(), rewrites);
+        return extraction.withSource(compilationUnit.toString(), rewrites);
     }
 
     private static MethodCallExpr extractSingleReflectiveInvokeCall(LambdaExpr lambdaExpr) {

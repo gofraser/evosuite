@@ -272,7 +272,8 @@ public class StagnationDetector {
         if (loop == null) {
             boolean keepAssertions = LlmAssertionPolicyResolver.keepAssertions(false);
             loop = TestRepairLoop.createDefault(llmService,
-                    TestRepairLoop.RepairOptions.forAssertionPolicy(keepAssertions));
+                    TestRepairLoop.RepairOptions.forAssertionPolicy(keepAssertions),
+                    Properties.LLM_REPAIR_ATTEMPTS);
             cachedRepairLoop = loop;
         }
         return loop;

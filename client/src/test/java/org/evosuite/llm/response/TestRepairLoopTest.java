@@ -182,7 +182,7 @@ class TestRepairLoopTest {
         TestRepairLoop loop = new TestRepairLoop(
                 mock(LlmService.class), mock(TestParser.class), new LlmResponseParser(),
                 mock(ClusterExpansionManager.class),
-                testCase -> new ExecutionResult(testCase), 0, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                testCase -> new ExecutionResult(testCase), 0, null, () -> null, TestRepairLoop.RepairOptions.defaults());
         ParseResult candidate = new ParseResult(new DefaultTestCase(), "testRecovered");
         Method compileGate = TestRepairLoop.class.getDeclaredMethod(
                 "checkRenderedCompilation", ParseResult.class, long.class);
@@ -208,7 +208,7 @@ class TestRepairLoopTest {
         TestRepairLoop loop = new TestRepairLoop(
                 mock(LlmService.class), mock(TestParser.class), new LlmResponseParser(),
                 mock(ClusterExpansionManager.class),
-                testCase -> new ExecutionResult(testCase), 0, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                testCase -> new ExecutionResult(testCase), 0, null, () -> null, TestRepairLoop.RepairOptions.defaults());
         DefaultTestCase testCase = new DefaultTestCase();
         testCase.addStatement(new UninterpretedStatement(testCase, "int x = noSuchSymbolForProbe;"));
         ParseResult candidate = new ParseResult(testCase, "testBroken");
@@ -251,7 +251,7 @@ class TestRepairLoopTest {
         TestRepairLoop loop = new TestRepairLoop(
                 mock(LlmService.class), mock(TestParser.class), new LlmResponseParser(),
                 mock(ClusterExpansionManager.class),
-                testCase -> new ExecutionResult(testCase), 0, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                testCase -> new ExecutionResult(testCase), 0, null, () -> null, TestRepairLoop.RepairOptions.defaults());
         ParseResult candidate = new ParseResult(new DefaultTestCase(), "testCrashingCompiler");
         Method compileGate = TestRepairLoop.class.getDeclaredMethod(
                 "checkRenderedCompilation", ParseResult.class, long.class);
@@ -287,7 +287,7 @@ class TestRepairLoopTest {
             TestRepairLoop loop = new TestRepairLoop(
                     mock(LlmService.class), mock(TestParser.class), new LlmResponseParser(),
                     mock(ClusterExpansionManager.class),
-                    testCase -> new ExecutionResult(testCase), 0, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                    testCase -> new ExecutionResult(testCase), 0, null, () -> null, TestRepairLoop.RepairOptions.defaults());
             DefaultTestCase testCase = new DefaultTestCase();
             testCase.addStatement(new UninterpretedStatement(testCase,
                     "int v = new probecp.OnlyOnProjectClasspath().value();"));
@@ -315,7 +315,7 @@ class TestRepairLoopTest {
         TestRepairLoop loop = new TestRepairLoop(
                 mock(LlmService.class), mock(TestParser.class), new LlmResponseParser(),
                 mock(ClusterExpansionManager.class),
-                testCase -> new ExecutionResult(testCase), 0, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                testCase -> new ExecutionResult(testCase), 0, null, () -> null, TestRepairLoop.RepairOptions.defaults());
         Method compileGate = TestRepairLoop.class.getDeclaredMethod(
                 "checkRenderedCompilation", ParseResult.class, long.class);
         compileGate.setAccessible(true);
@@ -350,7 +350,7 @@ class TestRepairLoopTest {
         TestRepairLoop loop = new TestRepairLoop(
                 mock(LlmService.class), mock(TestParser.class), new LlmResponseParser(),
                 mock(ClusterExpansionManager.class),
-                testCase -> new ExecutionResult(testCase), 0, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                testCase -> new ExecutionResult(testCase), 0, null, () -> null, TestRepairLoop.RepairOptions.defaults());
         DefaultTestCase testCase = new DefaultTestCase();
         testCase.addStatement(new UninterpretedStatement(testCase, "int x = noSuchSymbolForProbe;"));
         ParseResult candidate = new ParseResult(testCase, "testBroken");
@@ -377,7 +377,7 @@ class TestRepairLoopTest {
         TestRepairLoop loop = new TestRepairLoop(
                 llmService, new TestParser(getClass().getClassLoader()), new LlmResponseParser(),
                 mock(ClusterExpansionManager.class),
-                testCase -> new ExecutionResult(testCase), 0, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                testCase -> new ExecutionResult(testCase), 0, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "I cannot write a test for this class because it only contains abstract methods.",
@@ -431,7 +431,7 @@ class TestRepairLoopTest {
         };
         TestRepairLoop loop = new TestRepairLoop(
                 llmService, parser, new LlmResponseParser(), mock(ClusterExpansionManager.class),
-                testCase -> new ExecutionResult(testCase), 2, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                testCase -> new ExecutionResult(testCase), 2, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -462,7 +462,7 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                2, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                2, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         String truncated = "```java\n"
                 + "public class GeneratedLlmTest {\n"
@@ -494,7 +494,8 @@ class TestRepairLoopTest {
                         new ExtractionResult("public class GoodTest { public void a() {} }",
                                 LlmResponseParser.Recovery.NONE, "none"),
                         new ExtractionResult("public class BrokenTest { public void b( {",
-                                LlmResponseParser.Recovery.TRUNCATED, "truncation recovery"));
+                                LlmResponseParser.Recovery.TRUNCATED, "truncation recovery")
+                                .withInvalidSource(new IllegalArgumentException("still broken")));
             }
         };
         TestParser parser = new TestParser(getClass().getClassLoader()) {
@@ -506,7 +507,7 @@ class TestRepairLoopTest {
 
         TestRepairLoop loop = new TestRepairLoop(
                 llmService, parser, responseParser, expansionManager,
-                testCase -> new ExecutionResult(testCase), 2, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                testCase -> new ExecutionResult(testCase), 2, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
                 SEED_PROMPT,
@@ -543,7 +544,7 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(0, new IllegalArgumentException("InputStream cannot be null"));
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -588,7 +589,7 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                0, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                0, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         String reflectiveResponse = "import static org.junit.jupiter.api.Assertions.*;\n"
                 + "import java.lang.reflect.Method;\n"
@@ -623,7 +624,7 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                0, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                0, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         Set<Class<?>> imports = new LinkedHashSet<>();
         imports.add(org.mockito.Mockito.class);
@@ -684,7 +685,7 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                0, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                0, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
                 SEED_PROMPT,
@@ -727,7 +728,7 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                0, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                0, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
                 SEED_PROMPT,
@@ -766,7 +767,7 @@ class TestRepairLoopTest {
                 testCase -> new ExecutionResult(testCase),
                 2,
                 null,
-                null,
+                () -> null,
                 TestRepairLoop.RepairOptions.parseOnly(false, false));
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -811,7 +812,7 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                2, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                2, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
                 SEED_PROMPT,
@@ -843,7 +844,7 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                2, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                2, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -884,7 +885,7 @@ class TestRepairLoopTest {
                 executor,
                 1,
                 null,
-                null,
+                () -> null,
                 TestRepairLoop.RepairOptions.parseOnly(false));
 
         RepairResult result = loop.attemptParse(
@@ -924,7 +925,7 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 executor,
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -961,7 +962,7 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
                 SEED_PROMPT,
@@ -999,7 +1000,7 @@ class TestRepairLoopTest {
                     }
                     return new ExecutionResult(testCase);
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
                 SEED_PROMPT,
@@ -1035,7 +1036,7 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
                 SEED_PROMPT,
@@ -1070,7 +1071,7 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n"
@@ -1129,7 +1130,7 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n"
@@ -1183,7 +1184,7 @@ class TestRepairLoopTest {
 
         TestRepairLoop loop = new TestRepairLoop(
                 llmService, parser, new LlmResponseParser(), expansionManager,
-                testCase -> new ExecutionResult(testCase), 3, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                testCase -> new ExecutionResult(testCase), 3, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
                 SEED_PROMPT,
@@ -1225,7 +1226,7 @@ class TestRepairLoopTest {
                 },
                 0,
                 null,
-                null,
+                () -> null,
                 new TestRepairLoop.RepairOptions(false, false, true));
 
         RepairResult result = loop.attemptParse(
@@ -1274,7 +1275,7 @@ class TestRepairLoopTest {
                 },
                 1,
                 null,
-                null,
+                () -> null,
                 TestRepairLoop.RepairOptions.forAssertionPolicy(true));
 
         RepairResult result = loop.attemptParse(
@@ -1362,7 +1363,7 @@ class TestRepairLoopTest {
                 },
                 1,
                 null,
-                null,
+                () -> null,
                 TestRepairLoop.RepairOptions.forAssertionPolicy(true));
 
         RepairResult result = loop.attemptParse(
@@ -1409,7 +1410,7 @@ class TestRepairLoopTest {
                 },
                 0,
                 null,
-                null,
+                () -> null,
                 new TestRepairLoop.RepairOptions(true, false, false));
 
         RepairResult result = loop.attemptParse(
@@ -1454,7 +1455,7 @@ class TestRepairLoopTest {
                 },
                 0,
                 null,
-                null,
+                () -> null,
                 new TestRepairLoop.RepairOptions(true, false, false));
 
         RepairResult result = loop.attemptParse(
@@ -1586,7 +1587,7 @@ class TestRepairLoopTest {
                 testCase -> new ExecutionResult(testCase),
                 1,
                 null,
-                null,
+                () -> null,
                 TestRepairLoop.RepairOptions.forAssertionPolicy(false));
 
         RepairResult result = loop.attemptParse(
@@ -1631,7 +1632,7 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -1673,7 +1674,7 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(0, new NoClassDefFoundError("com/example/MissingFramework"));
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -1716,7 +1717,7 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -1763,7 +1764,7 @@ class TestRepairLoopTest {
                                     + "\"sessionInfoProv\" is null"));
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -1823,7 +1824,7 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(0, npe);
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -1880,7 +1881,7 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(1, wrapper);
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -1939,7 +1940,7 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(2, wrapper);
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -1996,7 +1997,7 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(testCase.size(), timeout);
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -2076,7 +2077,7 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(6, cast);
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -2129,7 +2130,7 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(1, cast);
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -2175,7 +2176,7 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(1, new NullPointerException("boom"));
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -2221,7 +2222,7 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(1, new NullPointerException("boom"));
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -2267,7 +2268,7 @@ class TestRepairLoopTest {
                                     + "\"<local1>\" is null"));
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -2313,7 +2314,7 @@ class TestRepairLoopTest {
                             new IllegalArgumentException("InputStream cannot be null"));
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -2360,7 +2361,7 @@ class TestRepairLoopTest {
                                     + "but was: <java.lang.reflect.InvocationTargetException>"));
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -2415,7 +2416,7 @@ class TestRepairLoopTest {
                                     + "```"));
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -2471,7 +2472,7 @@ class TestRepairLoopTest {
                                     + "```"));
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -2546,7 +2547,7 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(2, npe);
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -2614,7 +2615,7 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(3, wrapper);
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -2684,7 +2685,7 @@ class TestRepairLoopTest {
                                     + "```"));
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -2751,7 +2752,7 @@ class TestRepairLoopTest {
                 },
                 1,
                 null,
-                sutSummary,
+                () -> sutSummary,
                 TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
@@ -2799,7 +2800,7 @@ class TestRepairLoopTest {
                             new IllegalArgumentException("The scheme has no lines."));
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -2847,7 +2848,7 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(0, ex);
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -2893,7 +2894,7 @@ class TestRepairLoopTest {
                             "Cannot invoke \"org.w3c.dom.Element.getAttribute(String)\" because \"model\" is null"));
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -2948,7 +2949,7 @@ class TestRepairLoopTest {
                                     + "```"));
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -3013,7 +3014,7 @@ class TestRepairLoopTest {
                                     + "```\n"));
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -3089,7 +3090,7 @@ class TestRepairLoopTest {
                                     + "```\n"));
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -3134,7 +3135,7 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(0, new NoClassDefFoundError("com/example/MissingFramework"));
                     return result;
                 },
-                3, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                3, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -3174,7 +3175,7 @@ class TestRepairLoopTest {
                 testCase -> new ExecutionResult(testCase),
                 1,
                 null,
-                null,
+                () -> null,
                 TestRepairLoop.RepairOptions.forAssertionPolicy(true));
 
         RepairResult result = loop.attemptParse(
@@ -3259,7 +3260,7 @@ class TestRepairLoopTest {
 
         TestRepairLoop loop = new TestRepairLoop(
                 llmService, parser, new LlmResponseParser(), expansionManager,
-                testCase -> new ExecutionResult(testCase), 5, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                testCase -> new ExecutionResult(testCase), 5, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
                 SEED_PROMPT,
@@ -3299,7 +3300,7 @@ class TestRepairLoopTest {
 
         TestRepairLoop loop = new TestRepairLoop(
                 llmService, parser, new LlmResponseParser(), expansionManager,
-                testCase -> new ExecutionResult(testCase), 5, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                testCase -> new ExecutionResult(testCase), 5, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
                 SEED_PROMPT,
@@ -3375,7 +3376,7 @@ class TestRepairLoopTest {
                                     + "Illegal character in path at index 29: file:/sf110/105_freemind/lib/\\"));
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -3418,7 +3419,7 @@ class TestRepairLoopTest {
                             "Snippet compilation failed for EvosuiteSnippet_1: " + diagnostics, diagnostics));
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -3465,7 +3466,7 @@ class TestRepairLoopTest {
                             new AWTError("Local GraphicsEnvironment must not be null"));
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -3518,7 +3519,7 @@ class TestRepairLoopTest {
                                 new AWTError("Local GraphicsEnvironment must not be null"));
                         return result;
                     },
-                    3, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                    3, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
             RepairResult result = loop.attemptParse(
                     "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -3583,7 +3584,7 @@ class TestRepairLoopTest {
                             new AWTError("Local GraphicsEnvironment must not be null"));
                     return result;
                 },
-                5, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                5, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -3642,7 +3643,7 @@ class TestRepairLoopTest {
                                     "Mock call to prepareStatement which was not presented when the test was generated"));
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -3689,7 +3690,7 @@ class TestRepairLoopTest {
                                     "Mock call to prepareStatement which was not presented when the test was generated"));
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -3737,7 +3738,7 @@ class TestRepairLoopTest {
                                             + "[Dependency Stack] java.sql.Connection.prepareStatement(Connection.java:123)"));
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -3781,7 +3782,7 @@ class TestRepairLoopTest {
                     result.reportNewThrownException(0, new InstantiationException());
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -3826,7 +3827,7 @@ class TestRepairLoopTest {
                             "org.mockito.exceptions.misusing.NotAMockException"));
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -3884,7 +3885,7 @@ class TestRepairLoopTest {
                 },
                 1,
                 null,
-                sutSummary,
+                () -> sutSummary,
                 TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
@@ -3930,7 +3931,7 @@ class TestRepairLoopTest {
                             new ArrayIndexOutOfBoundsException("Index 2 out of bounds for length 2"));
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -3980,7 +3981,7 @@ class TestRepairLoopTest {
                 testCase -> new ExecutionResult(testCase),
                 1,
                 null,
-                sutSummary,
+                () -> sutSummary,
                 TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
@@ -4044,7 +4045,7 @@ class TestRepairLoopTest {
                     }
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -4109,7 +4110,7 @@ class TestRepairLoopTest {
                     }
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -4151,7 +4152,7 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 mock(ClusterExpansionManager.class),
                 testCase -> new ExecutionResult(testCase),
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         ParseResult warningOnly = new ParseResult(new DefaultTestCase(), "testDroppedAtParse");
         warningOnly.addDiagnostic(new ParseDiagnostic(
@@ -4188,7 +4189,7 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 mock(ClusterExpansionManager.class),
                 testCase -> new ExecutionResult(testCase),
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         TestParser parser = new TestParser(getClass().getClassLoader());
         parser.setMarkParsedFromLlm(true);
@@ -4260,7 +4261,7 @@ class TestRepairLoopTest {
                     new LlmResponseParser(),
                     mock(ClusterExpansionManager.class),
                     testCase -> new ExecutionResult(testCase),
-                    1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                    1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
             Method buildCombinedRepairMessage = TestRepairLoop.class.getDeclaredMethod(
                     "buildCombinedRepairMessage", List.class, List.class, List.class, Map.class);
@@ -4299,7 +4300,7 @@ class TestRepairLoopTest {
                 testCase -> new ExecutionResult(testCase),
                 1,
                 null,
-                "ChangeNodeLevelAction [class]\n"
+                () -> "ChangeNodeLevelAction [class]\n"
                         + "  setController(MindMapController)\n"
                         + "  getMindMapController()\n", TestRepairLoop.RepairOptions.defaults());
 
@@ -4338,7 +4339,7 @@ class TestRepairLoopTest {
                 testCase -> new ExecutionResult(testCase),
                 1,
                 null,
-                "ChangeNodeLevelAction [class]\n"
+                () -> "ChangeNodeLevelAction [class]\n"
                         + "  setController(MindMapController)\n"
                         + "  getMindMapController()\n", TestRepairLoop.RepairOptions.defaults());
 
@@ -4413,7 +4414,7 @@ class TestRepairLoopTest {
                     }
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -4490,7 +4491,7 @@ class TestRepairLoopTest {
                     }
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -4570,7 +4571,7 @@ class TestRepairLoopTest {
                     }
                     return result;
                 },
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -4616,7 +4617,7 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                2, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                2, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -4673,7 +4674,7 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 seedResponse,
@@ -4749,7 +4750,7 @@ class TestRepairLoopTest {
                     new LlmResponseParser(),
                     expansionManager,
                     executor,
-                    1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                    1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
             loop.attemptParse(
                     "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -4814,7 +4815,7 @@ class TestRepairLoopTest {
                     new LlmResponseParser(),
                     expansionManager,
                     executor,
-                    1, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                    1, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
             loop.attemptParse(
                     "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -4876,7 +4877,7 @@ class TestRepairLoopTest {
 
         TestRepairLoop loop = new TestRepairLoop(
                 llmService, parser, new LlmResponseParser(), expansionManager,
-                testCase -> new ExecutionResult(testCase), 5, null, (String) null, TestRepairLoop.RepairOptions.defaults()); // budget of 5
+                testCase -> new ExecutionResult(testCase), 5, null, () -> null, TestRepairLoop.RepairOptions.defaults()); // budget of 5
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void testChangeNodeLevel(){}\n```",
@@ -4924,7 +4925,7 @@ class TestRepairLoopTest {
 
         TestRepairLoop loop = new TestRepairLoop(
                 llmService, parser, new LlmResponseParser(), expansionManager,
-                testCase -> new ExecutionResult(testCase), 2, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                testCase -> new ExecutionResult(testCase), 2, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void testAccess(){}\n```",
@@ -4972,7 +4973,7 @@ class TestRepairLoopTest {
 
         TestRepairLoop loop = new TestRepairLoop(
                 llmService, parser, new LlmResponseParser(), expansionManager,
-                testCase -> new ExecutionResult(testCase), 3, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                testCase -> new ExecutionResult(testCase), 3, null, () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -5010,7 +5011,7 @@ class TestRepairLoopTest {
                 testCase -> new ExecutionResult(testCase),
                 1,
                 "loop-provided-system-prompt",
-                null, TestRepairLoop.RepairOptions.defaults());
+                () -> null, TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -5062,7 +5063,7 @@ class TestRepairLoopTest {
                 testCase -> new ExecutionResult(testCase),
                 1,
                 "loop-provided-system-prompt",
-                "CATALOG-TEXT-MARKER-of-constructors-and-methods", TestRepairLoop.RepairOptions.defaults());
+                () -> "CATALOG-TEXT-MARKER-of-constructors-and-methods", TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -5114,7 +5115,7 @@ class TestRepairLoopTest {
                 testCase -> new ExecutionResult(testCase),
                 1,
                 "loop-provided-system-prompt",
-                "CATALOG-TEXT-MARKER-of-constructors-and-methods", TestRepairLoop.RepairOptions.defaults());
+                () -> "CATALOG-TEXT-MARKER-of-constructors-and-methods", TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -5161,7 +5162,7 @@ class TestRepairLoopTest {
                 testCase -> new ExecutionResult(testCase),
                 1,
                 "loop-provided-system-prompt",
-                "CATALOG-TEXT-MARKER-of-constructors-and-methods", TestRepairLoop.RepairOptions.defaults());
+                () -> "CATALOG-TEXT-MARKER-of-constructors-and-methods", TestRepairLoop.RepairOptions.defaults());
 
         RepairResult result = loop.attemptParse(
                 "```java\n@org.junit.Test\npublic void test(){}\n```",
@@ -5224,7 +5225,7 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                5, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                5, null, () -> null, TestRepairLoop.RepairOptions.defaults());
         loop.setTestClusterSupplierForTesting(() -> clusterWithDependency(GrowthDep.class));
 
         String systemMessageWithDependencyContext = "You are a test generator.\n\n"
@@ -5298,7 +5299,7 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                5, null, (String) null, TestRepairLoop.RepairOptions.defaults());
+                5, null, () -> null, TestRepairLoop.RepairOptions.defaults());
         loop.setTestClusterSupplierForTesting(() -> clusterWithDependency(GrowthDep.class));
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void initial(){}\n```",
@@ -5325,7 +5326,7 @@ class TestRepairLoopTest {
         AtomicInteger clusterReads = new AtomicInteger();
         LlmService llmService = mock(LlmService.class);
 
-        TestRepairLoop loop = TestRepairLoop.createDefault(llmService, null, 1, () -> {
+        TestRepairLoop loop = defaultLoopReading(llmService, () -> {
             clusterReads.incrementAndGet();
             return clusterWithDependency(GrowthDep.class);
         });
@@ -5350,7 +5351,7 @@ class TestRepairLoopTest {
         AtomicInteger clusterReads = new AtomicInteger();
         java.util.concurrent.atomic.AtomicReference<TestCluster> cluster =
                 new java.util.concurrent.atomic.AtomicReference<>(clusterWithDependency(Object.class));
-        TestRepairLoop loop = TestRepairLoop.createDefault(llmService, null, 1, () -> {
+        TestRepairLoop loop = defaultLoopReading(llmService, () -> {
             clusterReads.incrementAndGet();
             return cluster.get();
         });
@@ -5369,6 +5370,13 @@ class TestRepairLoopTest {
         assertTrue(repairMessage.contains("GrowthDep("),
                 "the summary must reflect the cluster at the first repair turn: " + repairMessage);
         assertEquals(1, clusterReads.get(), "the summary must be built once and kept");
+    }
+
+    private static TestRepairLoop defaultLoopReading(LlmService llmService,
+                                                     java.util.function.Supplier<TestCluster> clusters) {
+        return new TestRepairLoop(llmService, TestParser.forSUTWithLlmProvenance(), new LlmResponseParser(),
+                new ClusterExpansionManager(), testCase -> new ExecutionResult(testCase), 1, null,
+                new TestRepairLoop.LazySutContextSummary(clusters), TestRepairLoop.RepairOptions.defaults());
     }
 
     private static TestCluster clusterWithDependency(Class<?> dependencyClass) {

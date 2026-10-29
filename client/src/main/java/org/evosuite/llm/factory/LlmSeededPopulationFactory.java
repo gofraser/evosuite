@@ -266,7 +266,8 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
                     .parseOnlyIf(() -> acceptingSeeds.get() && !Thread.currentThread().isInterrupted())
                     .send(llmService, () -> TestRepairLoop.createDefault(llmService,
                             TestRepairLoop.RepairOptions.forAssertionPolicy(
-                                    LlmAssertionPolicyResolver.keepAssertions(llmStrategyContext))));
+                                    LlmAssertionPolicyResolver.keepAssertions(llmStrategyContext)),
+                            Properties.LLM_REPAIR_ATTEMPTS));
             outcome.rethrowFailure();
             if (outcome.getStatus() == GeneratedTestRequest.Outcome.Status.ABANDONED) {
                 LoggingUtils.getEvoLogger().info("* LLM seeding interrupted after LLM query");

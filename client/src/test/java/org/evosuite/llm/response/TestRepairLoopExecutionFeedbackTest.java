@@ -201,7 +201,7 @@ class TestRepairLoopExecutionFeedbackTest {
                     result.setFinalScope(scope);
                     return result;
                 },
-                0, null, null, TestRepairLoop.RepairOptions.forAssertionPolicy(true));
+                0, null, () -> null, TestRepairLoop.RepairOptions.forAssertionPolicy(true));
         return loop.attemptParse("```java\n@org.junit.Test public void t(){}\n```",
                 SEED_PROMPT, LlmFeature.TEST_REPAIR);
     }
@@ -220,7 +220,7 @@ class TestRepairLoopExecutionFeedbackTest {
                     result.reportNewThrownException(0, exception.apply(testCase));
                     return result;
                 },
-                0, null, null, TestRepairLoop.RepairOptions.forAssertionPolicy(true));
+                0, null, () -> null, TestRepairLoop.RepairOptions.forAssertionPolicy(true));
         return loop.attemptParse("```java\n@org.junit.Test public void t(){}\n```",
                 SEED_PROMPT, LlmFeature.TEST_REPAIR);
     }

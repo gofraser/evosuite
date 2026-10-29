@@ -157,7 +157,7 @@ class TestRepairLoopSalvageTest {
                 mock(ClusterExpansionManager.class), testCase -> {
                     executions.incrementAndGet();
                     return simulate(testCase);
-                }, 0, null, null, TestRepairLoop.RepairOptions.forAssertionPolicy(false));
+                }, 0, null, () -> null, TestRepairLoop.RepairOptions.forAssertionPolicy(false));
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test public void t(){}\n```",
                 SEED_PROMPT, LlmFeature.TEST_REPAIR);
@@ -181,7 +181,7 @@ class TestRepairLoopSalvageTest {
         };
         TestRepairLoop loop = new TestRepairLoop(mock(LlmService.class), parser, new LlmResponseParser(),
                 mock(ClusterExpansionManager.class), TestRepairLoopSalvageTest::simulate,
-                0, null, null, TestRepairLoop.RepairOptions.forAssertionPolicy(false));
+                0, null, () -> null, TestRepairLoop.RepairOptions.forAssertionPolicy(false));
 
         TestRepairLoop.setParseCompileCompilerForTesting(rejectingCompiler());
         RepairResult result;
@@ -244,7 +244,7 @@ class TestRepairLoopSalvageTest {
         };
         return new TestRepairLoop(llmService, parser, new LlmResponseParser(),
                 mock(ClusterExpansionManager.class), TestRepairLoopSalvageTest::simulate,
-                maxAttempts, null, null, TestRepairLoop.RepairOptions.forAssertionPolicy(true));
+                maxAttempts, null, () -> null, TestRepairLoop.RepairOptions.forAssertionPolicy(true));
     }
 
     /**

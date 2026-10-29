@@ -150,7 +150,7 @@ class RepairHintTextGoldenTest {
                 service, mock(TestParser.class), new LlmResponseParser(),
                 mock(ClusterExpansionManager.class),
                 testCase -> new ExecutionResult(testCase), 3,
-                null, SUT_CONTEXT, TestRepairLoop.RepairOptions.defaults());
+                null, () -> SUT_CONTEXT, TestRepairLoop.RepairOptions.defaults());
     }
 
     private static ParseResult parseResult(String name) {
@@ -215,7 +215,7 @@ class RepairHintTextGoldenTest {
 
         String render() throws Exception {
             TestRepairLoop loop = newLoop();
-            RepairConversation state = new RepairConversation();
+            RepairConversation state = new RepairConversation(null);
             if (headlessEscalated) {
                 state.shouldSkipRepair(error, error, new ArrayList<String>());
             }

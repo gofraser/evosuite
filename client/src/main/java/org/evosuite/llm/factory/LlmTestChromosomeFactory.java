@@ -254,7 +254,8 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
             GeneratedTestRequest.Outcome outcome = GeneratedTestRequest.of(prompt, LlmFeature.TEST_FACTORY)
                     .withDeadlineNanos(deadlineNanos)
                     .send(llmService, () -> TestRepairLoop.createDefault(llmService,
-                            TestRepairLoop.RepairOptions.forAssertionPolicy(keepAssertions)));
+                            TestRepairLoop.RepairOptions.forAssertionPolicy(keepAssertions),
+                            Properties.LLM_REPAIR_ATTEMPTS));
             outcome.rethrowFailure();
             TargetedResponse targeted = TargetedResponse.map(outcome.getResult(), 1);
             TestCase testCase = targeted.forTarget(1)

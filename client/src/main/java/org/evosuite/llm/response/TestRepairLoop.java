@@ -237,24 +237,10 @@ public class TestRepairLoop {
     /**
      * Creates a standard repair loop wired to the given LLM service, using the SUT-aware
      * parser, default response parser, and cluster expansion manager, and allowing
-     * {@link Properties#LLM_REPAIR_ATTEMPTS} repair round-trips.
-     */
-    public static TestRepairLoop createDefault(LlmService llmService, RepairOptions options) {
-        return createDefault(llmService, options, Properties.LLM_REPAIR_ATTEMPTS);
-    }
-
-    /**
-     * Creates a standard repair loop wired to the given LLM service and options
-     * with an explicit cap on repair round-trips.
+     * {@code maxAttempts} repair round-trips (normally {@link Properties#LLM_REPAIR_ATTEMPTS}).
      */
     public static TestRepairLoop createDefault(LlmService llmService, RepairOptions options,
                                                int maxAttempts) {
-        return createDefault(llmService, options, maxAttempts, TestCluster::getInstance);
-    }
-
-    /** As above, reading the test cluster for the dependency summary from {@code clusterSupplier}. */
-    static TestRepairLoop createDefault(LlmService llmService, RepairOptions options,
-                                        int maxAttempts, Supplier<TestCluster> clusterSupplier) {
         String systemPrompt = null;
         try {
             systemPrompt = new SystemPromptProvider().getSystemPrompt();
@@ -269,8 +255,8 @@ public class TestRepairLoop {
                 new DefaultExecutor(),
                 maxAttempts,
                 systemPrompt,
-                new LazySutContextSummary(clusterSupplier),
-                options == null ? RepairOptions.defaults() : options);
+                new LazySutContextSummary(TestCluster::getInstance),
+                options);
     }
 
     /**
@@ -278,7 +264,7 @@ public class TestRepairLoop {
      * that needs them. Most responses parse without a repair turn, so most
      * calls never pay for the summary.
      */
-    private static final class LazySutContextSummary implements Supplier<String> {
+    static final class LazySutContextSummary implements Supplier<String> {
         private final Supplier<TestCluster> clusterSupplier;
         private boolean computed;
         private String summary;
@@ -312,30 +298,19 @@ public class TestRepairLoop {
         }
     }
 
-    /** Creates a repair loop from explicit collaborators. Production code uses {@link #createDefault}. */
+    /**
+     * Creates a repair loop from explicit collaborators, with the dependency summary that
+     * {@code sutContextSummary} supplies on demand. Production code uses {@link #createDefault}.
+     */
     TestRepairLoop(LlmService llmService,
-                          TestParser testParser,
-                          LlmResponseParser responseParser,
-                          ClusterExpansionManager clusterExpansionManager,
-                          TestExecutor testExecutor,
-                          int maxAttempts,
-                          String systemPrompt,
-                          String sutContextSummary,
-                          RepairOptions repairOptions) {
-        this(llmService, testParser, responseParser, clusterExpansionManager, testExecutor,
-                maxAttempts, systemPrompt, () -> sutContextSummary, repairOptions);
-    }
-
-    /** Creates a repair loop whose dependency summary {@code sutContextSummary} supplies on demand. */
-    private TestRepairLoop(LlmService llmService,
-                           TestParser testParser,
-                           LlmResponseParser responseParser,
-                           ClusterExpansionManager clusterExpansionManager,
-                           TestExecutor testExecutor,
-                           int maxAttempts,
-                           String systemPrompt,
-                           Supplier<String> sutContextSummary,
-                           RepairOptions repairOptions) {
+                   TestParser testParser,
+                   LlmResponseParser responseParser,
+                   ClusterExpansionManager clusterExpansionManager,
+                   TestExecutor testExecutor,
+                   int maxAttempts,
+                   String systemPrompt,
+                   Supplier<String> sutContextSummary,
+                   RepairOptions repairOptions) {
         this.llmService = llmService;
         this.testParser = testParser;
         this.responseParser = responseParser;
@@ -405,9 +380,8 @@ public class TestRepairLoop {
         List<String> diagnostics = new ArrayList<>();
         List<String> expandedClasses = new ArrayList<>();
         Map<String, ParseResult> salvagedExecutableTests = new LinkedHashMap<>();
-        String currentResponse = llmResponse;
         int attemptsUsed = 0;
-        RepairConversation state = new RepairConversation();
+        RepairConversation state = new RepairConversation(llmResponse);
         state.setPrompt(prompt);
         boolean observedExecutionDrop = false;
         boolean strictContractReaskUsed = false;
@@ -416,7 +390,6 @@ public class TestRepairLoop {
         // not be limited to the final attempt's failures.
         Map<String, ParseResult> executionDropsForSalvage = new LinkedHashMap<>();
         boolean salvageAttempted = false;
-        String previousError = null;
 
         // Accumulate the full conversation so repair requests include prior turns
         List<LlmMessage> conversation = new ArrayList<>();
@@ -433,14 +406,14 @@ public class TestRepairLoop {
                 String sutPackage = getSutPackage();
                 List<LlmResponseParser.ExtractionResult> extractions =
                         responseParser.extractAllTestClassesWithMetadata(
-                                currentResponse, "GeneratedLlmTest", sutPackage);
+                                state.getResponse(), "GeneratedLlmTest", sutPackage);
                 parseResults = new ArrayList<>();
                 List<String> extractedSources = new ArrayList<>();
                 List<String> parserFailures = new ArrayList<>();
                 int blockIndex = 0;
                 for (LlmResponseParser.ExtractionResult extraction : extractions) {
                     blockIndex++;
-                    if (extraction.isEmptyFallback()) {
+                    if (!extraction.hasCode()) {
                         // A reply without code is not an empty test; let the no-test-methods
                         // path ask the model again.
                         diagnostics.add("No Java code found in block #" + blockIndex);
@@ -458,19 +431,14 @@ public class TestRepairLoop {
                             diagnostics.add("Applied truncation recovery (block #" + blockIndex + "): "
                                     + recoveryReason);
                         }
-                        try {
-                            LlmResponseParser.validateRecoveredSource(extractedClass);
-                        } catch (IllegalArgumentException recoveryFailure) {
+                        if (extraction.getInvalidSource() != null) {
                             parserFailures.add("Parser failure in code block #" + blockIndex + ": "
-                                    + formatThrowable(recoveryFailure));
+                                    + formatThrowable(extraction.getInvalidSource()));
                             continue;
                         }
                     }
-                    LlmResponseParser.ReflectiveAssertThrowsRewriteResult rewriteResult =
-                            LlmResponseParser.rewriteReflectiveAssertThrowsAssertions(extractedClass);
-                    extractedClass = rewriteResult.source;
-                    if (rewriteResult.rewrites > 0) {
-                        diagnostics.add("Normalized " + rewriteResult.rewrites
+                    if (extraction.getReflectiveRewrites() > 0) {
+                        diagnostics.add("Normalized " + extraction.getReflectiveRewrites()
                                 + " reflective assertThrows invocation(s) to unwrap "
                                 + "InvocationTargetException (block #" + blockIndex + ")");
                     }
@@ -489,29 +457,23 @@ public class TestRepairLoop {
                 if (parseResults.isEmpty() && !parserFailures.isEmpty()) {
                     String parserFailureText = String.join("\n", parserFailures);
                     diagnostics.add(parserFailureText);
-                    String next = tryRepair(state, parserFailureText, attempt, previousError, diagnostics,
-                            conversation, currentResponse, feature, expandedClasses,
+                    if (!continueWithRepair(state, parserFailureText, attempt, false, diagnostics,
+                            conversation, feature, expandedClasses,
                             Collections.<ParseResult, ExecutionFailureContext>emptyMap(),
-                            repairDeadlineNanos);
-                    if (next == null) {
+                            repairDeadlineNanos)) {
                         break;
                     }
-                    previousError = parserFailureText;
-                    currentResponse = next;
                     continue;
                 }
             } catch (Throwable parserFailure) {
                 String parserFailureText = "Parser failure: " + formatThrowable(parserFailure);
                 diagnostics.add(parserFailureText);
-                String next = tryRepair(state, parserFailureText, attempt, previousError, diagnostics,
-                        conversation, currentResponse, feature, expandedClasses,
+                if (!continueWithRepair(state, parserFailureText, attempt, false, diagnostics,
+                        conversation, feature, expandedClasses,
                         Collections.<ParseResult, ExecutionFailureContext>emptyMap(),
-                        repairDeadlineNanos);
-                if (next == null) {
+                        repairDeadlineNanos)) {
                     break;
                 }
-                previousError = parserFailureText;
-                currentResponse = next;
                 continue;
             }
 
@@ -519,31 +481,26 @@ public class TestRepairLoop {
                 String parseErrorText = buildNoTestMethodsParseError(extractedClassForDiagnostics);
                 diagnostics.add(parseErrorText);
                 OutputContractStatus contractStatus = classifyOutputContractStatus(
-                        currentResponse, extractedClassForDiagnostics, wrapperNormalizationApplied);
+                        state.getResponse(), extractedClassForDiagnostics, wrapperNormalizationApplied);
                 if (contractStatus == OutputContractStatus.HARD_REJECT && !strictContractReaskUsed) {
                     strictContractReaskUsed = true;
                     String strictContractError = buildStrictContractRepairRequest(
                             parseErrorText, extractedClassForDiagnostics);
                     diagnostics.add("Detected hard output-contract violation; issuing strict contract re-ask.");
-                    String next = tryStrictContractRepair(state, strictContractError, attempt, diagnostics,
-                            conversation, currentResponse, feature, expandedClasses,
-                            repairDeadlineNanos);
-                    if (next == null) {
+                    if (!continueWithRepair(state, strictContractError, attempt, true, diagnostics,
+                            conversation, feature, expandedClasses,
+                            Collections.<ParseResult, ExecutionFailureContext>emptyMap(),
+                            repairDeadlineNanos)) {
                         break;
                     }
-                    previousError = strictContractError;
-                    currentResponse = next;
                     continue;
                 }
-                String next = tryRepair(state, parseErrorText, attempt, previousError, diagnostics,
-                        conversation, currentResponse, feature, expandedClasses,
+                if (!continueWithRepair(state, parseErrorText, attempt, false, diagnostics,
+                        conversation, feature, expandedClasses,
                         Collections.<ParseResult, ExecutionFailureContext>emptyMap(),
-                        repairDeadlineNanos);
-                if (next == null) {
+                        repairDeadlineNanos)) {
                     break;
                 }
-                previousError = parseErrorText;
-                currentResponse = next;
                 continue;
             }
 
@@ -694,10 +651,9 @@ public class TestRepairLoop {
                 observedExecutionDrop = true;
             }
 
-            String next = tryRepair(state, combinedError, attempt, previousError, diagnostics,
-                    conversation, currentResponse, feature, expandedClasses,
-                    executionErrorByTest, repairDeadlineNanos);
-            if (next == null) {
+            if (!continueWithRepair(state, combinedError, attempt, false, diagnostics,
+                    conversation, feature, expandedClasses,
+                    executionErrorByTest, repairDeadlineNanos)) {
                 if (!repairOptions.isExecuteParsedTests()) {
                     diagnostics.add("Skipped execution-based salvage: parse-only mode");
                 } else {
@@ -713,8 +669,6 @@ public class TestRepairLoop {
                 }
                 break;
             }
-            previousError = combinedError;
-            currentResponse = next;
         }
 
         if (!salvageAttempted && !executionDropsForSalvage.isEmpty()) {
@@ -1042,54 +996,41 @@ public class TestRepairLoop {
     }
 
     /**
-     * Returns the LLM's repair response, or {@code null} if the repair loop
-     * should stop. Stop conditions: the attempt budget is exhausted, the error
-     * is unfixable / a repeat, or the repair request itself failed.
+     * Asks the model for a repaired response to {@code errorText} and makes it the conversation's
+     * current response, remembering the error as the previous one. Returns false when the repair
+     * loop should stop: the attempt budget is exhausted, the error is unfixable or a repeat (a
+     * strict output-contract re-ask is exempt from that check), the deadline is too close, or the
+     * repair request itself failed.
      */
-    private String tryRepair(RepairConversation state,
-                             String errorText,
-                             int attempt,
-                             String previousError,
-                             List<String> diagnostics,
-                             List<LlmMessage> conversation,
-                             String currentResponse,
-                             LlmFeature feature,
-                             List<String> expandedClasses,
-                             Map<ParseResult, ExecutionFailureContext> executionFailures,
-                             long repairDeadlineNanos) {
-        if (attempt == maxAttempts || state.shouldSkipRepair(errorText, previousError, diagnostics)) {
-            return null;
+    private boolean continueWithRepair(RepairConversation state,
+                                       String errorText,
+                                       int attempt,
+                                       boolean strictContract,
+                                       List<String> diagnostics,
+                                       List<LlmMessage> conversation,
+                                       LlmFeature feature,
+                                       List<String> expandedClasses,
+                                       Map<ParseResult, ExecutionFailureContext> executionFailures,
+                                       long repairDeadlineNanos) {
+        if (attempt == maxAttempts
+                || (!strictContract && state.shouldSkipRepair(errorText, state.getPreviousError(), diagnostics))) {
+            return false;
         }
         if (!hasTimeForAnotherRepairRequest(repairDeadlineNanos)) {
-            diagnostics.add("Skipped repair: sync deadline too close; returning partial/salvaged tests if available");
-            return null;
+            diagnostics.add(strictContract
+                    ? "Skipped strict contract repair: sync deadline too close; returning partial/salvaged tests "
+                    + "if available"
+                    : "Skipped repair: sync deadline too close; returning partial/salvaged tests if available");
+            return false;
         }
-        return requestRepairSafely(state, conversation, currentResponse, errorText,
+        String next = requestRepairSafely(state, conversation, state.getResponse(), errorText,
                 feature, expandedClasses, diagnostics, attempt + 2,
                 executionFailures, repairDeadlineNanos);
-    }
-
-    private String tryStrictContractRepair(RepairConversation state,
-                                           String errorText,
-                                           int attempt,
-                                           List<String> diagnostics,
-                                           List<LlmMessage> conversation,
-                                           String currentResponse,
-                                           LlmFeature feature,
-                                           List<String> expandedClasses,
-                                           long repairDeadlineNanos) {
-        if (attempt == maxAttempts) {
-            return null;
+        if (next == null) {
+            return false;
         }
-        if (!hasTimeForAnotherRepairRequest(repairDeadlineNanos)) {
-            diagnostics.add("Skipped strict contract repair: sync deadline too close; returning partial/salvaged tests "
-                    + "if available");
-            return null;
-        }
-        return requestRepairSafely(state, conversation, currentResponse, errorText,
-                feature, expandedClasses, diagnostics, attempt + 2,
-                Collections.<ParseResult, ExecutionFailureContext>emptyMap(),
-                repairDeadlineNanos);
+        state.advance(errorText, next);
+        return true;
     }
 
     private boolean hasTimeForAnotherRepairRequest(long repairDeadlineNanos) {

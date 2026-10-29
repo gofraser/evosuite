@@ -51,6 +51,11 @@ final class RepairConversation {
     /** The prompt this conversation started from, or null when it started from bare messages. */
     private PromptResult prompt;
 
+    /** The model response the loop is currently parsing: the original one, then each repair reply. */
+    private String response;
+    /** The error the latest repair request was sent for, or null before the first one. */
+    private String previousError;
+
     /** Whether cluster expansion ran since the last repair request went out. */
     private boolean expansionAttempted;
     /** Classes whose dependency signatures have already been sent to the model (cluster-growth delta). */
@@ -95,6 +100,24 @@ final class RepairConversation {
      * after it is consumed so the same hint is not repeated on later turns.
      */
     private String pendingTopOfMessageEscalationHint;
+
+    RepairConversation(String initialResponse) {
+        this.response = initialResponse;
+    }
+
+    String getResponse() {
+        return response;
+    }
+
+    String getPreviousError() {
+        return previousError;
+    }
+
+    /** Records that {@code error} was sent for repair and {@code repairedResponse} came back. */
+    void advance(String error, String repairedResponse) {
+        previousError = error;
+        response = repairedResponse;
+    }
 
     /** Records the prompt this conversation started from; null when it started from bare messages. */
     void setPrompt(PromptResult prompt) {

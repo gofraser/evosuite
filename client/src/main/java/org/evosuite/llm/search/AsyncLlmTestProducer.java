@@ -173,7 +173,8 @@ public class AsyncLlmTestProducer {
     private void produceLoop() {
         boolean keepAssertions = LlmAssertionPolicyResolver.keepAssertions(false);
         TestRepairLoop repairLoop = TestRepairLoop.createDefault(
-                llmService, TestRepairLoop.RepairOptions.forAssertionPolicy(keepAssertions));
+                llmService, TestRepairLoop.RepairOptions.forAssertionPolicy(keepAssertions),
+                Properties.LLM_REPAIR_ATTEMPTS);
         int generatedSinceRefresh = refreshInterval;
         Collection<TestFitnessFunction> currentGoals = Collections.emptyList();
         List<TestCase> currentTests = Collections.emptyList();

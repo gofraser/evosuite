@@ -918,7 +918,7 @@ public class LlmStrategy extends TestGenerationStrategy {
 
     protected TestRepairLoop createRepairLoop(LlmService llmService,
                                               TestRepairLoop.RepairOptions options) {
-        return TestRepairLoop.createDefault(llmService, options);
+        return TestRepairLoop.createDefault(llmService, options, Properties.LLM_REPAIR_ATTEMPTS);
     }
 
     protected List<TestFitnessFactory<? extends TestFitnessFunction>> getConfiguredGoalFactories() {

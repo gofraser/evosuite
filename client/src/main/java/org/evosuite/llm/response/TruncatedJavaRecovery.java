@@ -19,8 +19,8 @@
  */
 package org.evosuite.llm.response;
 
-import com.github.javaparser.ParseProblemException;
 import com.github.javaparser.StaticJavaParser;
+import com.github.javaparser.ast.CompilationUnit;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -39,11 +39,18 @@ public final class TruncatedJavaRecovery {
         private final String source;
         private final boolean recovered;
         private final String reason;
+        private final CompilationUnit parsedUnit;
 
-        RecoveryResult(String source, boolean recovered, String reason) {
+        RecoveryResult(String source, boolean recovered, String reason, CompilationUnit parsedUnit) {
             this.source = source;
             this.recovered = recovered;
             this.reason = reason;
+            this.parsedUnit = parsedUnit;
+        }
+
+        /** The syntax tree {@link #getSource()} parsed to while recovering, or null if it does not parse. */
+        CompilationUnit getParsedUnit() {
+            return parsedUnit;
         }
 
         public String getSource() {
@@ -65,19 +72,20 @@ public final class TruncatedJavaRecovery {
      */
     public RecoveryResult recover(String source) {
         if (source == null || source.trim().isEmpty()) {
-            return new RecoveryResult(source, false, "empty source");
+            return new RecoveryResult(source, false, "empty source", null);
         }
-        if (isParseable(source)) {
-            return new RecoveryResult(source, false, "already parseable");
+        CompilationUnit original = parse(source);
+        if (original != null) {
+            return new RecoveryResult(source, false, "already parseable", original);
         }
 
         int classKeyword = source.indexOf("class ");
         if (classKeyword < 0) {
-            return new RecoveryResult(source, false, "no class declaration");
+            return new RecoveryResult(source, false, "no class declaration", null);
         }
         int classOpenBrace = source.indexOf('{', classKeyword);
         if (classOpenBrace < 0) {
-            return new RecoveryResult(source, false, "class body start not found");
+            return new RecoveryResult(source, false, "class body start not found", null);
         }
 
         List<Integer> boundaries = findTopLevelMemberBoundaries(source, classOpenBrace);
@@ -91,27 +99,26 @@ public final class TruncatedJavaRecovery {
             if (candidate.equals(source)) {
                 continue;
             }
-            if (isParseable(candidate)) {
-                return new RecoveryResult(candidate, true, "trimmed trailing incomplete member");
+            CompilationUnit trimmed = parse(candidate);
+            if (trimmed != null) {
+                return new RecoveryResult(candidate, true, "trimmed trailing incomplete member", trimmed);
             }
         }
 
         String minimal = closeOutstandingBraces(source.substring(0, classOpenBrace + 1));
-        if (isParseable(minimal) && !minimal.equals(source)) {
-            return new RecoveryResult(minimal, true, "trimmed to class header");
+        CompilationUnit header = parse(minimal);
+        if (header != null && !minimal.equals(source)) {
+            return new RecoveryResult(minimal, true, "trimmed to class header", header);
         }
 
-        return new RecoveryResult(source, false, "recovery did not produce parseable source");
+        return new RecoveryResult(source, false, "recovery did not produce parseable source", null);
     }
 
-    private boolean isParseable(String source) {
+    private CompilationUnit parse(String source) {
         try {
-            StaticJavaParser.parse(source);
-            return true;
-        } catch (ParseProblemException ignored) {
-            return false;
+            return StaticJavaParser.parse(source);
         } catch (RuntimeException ignored) {
-            return false;
+            return null;
         }
     }
 

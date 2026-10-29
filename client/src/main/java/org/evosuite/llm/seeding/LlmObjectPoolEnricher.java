@@ -100,7 +100,8 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
         this(llmService, TestRepairLoop.createDefault(
                 llmService,
                 TestRepairLoop.RepairOptions.forAssertionPolicy(
-                        LlmAssertionPolicyResolver.keepAssertions(false))),
+                        LlmAssertionPolicyResolver.keepAssertions(false)),
+                Properties.LLM_REPAIR_ATTEMPTS),
                 false);
     }
 

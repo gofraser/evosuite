@@ -75,20 +75,13 @@ class LlmResponseParserTest {
     }
 
     @Test
-    void emptyFallbackUsesJUnit4ByDefault() {
-        Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT4;
-        String code = parser.extractAllTestClassesWithMetadata("", "MyGeneratedTest", null).get(0).getSource();
+    void responseWithoutCodeYieldsOneBlockThatHasNoCode() {
+        List<LlmResponseParser.ExtractionResult> results =
+                parser.extractAllTestClassesWithMetadata("", "MyGeneratedTest", null);
 
-        assertTrue(code.contains("@org.junit.Test"));
-    }
-
-    @Test
-    void emptyFallbackUsesJUnit5WhenConfigured() {
-        Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT5;
-        String code = parser.extractAllTestClassesWithMetadata("", "MyGeneratedTest", null).get(0).getSource();
-
-        assertTrue(code.contains("@org.junit.jupiter.api.Test"));
-        assertFalse(code.contains("@org.junit.Test"));
+        assertEquals(1, results.size());
+        assertFalse(results.get(0).hasCode());
+        assertEquals(LlmResponseParser.Recovery.NONE, results.get(0).getRecovery());
     }
 
     @Test
@@ -260,5 +253,48 @@ class LlmResponseParserTest {
         assertTrue(source.contains("class WrapperWithHelper"));
         assertFalse(source.contains("public class NormalizedWrapperTest"),
                 "unsafe wrapper should not be rewritten");
+    }
+
+    @Test
+    void rewritesReflectiveAssertThrowsOnTheExtractedSource() {
+        String response = "```java\n"
+                + "import static org.junit.jupiter.api.Assertions.*;\n"
+                + "import java.lang.reflect.Method;\n"
+                + "public class ReflectiveTest {\n"
+                + "  @org.junit.jupiter.api.Test\n"
+                + "  public void test0() throws Throwable {\n"
+                + "    Method method0 = Object.class.getDeclaredMethod(\"toString\");\n"
+                + "    assertThrows(IllegalStateException.class, () -> method0.invoke(null));\n"
+                + "  }\n"
+                + "}\n"
+                + "```";
+
+        LlmResponseParser.ExtractionResult result =
+                parser.extractAllTestClassesWithMetadata(response, "Ignored", null).get(0);
+
+        assertEquals(1, result.getReflectiveRewrites());
+        assertNull(result.getInvalidSource());
+        assertTrue(result.getSource().contains("java.lang.reflect.InvocationTargetException invocationTargetException0"),
+                result.getSource());
+        assertTrue(result.getSource().contains("(IllegalStateException) invocationTargetException0.getCause()"),
+                result.getSource());
+    }
+
+    @Test
+    void recoveredSourceIsNormalizedWithoutRewrites() {
+        String response = "```java\n"
+                + "public class ExampleTest {\n"
+                + "  @org.junit.Test\n"
+                + "  public void complete(){ int x = 1; }\n"
+                + "  @org.junit.Test\n"
+                + "  public void broken(){ int y =\n"
+                + "```";
+
+        LlmResponseParser.ExtractionResult result =
+                parser.extractAllTestClassesWithMetadata(response, "Ignored", null).get(0);
+
+        assertEquals(LlmResponseParser.Recovery.TRUNCATED, result.getRecovery());
+        assertEquals(0, result.getReflectiveRewrites());
+        assertNull(result.getInvalidSource());
     }
 }
