@@ -405,13 +405,21 @@ public class GenerateMojo extends AbstractEvoSuiteMojo {
     private void removeStaleTests(File folder) throws MojoExecutionException {
         try {
             for (Path stale : GeneratedTests.findStaleTests(folder,
-                    new File(project.getBuild().getOutputDirectory()))) {
+                    new File(project.getBuild().getOutputDirectory()), testSuffix())) {
                 Files.delete(stale);
                 getLog().info("Deleted test for a class that no longer exists: " + stale);
             }
         } catch (IOException e) {
             throw new MojoExecutionException("Failed to delete outdated generated tests: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * The suffix of generated test classes: the configured {@code junit_suffix}, else the default.
+     */
+    private String testSuffix() {
+        String configured = evosuiteProperties == null ? null : evosuiteProperties.get("junit_suffix");
+        return configured == null || configured.trim().isEmpty() ? GeneratedTests.TEST_SUFFIX : configured.trim();
     }
 
     /**
