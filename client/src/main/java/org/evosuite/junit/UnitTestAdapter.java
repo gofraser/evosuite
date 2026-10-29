@@ -19,7 +19,6 @@
  */
 package org.evosuite.junit;
 
-import org.evosuite.junit.writer.JUnitAnnotationProvider;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestCodeVisitor;
 
@@ -30,7 +29,42 @@ import java.util.Map;
  *
  * @author fraser
  */
-public interface UnitTestAdapter extends JUnitAnnotationProvider {
+public interface UnitTestAdapter {
+
+    /**
+     * Get the annotation for a test case.
+     *
+     * @return the annotation.
+     */
+    Class<?> testAnnotation();
+
+    /**
+     * Get the annotation for methods that shall be executed before any test is executed.
+     *
+     * @return the annotation.
+     */
+    Class<?> beforeAll();
+
+    /**
+     * Get the annotation for methods that shall be executed before every test.
+     *
+     * @return the annotation
+     */
+    Class<?> beforeEach();
+
+    /**
+     * Get the annotation for methods that shall be executed after all tests are executed.
+     *
+     * @return the annotation
+     */
+    Class<?> afterAll();
+
+    /**
+     * Get the annotation for methods that shall be executed after each test.
+     *
+     * @return the annotation.
+     */
+    Class<?> afterEach();
 
     /**
      * Get all the framework dependent imports.
