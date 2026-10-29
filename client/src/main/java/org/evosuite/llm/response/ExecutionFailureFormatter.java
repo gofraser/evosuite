@@ -26,6 +26,7 @@ import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.ast.stmt.Statement;
 import org.evosuite.Properties;
+import org.evosuite.testcase.execution.ExecutableSnippetEngine;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testparser.ParseDiagnostic;
 import org.evosuite.testparser.ParseResult;
@@ -122,14 +123,17 @@ final class ExecutionFailureFormatter {
     private void appendSnippetCompilationDetails(StringBuilder message,
                                                  Throwable throwable,
                                                  Throwable rootCause) {
-        if (!isSnippetCompilationThrowable(throwable) && !isSnippetCompilationThrowable(rootCause)) {
+        ExecutableSnippetEngine.SnippetCompilationException snippetFailure =
+                throwable instanceof ExecutableSnippetEngine.SnippetCompilationException
+                        ? (ExecutableSnippetEngine.SnippetCompilationException) throwable
+                        : rootCause instanceof ExecutableSnippetEngine.SnippetCompilationException
+                                ? (ExecutableSnippetEngine.SnippetCompilationException) rootCause
+                                : null;
+        if (snippetFailure == null) {
             return;
         }
 
-        String wrapperMessage = throwable == null ? null : throwable.getMessage();
-        String causeMessage = rootCause == null ? null : rootCause.getMessage();
-        String compilerDiagnostics = extractSnippetCompilerDiagnostics(wrapperMessage, causeMessage);
-
+        String compilerDiagnostics = snippetFailure.getCompilerDiagnostics();
         message.append("\nSnippet compilation note:");
         if (compilerDiagnostics != null && !compilerDiagnostics.isEmpty()) {
             message.append("\n- javac diagnostics:\n")
@@ -140,52 +144,6 @@ final class ExecutionFailureFormatter {
         }
         message.append("\n- This came from EvoSuite-rendered synthesized code after parsing, not directly from raw LLM "
                 + "text.");
-    }
-
-    private boolean isSnippetCompilationThrowable(Throwable throwable) {
-        if (throwable == null) {
-            return false;
-        }
-        String className = throwable.getClass().getName();
-        if (className.endsWith("ExecutableSnippetEngine$SnippetCompilationException")
-                || className.contains("ExecutableSnippetEngine$SnippetCompilationException")) {
-            return true;
-        }
-        String message = throwable.getMessage();
-        return message != null
-                && (message.contains("SnippetCompilationException")
-                || message.contains("Snippet compilation failed")
-                || message.contains("Snippet compilation interrupted"));
-    }
-
-    private String extractSnippetCompilerDiagnostics(String wrapperMessage, String causeMessage) {
-        String[] candidates = new String[]{wrapperMessage, causeMessage};
-        for (String candidate : candidates) {
-            if (candidate == null || candidate.isEmpty()) {
-                continue;
-            }
-            int idx = candidate.indexOf("Snippet compilation failed for ");
-            if (idx >= 0) {
-                int colon = candidate.indexOf(':', idx);
-                if (colon >= 0 && colon + 1 < candidate.length()) {
-                    return candidate.substring(colon + 1).trim();
-                }
-            }
-            if (candidate.contains("Could not compile snippet")
-                    || candidate.contains("Snippet compilation interrupted")) {
-                return null;
-            }
-            if (candidate.contains("cannot find symbol")
-                    || candidate.contains("illegal start of type")
-                    || candidate.contains("error:")
-                    || candidate.contains("cannot be applied to given types")
-                    || candidate.contains("has protected access")
-                    || candidate.contains("not public in")
-                    || candidate.contains("incompatible types")) {
-                return candidate.trim();
-            }
-        }
-        return null;
     }
 
     /**

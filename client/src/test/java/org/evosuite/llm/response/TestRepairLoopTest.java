@@ -37,6 +37,7 @@ import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.execution.ExecutableSnippetEngine;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.Scope;
@@ -3410,13 +3411,11 @@ class TestRepairLoopTest {
                 expansionManager,
                 testCase -> {
                     ExecutionResult result = new ExecutionResult(testCase);
-                    result.reportNewThrownException(0, new RuntimeException(
-                            "shaded.org.evosuite.testcase.execution.ExecutableSnippetEngine$SnippetCompilationException "
-                                    + "- Snippet compilation failed for EvosuiteSnippet_1: error: cannot find symbol\n"
-                                    + "  symbol: class MissingThing\n"
-                                    + "  location: class GeneratedSnippet\n"
-                                    + "Failing statement (index 0):\n"
-                                    + "MissingThing value0 = new MissingThing();\n"));
+                    String diagnostics = "error: cannot find symbol\n"
+                            + "  symbol: class MissingThing\n"
+                            + "  location: class GeneratedSnippet";
+                    result.reportNewThrownException(0, new ExecutableSnippetEngine.SnippetCompilationException(
+                            "Snippet compilation failed for EvosuiteSnippet_1: " + diagnostics, diagnostics));
                     return result;
                 },
                 1, null, (String) null, TestRepairLoop.RepairOptions.defaults());

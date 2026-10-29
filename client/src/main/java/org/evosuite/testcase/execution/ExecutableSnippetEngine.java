@@ -214,29 +214,40 @@ public final class ExecutableSnippetEngine {
     /**
      * Thrown when a snippet cannot be compiled. The failure is either a compiler diagnostic about
      * the snippet source, or an infrastructure problem (no compiler, I/O, interruption) that no
-     * change to the snippet can fix; {@link #isInfrastructureFailure()} tells them apart.
+     * change to the snippet can fix; {@link #isInfrastructureFailure()} tells them apart. A
+     * compiler diagnostic failure carries the compiler output in {@link #getCompilerDiagnostics()}.
      */
     public static final class SnippetCompilationException extends RuntimeException {
         private static final long serialVersionUID = 1L;
         private final boolean infrastructureFailure;
+        private final String compilerDiagnostics;
 
-        private SnippetCompilationException(String message) {
+        /** The compiler rejected the snippet; {@code compilerDiagnostics} is its output, possibly empty. */
+        public SnippetCompilationException(String message, String compilerDiagnostics) {
             super(message);
             this.infrastructureFailure = false;
+            this.compilerDiagnostics = compilerDiagnostics;
         }
 
         private SnippetCompilationException(String message, Throwable cause) {
             super(message, cause);
             this.infrastructureFailure = true;
+            this.compilerDiagnostics = null;
         }
 
         private SnippetCompilationException(String message, boolean infrastructureFailure) {
             super(message);
             this.infrastructureFailure = infrastructureFailure;
+            this.compilerDiagnostics = null;
         }
 
         public boolean isInfrastructureFailure() {
             return infrastructureFailure;
+        }
+
+        /** The compiler output, or null when the failure did not come from compiler diagnostics. */
+        public String getCompilerDiagnostics() {
+            return compilerDiagnostics;
         }
     }
 
@@ -629,7 +640,7 @@ public final class ExecutableSnippetEngine {
                 }
                 logger.debug("Snippet compilation classpath: {}", classpath);
                 logger.debug("Snippet source:\n{}", workingSource);
-                throw new SnippetCompilationException(message);
+                throw new SnippetCompilationException(message, diagnostics);
             }
 
             URLClassLoader snippetClassLoader = getOrCreateSnippetClassLoader(parentLoader);
