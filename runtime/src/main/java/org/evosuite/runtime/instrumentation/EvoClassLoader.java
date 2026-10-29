@@ -21,25 +21,18 @@ package org.evosuite.runtime.instrumentation;
 
 import org.evosuite.runtime.util.Inputs;
 import org.objectweb.asm.ClassReader;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 
 /**
  * An instrumenting class loader used in special cases in the generated JUnit tests
  * when Java Agent is not used.
  */
-public class EvoClassLoader extends ClassLoader {
-    private static final Logger logger = LoggerFactory.getLogger(EvoClassLoader.class);
+public class EvoClassLoader extends TransformingClassLoader {
     private final RuntimeInstrumentation instrumentation;
-    private final ClassLoader classLoader;
-    private final Map<String, Class<?>> classes = new HashMap<>();
     private final Set<String> skipInstrumentationForPrefix = new HashSet<>();
 
     /**
@@ -58,8 +51,7 @@ public class EvoClassLoader extends ClassLoader {
      *                        object.
      */
     public EvoClassLoader(RuntimeInstrumentation instrumentation) {
-        super(EvoClassLoader.class.getClassLoader());
-        classLoader = EvoClassLoader.class.getClassLoader();
+        super(EvoClassLoader.class.getClassLoader(), EvoClassLoader.class.getClassLoader());
         this.instrumentation = instrumentation;
     }
 
@@ -82,26 +74,23 @@ public class EvoClassLoader extends ClassLoader {
         if ("<evosuite>".equals(name)) {
             throw new ClassNotFoundException();
         }
+        return super.loadClass(name);
+    }
 
-        //first check if already loaded
-        if (!RuntimeInstrumentation.checkIfCanInstrument(name)) {
-            Class<?> result = findLoadedClass(name);
-            if (result != null) {
-                return result;
-            }
-            result = classLoader.loadClass(name);
-            return result;
-        }
+    @Override
+    protected boolean canInstrument(String name) {
+        return RuntimeInstrumentation.checkIfCanInstrument(name);
+    }
 
-        Class<?> result = classes.get(name);
-        if (result != null) {
-            return result;
-        } else {
-            logger.info("Seeing class for first time: " + name);
-            Class<?> instrumentedClass = instrumentClass(name);
-            return instrumentedClass;
-        }
+    @Override
+    protected InputStream openClass(String name) {
+        return getParent().getResourceAsStream(name.replace('.', '/') + ".class");
+    }
 
+    @Override
+    protected byte[] transform(String name, InputStream bytes) throws IOException {
+        boolean shouldSkip = skipInstrumentationForPrefix.stream().anyMatch(name::startsWith);
+        return instrumentation.transformBytes(this, name.replace('.', '/'), new ClassReader(bytes), shouldSkip);
     }
 
     /**
@@ -112,69 +101,4 @@ public class EvoClassLoader extends ClassLoader {
     public RuntimeInstrumentation getInstrumentation() {
         return instrumentation;
     }
-
-    private Class<?> instrumentClass(String fullyQualifiedTargetClass)
-            throws ClassNotFoundException {
-        logger.info("Instrumenting class '" + fullyQualifiedTargetClass + "'.");
-
-        InputStream is = null;
-        try {
-            String className = fullyQualifiedTargetClass.replace('.', '/');
-            is = classLoader.getResourceAsStream(className + ".class");
-
-            if (is == null) {
-                throw new ClassNotFoundException("Class '" + className + ".class"
-                        + "' should be in target project, but could not be found!");
-            }
-            boolean shouldSkip = skipInstrumentationForPrefix.stream()
-                    .anyMatch(s -> fullyQualifiedTargetClass.startsWith(s));
-            byte[] byteBuffer = instrumentation.transformBytes(this, className,
-                    new ClassReader(is), shouldSkip);
-            createPackageDefinition(fullyQualifiedTargetClass);
-            Class<?> result = defineClass(fullyQualifiedTargetClass, byteBuffer, 0,
-                    byteBuffer.length);
-            classes.put(fullyQualifiedTargetClass, result);
-            logger.info("Keeping class: " + fullyQualifiedTargetClass);
-            return result;
-        } catch (VirtualMachineError e) {
-            // A StackOverflowError while instrumenting (a StackOverflowError handler in the SUT
-            // resolving a class, as Jackson's BeanSerializerBase does) must stay a
-            // StackOverflowError: wrapped in ClassNotFoundException it becomes a
-            // NoClassDefFoundError that HotSpot records permanently for that constant-pool
-            // entry, whereas a VirtualMachineError is not recorded and the caller's next
-            // attempt can succeed.
-            throw e;
-        } catch (Throwable t) {
-            logger.error("Error while loading class: " + t.getMessage(), t);
-            throw new ClassNotFoundException(t.getMessage(), t);
-        } finally {
-            if (is != null) {
-                try {
-                    is.close();
-                } catch (IOException e) {
-                    throw new Error(e);
-                }
-            }
-        }
-    }
-
-    /**
-     * Before a new class is defined, we need to create a package definition for it.
-     *
-     * @param className the name of the class for which to create the package definition
-     */
-    private void createPackageDefinition(String className) {
-        int i = className.lastIndexOf('.');
-        if (i != -1) {
-            String pkgname = className.substring(0, i);
-            // Check if package already loaded.
-            Package pkg = getPackage(pkgname);
-            if (pkg == null) {
-                definePackage(pkgname, null, null, null, null, null, null, null);
-                logger.info("Defined package (3): " + getPackage(pkgname) + ", " + getPackage(pkgname).hashCode());
-            }
-        }
-    }
-
-
 }

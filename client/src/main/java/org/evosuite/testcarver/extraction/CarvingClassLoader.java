@@ -23,119 +23,55 @@ import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.runtime.instrumentation.JSRInlinerClassVisitor;
 import org.evosuite.runtime.instrumentation.RuntimeInstrumentation;
+import org.evosuite.runtime.instrumentation.TransformingClassLoader;
 import org.evosuite.testcarver.instrument.Instrumenter;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.tree.ClassNode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.Modifier;
 import java.net.URL;
-import java.security.CodeSource;
-import java.security.ProtectionDomain;
-import java.security.cert.Certificate;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Custom class loader for carving tests.
  *
  * @author Gordon Fraser
  */
-public class CarvingClassLoader extends ClassLoader {
-    private static final Logger logger = LoggerFactory.getLogger(CarvingClassLoader.class);
+public class CarvingClassLoader extends TransformingClassLoader {
     private final Instrumenter instrumenter = new Instrumenter();
-    private final ClassLoader classLoader;
-    private final Map<String, Class<?>> classes = new HashMap<>();
 
     /**
      * Constructor for CarvingClassLoader.
      */
     public CarvingClassLoader() {
-        classLoader = CarvingClassLoader.class.getClassLoader();
+        super(ClassLoader.getSystemClassLoader(), CarvingClassLoader.class.getClassLoader());
     }
 
-
-    /**
-     * {@inheritDoc}
-     */
     @Override
-    public Class<?> loadClass(String name) throws ClassNotFoundException {
-        if (!RuntimeInstrumentation.checkIfCanInstrument(name)) {
-            Class<?> result = findLoadedClass(name);
-            if (result != null) {
-                return result;
-            }
-            result = classLoader.loadClass(name);
-            return result;
-
-        }
-
-        Class<?> result = classes.get(name);
-        if (result != null) {
-            return result;
-        } else {
-            logger.info("Seeing class for first time: " + name);
-            return instrumentClass(name);
-        }
+    protected boolean canInstrument(String name) {
+        return RuntimeInstrumentation.checkIfCanInstrument(name);
     }
 
-
-    private Class<?> instrumentClass(String fullyQualifiedTargetClass)
-            throws ClassNotFoundException {
-        logger.warn("Instrumenting class '" + fullyQualifiedTargetClass + "'.");
-
-        try {
-            String className = fullyQualifiedTargetClass.replace('.', '/');
-
-            InputStream is = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
-                    .getClassAsStream(className);
-            if (is == null) {
-                throw new ClassNotFoundException("Class '" + className + ".class"
-                        + "' should be in target project, but could not be found!");
-            }
-            URL sourceUrl = TestGenerationContext.getInstance().getClassLoaderForSUT()
-                    .getResource(className + ".class");
-
-            ClassReader reader = new ClassReader(is);
-            ClassNode classNode = new ClassNode();
-            reader.accept(classNode, ClassReader.SKIP_FRAMES);
-            instrumenter.transformClassNode(classNode, className);
-            ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
-            classNode.accept(new JSRInlinerClassVisitor(writer));
-            //classNode.accept(writer);
-            byte[] byteBuffer = writer.toByteArray();
-            ProtectionDomain protectionDomain = createProtectionDomain(sourceUrl);
-            Class<?> result = protectionDomain == null
-                    ? defineClass(fullyQualifiedTargetClass, byteBuffer, 0, byteBuffer.length)
-                    : defineClass(fullyQualifiedTargetClass, byteBuffer, 0, byteBuffer.length, protectionDomain);
-            if (Modifier.isPrivate(result.getModifiers())) {
-                logger.info("REPLACING PRIVATE CLASS " + fullyQualifiedTargetClass);
-                result = super.loadClass(fullyQualifiedTargetClass);
-            }
-            classes.put(fullyQualifiedTargetClass, result);
-            logger.info("Keeping class: " + fullyQualifiedTargetClass);
-            return result;
-        } catch (Throwable t) {
-            logger.info("Error: " + t);
-            for (StackTraceElement e : t.getStackTrace()) {
-                logger.info(e.toString());
-            }
-            throw new ClassNotFoundException(t.getMessage(), t);
-        }
+    @Override
+    protected InputStream openClass(String name) {
+        return ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .getClassAsStream(name.replace('.', '/'));
     }
 
-    private ProtectionDomain createProtectionDomain(URL sourceUrl) {
-        if (sourceUrl == null) {
-            return null;
-        }
-        try {
-            CodeSource codeSource = new CodeSource(sourceUrl, (Certificate[]) null);
-            return new ProtectionDomain(codeSource, null, this, null);
-        } catch (Throwable ignored) {
-            return null;
-        }
+    @Override
+    protected URL getClassSource(String name) {
+        return TestGenerationContext.getInstance().getClassLoaderForSUT()
+                .getResource(name.replace('.', '/') + ".class");
+    }
+
+    @Override
+    protected byte[] transform(String name, InputStream bytes) throws IOException {
+        ClassNode classNode = new ClassNode();
+        new ClassReader(bytes).accept(classNode, ClassReader.SKIP_FRAMES);
+        instrumenter.transformClassNode(classNode, name.replace('.', '/'));
+        ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
+        classNode.accept(new JSRInlinerClassVisitor(writer));
+        return writer.toByteArray();
     }
 }

@@ -20,21 +20,17 @@
 package org.evosuite.symbolic.instrument;
 
 
+import org.evosuite.TestGenerationContext;
+import org.evosuite.classpath.ResourceList;
 import org.evosuite.dse.MainConfig;
+import org.evosuite.runtime.instrumentation.TransformingClassLoader;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Type;
 
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Array;
 import java.net.URL;
-import java.security.CodeSource;
-import java.security.ProtectionDomain;
-import java.security.cert.Certificate;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
 
 import static org.evosuite.dse.util.Assertions.check;
 import static org.evosuite.dse.util.Assertions.notNull;
@@ -45,13 +41,9 @@ import static org.evosuite.dse.util.Assertions.notNull;
  *
  * @author galeotti
  */
-public class ConcolicInstrumentingClassLoader extends ClassLoader {
+public class ConcolicInstrumentingClassLoader extends TransformingClassLoader {
 
-    //private final static Logger logger = LoggerFactory.getLogger(DscInstrumentingClassLoader.class);
-
-    private final ClassLoader classLoader;
     private final ConcolicBytecodeInstrumentation instrumentation;
-    private final Map<String, Class<?>> classes = new HashMap<>();
 
     /**
      * Constructor.
@@ -59,109 +51,43 @@ public class ConcolicInstrumentingClassLoader extends ClassLoader {
      * @param instrumentation a {@link org.evosuite.symbolic.instrument.ConcolicBytecodeInstrumentation} object.
      */
     public ConcolicInstrumentingClassLoader(ConcolicBytecodeInstrumentation instrumentation) {
-        super(ConcolicInstrumentingClassLoader.class.getClassLoader());
+        super(ConcolicInstrumentingClassLoader.class.getClassLoader(),
+                ConcolicInstrumentingClassLoader.class.getClassLoader());
 
         this.instrumentation = instrumentation;
-        this.classLoader = ConcolicInstrumentingClassLoader.class.getClassLoader();
     }
 
     @Override
-    public Class<?> loadClass(String name) throws ClassNotFoundException {
-        if (!checkIfCanInstrument(name)) {
-            Class<?> result = findLoadedClass(name);
-            if (result != null) {
-                return result;
-            }
-            result = classLoader.loadClass(name);
-            return result;
-
-        } else {
-            Class<?> result = findLoadedClass(name);
-            if (result != null) {
-                return result;
-            } else {
-
-                result = classes.get(name);
-                if (result != null) {
-                    return result;
-                } else {
-                    //logger.info("Seeing class for first time: " + name);
-                    Class<?> instrumentedClass = null;
-                    instrumentedClass = instrumentClass(name);
-                    return instrumentedClass;
-                }
-            }
-
-        }
-
-    }
-
-    private boolean checkIfCanInstrument(String name) {
+    protected boolean canInstrument(String name) {
         return !MainConfig.get().isIgnored(name);
     }
 
-    private Class<?> instrumentClass(String fullyQualifiedTargetClass)
-            throws ClassNotFoundException {
-        //logger.info("Instrumenting class '" + fullyQualifiedTargetClass + "'.");
-        try {
-            String className = fullyQualifiedTargetClass.replace('.', '/');
-            InputStream is = ClassLoader.getSystemResourceAsStream(className + ".class");
-            URL sourceUrl = ClassLoader.getSystemResource(className + ".class");
-            if (is == null) {
-                try {
-                    is = findTargetResource(className + ".class");
-                    sourceUrl = findTargetResourceUrl(className + ".class");
-                } catch (FileNotFoundException e) {
-                    throw new ClassNotFoundException("Class '" + className + ".class"
-                            + "' should be in target project, but could not be found!");
-                }
-            }
-
-            byte[] byteBuffer = instrumentation.transformBytes(className, new ClassReader(is));
-            ProtectionDomain protectionDomain = createProtectionDomain(sourceUrl);
-            Class<?> result = protectionDomain == null
-                    ? defineClass(fullyQualifiedTargetClass, byteBuffer, 0, byteBuffer.length)
-                    : defineClass(fullyQualifiedTargetClass, byteBuffer, 0, byteBuffer.length, protectionDomain);
-            classes.put(fullyQualifiedTargetClass, result);
-            //logger.info("Keeping class: " + fullyQualifiedTargetClass);
-            return result;
-        } catch (Exception e) {
-            throw new ClassNotFoundException(e.getMessage(), e);
+    @Override
+    protected InputStream openClass(String name) throws IOException {
+        String resource = name.replace('.', '/') + ".class";
+        InputStream is = ClassLoader.getSystemResourceAsStream(resource);
+        if (is != null) {
+            return is;
         }
+        URL url = targetResource(resource);
+        return url == null ? null : url.openStream();
     }
 
-    private InputStream findTargetResource(String name) throws FileNotFoundException {
-        Collection<String> resources = ResourceList.findResourceInClassPath(name);
-        if (resources.isEmpty()) {
-            throw new FileNotFoundException(name);
-        } else {
-            String fileName = resources.iterator().next();
-            return new FileInputStream(fileName);
-        }
+    @Override
+    protected URL getClassSource(String name) {
+        String resource = name.replace('.', '/') + ".class";
+        URL url = ClassLoader.getSystemResource(resource);
+        return url != null ? url : targetResource(resource);
     }
 
-    private URL findTargetResourceUrl(String name) {
-        Collection<String> resources = ResourceList.findResourceInClassPath(name);
-        if (resources.isEmpty()) {
-            return null;
-        }
-        try {
-            return new java.io.File(resources.iterator().next()).toURI().toURL();
-        } catch (Exception ignored) {
-            return null;
-        }
+    private static URL targetResource(String resource) {
+        return ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .findResource(resource);
     }
 
-    private ProtectionDomain createProtectionDomain(URL sourceUrl) {
-        if (sourceUrl == null) {
-            return null;
-        }
-        try {
-            CodeSource codeSource = new CodeSource(sourceUrl, (Certificate[]) null);
-            return new ProtectionDomain(codeSource, null, this, null);
-        } catch (Throwable ignored) {
-            return null;
-        }
+    @Override
+    protected byte[] transform(String name, InputStream bytes) throws IOException {
+        return instrumentation.transformBytes(name.replace('.', '/'), new ClassReader(bytes));
     }
 
 
