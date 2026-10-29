@@ -89,8 +89,7 @@ public class MOSuiteStrategy extends TestGenerationStrategy {
         // FIXME progressMonitor may cause client hang if EvoSuite is executed with -prefix!
         algorithm.addListener(getProgressMonitor());
 
-        LoggingUtils.getEvoLogger().info("* {}Total number of test goals for {}: {}",
-                ClientProcess.getPrettyPrintIdentifier(),
+        LoggingUtils.clientInfo("Total number of test goals for {}: {}",
                 Properties.ALGORITHM.name(), fitnessFunctions.size());
 
         if (fitnessFunctions.isEmpty()) {
@@ -121,9 +120,8 @@ public class MOSuiteStrategy extends TestGenerationStrategy {
         algorithm.resetStoppingConditions();
 
         // Perform search
-        LoggingUtils.getEvoLogger().info("* {}Using seed {}",
-                ClientProcess.getPrettyPrintIdentifier(), Randomness.getSeed());
-        LoggingUtils.getEvoLogger().info("* {}Starting evolution", ClientProcess.getPrettyPrintIdentifier());
+        LoggingUtils.clientInfo("Using seed {}", Randomness.getSeed());
+        LoggingUtils.clientInfo("Starting evolution");
         ClientServices.getInstance().getClientNode().changeState(ClientState.SEARCH);
 
         algorithm.generateSolution();
@@ -142,8 +140,7 @@ public class MOSuiteStrategy extends TestGenerationStrategy {
         }
 
         String text = " statements, best individual has fitness: ";
-        LoggingUtils.getEvoLogger().info("* {}Search finished after {}s and {} generations, {}{}{}",
-                ClientProcess.getPrettyPrintIdentifier(),
+        LoggingUtils.clientInfo("Search finished after {}s and {} generations, {}{}{}",
                 (endTime - startTime),
                 algorithm.getAge(),
                 MaxStatementsStoppingCondition.getNumExecutedStatements(),

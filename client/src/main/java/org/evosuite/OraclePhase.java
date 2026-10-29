@@ -72,14 +72,13 @@ final class OraclePhase {
             // Assertion generation and validation can reinstrument the SUT and
             // change the class loader stored in statements. Keep assertion-free
             // canonical clones and transfer only retained assertions afterward.
-            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Generating assertions");
+            LoggingUtils.clientInfo("Generating assertions");
             // progressMonitor.setCurrentPhase("Generating assertions");
             ClientServices.getInstance().getClientNode().changeState(ClientState.ASSERTION_GENERATION);
             PhaseSkipCause skipCause = TestSuiteGenerator.checkPhase("assertion generation",
                     TimeController.getInstance()::hasTimeToExecuteATestCase);
             if (skipCause == PhaseSkipCause.TIMEOUT) {
-                LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                        + "Skipping assertion generation because not enough time is left");
+                LoggingUtils.clientInfo("Skipping assertion generation because not enough time is left");
             } else if (skipCause == PhaseSkipCause.NONE) {
                 TestSuiteGeneratorHelper.addAssertions(testSuite);
             }
@@ -103,14 +102,12 @@ final class OraclePhase {
         // Keep one explicit post-processing session from phase entry through
         // final JUnit reconciliation, including skipped/failed phase paths.
         if (Properties.LLM_POSTPROCESSING_ENABLED) {
-            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                    + "Running unified LLM post-processing");
+            LoggingUtils.clientInfo("Running unified LLM post-processing");
             ClientServices.getInstance().getClientNode().changeState(ClientState.LLM_POSTPROCESSING);
             PhaseSkipCause skipCause = TestSuiteGenerator.checkPhase("unified LLM post-processing",
                     TimeController.getInstance()::isThereStillTimeInThisPhase);
             if (skipCause == PhaseSkipCause.TIMEOUT) {
-                LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                        + "Skipping unified LLM post-processing because not enough time is left");
+                LoggingUtils.clientInfo("Skipping unified LLM post-processing because not enough time is left");
                 postProcessor.publishSkippedPostProcessingMetrics(
                         postProcessingContext, "timeout", minimizationResult);
             } else if (skipCause == PhaseSkipCause.LOW_MEMORY) {
@@ -141,10 +138,8 @@ final class OraclePhase {
         }
 
         if (Properties.NO_RUNTIME_DEPENDENCY) {
-            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                    + "Property NO_RUNTIME_DEPENDENCY is set to true - skipping JUnit compile check");
-            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                    + "WARNING: Not including the runtime dependencies is likely to lead to flaky tests!");
+            LoggingUtils.clientInfo("Property NO_RUNTIME_DEPENDENCY is set to true - skipping JUnit compile check");
+            LoggingUtils.clientInfo("WARNING: Not including the runtime dependencies is likely to lead to flaky tests!");
         } else if (Properties.JUNIT_TESTS && (Properties.JUNIT_CHECK == Properties.JUnitCheckValues.TRUE
                 || Properties.JUNIT_CHECK == Properties.JUnitCheckValues.OPTIONAL)) {
             if (ClassPathHacker.isJunitCheckAvailable()) {
@@ -208,8 +203,7 @@ final class OraclePhase {
         if (missingOracles.size() == 0) {
             return;
         }
-        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                + "Applying standard assertions to " + missingOracles.size()
+        LoggingUtils.clientInfo("Applying standard assertions to " + missingOracles.size()
                 + " test(s) after LLM post-processing stopped: " + reason);
         TestSuiteGeneratorHelper.addAssertions(missingOracles);
     }
@@ -230,8 +224,7 @@ final class OraclePhase {
     private static void compileAndCheckTests(TestSuiteChromosome chromosome,
                                              LlmPostProcessor postProcessor,
                                              LlmPostProcessingPhaseContext postProcessingContext) {
-        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                + "Compiling and checking tests");
+        LoggingUtils.clientInfo("Compiling and checking tests");
         final int originalSuiteSize = chromosome.size();
 
         if (!JUnitAnalyzer.isJavaCompilerAvailable()) {

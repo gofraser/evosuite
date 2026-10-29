@@ -84,8 +84,8 @@ public class ClientProcess {
 
         MSecurityManager.setupMasterNodeRemoteHandling(MasterNodeRemote.class);
 
-        LoggingUtils.getEvoLogger().info("* " + getPrettyPrintIdentifier() + "Strategy: " + Properties.STRATEGY);
-        LoggingUtils.getEvoLogger().info("* " + getPrettyPrintIdentifier() + "Connecting to master process on port "
+        LoggingUtils.clientInfo("Strategy: " + Properties.STRATEGY);
+        LoggingUtils.clientInfo("Connecting to master process on port "
                 + Properties.PROCESS_COMMUNICATION_PORT);
 
         boolean registered = ClientServices.getInstance().registerServices(getIdentifier());
@@ -133,8 +133,7 @@ public class ClientProcess {
     private static void setupRuntimeProperties() {
         if (Properties.NO_RUNTIME_DEPENDENCY && Properties.DMON_ENABLED) {
             Properties.DMON_ENABLED = false;
-            LoggingUtils.getEvoLogger().info("* " + getPrettyPrintIdentifier()
-                    + "Disabling DMoN because no_runtime_dependency=true");
+            LoggingUtils.clientInfo("Disabling DMoN because no_runtime_dependency=true");
         }
 
         RuntimeSettings.useVFS = Properties.VIRTUAL_FS;

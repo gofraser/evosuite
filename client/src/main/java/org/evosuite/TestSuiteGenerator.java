@@ -171,7 +171,7 @@ public class TestSuiteGenerator {
             OracleReplayConfiguration.apply(Properties.ORACLE_REPLAY_STRATEGY);
         }
 
-        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Analyzing classpath: ");
+        LoggingUtils.clientInfo("Analyzing classpath: ");
 
         ClientServices.getInstance().getClientNode().changeState(ClientState.INITIALIZATION);
 
@@ -199,8 +199,7 @@ public class TestSuiteGenerator {
             String message = e.getMessage();
             if (message != null && (message.contains("Method code too large")
                     || message.contains("Class file too large"))) {
-                LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                        + "Instrumentation exceeds Java's 64K limit per method in target class");
+                LoggingUtils.clientInfo("Instrumentation exceeds Java's 64K limit per method in target class");
                 Properties.Criterion[] newCriteria = Arrays.stream(Properties.CRITERION)
                         .filter(t -> !t.equals(Properties.Criterion.STRONGMUTATION)
                                 && !t.equals(Properties.Criterion.WEAKMUTATION)
@@ -208,12 +207,10 @@ public class TestSuiteGenerator {
                         .toArray(Properties.Criterion[]::new);
                 if (newCriteria.length < Properties.CRITERION.length) {
                     ContextResetter.reset();
-                    LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                            + "Attempting re-instrumentation without mutation");
+                    LoggingUtils.clientInfo("Attempting re-instrumentation without mutation");
                     Properties.CRITERION = newCriteria;
                     if (Properties.NEW_STATISTICS) {
-                        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                                + "Deactivating EvoSuite statistics because of instrumentation problem");
+                        LoggingUtils.clientInfo("Deactivating EvoSuite statistics because of instrumentation problem");
                         Properties.NEW_STATISTICS = false;
                     }
 
@@ -224,16 +221,14 @@ public class TestSuiteGenerator {
                         // No-op, error handled below
                     }
                     if (Properties.ASSERTIONS && Properties.ASSERTION_STRATEGY == AssertionStrategy.MUTATION) {
-                        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                                + "Deactivating assertion minimization because mutation instrumentation does not work");
+                        LoggingUtils.clientInfo("Deactivating assertion minimization because mutation instrumentation does not work");
                         Properties.ASSERTION_STRATEGY = AssertionStrategy.ALL;
                     }
                 }
             }
 
             if (error) {
-                LoggingUtils.getEvoLogger().error("* " + ClientProcess.getPrettyPrintIdentifier()
-                        + "Error while initializing target class: "
+                LoggingUtils.clientError("Error while initializing target class: "
                         + (e.getMessage() != null ? e.getMessage() : e.toString()));
                 logger.error("Problem for " + Properties.TARGET_CLASS + ". Full stack:", e);
                 return TestGenerationResultBuilder.buildErrorResult(
@@ -277,7 +272,7 @@ public class TestSuiteGenerator {
         // TODO: Do parts of this need to be wrapped into sandbox statements?
         ObjectPoolManager.getInstance();
 
-        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Generating tests for class "
+        LoggingUtils.clientInfo("Generating tests for class "
                 + Properties.TARGET_CLASS);
         sanitizeDebugInfoDependentCriteria();
         // Both sanitizers have to run before the criteria are printed, otherwise the log advertises
@@ -369,8 +364,7 @@ public class TestSuiteGenerator {
             if (postProcessFailed) {
                 long freeMb = PhaseMemoryGuard.currentFreeHeapBytes() / 1024 / 1024;
                 long phaseMsLeft = TimeController.getInstance().getRemainingTimeInPhaseMs();
-                LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
-                        + "Proceeding to write with degraded state: freeMem=" + freeMb
+                LoggingUtils.clientWarn("Proceeding to write with degraded state: freeMem=" + freeMb
                         + " MB, phaseTimeLeft=" + phaseMsLeft + " ms");
                 try {
                     TestCaseExecutor.pullDown();
@@ -389,8 +383,7 @@ public class TestSuiteGenerator {
                 }
             } else {
                 // progressMonitor.setCurrentPhase("Writing JUnit test cases");
-                LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                        + "Writing tests to file");
+                LoggingUtils.clientInfo("Writing tests to file");
                 result = writeJUnitTestsAndCreateResult(testCases);
                 try {
                     writeJUnitFailingTests();
@@ -418,7 +411,7 @@ public class TestSuiteGenerator {
         }
         ClientServices.getInstance().getClientNode().changeState(ClientState.WRITING_STATISTICS);
 
-        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Done!");
+        LoggingUtils.clientInfo("Done!");
         LoggingUtils.getEvoLogger().info("");
     }
 
@@ -437,16 +430,14 @@ public class TestSuiteGenerator {
                 .filter(c -> TestSuiteGeneratorHelper.isLineDebugInfoDependentCriterion(c))
                 .map(FitnessFunctions::displayName)
                 .collect(java.util.stream.Collectors.joining(", "));
-        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                + "Missing line debug information in target class {}; omitting criterion during test generation: {}",
+        LoggingUtils.clientInfo("Missing line debug information in target class {}; omitting criterion during test generation: {}",
                 Properties.TARGET_CLASS, omittedCriteria);
 
         requestedCriteria = oldCriteria;
         Properties.CRITERION = filteredCriteria;
 
         if (Properties.CRITERION.length == 0) {
-            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                    + "No test criteria left after removing debug-info-dependent criteria");
+            LoggingUtils.clientInfo("No test criteria left after removing debug-info-dependent criteria");
         }
     }
 
@@ -482,8 +473,7 @@ public class TestSuiteGenerator {
                 .filter(TestSuiteGenerator::isCallGraphDependentCriterion)
                 .map(FitnessFunctions::displayName)
                 .collect(java.util.stream.Collectors.joining(", "));
-        LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
-                + "Dependency analysis did not produce a call graph for {}; omitting criterion during test "
+        LoggingUtils.clientWarn("Dependency analysis did not produce a call graph for {}; omitting criterion during test "
                 + "generation: {}", Properties.TARGET_CLASS, omittedCriteria);
 
         Properties.CRITERION = removeCallGraphDependentCriteria(Properties.CRITERION);
@@ -495,8 +485,7 @@ public class TestSuiteGenerator {
         }
 
         if (Properties.CRITERION.length == 0) {
-            LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
-                    + "No test criteria left after removing call-graph-dependent criteria");
+            LoggingUtils.clientWarn("No test criteria left after removing call-graph-dependent criteria");
         }
         return true;
     }
@@ -612,8 +601,7 @@ public class TestSuiteGenerator {
         List<TestChromosome> remaining = new ArrayList<>(testSuite.getTestChromosomes());
         remaining.removeIf(prefixes::contains);
         testSuite.replaceWithTestChromosomes(remaining);
-        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                + "Removed " + prefixes.size() + " tests that were prefixes of other tests, "
+        LoggingUtils.clientInfo("Removed " + prefixes.size() + " tests that were prefixes of other tests, "
                 + remaining.size() + " remain");
         logSuiteDiagnostics("postProcess:afterPrefixRemoval", testSuite);
     }
@@ -717,8 +705,7 @@ public class TestSuiteGenerator {
                         : MinimizationStopCause.TIMEOUT;
                 minimizationResult = MinimizationResult.preflightAborted(testSuite, stopCause);
                 if (skipCause == PhaseSkipCause.TIMEOUT) {
-                    LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                            + "Skipping minimization because not enough time is left");
+                    LoggingUtils.clientInfo("Skipping minimization because not enough time is left");
                 }
                 publishUnminimizedSuite(testSuite, minimizationResult);
             } else {
@@ -726,8 +713,7 @@ public class TestSuiteGenerator {
                 int testsBeforeMinimization = testSuite.size();
                 int lengthBeforeMinimization = testSuite.totalLengthOfTestCases();
 
-                LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                        + "Minimizing test suite");
+                LoggingUtils.clientInfo("Minimizing test suite");
                 minimizationResult = minimizer.minimize(testSuite, true);
                 logger.info("Minimization changed suite size {} -> {}, length {} -> {}",
                         testsBeforeMinimization, testSuite.size(),
@@ -752,8 +738,7 @@ public class TestSuiteGenerator {
         }
 
         StatisticsSender.executedAndThenSendIndividualToMaster(testSuite);
-        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                + "Generated " + testSuite.size()
+        LoggingUtils.clientInfo("Generated " + testSuite.size()
                 + " tests with total length " + testSuite.totalLengthOfTestCases());
 
         // TODO: In the end we will only need one analysis technique
@@ -765,13 +750,11 @@ public class TestSuiteGenerator {
             // FIXME: can we send all bestSuites?
         }
         if (Properties.CRITERION.length > 1) {
-            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                            + "Resulting test suite's coverage: "
+            LoggingUtils.clientInfo("Resulting test suite's coverage: "
                             + NumberFormat.getPercentInstance().format(coverage)
                             + " (average coverage for all fitness functions)");
         } else {
-            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                            + "Resulting test suite's coverage: "
+            LoggingUtils.clientInfo("Resulting test suite's coverage: "
                             + NumberFormat.getPercentInstance().format(coverage));
         }
 
@@ -789,8 +772,7 @@ public class TestSuiteGenerator {
             PhaseSkipCause skipCause = checkPhase("sandbox test filtering",
                     TimeController.getInstance()::hasTimeToExecuteATestCase);
             if (skipCause == PhaseSkipCause.TIMEOUT) {
-                LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                        + "Skipping sandbox test filtering because not enough time is left");
+                LoggingUtils.clientInfo("Skipping sandbox test filtering because not enough time is left");
             } else if (skipCause == PhaseSkipCause.NONE) {
                 for (TestChromosome test : testSuite.getTestChromosomes()) {
                     // delete all statements leading to security exceptions
@@ -825,8 +807,7 @@ public class TestSuiteGenerator {
                         metadata.getTestCount());
                 ClientServices.track(RuntimeVariable.Structural_Suite_Export_Statements,
                         metadata.getStatementCount());
-                LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                        + "Exported structural suite to "
+                LoggingUtils.clientInfo("Exported structural suite to "
                         + new File(Properties.STRUCTURAL_SUITE_EXPORT).getAbsolutePath()
                         + " (tests=" + metadata.getTestCount()
                         + ", statements=" + metadata.getStatementCount()
@@ -925,8 +906,7 @@ public class TestSuiteGenerator {
         }
         ClientServices.getInstance().getClientNode().changeState(ClientState.COVERAGE_ANALYSIS);
         if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
-            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                    + "Skipping coverage analysis because not enough time is left");
+            LoggingUtils.clientInfo("Skipping coverage analysis because not enough time is left");
             CoverageCriteriaAnalyzer.markCoverageAnalysisIncomplete();
             return;
         }
@@ -943,8 +923,7 @@ public class TestSuiteGenerator {
             try {
                 CoverageCriteriaAnalyzer.analyzeCoverage(testSuite);
             } catch (OutOfMemoryError e) {
-                LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
-                        + "Coverage analysis ran out of memory partway through; "
+                LoggingUtils.clientWarn("Coverage analysis ran out of memory partway through; "
                         + "keeping whatever coverage numbers were already tracked");
                 CoverageCriteriaAnalyzer.markCoverageAnalysisIncomplete();
             }
@@ -1017,8 +996,7 @@ public class TestSuiteGenerator {
         if (!guard.isExhausted()) {
             return false;
         }
-        LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
-                + "Skipping " + phaseName + " due to low memory: "
+        LoggingUtils.clientWarn("Skipping " + phaseName + " due to low memory: "
                 + (guard.getLastFreeBytes() / 1024 / 1024) + " MB free, need "
                 + (guard.getThresholdBytes() / 1024 / 1024) + " MB");
         return true;
@@ -1120,8 +1098,7 @@ public class TestSuiteGenerator {
         String name = Properties.TARGET_CLASS.substring(Properties.TARGET_CLASS.lastIndexOf(".") + 1);
         String testDir = Properties.TEST_DIR;
 
-        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                + "Writing JUnit test case '" + (name + suffix) + "' to " + testDir);
+        LoggingUtils.clientInfo("Writing JUnit test case '" + (name + suffix) + "' to " + testDir);
         suiteWriter.writeTestSuite(
                 name + suffix, testDir, suiteToWrite.getLastExecutionResults());
     }
@@ -1159,8 +1136,7 @@ public class TestSuiteGenerator {
 
             String name = Properties.TARGET_CLASS.substring(Properties.TARGET_CLASS.lastIndexOf(".") + 1);
             String testDir = Properties.TEST_DIR;
-            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                    + "Writing failing test cases '"
+            LoggingUtils.clientInfo("Writing failing test cases '"
                     + (name + Properties.JUNIT_SUFFIX) + "' to " + testDir);
             suiteWriter.insertAllTests(suite.getTests());
             FailingTestSet.writeJUnitTestSuite(suiteWriter);
@@ -1173,8 +1149,7 @@ public class TestSuiteGenerator {
 
     private void writeObjectPool(TestSuiteChromosome suite) {
         if (!Properties.WRITE_POOL.isEmpty()) {
-            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                    + "Writing sequences to pool");
+            LoggingUtils.clientInfo("Writing sequences to pool");
             ObjectPool pool = ObjectPool.getPoolFromTestSuite(suite);
             pool.writePool(Properties.WRITE_POOL);
         }

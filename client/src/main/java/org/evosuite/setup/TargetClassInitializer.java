@@ -19,7 +19,6 @@
  */
 package org.evosuite.setup;
 
-import org.evosuite.ClientProcess;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.execution.EvosuiteError;
@@ -84,8 +83,7 @@ public class TargetClassInitializer {
         // the CUT to be loaded first
         DependencyAnalysis.analyzeClass(targetClass, classPathEntries);
         DependencyAnalysis.logClasspathAnalysisSummary(classPathEntries);
-        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                + "Finished analyzing classpath");
+        LoggingUtils.clientInfo("Finished analyzing classpath");
     }
 
     /**

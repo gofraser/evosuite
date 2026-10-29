@@ -56,8 +56,7 @@ final class OracleReplayRun {
     }
 
     static TestGenerationResult run() {
-        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                + "Replaying structural suite from "
+        LoggingUtils.clientInfo("Replaying structural suite from "
                 + new File(Properties.ORACLE_REPLAY_INPUT).getAbsolutePath());
 
         TestGenerationResult result;
@@ -140,8 +139,7 @@ final class OracleReplayRun {
             }
 
             StatisticsSender.sendIndividualToMaster(suite);
-            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                    + "Writing replayed tests to file");
+            LoggingUtils.clientInfo("Writing replayed tests to file");
             // Assertion generation, snippet validation, and JUnit checking are
             // auxiliary phases. Do not let System-property reads performed by
             // those phases change the scaffolding of otherwise paired replay

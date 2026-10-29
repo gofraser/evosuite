@@ -147,8 +147,7 @@ final class JUnitCheckBudget {
             return false;
         }
         if (!wasExhausted) {
-            LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
-                    + "Low memory during JUnit check (" + cause + "); skipping "
+            LoggingUtils.clientWarn("Low memory during JUnit check (" + cause + "); skipping "
                     + step.description + " and all later checks, keeping the suite"
                     + (unchecked > 0 ? " (" + unchecked + " test(s) left unchecked)" : ""));
             if (ownGuardTrippedNow) {

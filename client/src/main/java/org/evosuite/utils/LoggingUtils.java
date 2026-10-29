@@ -30,6 +30,7 @@ import ch.qos.logback.core.ConsoleAppender;
 import ch.qos.logback.core.joran.spi.JoranException;
 import ch.qos.logback.core.util.Duration;
 import ch.qos.logback.core.util.StatusPrinter;
+import org.evosuite.ClientProcess;
 import org.evosuite.PackageInfo;
 import org.evosuite.Properties;
 import org.evosuite.runtime.util.Inputs;
@@ -111,6 +112,31 @@ public class LoggingUtils {
      */
     public static Logger getEvoLogger() {
         return LoggerFactory.getLogger(EVO_LOGGER);
+    }
+
+    /**
+     * Logs a progress line to the EvoSuite console logger, prefixed with {@code "* "} and the
+     * identifier of the current client process.
+     *
+     * @param format the message, with {@code {}} placeholders
+     * @param args   the placeholder values
+     */
+    public static void clientInfo(String format, Object... args) {
+        getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + format, args);
+    }
+
+    /**
+     * Like {@link #clientInfo(String, Object...)}, at warning level.
+     */
+    public static void clientWarn(String format, Object... args) {
+        getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier() + format, args);
+    }
+
+    /**
+     * Like {@link #clientInfo(String, Object...)}, at error level.
+     */
+    public static void clientError(String format, Object... args) {
+        getEvoLogger().error("* " + ClientProcess.getPrettyPrintIdentifier() + format, args);
     }
 
     /**

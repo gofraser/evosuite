@@ -20,7 +20,6 @@
 package org.evosuite.setup;
 
 import com.thoughtworks.xstream.XStream;
-import org.evosuite.ClientProcess;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ResourceList;
@@ -99,13 +98,11 @@ public class InheritanceTreeGenerator {
         if (!Properties.INSTRUMENT_CONTEXT && !Properties.INHERITANCE_FILE.isEmpty()) {
             try {
                 InheritanceTree tree = readInheritanceTree(Properties.INHERITANCE_FILE);
-                LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                        + "Inheritance tree loaded from {}", Properties.INHERITANCE_FILE);
+                LoggingUtils.clientInfo("Inheritance tree loaded from {}", Properties.INHERITANCE_FILE);
                 return tree;
 
             } catch (IOException e) {
-                LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
-                        + "Error loading inheritance tree: {}", e);
+                LoggingUtils.clientWarn("Error loading inheritance tree: {}", e);
             }
         }
 
