@@ -141,23 +141,28 @@ public class SimpleMutationAssertionGenerator extends AssertionGenerator {
         return result;
     }
 
-    protected Criterion[] oldCriterion = Properties.CRITERION;
+    /**
+     * Selects the mutation criterion until the returned handle is closed, unless the run
+     * already uses one: without it the code is not instrumented with the mutants.
+     */
+    static Properties.ValueOverride mutationCriterionUnlessPresent() {
+        Criterion[] criteria = Properties.CRITERION;
+        if (ArrayUtil.contains(criteria, Criterion.MUTATION)
+                || ArrayUtil.contains(criteria, Criterion.WEAKMUTATION)
+                || ArrayUtil.contains(criteria, Criterion.ONLYMUTATION)
+                || ArrayUtil.contains(criteria, Criterion.STRONGMUTATION)) {
+            return () -> { };
+        }
+        return Properties.withOverride("criterion", new Criterion[]{Criterion.MUTATION});
+    }
 
     /**
-     * If we are not doing mutation testing anyway, then we need to reinstrument
-     * the code to get the mutants now.
+     * Reinstruments the code to get the mutants now, if we are not doing mutation testing anyway.
      *
      * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      */
     @Override
     public void setupClassLoader(TestSuiteChromosome suite) {
-        oldCriterion = Arrays.copyOf(Properties.CRITERION, Properties.CRITERION.length);
-        if (!ArrayUtil.contains(oldCriterion, Criterion.MUTATION)
-                && !ArrayUtil.contains(oldCriterion, Criterion.WEAKMUTATION)
-                && !ArrayUtil.contains(oldCriterion, Criterion.ONLYMUTATION)
-                && !ArrayUtil.contains(oldCriterion, Criterion.STRONGMUTATION)) {
-            Properties.CRITERION = new Criterion[]{Criterion.MUTATION};
-        }
         if (Properties.RESET_STATIC_FIELDS) {
             final boolean resetAllClasses = Properties.RESET_ALL_CLASSES_DURING_ASSERTION_GENERATION;
             ClassReInitializer.getInstance().setReInitializeAllClasses(resetAllClasses);
@@ -170,15 +175,6 @@ public class SimpleMutationAssertionGenerator extends AssertionGenerator {
     }
 
     /**
-     * Set the criterion to whatever it was before.
-     *
-     * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
-     */
-    protected void restoreCriterion(TestSuiteChromosome suite) {
-        Properties.CRITERION = oldCriterion;
-    }
-
-    /**
      * We send status about the mutation score when we're done, because we know
      * it.
      *
@@ -187,7 +183,6 @@ public class SimpleMutationAssertionGenerator extends AssertionGenerator {
     protected void calculateMutationScore(Set<Integer> tkilled) {
         if (MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                 .getMutantCounter() == 0) {
-            Properties.CRITERION = oldCriterion;
             // SearchStatistics.getInstance().mutationScore(1.0);
             LoggingUtils.getEvoLogger()
                     .info("* Resulting test suite's mutation score: " + NumberFormat.getPercentInstance().format(1.0));
@@ -333,6 +328,12 @@ public class SimpleMutationAssertionGenerator extends AssertionGenerator {
 
     @Override
     public void addAssertions(TestSuiteChromosome suite) {
+        try (Properties.ValueOverride ignored = mutationCriterionUnlessPresent()) {
+            addAssertionsWithMutants(suite);
+        }
+    }
+
+    private void addAssertionsWithMutants(TestSuiteChromosome suite) {
 
         setupClassLoader(suite);
 
@@ -389,7 +390,6 @@ public class SimpleMutationAssertionGenerator extends AssertionGenerator {
         }
 
         calculateMutationScore(tkilled);
-        restoreCriterion(suite);
     }
 
 
