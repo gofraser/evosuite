@@ -111,9 +111,6 @@ public class StatementCoverageTestFitness extends TestFitnessFunction {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public double getFitness(TestChromosome individual, ExecutionResult result) {
         if (this.branchFitnesses.isEmpty()) {
@@ -169,9 +166,6 @@ public class StatementCoverageTestFitness extends TestFitnessFunction {
         return r;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         StringBuilder r = new StringBuilder();

@@ -228,17 +228,11 @@ public class UninterpretedStatement extends AbstractStatement {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object s) {
         return this == s || (isSameKind(s) && sameStructure((UninterpretedStatement) s, EQUAL_VARIABLES));
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean same(Statement s) {
         return this == s || (isSameKind(s) && sameStructure((UninterpretedStatement) s, SAME_VARIABLES));

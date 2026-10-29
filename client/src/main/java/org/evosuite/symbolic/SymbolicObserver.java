@@ -151,9 +151,6 @@ public class SymbolicObserver extends ExecutionObserver {
         symbReferences.put(varName, nonNullRef);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void beforeStatement(Statement s, Scope scope) {
         if (VM.getInstance().isStopped()) {
@@ -949,9 +946,6 @@ public class SymbolicObserver extends ExecutionObserver {
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void afterStatement(Statement s, Scope scope, Throwable exception) {
 
@@ -1499,9 +1493,6 @@ public class SymbolicObserver extends ExecutionObserver {
         return integerRef;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void clear() {
         symbExpressions.clear();

@@ -372,9 +372,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
 
     // inherited from Object
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
 
@@ -482,9 +479,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Iterator<BytecodeInstruction> iterator() {
         return instructions.iterator();

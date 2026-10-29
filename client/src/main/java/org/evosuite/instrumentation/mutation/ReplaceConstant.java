@@ -45,9 +45,6 @@ public class ReplaceConstant implements MutationOperator {
 
     public static final String NAME = "ReplaceConstant";
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public List<Mutation> apply(MethodNode mn, String className, String methodName,
                                 BytecodeInstruction instruction, Frame frame) {
@@ -236,9 +233,6 @@ public class ReplaceConstant implements MutationOperator {
         return values.toArray();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isApplicable(BytecodeInstruction instruction) {
         return instruction.isConstant();

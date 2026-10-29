@@ -45,9 +45,6 @@ public class OutputCoverageFactory extends AbstractFitnessFactory<OutputCoverage
 
     private static final Logger logger = LoggerFactory.getLogger(OutputCoverageFactory.class);
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public List<OutputCoverageTestFitness> getCoverageGoals() {
         List<OutputCoverageTestFitness> goals = new ArrayList<>();

@@ -101,9 +101,6 @@ public abstract class TestSuiteFitnessFunction extends FitnessFunction<TestSuite
 
 
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isMaximizationFunction() {
         return false;

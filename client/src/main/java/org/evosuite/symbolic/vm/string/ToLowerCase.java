@@ -45,9 +45,6 @@ public final class ToLowerCase extends SymbolicFunction {
         super(env, Types.JAVA_LANG_STRING, TO_LOWER_CASE, Types.TO_STR_DESCRIPTOR);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Object executeFunction() {
 

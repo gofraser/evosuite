@@ -65,9 +65,6 @@ public class ControlDependency implements Serializable, Comparable<ControlDepend
         return branchExpressionValue;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
 

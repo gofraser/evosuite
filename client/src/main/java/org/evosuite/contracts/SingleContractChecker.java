@@ -62,9 +62,6 @@ public class SingleContractChecker extends ExecutionObserver {
         return valid;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void afterStatement(Statement statement, Scope scope,
                                Throwable exception) {

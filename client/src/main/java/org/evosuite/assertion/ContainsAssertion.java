@@ -41,9 +41,6 @@ public class ContainsAssertion extends Assertion {
     }
 
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Assertion copy(TestCase newTestCase, int offset) {
         ContainsAssertion s = new ContainsAssertion();
@@ -73,9 +70,6 @@ public class ContainsAssertion extends Assertion {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<VariableReference> getReferencedVariables() {
         Set<VariableReference> vars = super.getReferencedVariables();

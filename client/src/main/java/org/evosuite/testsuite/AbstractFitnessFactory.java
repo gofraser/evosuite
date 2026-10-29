@@ -34,9 +34,6 @@ import org.evosuite.testcase.execution.ExecutionTracer;
 public abstract class AbstractFitnessFactory<T extends TestFitnessFunction> implements
         TestFitnessFactory<T> {
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public double getFitness(TestSuiteChromosome suite) {
 

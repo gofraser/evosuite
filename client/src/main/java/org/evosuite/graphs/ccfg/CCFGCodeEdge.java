@@ -36,9 +36,6 @@ public class CCFGCodeEdge extends CCFGEdge {
         this.cfgEdge = cfgEdge;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -47,9 +44,6 @@ public class CCFGCodeEdge extends CCFGEdge {
         return result;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -69,9 +63,6 @@ public class CCFGCodeEdge extends CCFGEdge {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return cfgEdge.toString();

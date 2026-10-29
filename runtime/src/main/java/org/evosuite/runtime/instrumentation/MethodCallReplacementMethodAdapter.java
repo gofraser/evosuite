@@ -145,9 +145,6 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
     /* The instruction visitors below only need to keep track of whether a NEW was immediately
      * followed by a DUP. Anything else that is emitted ends the NEW/DUP window. */
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitTypeInsn(int opcode, String type) {
         if (opcode == Opcodes.NEW) {
@@ -160,9 +157,6 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
         super.visitTypeInsn(opcode, type);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitInsn(int opcode) {
         if (opcode == Opcodes.DUP && expectingDupAfterNew && !pendingNewInstances.isEmpty()) {
@@ -172,90 +166,60 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
         super.visitInsn(opcode);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitIntInsn(int opcode, int operand) {
         expectingDupAfterNew = false;
         super.visitIntInsn(opcode, operand);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitVarInsn(int opcode, int var) {
         expectingDupAfterNew = false;
         super.visitVarInsn(opcode, var);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitFieldInsn(int opcode, String owner, String name, String desc) {
         expectingDupAfterNew = false;
         super.visitFieldInsn(opcode, owner, name, desc);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitJumpInsn(int opcode, Label label) {
         expectingDupAfterNew = false;
         super.visitJumpInsn(opcode, label);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitLdcInsn(Object value) {
         expectingDupAfterNew = false;
         super.visitLdcInsn(value);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitIincInsn(int var, int increment) {
         expectingDupAfterNew = false;
         super.visitIincInsn(var, increment);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitTableSwitchInsn(int min, int max, Label dflt, Label... labels) {
         expectingDupAfterNew = false;
         super.visitTableSwitchInsn(min, max, dflt, labels);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitLookupSwitchInsn(Label dflt, int[] keys, Label[] labels) {
         expectingDupAfterNew = false;
         super.visitLookupSwitchInsn(dflt, keys, labels);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitMultiANewArrayInsn(String desc, int numDimensions) {
         expectingDupAfterNew = false;
         super.visitMultiANewArrayInsn(desc, numDimensions);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitInvokeDynamicInsn(String name, String desc, Handle bootstrapMethodHandle,
                                        Object... bootstrapMethodArguments) {
@@ -263,9 +227,6 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
         super.visitInvokeDynamicInsn(name, desc, bootstrapMethodHandle, bootstrapMethodArguments);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
 

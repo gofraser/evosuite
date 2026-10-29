@@ -89,9 +89,6 @@ public class ComparisonTraceEntry implements OutputTraceEntry {
         equalityMapIntVar.put(other.getStPosition(), other);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean differs(OutputTraceEntry other) {
         if (other instanceof ComparisonTraceEntry) {
@@ -114,9 +111,6 @@ public class ComparisonTraceEntry implements OutputTraceEntry {
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<Assertion> getAssertions(OutputTraceEntry other) {
         Set<Assertion> assertions = new LinkedHashSet<>();
@@ -145,9 +139,6 @@ public class ComparisonTraceEntry implements OutputTraceEntry {
         return assertions;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<Assertion> getAssertions() {
         Set<Assertion> assertions = new LinkedHashSet<>();
@@ -167,9 +158,6 @@ public class ComparisonTraceEntry implements OutputTraceEntry {
         return assertions;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isDetectedBy(Assertion assertion) {
         if (assertion instanceof EqualsAssertion) {
@@ -181,9 +169,6 @@ public class ComparisonTraceEntry implements OutputTraceEntry {
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public OutputTraceEntry cloneEntry() {
         ComparisonTraceEntry copy = new ComparisonTraceEntry(var);

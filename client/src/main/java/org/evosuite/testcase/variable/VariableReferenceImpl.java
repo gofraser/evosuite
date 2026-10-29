@@ -140,9 +140,6 @@ public class VariableReferenceImpl implements VariableReference {
         return newTestCase.getStatement(getStPosition()).getReturnValue();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public VariableReference copy(TestCase newTestCase, int offset) {
         return newTestCase.getStatement(getStPosition() + offset).getReturnValue();
@@ -174,17 +171,11 @@ public class VariableReferenceImpl implements VariableReference {
         return type.getClassName();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getComponentName() {
         return type.getComponentName();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Type getComponentType() {
         return type.getComponentType();
@@ -350,9 +341,6 @@ public class VariableReferenceImpl implements VariableReference {
         return scope.getObject(this);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getOriginalCode() {
         return originalCode;
@@ -368,9 +356,6 @@ public class VariableReferenceImpl implements VariableReference {
         scope.setObject(this, value);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void setOriginalCode(String code) {
         if (originalCode != null) {
@@ -407,9 +392,6 @@ public class VariableReferenceImpl implements VariableReference {
         return "var" + getStPosition();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void loadBytecode(GeneratorAdapter mg, Map<Integer, Integer> locals) {
 
@@ -422,9 +404,6 @@ public class VariableReferenceImpl implements VariableReference {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void storeBytecode(GeneratorAdapter mg, Map<Integer, Integer> locals) {
 
@@ -438,9 +417,6 @@ public class VariableReferenceImpl implements VariableReference {
                 org.objectweb.asm.Type.getType(type.getRawClass()));
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Object getDefaultValue() {
         if (isVoid()) {
@@ -462,9 +438,6 @@ public class VariableReferenceImpl implements VariableReference {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getDefaultValueString() {
         if (isVoid()) {
@@ -486,17 +459,11 @@ public class VariableReferenceImpl implements VariableReference {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int compareTo(VariableReference other) {
         return getStPosition() - other.getStPosition();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean same(VariableReference r) {
         if (r == null) {
@@ -510,49 +477,31 @@ public class VariableReferenceImpl implements VariableReference {
         return this.type.equals(r.getGenericClass());
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public GenericClass<?> getGenericClass() {
         return type;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public VariableReference getAdditionalVariableReference() {
         return null;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void setAdditionalVariableReference(VariableReference var) {
         // Do nothing by default
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int getDistance() {
         return distance;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void setDistance(int distance) {
         this.distance = distance;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void changeClassLoader(ClassLoader loader) {
         type.changeClassLoader(loader);

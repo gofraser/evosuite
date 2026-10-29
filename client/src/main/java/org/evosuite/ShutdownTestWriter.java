@@ -78,52 +78,34 @@ public class ShutdownTestWriter<T extends Chromosome<T>> extends StoppingConditi
         return interrupted;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isFinished() {
         return interrupted;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void reset() {
         // interrupted = false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void setLimit(long limit) {
         // TODO Auto-generated method stub
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public long getLimit() {
         // TODO Auto-generated method stub
         return 0;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public long getCurrentValue() {
         // TODO Auto-generated method stub
         return 0;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void forceCurrentValue(long value) {
         // TODO Auto-generated method stub

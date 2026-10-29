@@ -109,9 +109,6 @@ public class MethodNoExceptionCoverageTestFitness extends AbstractMethodTestFitn
         return fitness;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return "[METHODNOEX] " + className + "." + methodName;

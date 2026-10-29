@@ -251,9 +251,6 @@ public class OutputTrace<T extends OutputTraceEntry> implements Cloneable {
         trace.clear();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @SuppressWarnings("unchecked")
     @Override
     public synchronized OutputTrace<T> clone() {

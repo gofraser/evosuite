@@ -39,9 +39,6 @@ import java.util.List;
  */
 public class HashCodeReturnsNormallyContract extends Contract {
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public ContractViolation check(Statement statement, Scope scope, Throwable exception) {
         for (VariableReference var : getAllVariables(scope)) {
@@ -97,9 +94,6 @@ public class HashCodeReturnsNormallyContract extends Contract {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return "hashCode returns normally check";

@@ -57,9 +57,6 @@ public class StaticAccessMethodAdapter extends MethodVisitor {
         this.methodName = methodName;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitFieldInsn(int opcode, String owner, String name, String desc) {
 

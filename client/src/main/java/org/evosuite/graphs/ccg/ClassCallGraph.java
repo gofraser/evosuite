@@ -127,17 +127,11 @@ public class ClassCallGraph extends EvoSuiteGraph<ClassCallNode, ClassCallEdge> 
 
     // toDot util
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getName() {
         return "CCG_" + className;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     protected String dotSubFolder() {
         return toFileString(className) + "/";

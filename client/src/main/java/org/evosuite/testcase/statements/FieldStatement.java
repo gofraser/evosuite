@@ -170,9 +170,6 @@ public class FieldStatement extends AbstractStatement {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Statement copy(TestCase newTestCase, int offset) {
         if (field.isStatic()) {
@@ -260,9 +257,6 @@ public class FieldStatement extends AbstractStatement {
         return exceptionThrown;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<VariableReference> getVariableReferences() {
         Set<VariableReference> references = new LinkedHashSet<>();
@@ -330,17 +324,11 @@ public class FieldStatement extends AbstractStatement {
         return rebound;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object s) {
         return this == s || (isSameKind(s) && sameStructure((FieldStatement) s, EQUAL_VARIABLES));
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean same(Statement s) {
         return this == s || (isSameKind(s) && sameStructure((FieldStatement) s, SAME_VARIABLES));
@@ -358,9 +346,6 @@ public class FieldStatement extends AbstractStatement {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         final int prime = 51;
@@ -391,17 +376,11 @@ public class FieldStatement extends AbstractStatement {
 
 
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public GenericField getAccessibleObject() {
         return field;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isAssignmentStatement() {
         return false;
@@ -416,9 +395,6 @@ public class FieldStatement extends AbstractStatement {
         return true;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void changeClassLoader(ClassLoader loader) {
         field.changeClassLoader(loader);

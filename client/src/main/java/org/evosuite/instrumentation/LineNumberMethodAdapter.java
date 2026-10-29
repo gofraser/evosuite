@@ -69,9 +69,6 @@ public class LineNumberMethodAdapter extends AbstractEvoMethodAdapter {
                 "passedLine", "(Ljava/lang/String;Ljava/lang/String;I)V", false);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitLineNumber(int line, Label start) {
         super.visitLineNumber(line, start);

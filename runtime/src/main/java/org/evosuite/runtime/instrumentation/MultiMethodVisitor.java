@@ -64,63 +64,42 @@ public class MultiMethodVisitor extends MethodVisitor {
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public AnnotationVisitor visitAnnotation(String arg0, boolean arg1) {
         mv1.visitAnnotation(arg0, arg1);
         return mv2.visitAnnotation(arg0, arg1);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public AnnotationVisitor visitAnnotationDefault() {
         mv1.visitAnnotationDefault();
         return mv2.visitAnnotationDefault();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitAttribute(Attribute arg0) {
         mv1.visitAttribute(arg0);
         mv2.visitAttribute(arg0);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitCode() {
         mv1.visitCode();
         mv2.visitCode();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitEnd() {
         mv1.visitEnd();
         mv2.visitEnd();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitFieldInsn(int arg0, String arg1, String arg2, String arg3) {
         mv1.visitFieldInsn(arg0, arg1, arg2, arg3);
         mv2.visitFieldInsn(arg0, arg1, arg2, arg3);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitFrame(int arg0, int arg1, Object[] arg2, int arg3, Object[] arg4) {
         mv1.visitFrame(arg0, arg1, arg2, arg3, arg4);
@@ -128,72 +107,48 @@ public class MultiMethodVisitor extends MethodVisitor {
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitIincInsn(int arg0, int arg1) {
         mv1.visitIincInsn(arg0, arg1);
         mv2.visitIincInsn(arg0, arg1);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitInsn(int arg0) {
         mv1.visitInsn(arg0);
         mv2.visitInsn(arg0);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitIntInsn(int arg0, int arg1) {
         mv1.visitIntInsn(arg0, arg1);
         mv2.visitIntInsn(arg0, arg1);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitJumpInsn(int arg0, Label arg1) {
         mv1.visitJumpInsn(arg0, arg1);
         mv2.visitJumpInsn(arg0, getLabel(arg1));
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitLabel(Label arg0) {
         mv1.visitLabel(arg0);
         mv2.visitLabel(getLabel(arg0));
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitLdcInsn(Object arg0) {
         mv1.visitLdcInsn(arg0);
         mv2.visitLdcInsn(arg0);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitLineNumber(int arg0, Label arg1) {
         mv1.visitLineNumber(arg0, arg1);
         //mv2.visitLineNumber(arg0, arg1);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitLocalVariable(String arg0, String arg1, String arg2, Label arg3,
                                    Label arg4, int arg5) {
@@ -202,9 +157,6 @@ public class MultiMethodVisitor extends MethodVisitor {
                 arg5);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitLookupSwitchInsn(Label arg0, int[] arg1, Label[] arg2) {
         mv1.visitLookupSwitchInsn(arg0, arg1, arg2);
@@ -217,18 +169,12 @@ public class MultiMethodVisitor extends MethodVisitor {
                 arg2Copy);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitMaxs(int arg0, int arg1) {
         mv1.visitMaxs(arg0, arg1);
         mv2.visitMaxs(arg0, arg1);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitMethodInsn(int arg0, String arg1, String arg2, String arg3, boolean itf) {
         mv1.visitMethodInsn(arg0, arg1, arg2, arg3, itf);
@@ -241,9 +187,6 @@ public class MultiMethodVisitor extends MethodVisitor {
         mv2.visitMethodInsn(arg0, arg1, arg2, arg3);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitMultiANewArrayInsn(String arg0, int arg1) {
         mv1.visitMultiANewArrayInsn(arg0, arg1);
@@ -257,9 +200,6 @@ public class MultiMethodVisitor extends MethodVisitor {
         mv2.visitInvokeDynamicInsn(name, desc, bsm, bsmArgs);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public AnnotationVisitor visitParameterAnnotation(int arg0, String arg1,
                                                       boolean arg2) {
@@ -267,9 +207,6 @@ public class MultiMethodVisitor extends MethodVisitor {
         return mv2.visitParameterAnnotation(arg0, arg1, arg2);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitTableSwitchInsn(int arg0, int arg1, Label arg2, Label... arg3) {
         mv1.visitTableSwitchInsn(arg0, arg1, arg2, arg3);
@@ -281,27 +218,18 @@ public class MultiMethodVisitor extends MethodVisitor {
                 arg3Copy);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitTryCatchBlock(Label arg0, Label arg1, Label arg2, String arg3) {
         mv1.visitTryCatchBlock(arg0, arg1, arg2, arg3);
         mv2.visitTryCatchBlock(getLabel(arg0), getLabel(arg1), getLabel(arg2), arg3);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitTypeInsn(int arg0, String arg1) {
         mv1.visitTypeInsn(arg0, arg1);
         mv2.visitTypeInsn(arg0, arg1);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitVarInsn(int arg0, int arg1) {
         mv1.visitVarInsn(arg0, arg1);

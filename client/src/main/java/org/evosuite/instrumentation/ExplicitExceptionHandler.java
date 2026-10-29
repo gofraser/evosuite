@@ -59,9 +59,6 @@ public class ExplicitExceptionHandler extends AbstractEvoMethodAdapter {
         this.skipStaticInitializer = false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitLabel(Label label) {
         if (label instanceof AnnotatedLabel) {
@@ -71,9 +68,6 @@ public class ExplicitExceptionHandler extends AbstractEvoMethodAdapter {
         super.visitLabel(label);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitInsn(int opcode) {
         if (opcode == Opcodes.ATHROW && !inErrorBranch && !shouldSkip()) {

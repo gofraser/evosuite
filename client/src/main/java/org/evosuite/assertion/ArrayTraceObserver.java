@@ -38,9 +38,6 @@ import java.lang.reflect.Array;
  */
 public class ArrayTraceObserver extends AssertionTraceObserver<ArrayTraceEntry> {
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public synchronized void afterStatement(Statement statement, Scope scope,
                                             Throwable exception) {
@@ -73,9 +70,6 @@ public class ArrayTraceObserver extends AssertionTraceObserver<ArrayTraceEntry> 
         return outputArray;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     protected void visit(Statement statement, Scope scope, VariableReference var) {
         logger.debug("Checking array " + var);

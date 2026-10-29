@@ -150,9 +150,6 @@ public class ConstructorStatement extends EntityWithParametersStatement {
 
     // TODO: Handle inner classes (need instance parameter for newInstance)
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Throwable execute(final Scope scope, PrintStream out)
             throws InvocationTargetException, IllegalArgumentException,
@@ -499,9 +496,6 @@ public class ConstructorStatement extends EntityWithParametersStatement {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Statement copy(TestCase newTestCase, int offset) {
         ArrayList<VariableReference> newParams = new ArrayList<>();
@@ -532,17 +526,11 @@ public class ConstructorStatement extends EntityWithParametersStatement {
     }
 
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object s) {
         return this == s || (isSameKind(s) && sameStructure((ConstructorStatement) s, EQUAL_VARIABLES));
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean same(Statement s) {
         return this == s || (isSameKind(s) && sameStructure((ConstructorStatement) s, SAME_VARIABLES));
@@ -569,9 +557,6 @@ public class ConstructorStatement extends EntityWithParametersStatement {
         return eq.test(retval, other.retval);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         final int prime = 41;
@@ -583,9 +568,6 @@ public class ConstructorStatement extends EntityWithParametersStatement {
 
 
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<Class<?>> getDeclaredExceptions() {
         Set<Class<?>> ex = super.getDeclaredExceptions();
@@ -633,9 +615,6 @@ public class ConstructorStatement extends EntityWithParametersStatement {
         return super.isAccessible();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isValid() {
         assert (super.isValid());
@@ -645,25 +624,16 @@ public class ConstructorStatement extends EntityWithParametersStatement {
         return true;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public GenericConstructor getAccessibleObject() {
         return constructor;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isAssignmentStatement() {
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void changeClassLoader(ClassLoader loader) {
         constructor.changeClassLoader(loader);

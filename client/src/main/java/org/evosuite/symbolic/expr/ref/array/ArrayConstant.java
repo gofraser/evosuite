@@ -40,9 +40,6 @@ public abstract class ArrayConstant extends NonNullReferenceConstant implements 
             super(arrayType, instanceId);
         }
 
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public boolean equals(Object obj) {
             if (obj instanceof ArrayConstant.IntegerArrayConstant) {
@@ -65,9 +62,6 @@ public abstract class ArrayConstant extends NonNullReferenceConstant implements 
             super(arrayType, instanceId);
         }
 
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public boolean equals(Object obj) {
             if (obj instanceof ArrayConstant.RealArrayConstant) {
@@ -89,9 +83,6 @@ public abstract class ArrayConstant extends NonNullReferenceConstant implements 
             super(Type.getType(String[].class), instanceId);
         }
 
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public boolean equals(Object obj) {
             if (obj instanceof ArrayConstant.StringArrayConstant) {
@@ -113,9 +104,6 @@ public abstract class ArrayConstant extends NonNullReferenceConstant implements 
             super(arrayType, instanceId);
         }
 
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public boolean equals(Object obj) {
             if (obj instanceof ArrayConstant.ReferenceArrayConstant) {

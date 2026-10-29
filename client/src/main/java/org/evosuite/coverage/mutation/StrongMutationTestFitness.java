@@ -76,9 +76,6 @@ public class StrongMutationTestFitness extends MutationTestFitness {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public ExecutionResult runTest(TestCase test) {
         return runTest(test, null);
@@ -420,9 +417,6 @@ public class StrongMutationTestFitness extends MutationTestFitness {
         return fitness;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return "Strong " + mutation.toString();

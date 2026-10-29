@@ -64,9 +64,6 @@ public class CFGClassAdapter extends ClassVisitor {
         this.classLoader = classLoader;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visit(int version, int access, String name, String signature,
                       String superName, String[] interfaces) {
@@ -82,9 +79,6 @@ public class CFGClassAdapter extends ClassVisitor {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public MethodVisitor visitMethod(int methodAccess, String name, String descriptor,
                                      String signature, String[] exceptions) {

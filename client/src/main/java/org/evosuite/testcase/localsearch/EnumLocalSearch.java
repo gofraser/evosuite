@@ -39,9 +39,6 @@ public class EnumLocalSearch extends StatementLocalSearch {
 
     private Object oldValue;
 
-    /**
-     * {@inheritDoc}
-     */
     @SuppressWarnings({"rawtypes", "unchecked"})
     @Override
     public boolean doSearch(TestChromosome test, int statement,

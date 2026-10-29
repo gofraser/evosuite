@@ -56,9 +56,6 @@ public class LocalAddressPrimitiveStatement extends EnvironmentDataStatement<Evo
         super(tc, EvoSuiteLocalAddress.class, value);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getTestCode(String varName) {
         String testCode = "";
@@ -81,25 +78,16 @@ public class LocalAddressPrimitiveStatement extends EnvironmentDataStatement<Evo
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void delta() {
         randomize();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void zero() {
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void randomize() {
 

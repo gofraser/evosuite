@@ -27,9 +27,6 @@ public class NullAssertion extends Assertion {
 
     private static final long serialVersionUID = 8486987896764253928L;
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Assertion copy(TestCase newTestCase, int offset) {
         NullAssertion s = new NullAssertion();
@@ -40,9 +37,6 @@ public class NullAssertion extends Assertion {
         return s;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean evaluate(Scope scope) {
         try {

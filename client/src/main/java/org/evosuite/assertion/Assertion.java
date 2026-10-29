@@ -85,9 +85,6 @@ public abstract class Assertion implements Serializable {
         return " " + comment.replace('\n', ' ').replace('\r', ' ');
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -97,9 +94,6 @@ public abstract class Assertion implements Serializable {
         return result;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {

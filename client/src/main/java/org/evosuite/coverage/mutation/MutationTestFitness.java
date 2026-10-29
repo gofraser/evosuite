@@ -96,9 +96,6 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
         return mutation;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public ExecutionResult runTest(TestCase test) {
         return runTest(test, null);
@@ -225,15 +222,9 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
         return infectionDistance;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public abstract double getFitness(TestChromosome individual, ExecutionResult result);
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         if (mutation != null) {

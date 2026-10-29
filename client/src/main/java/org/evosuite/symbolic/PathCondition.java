@@ -93,9 +93,6 @@ public class PathCondition {
         return this.pathCondition.get(index);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return pathCondition.toString();

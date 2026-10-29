@@ -31,9 +31,6 @@ public class MinimizeSizeSecondaryObjective extends SecondaryObjective<TestSuite
 
     private static final long serialVersionUID = 7211557650429998223L;
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int compareChromosomes(TestSuiteChromosome chromosome1, TestSuiteChromosome chromosome2) {
         logger.debug("Comparing sizes: " + chromosome1.size() + " vs "
@@ -41,9 +38,6 @@ public class MinimizeSizeSecondaryObjective extends SecondaryObjective<TestSuite
         return chromosome1.size() - chromosome2.size();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int compareGenerations(TestSuiteChromosome parent1, TestSuiteChromosome parent2,
                                   TestSuiteChromosome child1, TestSuiteChromosome child2) {

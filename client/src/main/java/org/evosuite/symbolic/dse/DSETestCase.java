@@ -94,9 +94,6 @@ public class DSETestCase implements Comparable<DSETestCase>, Cloneable {
         return originalPathCondition;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public DSETestCase clone() {
         return new DSETestCase(

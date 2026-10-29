@@ -50,9 +50,6 @@ public final class RegionMatches extends SymbolicFunction {
                 Types.BOOL_INT_STR_INT_INT_TO_BOOL_DESCRIPTOR);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Object executeFunction() {
 

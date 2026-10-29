@@ -77,9 +77,6 @@ public class MethodCallReplacementClassAdapter extends ClassVisitor {
     }
 
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public MethodVisitor visitMethod(int access, String name, String desc,
                                      String signature, String[] exceptions) {
@@ -96,9 +93,6 @@ public class MethodCallReplacementClassAdapter extends ClassVisitor {
                 desc, canChangeSignature);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public FieldVisitor visitField(int access, String name, String desc,
                                    String signature, Object value) {
@@ -117,9 +111,6 @@ public class MethodCallReplacementClassAdapter extends ClassVisitor {
         return super.visitField(access, name, desc, signature, value);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visit(int version, int access, String name, String signature,
                       String superName, String[] interfaces) {
@@ -168,9 +159,6 @@ public class MethodCallReplacementClassAdapter extends ClassVisitor {
 
     private static final Logger logger = LoggerFactory.getLogger(MethodCallReplacementClassAdapter.class);
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitEnd() {
         if (canChangeSignature && !definesHashCode && !isInterface && RuntimeSettings.mockJVMNonDeterminism) {

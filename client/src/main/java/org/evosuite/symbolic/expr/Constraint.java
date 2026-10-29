@@ -52,9 +52,6 @@ public abstract class Constraint<T extends Object> implements Serializable {
 
     private int hash = 0;
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         if (hash == 0) {
@@ -78,9 +75,6 @@ public abstract class Constraint<T extends Object> implements Serializable {
         return size;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (obj == this) {

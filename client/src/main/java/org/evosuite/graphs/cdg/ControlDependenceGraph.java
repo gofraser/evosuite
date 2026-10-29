@@ -467,17 +467,11 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getName() {
         return methodName + "_" + "CDG";
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     protected String dotSubFolder() {
         return toFileString(className) + "/CDG/";

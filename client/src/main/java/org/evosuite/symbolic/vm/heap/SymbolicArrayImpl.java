@@ -50,25 +50,16 @@ public class SymbolicArrayImpl implements SymbolicArray {
         this.contentType = contentType;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Type getContentType() {
         return contentType;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Expression get(Integer index) {
         return contents.get(index);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void set(Integer index, Expression expression) {
         matchType(expression);

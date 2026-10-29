@@ -27,9 +27,6 @@ import java.util.Map;
 public class CCFGNodeAttributeProvider implements ComponentAttributeProvider<CCFGNode> {
 
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Map<String, String> getComponentAttributes(CCFGNode node) {
         Map<String, String> r = new HashMap<>();

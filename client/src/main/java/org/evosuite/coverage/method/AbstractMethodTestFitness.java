@@ -65,26 +65,17 @@ public abstract class AbstractMethodTestFitness extends TestFitnessFunction {
         return methodName;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return className + "." + methodName;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         int iconst = 13;
         return 51 * iconst + className.hashCode() * iconst + methodName.hashCode();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {

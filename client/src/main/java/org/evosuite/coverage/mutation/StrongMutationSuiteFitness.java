@@ -45,17 +45,11 @@ public class StrongMutationSuiteFitness extends MutationSuiteFitness {
         super(Properties.Criterion.STRONGMUTATION);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public ExecutionResult runTest(TestCase test) {
         return runTest(test, null);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public ExecutionResult runTest(TestCase test, Mutation mutant) {
 
@@ -77,9 +71,6 @@ public class StrongMutationSuiteFitness extends MutationSuiteFitness {
         return executionOrder;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public double getFitness(TestSuiteChromosome suite) {
         runTestSuite(suite);

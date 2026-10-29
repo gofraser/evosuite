@@ -211,9 +211,6 @@ public class AssignmentStatement extends AbstractStatement {
         this.parameter = value;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Statement copy(TestCase newTestCase, int offset) {
         try {
@@ -248,9 +245,6 @@ public class AssignmentStatement extends AbstractStatement {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Throwable execute(final Scope scope, PrintStream out)
             throws InvocationTargetException, IllegalArgumentException,
@@ -323,9 +317,6 @@ public class AssignmentStatement extends AbstractStatement {
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<VariableReference> getVariableReferences() {
         Set<VariableReference> vars = new LinkedHashSet<>();
@@ -400,9 +391,6 @@ public class AssignmentStatement extends AbstractStatement {
                 && (target == value || target.equals(value));
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -411,17 +399,11 @@ public class AssignmentStatement extends AbstractStatement {
         return result;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object s) {
         return this == s || (isSameKind(s) && sameStructure((AssignmentStatement) s, EQUAL_VARIABLES));
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean same(Statement s) {
         return this == s || (isSameKind(s) && sameStructure((AssignmentStatement) s, SAME_VARIABLES));
@@ -436,9 +418,6 @@ public class AssignmentStatement extends AbstractStatement {
 
 
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isValid() {
         assert (super.isValid());
@@ -552,9 +531,6 @@ public class AssignmentStatement extends AbstractStatement {
         return arrayRef.getStructuralArrayLength();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean mutate(TestCase test, TestFactory factory) {
         assert (isValid());
@@ -660,17 +636,11 @@ public class AssignmentStatement extends AbstractStatement {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public GenericAccessibleObject<?> getAccessibleObject() {
         return null;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isAssignmentStatement() {
         return true;

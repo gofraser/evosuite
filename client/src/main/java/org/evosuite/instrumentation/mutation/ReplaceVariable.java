@@ -53,9 +53,6 @@ public class ReplaceVariable implements MutationOperator {
 
     public static final String NAME = "ReplaceVariable";
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public List<Mutation> apply(MethodNode mn, String className, String methodName,
                                 BytecodeInstruction instruction, Frame frame) {
@@ -456,9 +453,6 @@ public class ReplaceVariable implements MutationOperator {
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isApplicable(BytecodeInstruction instruction) {
         return instruction.isLocalVariableUse()

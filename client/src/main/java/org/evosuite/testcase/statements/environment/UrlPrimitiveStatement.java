@@ -56,9 +56,6 @@ public class UrlPrimitiveStatement extends EnvironmentDataStatement<EvoSuiteURL>
         super(tc, EvoSuiteURL.class, value);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getTestCode(String varName) {
         String testCode = "";
@@ -78,17 +75,11 @@ public class UrlPrimitiveStatement extends EnvironmentDataStatement<EvoSuiteURL>
         return testCode;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void delta() {
         randomize();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void zero() {
 
@@ -99,9 +90,6 @@ public class UrlPrimitiveStatement extends EnvironmentDataStatement<EvoSuiteURL>
         return tc.getAccessedEnvironment().getViewOfRemoteURLs().size() > 1;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void randomize() {
         String url = Randomness.choice(tc.getAccessedEnvironment().getViewOfRemoteURLs());

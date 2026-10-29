@@ -39,9 +39,6 @@ import java.util.List;
  */
 public class ToStringReturnsNormallyContract extends Contract {
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public ContractViolation check(Statement statement, Scope scope, Throwable exception) {
         for (VariableReference var : getAllVariables(scope)) {
@@ -109,9 +106,6 @@ public class ToStringReturnsNormallyContract extends Contract {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return "toString returns normally check";

@@ -52,9 +52,6 @@ public class PurityAnalysisClassVisitor extends ClassVisitor {
         this.purityAnalyzer = purityAnalyzer;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public MethodVisitor visitMethod(int methodAccess, String name,
                                      String descriptor, String signature, String[] exceptions) {

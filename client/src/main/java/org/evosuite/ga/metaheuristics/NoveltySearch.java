@@ -84,9 +84,6 @@ public class NoveltySearch extends GeneticAlgorithm<TestChromosome> {
         this.sortPopulation();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void initializePopulation() {
         notifySearchStarted();
@@ -100,9 +97,6 @@ public class NoveltySearch extends GeneticAlgorithm<TestChromosome> {
         this.notifyIteration();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     protected void evolve() {
 
@@ -160,9 +154,6 @@ public class NoveltySearch extends GeneticAlgorithm<TestChromosome> {
         currentIteration++;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void generateSolution() {
 
@@ -190,17 +181,11 @@ public class NoveltySearch extends GeneticAlgorithm<TestChromosome> {
     private static class NoveltyFitnessFunction extends FitnessFunction<TestChromosome> {
         private static final long serialVersionUID = -2919343715691060010L;
 
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public double getFitness(TestChromosome individual) {
             return individual.getFitness(this);
         }
 
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public boolean isMaximizationFunction() {
             return true;

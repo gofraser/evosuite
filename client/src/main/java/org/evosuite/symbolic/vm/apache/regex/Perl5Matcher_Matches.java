@@ -49,9 +49,6 @@ public final class Perl5Matcher_Matches extends SymbolicFunction {
                 Types.STR_STR_TO_BOOLEAN);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Object executeFunction() {
         // Perl5Matcher conc_matcher = (Perl5Matcher) this.getConcReceiver();

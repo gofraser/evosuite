@@ -229,9 +229,6 @@ public final class TestSuiteChromosome
         return copy;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int compareSecondaryObjective(TestSuiteChromosome o) {
         int objective = secondaryObjIndex;
@@ -322,9 +319,6 @@ public final class TestSuiteChromosome
      * Math.signum(getFitness() - o.getFitness()); }
      */
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         StringBuilder result = new StringBuilder();

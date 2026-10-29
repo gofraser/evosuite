@@ -209,25 +209,16 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
         return fitness;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return className + (methodName.isEmpty() ? "" : "." + methodName) + ": Line " + line;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         return Objects.hash(className, methodName, line);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {

@@ -181,9 +181,6 @@ public class DefUse extends BytecodeInstruction {
         return "UNKNOWN";
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getVariableName() {
         return varName;
@@ -229,9 +226,6 @@ public class DefUse extends BytecodeInstruction {
 
     // inherited from Object
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         StringBuilder r = new StringBuilder();

@@ -42,9 +42,6 @@ public class IBranchFitnessFactory extends AbstractFitnessFactory<IBranchTestFit
 
     private static final Logger logger = LoggerFactory.getLogger(IBranchFitnessFactory.class);
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public List<IBranchTestFitness> getCoverageGoals() {
         Set<IBranchTestFitness> goals = new HashSet<>();

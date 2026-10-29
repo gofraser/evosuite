@@ -39,9 +39,6 @@ public class BooleanLocalSearch extends StatementLocalSearch {
 
     private boolean oldValue;
 
-    /**
-     * {@inheritDoc}
-     */
     @SuppressWarnings("unchecked")
     @Override
     public boolean doSearch(TestChromosome test, int statement,

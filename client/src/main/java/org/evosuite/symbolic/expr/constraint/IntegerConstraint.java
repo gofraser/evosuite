@@ -59,33 +59,21 @@ public final class IntegerConstraint extends Constraint<Long> {
     private final Comparator cmp;
     private final Expression<Long> right;
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Comparator getComparator() {
         return cmp;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Expression<?> getLeftOperand() {
         return left;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Expression<?> getRightOperand() {
         return right;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return left + cmp.toString() + right;

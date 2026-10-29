@@ -73,9 +73,6 @@ public class CCFGMethodCallNode extends CCFGNode {
         return returnNode;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -87,9 +84,6 @@ public class CCFGMethodCallNode extends CCFGNode {
         return result;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -116,9 +110,6 @@ public class CCFGMethodCallNode extends CCFGNode {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return "CALL from " + callInstruction.toString();

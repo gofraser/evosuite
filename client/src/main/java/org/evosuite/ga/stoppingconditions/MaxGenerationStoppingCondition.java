@@ -81,9 +81,6 @@ public class MaxGenerationStoppingCondition<T extends Chromosome<T>> extends Sto
         return currentIteration >= maxIterations;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void searchFinished(GeneticAlgorithm<T> algorithm) {
         currentIteration = 0;
@@ -99,33 +96,21 @@ public class MaxGenerationStoppingCondition<T extends Chromosome<T>> extends Sto
         currentIteration = 0;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void setLimit(long limit) {
         maxIterations = limit;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public long getLimit() {
         return maxIterations;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public long getCurrentValue() {
         return currentIteration;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void forceCurrentValue(long value) {
         currentIteration = value;

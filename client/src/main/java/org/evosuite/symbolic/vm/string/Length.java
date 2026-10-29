@@ -45,9 +45,6 @@ public final class Length extends SymbolicFunction {
         super(env, Types.JAVA_LANG_STRING, LENGTH, Types.TO_INT_DESCRIPTOR);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Object executeFunction() {
         ReferenceConstant symbStr = this.getSymbReceiver();

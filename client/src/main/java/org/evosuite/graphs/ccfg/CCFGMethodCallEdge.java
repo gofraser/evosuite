@@ -58,9 +58,6 @@ public class CCFGMethodCallEdge extends CCFGEdge {
         return callInstruction;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return (isCallingEdge ? "calling " : "returning from ")

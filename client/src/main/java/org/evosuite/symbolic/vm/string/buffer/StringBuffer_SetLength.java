@@ -55,9 +55,6 @@ public final class StringBuffer_SetLength extends SymbolicFunction {
 
     private String preConcValue = null;
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Object executeFunction() {
         ReferenceConstant symbStrBuffer = this.getSymbReceiver();
@@ -99,9 +96,6 @@ public final class StringBuffer_SetLength extends SymbolicFunction {
         return null;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public IntegerConstraint beforeExecuteFunction() {
         StringBuffer concStrBuffer = (StringBuffer) this.getConcReceiver();

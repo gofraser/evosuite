@@ -51,9 +51,6 @@ public class MaxTimeStoppingCondition<T extends Chromosome<T>> extends StoppingC
         this.maxSeconds = that.maxSeconds;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void searchStarted(GeneticAlgorithm<T> algorithm) {
         reset();
@@ -89,34 +86,22 @@ public class MaxTimeStoppingCondition<T extends Chromosome<T>> extends StoppingC
         startTime = System.nanoTime();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void setLimit(long limit) {
         maxSeconds = limit;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public long getLimit() {
         return maxSeconds;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public long getCurrentValue() {
         long currentTime = System.nanoTime();
         return TimeUnit.NANOSECONDS.toSeconds(currentTime - startTime);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void forceCurrentValue(long value) {
         startTime = System.nanoTime() - TimeUnit.SECONDS.toNanos(value);

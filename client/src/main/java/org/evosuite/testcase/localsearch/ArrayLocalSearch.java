@@ -52,9 +52,6 @@ public class ArrayLocalSearch extends StatementLocalSearch {
     }
 
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean doSearch(TestChromosome test, int statement,
                             LocalSearchObjective<TestChromosome> objective) {

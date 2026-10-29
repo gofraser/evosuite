@@ -69,17 +69,11 @@ public final class StringNextTokenExpr extends AbstractExpression<String> implem
         return tokenizerExpr;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return "nextToken(" + tokenizerExpr.toString() + ")";
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (obj == this) {

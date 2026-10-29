@@ -33,9 +33,6 @@ import org.evosuite.utils.Randomness;
  */
 public class StringAVMLocalSearch extends AbstractStringLocalSearch {
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean doSearch(TestChromosome test, int statement,
                             LocalSearchObjective<TestChromosome> objective) {

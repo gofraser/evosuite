@@ -45,9 +45,6 @@ public class DeleteStatement implements MutationOperator {
 
     public static final String NAME = "DeleteStatement";
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public List<Mutation> apply(MethodNode mn, String className, String methodName,
                                 BytecodeInstruction instruction, Frame frame) {
@@ -95,9 +92,6 @@ public class DeleteStatement implements MutationOperator {
         return mutations;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isApplicable(BytecodeInstruction instruction) {
         return instruction.isMethodCall()

@@ -47,9 +47,6 @@ public class ExceptionCoverageFactory extends AbstractFitnessFactory<TestFitness
         goals.clear();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public List<TestFitnessFunction> getCoverageGoals() {
         return new ArrayList<>(goals.values());

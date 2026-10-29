@@ -1694,17 +1694,11 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object s) {
         return this == s || (isSameKind(s) && sameStructure((FunctionalMockStatement) s, EQUAL_VARIABLES));
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean same(Statement s) {
         return this == s || (isSameKind(s) && sameStructure((FunctionalMockStatement) s, SAME_VARIABLES));

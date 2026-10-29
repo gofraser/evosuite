@@ -92,9 +92,6 @@ public abstract class Append extends SymbolicFunction {
     protected abstract StringValue appendExpression(StringValue leftExpr,
                                                     String res);
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public final Object executeFunction() {
         Object concReceiver = this.getConcReceiver();
@@ -123,9 +120,6 @@ public abstract class Append extends SymbolicFunction {
         return symbRes;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public final IntegerConstraint beforeExecuteFunction() {
         Object concReceiver = this.getConcReceiver();

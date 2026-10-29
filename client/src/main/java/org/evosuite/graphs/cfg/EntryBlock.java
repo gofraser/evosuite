@@ -33,25 +33,16 @@ public class EntryBlock extends BasicBlock {
         super(className, methodName, -1);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isEntryBlock() {
         return true;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getName() {
         return "EntryBlock for method " + methodName;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return getName();

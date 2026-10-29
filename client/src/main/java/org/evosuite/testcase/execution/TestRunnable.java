@@ -227,9 +227,6 @@ public class TestRunnable implements Callable<ExecutionResult> {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     @SuppressWarnings("removal") // ThreadDeath is deprecated for removal but still needed for Thread.stop() handling
     public ExecutionResult call() {
@@ -647,9 +644,6 @@ public class TestRunnable implements Callable<ExecutionResult> {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     public Map<Integer, Throwable> getExceptionsThrown() {
         return new HashMap<>(exceptionsThrown);
     }
@@ -675,9 +669,6 @@ public class TestRunnable implements Callable<ExecutionResult> {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     public boolean isRunFinished() {
         return runFinished;
     }

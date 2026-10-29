@@ -85,9 +85,6 @@ public class ConstantValue extends VariableReferenceImpl {
         return ret;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public VariableReference clone(TestCase newTestCase) {
         Statement st = newTestCase.getStatement(getStPosition());
@@ -162,9 +159,6 @@ public class ConstantValue extends VariableReferenceImpl {
         return value;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean same(VariableReference r) {
         if (r == null) {
@@ -187,9 +181,6 @@ public class ConstantValue extends VariableReferenceImpl {
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void changeClassLoader(ClassLoader loader) {
         super.changeClassLoader(loader);

@@ -60,9 +60,6 @@ public class SameTraceEntry implements OutputTraceEntry {
         equalityMapIntVar.put(other.getStPosition(), other);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean differs(OutputTraceEntry other) {
         if (other instanceof SameTraceEntry) {
@@ -85,9 +82,6 @@ public class SameTraceEntry implements OutputTraceEntry {
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<Assertion> getAssertions(OutputTraceEntry other) {
         Set<Assertion> assertions = new HashSet<>();
@@ -113,9 +107,6 @@ public class SameTraceEntry implements OutputTraceEntry {
         return assertions;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<Assertion> getAssertions() {
         Set<Assertion> assertions = new HashSet<>();
@@ -135,9 +126,6 @@ public class SameTraceEntry implements OutputTraceEntry {
         return assertions;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isDetectedBy(Assertion assertion) {
         if (assertion instanceof SameAssertion) {
@@ -151,9 +139,6 @@ public class SameTraceEntry implements OutputTraceEntry {
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public OutputTraceEntry cloneEntry() {
         SameTraceEntry copy = new SameTraceEntry(var);

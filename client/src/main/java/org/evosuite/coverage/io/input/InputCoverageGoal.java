@@ -158,17 +158,11 @@ public class InputCoverageGoal implements Serializable, IOGoal<InputCoverageGoal
         return className + "." + methodName + "[" + argIndex + "]:" + valueDescriptor;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         return Objects.hash(className, methodName, argIndex, type, valueDescriptor);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {

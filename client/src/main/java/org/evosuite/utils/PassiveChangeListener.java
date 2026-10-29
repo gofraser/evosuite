@@ -40,9 +40,6 @@ public class PassiveChangeListener<T> implements Listener<T>, Serializable {
         return result;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void receiveEvent(T event) {
         changed = true;

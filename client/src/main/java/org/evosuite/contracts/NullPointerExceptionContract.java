@@ -39,9 +39,6 @@ import java.util.List;
  */
 public class NullPointerExceptionContract extends Contract {
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public ContractViolation check(Statement statement, Scope scope, Throwable exception) {
         if (!isTargetStatement(statement)) {
@@ -95,9 +92,6 @@ public class NullPointerExceptionContract extends Contract {
         statement.addComment("Throws NullPointerException: " + exception.getMessage());
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return "NullPointerException";

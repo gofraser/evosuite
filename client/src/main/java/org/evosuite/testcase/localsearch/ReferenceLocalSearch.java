@@ -55,9 +55,6 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
         REPLACE, PARAMETER, CALL
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean doSearch(TestChromosome test, int statement,
                             LocalSearchObjective<TestChromosome> objective) {

@@ -31,9 +31,6 @@ import java.util.Comparator;
  */
 public class BytecodeInstructionIdComparator implements Comparator<BytecodeInstruction> {
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int compare(BytecodeInstruction arg0, BytecodeInstruction arg1) {
 

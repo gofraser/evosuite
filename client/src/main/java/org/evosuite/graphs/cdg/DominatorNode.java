@@ -119,9 +119,6 @@ class DominatorNode<V> {
         return dfsNumber == 1;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return "DTNode " + dfsNumber + " - " + node;

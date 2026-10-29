@@ -49,9 +49,6 @@ public class DefUseInstrumentation implements MethodInstrumentation {
 
     private static final Logger logger = LoggerFactory.getLogger(DefUseInstrumentation.class);
 
-    /**
-     * {@inheritDoc}
-     */
     @SuppressWarnings("unchecked")
     @Override
     public void analyze(ClassLoader classLoader, MethodNode mn, String className,

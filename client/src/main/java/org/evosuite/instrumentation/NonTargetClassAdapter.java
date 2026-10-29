@@ -63,9 +63,6 @@ public class NonTargetClassAdapter extends ClassVisitor {
         super.visit(version, access & ~Opcodes.ACC_FINAL, name, signature, superName, interfaces);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public MethodVisitor visitMethod(int access, String name, String desc,
                                      String signature, final String[] exceptions) {

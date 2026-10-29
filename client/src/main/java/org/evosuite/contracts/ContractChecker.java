@@ -127,9 +127,6 @@ public class ContractChecker extends ExecutionObserver {
         active = isActive;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void afterStatement(Statement statement, Scope scope,
                                Throwable exception) {
@@ -163,9 +160,6 @@ public class ContractChecker extends ExecutionObserver {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void clear() {
         ContractChecker.invalid.clear();

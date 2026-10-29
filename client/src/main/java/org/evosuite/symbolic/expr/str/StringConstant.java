@@ -50,17 +50,11 @@ public final class StringConstant extends AbstractExpression<String> implements
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return this.concreteValue;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (obj instanceof StringConstant) {

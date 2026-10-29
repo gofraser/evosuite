@@ -116,9 +116,6 @@ public abstract class IndexOf extends SymbolicFunction {
             this.op = op;
         }
 
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public Object executeFunction() {
 
@@ -164,9 +161,6 @@ public abstract class IndexOf extends SymbolicFunction {
             this.op = op;
         }
 
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public Object executeFunction() {
 
@@ -218,9 +212,6 @@ public abstract class IndexOf extends SymbolicFunction {
             this.op = op;
         }
 
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public Object executeFunction() {
 
@@ -274,9 +265,6 @@ public abstract class IndexOf extends SymbolicFunction {
             this.op = op;
         }
 
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public Object executeFunction() {
 

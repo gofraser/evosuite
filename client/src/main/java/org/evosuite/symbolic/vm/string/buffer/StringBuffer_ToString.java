@@ -44,9 +44,6 @@ public final class StringBuffer_ToString extends SymbolicFunction {
                 Types.TO_STR_DESCRIPTOR);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Object executeFunction() {
         ReferenceConstant symbStrBuffer = this.getSymbReceiver();

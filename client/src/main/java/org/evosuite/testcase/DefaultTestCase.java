@@ -124,9 +124,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         presentationMetadata = null;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void accept(TestVisitor visitor) {
         visitor.visitTestCase(this);
@@ -137,9 +134,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void addAssertions(TestCase other) {
         for (int i = 0; i < statements.size() && i < other.size(); i++) {
@@ -161,18 +155,12 @@ public class DefaultTestCase implements TestCase, Serializable {
         return contractViolations;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void addCoveredGoal(TestFitnessFunction goal) {
         coveredGoals.add(goal);
         // TODO: somehow adds the same goal more than once (fitnessfunction.equals()?)
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void removeCoveredGoal(TestFitnessFunction goal) {
         coveredGoals.remove(goal);
@@ -211,17 +199,11 @@ public class DefaultTestCase implements TestCase, Serializable {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void addListener(Listener<Void> listener) {
         statements.addListener(listener);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public VariableReference addStatement(Statement statement) {
         statements.add(statement);
@@ -255,9 +237,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return statement.getReturnValue();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public VariableReference addStatement(Statement statement, int position) {
         if (presentationMetadata != null) {
@@ -268,11 +247,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return statement.getReturnValue();
     }
 
-    /**
-     * {@inheritDoc}
-     *
-     * @param loader a {@link java.lang.ClassLoader} object.
-     */
     public void changeClassLoader(ClassLoader loader) {
         changedClassLoader = loader;
         for (Statement s : statements) {
@@ -286,9 +260,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return changedClassLoader;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void chop(int length) {
         if (presentationMetadata != null) {
@@ -351,9 +322,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return statements.contains(statement);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void clearCoveredGoals() {
         coveredGoals.clear();
@@ -480,17 +448,11 @@ public class DefaultTestCase implements TestCase, Serializable {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void deleteListener(Listener<Void> listener) {
         statements.deleteListener(listener);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -520,9 +482,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return true;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<Class<?>> getAccessedClasses() {
         Set<Class<?>> accessedClasses = new LinkedHashSet<>();
@@ -560,9 +519,6 @@ public class DefaultTestCase implements TestCase, Serializable {
     }
 
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public List<Assertion> getAssertions() {
         List<Assertion> assertions = new ArrayList<>();
@@ -572,17 +528,11 @@ public class DefaultTestCase implements TestCase, Serializable {
         return assertions;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<TestFitnessFunction> getCoveredGoals() {
         return coveredGoals;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<Class<?>> getDeclaredExceptions() {
         Set<Class<?>> exceptions = new LinkedHashSet<>();
@@ -597,9 +547,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return accessedEnvironment;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<VariableReference> getDependencies(VariableReference var) {
         Set<VariableReference> dependencies = new LinkedHashSet<>();
@@ -646,9 +593,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         throw new ConstructionFailedException("Found no variables of type " + type);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public List<VariableReference> getObjects(int position) {
         List<VariableReference> variables = new LinkedList<>();
@@ -675,9 +619,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return variables;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public List<VariableReference> getObjects(Type type, int position) {
         List<VariableReference> variables = new LinkedList<>();
@@ -741,9 +682,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return variables;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public VariableReference getRandomNonNullObject(Type type, int position)
             throws ConstructionFailedException {
@@ -762,9 +700,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return Randomness.choice(variables);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public VariableReference getRandomObject(Type type, int position)
             throws ConstructionFailedException {
@@ -778,9 +713,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return Randomness.choice(variables);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<VariableReference> getReferences(VariableReference var) {
         Set<VariableReference> references = new LinkedHashSet<>();
@@ -815,17 +747,11 @@ public class DefaultTestCase implements TestCase, Serializable {
         return references;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public VariableReference getReturnValue(int position) {
         return getStatement(position).getReturnValue();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Statement getStatement(int position) {
         if (position < 0 || position >= statements.size()) {
@@ -835,17 +761,11 @@ public class DefaultTestCase implements TestCase, Serializable {
         return statements.get(position);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean hasStatement(int position) {
         return statements.size() > position && position >= 0;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean hasAssertions() {
         return statements.stream().anyMatch(Statement::hasAssertions);
@@ -864,9 +784,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return statements.hashCode();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean hasObject(Type type, int position) {
         for (int i = 0; i < position && i < size(); i++) {
@@ -881,9 +798,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean hasReferences(VariableReference var) {
         if (var == null || var.getStPosition() == -1) {
@@ -944,9 +858,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return statements.stream().allMatch(Statement::isAccessible);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isEmpty() {
         return statements.isEmpty();
@@ -962,9 +873,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         isFailing = true;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isPrefix(TestCase t) {
         if (statements.size() > t.size()) {
@@ -985,9 +893,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return unstable;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isValid() {
         for (Statement s : statements) {
@@ -998,17 +903,11 @@ public class DefaultTestCase implements TestCase, Serializable {
         return true;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Iterator<Statement> iterator() {
         return statements.iterator();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void remove(int position) {
         logger.debug("Removing statement {}", position);
@@ -1074,9 +973,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         statements.forEach(s -> s.removeAssertion(assertion));
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void removeAssertions() {
         statements.forEach(Statement::removeAssertions);
@@ -1214,9 +1110,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean replace(VariableReference var1, VariableReference var2) {
         for (Statement statement : statements) {
@@ -1241,9 +1134,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         isFailing = failing;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public VariableReference setStatement(Statement statement, int position) {
         statements.set(position, statement);
@@ -1256,25 +1146,16 @@ public class DefaultTestCase implements TestCase, Serializable {
         this.unstable = unstable;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int size() {
         return statements.size();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int sizeWithAssertions() {
         return this.size() + this.getAssertions().size();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toCode() {
         TestCodeVisitor visitor = new TestCodeVisitor();
@@ -1282,9 +1163,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return visitor.getCode();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toCode(Map<Integer, Throwable> exceptions) {
         TestCodeVisitor visitor = new TestCodeVisitor();
@@ -1293,9 +1171,6 @@ public class DefaultTestCase implements TestCase, Serializable {
         return visitor.getCode();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return toCode();

@@ -58,9 +58,6 @@ public class EvoSuiteFile implements Serializable {
         return path;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         if (path.startsWith(userDir)) {

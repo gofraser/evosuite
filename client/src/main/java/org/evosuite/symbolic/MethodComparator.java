@@ -29,9 +29,6 @@ import java.util.Comparator;
  */
 public class MethodComparator implements Comparator<Method> {
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int compare(Method left, Method right) {
         return left.toString().compareTo(right.toString());

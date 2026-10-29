@@ -64,9 +64,6 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
         super(factory);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     protected void evolve() {
 
@@ -143,9 +140,6 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
         this.currentIteration++;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void initializePopulation() {
         this.notifySearchStarted();
@@ -163,9 +157,6 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
         this.notifyIteration();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void generateSolution() {
         if (this.population.isEmpty()) {

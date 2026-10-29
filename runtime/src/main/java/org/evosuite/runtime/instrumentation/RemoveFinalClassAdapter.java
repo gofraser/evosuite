@@ -91,9 +91,6 @@ public class RemoveFinalClassAdapter extends ClassVisitor {
         super.visitInnerClass(name, outerName, innerName, access & ~Opcodes.ACC_FINAL);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
         if ((access & Opcodes.ACC_FINAL) == Opcodes.ACC_FINAL) {

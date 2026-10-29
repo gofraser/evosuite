@@ -241,9 +241,6 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Statement copy(TestCase newTestCase, int offset) {
         @SuppressWarnings("unchecked")
@@ -256,9 +253,6 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
         return clone;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Throwable execute(Scope scope, PrintStream out)
             throws InvocationTargetException, IllegalArgumentException,
@@ -273,9 +267,6 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
         return exceptionThrown;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<VariableReference> getVariableReferences() {
         Set<VariableReference> references = new LinkedHashSet<>();
@@ -283,9 +274,6 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
         return references;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void replace(VariableReference var1, VariableReference var2) {
         if (retval.equals(var1)) {
@@ -293,17 +281,11 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object s) {
         return this == s || (isSameKind(s) && sameStructure((PrimitiveStatement<?>) s, EQUAL_VARIABLES));
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean same(Statement s) {
         return this == s || (isSameKind(s) && sameStructure((PrimitiveStatement<?>) s, SAME_VARIABLES));
@@ -316,9 +298,6 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
         return java.util.Objects.equals(value, other.value) && eq.test(retval, other.retval);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         final int prime = 21;
@@ -337,17 +316,11 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
      */
     public abstract void zero();
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return getCode();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean mutate(TestCase test, TestFactory factory) {
         if (!hasMoreThanOneValue()) {
@@ -382,17 +355,11 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
      */
     public abstract void randomize();
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public GenericAccessibleObject<?> getAccessibleObject() {
         return null;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isAssignmentStatement() {
         return false;

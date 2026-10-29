@@ -117,9 +117,6 @@ public class CompareAssertion extends Assertion {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -128,9 +125,6 @@ public class CompareAssertion extends Assertion {
         return result;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -167,9 +161,6 @@ public class CompareAssertion extends Assertion {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<VariableReference> getReferencedVariables() {
         Set<VariableReference> vars = new LinkedHashSet<>();
@@ -178,9 +169,6 @@ public class CompareAssertion extends Assertion {
         return vars;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isValid() {
         return super.isValid() && dest != null;

@@ -66,9 +66,6 @@ public abstract class StartsWith extends SymbolicFunction {
             super(env, Types.STR_TO_BOOL_DESCRIPTOR);
         }
 
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public Object executeFunction() {
 
@@ -121,9 +118,6 @@ public abstract class StartsWith extends SymbolicFunction {
             super(env, Types.STR_INT_TO_BOOL_DESCRIPTOR);
         }
 
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public Object executeFunction() {
 

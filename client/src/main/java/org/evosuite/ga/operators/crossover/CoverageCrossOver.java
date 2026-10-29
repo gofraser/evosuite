@@ -41,12 +41,6 @@ public class CoverageCrossOver extends CrossOverFunction<TestSuiteChromosome> {
 
     private static final long serialVersionUID = -2203276450790663024L;
 
-    /**
-     * {@inheritDoc}
-     *
-     * @param parent1 a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
-     * @param parent2 a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
-     */
     @Override
     public void crossOver(TestSuiteChromosome parent1, TestSuiteChromosome parent2)
             throws ConstructionFailedException {

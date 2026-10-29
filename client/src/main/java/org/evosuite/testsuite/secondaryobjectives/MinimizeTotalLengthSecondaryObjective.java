@@ -36,18 +36,12 @@ public class MinimizeTotalLengthSecondaryObjective extends SecondaryObjective<Te
         return chromosome1.totalLengthOfTestCases() + chromosome2.totalLengthOfTestCases();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int compareChromosomes(TestSuiteChromosome chromosome1, TestSuiteChromosome chromosome2) {
         return chromosome1.totalLengthOfTestCases()
                 - chromosome2.totalLengthOfTestCases();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int compareGenerations(TestSuiteChromosome parent1, TestSuiteChromosome parent2,
                                   TestSuiteChromosome child1, TestSuiteChromosome child2) {

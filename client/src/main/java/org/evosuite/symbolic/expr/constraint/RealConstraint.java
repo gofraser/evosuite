@@ -59,33 +59,21 @@ public final class RealConstraint extends Constraint<Double> {
     private final Comparator cmp;
     private final Expression<Double> right;
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Comparator getComparator() {
         return cmp;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Expression<Double> getLeftOperand() {
         return left;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Expression<Double> getRightOperand() {
         return right;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return left + cmp.toString() + right;

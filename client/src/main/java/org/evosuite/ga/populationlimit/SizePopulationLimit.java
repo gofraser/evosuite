@@ -69,9 +69,6 @@ public class SizePopulationLimit<T extends Chromosome<T>> implements PopulationL
         this.limit = other.limit;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isPopulationFull(List<T> population) {
         final int size = population.stream().mapToInt(Chromosome::size).sum();

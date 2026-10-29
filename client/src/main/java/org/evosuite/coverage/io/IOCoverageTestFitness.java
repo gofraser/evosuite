@@ -278,26 +278,17 @@ public abstract class IOCoverageTestFitness<G extends IOGoal<G>> extends TestFit
         return 1.0;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return "[" + getCriterionName() + "]: " + goal.toString();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         int hashConst = 13;
         return 51 * hashConst + goal.hashCode();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {

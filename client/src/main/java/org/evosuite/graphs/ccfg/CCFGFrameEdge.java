@@ -24,9 +24,6 @@ public class CCFGFrameEdge extends CCFGEdge {
     private static final long serialVersionUID = 8223049010545407697L;
 
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return "";

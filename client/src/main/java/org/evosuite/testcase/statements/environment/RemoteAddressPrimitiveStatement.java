@@ -58,9 +58,6 @@ public class RemoteAddressPrimitiveStatement extends EnvironmentDataStatement<Ev
         super(tc, EvoSuiteRemoteAddress.class, value);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getTestCode(String varName) {
         String testCode = "";
@@ -82,25 +79,16 @@ public class RemoteAddressPrimitiveStatement extends EnvironmentDataStatement<Ev
         return testCode;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void delta() {
         randomize();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void zero() {
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void randomize() {
         EvoSuiteRemoteAddress addr;

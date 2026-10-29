@@ -58,9 +58,6 @@ public class GlobalTimeStoppingCondition<T extends Chromosome<T>> extends Stoppi
         // empty copy constructor
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void searchStarted(GeneticAlgorithm<T> algorithm) {
         if (startTime == 0) {
@@ -68,9 +65,6 @@ public class GlobalTimeStoppingCondition<T extends Chromosome<T>> extends Stoppi
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public long getCurrentValue() {
         if (startTime == 0) {
@@ -80,9 +74,6 @@ public class GlobalTimeStoppingCondition<T extends Chromosome<T>> extends Stoppi
         return TimeUnit.NANOSECONDS.toSeconds(currentTime - startTime);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isFinished() {
         if (Properties.GLOBAL_TIMEOUT == 0 || startTime == 0) {
@@ -98,9 +89,6 @@ public class GlobalTimeStoppingCondition<T extends Chromosome<T>> extends Stoppi
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void reset() {
         if (startTime == 0) {
@@ -118,17 +106,11 @@ public class GlobalTimeStoppingCondition<T extends Chromosome<T>> extends Stoppi
         startTime = System.nanoTime();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void setLimit(long limit) {
         // Limit is determined by Properties.GLOBAL_TIMEOUT
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public long getLimit() {
         return Properties.GLOBAL_TIMEOUT;
@@ -141,9 +123,6 @@ public class GlobalTimeStoppingCondition<T extends Chromosome<T>> extends Stoppi
         startTime = 0;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void forceCurrentValue(long value) {
         // value is in seconds

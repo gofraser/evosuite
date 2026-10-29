@@ -37,9 +37,6 @@ import java.util.Set;
  */
 public class UndeclaredExceptionContract extends Contract {
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public ContractViolation check(Statement statement, Scope scope, Throwable exception) {
         if (!isTargetStatement(statement)) {
@@ -89,9 +86,6 @@ public class UndeclaredExceptionContract extends Contract {
         statement.addComment("Throws undeclared exception: " + exception.getMessage());
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return "Undeclared exception check";

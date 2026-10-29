@@ -37,9 +37,6 @@ import java.util.List;
 public class StatementCoverageFactory extends
         AbstractFitnessFactory<StatementCoverageTestFitness> {
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public List<StatementCoverageTestFitness> getCoverageGoals() {
         List<StatementCoverageTestFitness> goals = new ArrayList<>();

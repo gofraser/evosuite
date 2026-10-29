@@ -46,9 +46,6 @@ public final class CompareToIgnoreCase extends SymbolicFunction {
                 Types.STR_TO_INT_DESCRIPTOR);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Object executeFunction() {
 

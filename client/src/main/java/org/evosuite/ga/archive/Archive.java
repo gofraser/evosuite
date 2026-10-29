@@ -520,9 +520,6 @@ public abstract class Archive implements Serializable {
         return this.nonCoveredTargetsOfEachMethod.get(methodFullName).size();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     public abstract String toString();
 
     /**

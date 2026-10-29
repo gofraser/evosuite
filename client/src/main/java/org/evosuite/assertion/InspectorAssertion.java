@@ -60,9 +60,6 @@ public class InspectorAssertion extends Assertion {
         return inspector;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Assertion copy(TestCase newTestCase, int offset) {
         InspectorAssertion s = new InspectorAssertion();
@@ -75,9 +72,6 @@ public class InspectorAssertion extends Assertion {
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean evaluate(Scope scope) {
         try {
@@ -101,9 +95,6 @@ public class InspectorAssertion extends Assertion {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -112,9 +103,6 @@ public class InspectorAssertion extends Assertion {
         return result;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -134,9 +122,6 @@ public class InspectorAssertion extends Assertion {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isValid() {
         return source != null;

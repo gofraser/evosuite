@@ -46,9 +46,6 @@ public final class Contains extends SymbolicFunction {
                 Types.CHARSEQ_TO_BOOL_DESCRIPTOR);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Object executeFunction() {
         String concLeft = (String) this.getConcReceiver();

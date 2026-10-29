@@ -88,33 +88,21 @@ public class MaxFitnessEvaluationsStoppingCondition<T extends Chromosome<T>> ext
         currentEvaluation = 0;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void setLimit(long limit) {
         maxEvaluations = limit;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public long getLimit() {
         return maxEvaluations;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public long getCurrentValue() {
         return currentEvaluation;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void forceCurrentValue(long value) {
         currentEvaluation = value;

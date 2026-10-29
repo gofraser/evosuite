@@ -191,9 +191,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 
     // --- Field Management ---
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int getInstructionId() {
         return instructionId;
@@ -208,9 +205,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
         return bytecodeOffset;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getMethodName() {
         return methodName;
@@ -290,9 +284,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
         return basicBlock != null;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int getLineNumber() {
 
@@ -786,9 +777,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 
     // --- Inherited from Object ---
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
 
@@ -1156,9 +1144,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
         return !isWithinConstructor() || !proceedsOwnConstructorInvocation();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -1171,9 +1156,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
         return result;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {

@@ -71,49 +71,31 @@ public class MaxTestsStoppingCondition<T extends Chromosome<T>> extends Stopping
         numTests.incrementAndGet();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void reset() {
         numTests.set(0);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isFinished() {
         return numTests.get() >= maxTests;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public long getCurrentValue() {
         return numTests.get();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void setLimit(long limit) {
         maxTests = limit;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public long getLimit() {
         return maxTests;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void forceCurrentValue(long value) {
         numTests.set(value);

@@ -37,9 +37,6 @@ import java.util.List;
  */
 public class AssertionErrorContract extends Contract {
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public ContractViolation check(Statement statement, Scope scope, Throwable exception) {
         if (!Properties.ENABLE_ASSERTS_FOR_SUT) {
@@ -66,9 +63,6 @@ public class AssertionErrorContract extends Contract {
         statement.addComment("Assertion violation: " + exception.getMessage());
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return "Assertion failed";

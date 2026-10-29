@@ -71,9 +71,6 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
         this.uses = uses;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public double getFitness(TestChromosome individual, ExecutionResult result) {
 
@@ -108,9 +105,6 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
         return min;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -119,9 +113,6 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
         return result;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -165,9 +156,6 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
         return compareClassName(other);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return "AllDef-Goal " + description;

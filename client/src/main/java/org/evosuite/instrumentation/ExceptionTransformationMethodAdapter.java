@@ -96,9 +96,6 @@ public class ExceptionTransformationMethodAdapter extends GeneratorAdapter {
         return exceptionTypes;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
 
@@ -231,9 +228,6 @@ public class ExceptionTransformationMethodAdapter extends GeneratorAdapter {
     private final List<TryCatchBlock> tryCatchBlocks = new LinkedList<>();
     private final List<TryCatchBlock> instrumentedTryCatchBlocks = new LinkedList<>();
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitTryCatchBlock(Label start, Label end, Label handler,
                                    String type) {
@@ -248,9 +242,6 @@ public class ExceptionTransformationMethodAdapter extends GeneratorAdapter {
     //     mn.accept(next);
     // }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitMaxs(int maxStack, int maxLocals) {
         super.visitMaxs(maxStack + 1, maxLocals);

@@ -175,9 +175,6 @@ public enum Operator {
         return arity;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return " " + str + " ";

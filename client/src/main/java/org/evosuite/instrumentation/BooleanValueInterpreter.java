@@ -65,9 +65,6 @@ public class BooleanValueInterpreter extends BasicInterpreter {
         this.isStatic = isStatic;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public BasicValue newValue(final Type type) {
         if (type == null) {
@@ -86,9 +83,6 @@ public class BooleanValueInterpreter extends BasicInterpreter {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public BasicValue unaryOperation(AbstractInsnNode insn, BasicValue value)
             throws AnalyzerException {
@@ -105,9 +99,6 @@ public class BooleanValueInterpreter extends BasicInterpreter {
         return super.unaryOperation(insn, value);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public BasicValue newOperation(AbstractInsnNode insn) throws AnalyzerException {
         if (insn.getOpcode() == ICONST_0) {
@@ -126,9 +117,6 @@ public class BooleanValueInterpreter extends BasicInterpreter {
         return super.newOperation(insn);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public BasicValue binaryOperation(AbstractInsnNode insn, BasicValue value1,
                                       BasicValue value2) throws AnalyzerException {
@@ -147,9 +135,6 @@ public class BooleanValueInterpreter extends BasicInterpreter {
         return super.binaryOperation(insn, value1, value2);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public BasicValue copyOperation(AbstractInsnNode insn, BasicValue value)
             throws AnalyzerException {
@@ -188,9 +173,6 @@ public class BooleanValueInterpreter extends BasicInterpreter {
         return super.naryOperation(insn, values);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public BasicValue merge(BasicValue v, BasicValue w) {
         if (v == BOOLEAN_VALUE && w == BasicValue.INT_VALUE) {

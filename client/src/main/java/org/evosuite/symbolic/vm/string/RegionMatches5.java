@@ -51,9 +51,6 @@ public final class RegionMatches5 extends SymbolicFunction {
                 Types.INT_STR_INT_INT_TO_BOOL_DESCRIPTOR);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Object executeFunction() {
 

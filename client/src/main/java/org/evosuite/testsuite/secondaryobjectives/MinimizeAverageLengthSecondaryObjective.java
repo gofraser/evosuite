@@ -36,18 +36,12 @@ public class MinimizeAverageLengthSecondaryObjective extends SecondaryObjective<
                 / (double) chromosome.size();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int compareChromosomes(TestSuiteChromosome chromosome1, TestSuiteChromosome chromosome2) {
         return (int) Math.signum(getAverageLength(chromosome1)
                 - getAverageLength(chromosome2));
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int compareGenerations(TestSuiteChromosome parent1, TestSuiteChromosome parent2,
                                   TestSuiteChromosome child1, TestSuiteChromosome child2) {

@@ -46,9 +46,6 @@ public class StaticAccessClassAdapter extends ClassVisitor {
         this.className = className;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public MethodVisitor visitMethod(int methodAccess, String name, String descriptor, String signature,
                                      String[] exceptions) {

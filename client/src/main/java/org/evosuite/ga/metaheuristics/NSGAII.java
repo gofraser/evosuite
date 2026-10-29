@@ -77,9 +77,6 @@ public class NSGAII<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
         this.rankingFunction = new FastNonDominatedSorting<>();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     protected void evolve() {
         // Create the offSpring population
@@ -170,9 +167,6 @@ public class NSGAII<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
         currentIteration++;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void initializePopulation() {
         logger.info("executing initializePopulation function");
@@ -186,9 +180,6 @@ public class NSGAII<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
         this.notifyIteration();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void generateSolution() {
         logger.info("executing generateSolution function");

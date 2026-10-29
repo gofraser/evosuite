@@ -58,9 +58,6 @@ public class PrimitiveFieldTraceEntry implements OutputTraceEntry {
         fieldMap.put(field, value);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean differs(OutputTraceEntry other) {
         if (other instanceof PrimitiveFieldTraceEntry) {
@@ -81,9 +78,6 @@ public class PrimitiveFieldTraceEntry implements OutputTraceEntry {
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<Assertion> getAssertions(OutputTraceEntry other) {
         Set<Assertion> assertions = new HashSet<>();
@@ -111,9 +105,6 @@ public class PrimitiveFieldTraceEntry implements OutputTraceEntry {
         return assertions;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<Assertion> getAssertions() {
         Set<Assertion> assertions = new HashSet<>();
@@ -128,9 +119,6 @@ public class PrimitiveFieldTraceEntry implements OutputTraceEntry {
         return assertions;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isDetectedBy(Assertion assertion) {
         if (assertion instanceof PrimitiveFieldAssertion) {
@@ -142,9 +130,6 @@ public class PrimitiveFieldTraceEntry implements OutputTraceEntry {
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public OutputTraceEntry cloneEntry() {
         PrimitiveFieldTraceEntry copy = new PrimitiveFieldTraceEntry(var);

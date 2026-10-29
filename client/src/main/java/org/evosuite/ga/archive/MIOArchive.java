@@ -53,9 +53,6 @@ public class MIOArchive extends Archive {
 
     public static final MIOArchive instance = new MIOArchive();
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void addTarget(TestFitnessFunction target) {
         super.addTarget(target);
@@ -68,9 +65,6 @@ public class MIOArchive extends Archive {
         this.registerNonCoveredTargetOfAMethod(target);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void updateArchive(TestFitnessFunction target, TestChromosome solution, double fitnessValue) {
         super.updateArchive(target, solution, fitnessValue);
@@ -90,42 +84,27 @@ public class MIOArchive extends Archive {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isArchiveEmpty() {
         return this.getNumberOfSolutions() == 0;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int getNumberOfTargets() {
         return this.archive.keySet().size();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int getNumberOfCoveredTargets() {
         return this.getCoveredTargets().size();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int getNumberOfCoveredTargets(Class<?> targetClass) {
         return (int) this.getCoveredTargets().stream()
                 .filter(target -> target.getClass() == targetClass).count();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<TestFitnessFunction> getCoveredTargets() {
         return this.archive.keySet().stream()
@@ -133,17 +112,11 @@ public class MIOArchive extends Archive {
                 .collect(toSet());
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int getNumberOfUncoveredTargets() {
         return this.getUncoveredTargets().size();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int getNumberOfUncoveredTargets(Class<?> targetClass) {
         return (int) this.getUncoveredTargets().stream()
@@ -151,9 +124,6 @@ public class MIOArchive extends Archive {
                 .count();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<TestFitnessFunction> getUncoveredTargets() {
         return this.archive.keySet().stream()
@@ -161,18 +131,12 @@ public class MIOArchive extends Archive {
                 .collect(toSet());
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean hasTarget(TestFitnessFunction target) {
         assert target != null;
         return this.archive.containsKey(target);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int getNumberOfSolutions() {
         return this.getSolutions().size();
@@ -191,9 +155,6 @@ public class MIOArchive extends Archive {
                 .collect(toCollection(LinkedHashSet::new));
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public TestChromosome getSolution() {
 
@@ -235,9 +196,6 @@ public class MIOArchive extends Archive {
         return randomSolution == null ? null : randomSolution.clone();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public TestChromosome getSolution(TestFitnessFunction target) {
         assert target != null;
@@ -245,9 +203,6 @@ public class MIOArchive extends Archive {
         return this.archive.get(target).getBestSolutionIfAny();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean hasSolution(TestFitnessFunction target) {
         assert target != null;
@@ -255,18 +210,12 @@ public class MIOArchive extends Archive {
         return this.archive.get(target).isCovered();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public TestChromosome getRandomSolution() {
         TestChromosome randomChoice = Randomness.choice(this.getSolutions());
         return randomChoice == null ? null : randomChoice.clone();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     protected TestSuiteChromosome createMergedSolution(TestSuiteChromosome solution) {
         // Deactivate in case a test is executed and would access the archive as this might cause a
@@ -310,9 +259,6 @@ public class MIOArchive extends Archive {
         return mergedSolution;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void shrinkSolutions(int newPopulationSize) {
         assert newPopulationSize > 0;
@@ -321,18 +267,12 @@ public class MIOArchive extends Archive {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return "NumTargets: " + this.getNumberOfTargets() + ", NumCoveredTargets: "
                 + this.getNumberOfCoveredTargets() + ", NumSolutions: " + this.getNumberOfSolutions();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void reset() {
         super.reset();

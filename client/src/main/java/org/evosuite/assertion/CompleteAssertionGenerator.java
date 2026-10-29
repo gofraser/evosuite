@@ -36,9 +36,6 @@ import java.util.List;
  */
 public class CompleteAssertionGenerator extends AssertionGenerator {
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void addAssertions(TestCase test) {
         collectCandidates(test);

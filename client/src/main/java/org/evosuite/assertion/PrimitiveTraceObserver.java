@@ -34,9 +34,6 @@ import java.lang.reflect.Modifier;
 
 public class PrimitiveTraceObserver extends AssertionTraceObserver<PrimitiveTraceEntry> {
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public synchronized void afterStatement(Statement statement, Scope scope,
                                             Throwable exception) {
@@ -53,9 +50,6 @@ public class PrimitiveTraceObserver extends AssertionTraceObserver<PrimitiveTrac
         visitReturnValue(statement, scope);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     protected void visit(Statement statement, Scope scope, VariableReference var) {
         if (statement.isAssignmentStatement()) {

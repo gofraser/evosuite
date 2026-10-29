@@ -53,9 +53,6 @@ public class UnitAssertionGenerator extends AssertionGenerator {
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void addAssertions(TestCase test) {
         ExecutionResult result = runTest(test);

@@ -390,9 +390,6 @@ public class ValueMinimizer extends TestVisitor {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitTestCase(TestCase test) {
     }
@@ -426,60 +423,39 @@ public class ValueMinimizer extends TestVisitor {
     }
 
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitPrimitiveStatement(PrimitiveStatement<?> statement) {
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitFieldStatement(FieldStatement statement) {
         // TODO Auto-generated method stub
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitMethodStatement(MethodStatement statement) {
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitConstructorStatement(ConstructorStatement statement) {
         // TODO Auto-generated method stub
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitArrayStatement(ArrayStatement statement) {
         // TODO Auto-generated method stub
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitAssignmentStatement(AssignmentStatement statement) {
         // TODO Auto-generated method stub
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitNullStatement(NullStatement statement) {
         // TODO Auto-generated method stub

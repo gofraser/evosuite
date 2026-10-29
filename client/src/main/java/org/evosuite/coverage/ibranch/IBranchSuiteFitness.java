@@ -276,17 +276,11 @@ public class IBranchSuiteFitness extends TestSuiteFitnessFunction {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public double getFitness(TestSuiteChromosome suite) {
         return getFitness(suite, true);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean updateCoveredGoals() {
         if (!Properties.TEST_ARCHIVE) {

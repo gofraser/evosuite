@@ -94,9 +94,6 @@ public abstract class StoppingConditionImpl<T extends Chromosome<T>> implements 
         // Default no-op implementation
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         StringBuilder r = new StringBuilder();

@@ -73,9 +73,6 @@ public class TimeDeltaStoppingCondition<T extends Chromosome<T>> extends Stoppin
         this.lastGeneration = that.lastGeneration;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void searchStarted(GeneticAlgorithm<T> algorithm) {
         if (algorithm.getFitnessFunction().isMaximizationFunction()) {
@@ -87,9 +84,6 @@ public class TimeDeltaStoppingCondition<T extends Chromosome<T>> extends Stoppin
         lastGeneration = 0L;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void iteration(GeneticAlgorithm<T> algorithm) {
         double currentBestFitness = algorithm.getBestIndividual().getFitness();
@@ -107,18 +101,12 @@ public class TimeDeltaStoppingCondition<T extends Chromosome<T>> extends Stoppin
         lastGeneration = System.currentTimeMillis();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public long getCurrentValue() {
         long currentTime = System.currentTimeMillis();
         return (int) ((currentTime - startTime) / 1000);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isFinished() {
         long currentTime = System.currentTimeMillis();
@@ -149,9 +137,6 @@ public class TimeDeltaStoppingCondition<T extends Chromosome<T>> extends Stoppin
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void reset() {
         if (startTime == 0) {
@@ -159,26 +144,17 @@ public class TimeDeltaStoppingCondition<T extends Chromosome<T>> extends Stoppin
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void setLimit(long limit) {
         // TODO Auto-generated method stub
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public long getLimit() {
         return Properties.GLOBAL_TIMEOUT;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void forceCurrentValue(long value) {
         // TODO Auto-generated method stub

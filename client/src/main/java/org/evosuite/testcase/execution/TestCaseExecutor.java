@@ -1543,9 +1543,6 @@ public class TestCaseExecutor implements ThreadFactory {
         });
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Thread newThread(Runnable r) {
         if (currentThread != null && currentThread.isAlive()) {

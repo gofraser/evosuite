@@ -933,11 +933,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         return fitnessFunctions.size();
     }
 
-    /**
-     * {@inheritDoc}
-     *
-     * @return a {@link String} object.
-     */
     @Override
     public String toString() {
         StringBuilder str = new StringBuilder();

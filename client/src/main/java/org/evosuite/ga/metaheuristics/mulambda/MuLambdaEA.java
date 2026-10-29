@@ -56,9 +56,6 @@ public class MuLambdaEA<T extends Chromosome<T>> extends AbstractMuLambda<T> {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     protected void evolveInternal() {
 

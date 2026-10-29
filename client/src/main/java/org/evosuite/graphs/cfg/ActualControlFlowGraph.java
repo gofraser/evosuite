@@ -734,9 +734,6 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
 
     // inherited from ControlFlowGraph
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean containsInstruction(BytecodeInstruction v) {
         if (v == null) {
@@ -752,9 +749,6 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public BytecodeInstruction getInstruction(int instructionId) {
 
@@ -786,9 +780,6 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
         return new HashSet<>(branches);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getCFGType() {
         return "ACFG";

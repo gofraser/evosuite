@@ -33,9 +33,6 @@ import java.util.concurrent.TimeoutException;
 
 public class InspectorTraceObserver extends AssertionTraceObserver<InspectorTraceEntry> {
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     protected void visit(Statement statement, Scope scope, VariableReference var) {
         // TODO: Check the variable class is complex?

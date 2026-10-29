@@ -72,9 +72,6 @@ public class DefUseCoverageFactory extends
         return duGoals;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public List<DefUseCoverageTestFitness> getCoverageGoals() {
         if (!called) {

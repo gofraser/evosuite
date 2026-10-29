@@ -1079,9 +1079,6 @@ public class TestCodeVisitor extends TestVisitor {
         return classNames.values();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitTestCase(TestCase test) {
         this.test = test;
@@ -1823,9 +1820,6 @@ public class TestCodeVisitor extends TestVisitor {
 
 
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitPrimitiveStatement(PrimitiveStatement<?> statement) {
         VariableReference retval = statement.getReturnValue();
@@ -2386,9 +2380,6 @@ public class TestCodeVisitor extends TestVisitor {
 
 
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitMethodStatement(MethodStatement statement) {
         String result = "";
@@ -2882,9 +2873,6 @@ public class TestCodeVisitor extends TestVisitor {
         return constructorTypeName;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitConstructorStatement(ConstructorStatement statement) {
         String result = "";
@@ -3172,9 +3160,6 @@ public class TestCodeVisitor extends TestVisitor {
         return ex != null && "java.awt.HeadlessException".equals(ex.getName());
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitArrayStatement(ArrayStatement statement) {
         VariableReference retval = statement.getReturnValue();
@@ -3358,9 +3343,6 @@ public class TestCodeVisitor extends TestVisitor {
         addAssertions(statement);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitNullStatement(NullStatement statement) {
         VariableReference retval = statement.getReturnValue();

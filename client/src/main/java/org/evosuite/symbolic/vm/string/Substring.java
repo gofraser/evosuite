@@ -65,9 +65,6 @@ public abstract class Substring extends SymbolicFunction {
             super(env, Types.INT_INT_TO_STR_DESCRIPTOR);
         }
 
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public Object executeFunction() {
 
@@ -113,9 +110,6 @@ public abstract class Substring extends SymbolicFunction {
             super(env, Types.INT_TO_STR_DESCRIPTOR);
         }
 
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public Object executeFunction() {
 

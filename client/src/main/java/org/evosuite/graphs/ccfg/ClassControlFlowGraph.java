@@ -606,17 +606,11 @@ public class ClassControlFlowGraph extends EvoSuiteGraph<CCFGNode, CCFGEdge> {
         registerEdgeAttributeProvider(new CCFGEdgeAttributeProvider());
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getName() {
         return "CCFG_" + className;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     protected String dotSubFolder() {
         return toFileString(className) + "/";

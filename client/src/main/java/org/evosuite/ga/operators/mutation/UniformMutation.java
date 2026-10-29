@@ -29,9 +29,6 @@ public class UniformMutation extends MutationDistribution {
         this.sizeOfDistribution = sizeOfDistribution;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean toMutate(int index) {
         return Randomness.nextDouble() < 1.0 / (double) this.sizeOfDistribution;

@@ -70,9 +70,6 @@ public class TestSuiteChromosomeFactory implements ChromosomeFactory<TestSuiteCh
         testChromosomeFactory = factory;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public TestSuiteChromosome getChromosome() {
 

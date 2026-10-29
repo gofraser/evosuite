@@ -65,9 +65,6 @@ public class NegateCondition implements MutationOperator {
         opcodeMap.put(Opcodes.IFNULL, Opcodes.IFNONNULL);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public List<Mutation> apply(MethodNode mn, String className, String methodName,
                                 BytecodeInstruction instruction, Frame frame) {
@@ -96,9 +93,6 @@ public class NegateCondition implements MutationOperator {
         return opcodeMap.get(opcode);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isApplicable(BytecodeInstruction instruction) {
         return instruction.isBranch();

@@ -32,9 +32,6 @@ import org.objectweb.asm.Type;
 
 public class ComparisonTraceObserver extends AssertionTraceObserver<ComparisonTraceEntry> {
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     protected void visit(Statement statement, Scope scope, VariableReference var) {
         try {

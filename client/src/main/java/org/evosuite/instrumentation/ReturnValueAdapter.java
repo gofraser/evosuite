@@ -53,9 +53,6 @@ public class ReturnValueAdapter extends AbstractEvoMethodAdapter {
         LONG, INTEGER, FLOAT, DOUBLE
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitInsn(int opcode) {
         if (!shouldSkip()) {

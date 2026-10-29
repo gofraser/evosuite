@@ -41,9 +41,6 @@ public class CCFGFrameNode extends CCFGNode {
         return type;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -52,9 +49,6 @@ public class CCFGFrameNode extends CCFGNode {
         return result;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -73,9 +67,6 @@ public class CCFGFrameNode extends CCFGNode {
         return true;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return "Frame " + type.toString();

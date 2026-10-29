@@ -56,9 +56,6 @@ public class SameAssertion extends Assertion {
         this.dest = dest;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Assertion copy(TestCase newTestCase, int offset) {
         SameAssertion s = new SameAssertion();
@@ -70,9 +67,6 @@ public class SameAssertion extends Assertion {
         return s;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean evaluate(Scope scope) {
         try {
@@ -94,9 +88,6 @@ public class SameAssertion extends Assertion {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -105,9 +96,6 @@ public class SameAssertion extends Assertion {
         return result;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -127,9 +115,6 @@ public class SameAssertion extends Assertion {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<VariableReference> getReferencedVariables() {
         Set<VariableReference> vars = new HashSet<>();

@@ -63,9 +63,6 @@ public class ExecutionPathClassAdapter extends ClassVisitor {
         this.className = ResourceList.getClassNameFromResourcePath(className);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visit(int version, int access, String name, String signature,
                       String superName, String[] interfaces) {
@@ -78,9 +75,6 @@ public class ExecutionPathClassAdapter extends ClassVisitor {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public MethodVisitor visitMethod(int methodAccess, String name, String descriptor,
                                      String signature, String[] exceptions) {

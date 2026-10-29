@@ -45,9 +45,6 @@ public final class Concat extends SymbolicFunction {
         super(env, Types.JAVA_LANG_STRING, CONCAT, Types.STR_TO_STR_DESCRIPTOR);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Object executeFunction() {
 

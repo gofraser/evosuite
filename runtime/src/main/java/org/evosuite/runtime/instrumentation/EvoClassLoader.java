@@ -66,9 +66,6 @@ public class EvoClassLoader extends TransformingClassLoader {
         skipInstrumentationForPrefix.add(prefix);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Class<?> loadClass(String name) throws ClassNotFoundException {
         if ("<evosuite>".equals(name)) {

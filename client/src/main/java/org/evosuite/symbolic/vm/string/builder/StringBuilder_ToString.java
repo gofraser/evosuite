@@ -45,9 +45,6 @@ public final class StringBuilder_ToString extends SymbolicFunction {
                 Types.TO_STR_DESCRIPTOR);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Object executeFunction() {
         ReferenceConstant symbStrBuilder = this

@@ -53,9 +53,6 @@ public class ErrorConditionClassAdapter extends ClassVisitor {
         this.className = className;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public MethodVisitor visitMethod(int access, String name, String desc,
                                      String signature, String[] exceptions) {

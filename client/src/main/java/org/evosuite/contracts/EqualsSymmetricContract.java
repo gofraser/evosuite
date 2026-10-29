@@ -41,9 +41,6 @@ import java.util.List;
  */
 public class EqualsSymmetricContract extends Contract {
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public ContractViolation check(Statement statement, Scope scope,
                                    Throwable exception) {
@@ -133,9 +130,6 @@ public class EqualsSymmetricContract extends Contract {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return "Equals symmetric check";

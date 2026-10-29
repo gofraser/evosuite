@@ -89,9 +89,6 @@ public abstract class TransformingClassLoader extends ClassLoader {
         return null;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Class<?> loadClass(String name) throws ClassNotFoundException {
         if (!canInstrument(name)) {

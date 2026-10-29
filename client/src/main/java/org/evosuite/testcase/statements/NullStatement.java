@@ -56,9 +56,6 @@ public class NullStatement extends PrimitiveStatement<Void> {
         super(tc, new NullReference(tc, type), null);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Statement copy(TestCase newTestCase, int offset) {
         NullStatement copy = new NullStatement(newTestCase, retval.getType());
@@ -66,9 +63,6 @@ public class NullStatement extends PrimitiveStatement<Void> {
         return copy;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Throwable execute(Scope scope, PrintStream out)
             throws InvocationTargetException, IllegalArgumentException,
@@ -76,9 +70,6 @@ public class NullStatement extends PrimitiveStatement<Void> {
         return null;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<VariableReference> getVariableReferences() {
         Set<VariableReference> references = new LinkedHashSet<>();
@@ -86,17 +77,11 @@ public class NullStatement extends PrimitiveStatement<Void> {
         return references;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void replace(VariableReference oldVar, VariableReference newVar) {
         super.replace(oldVar, newVar);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean same(Statement s) {
         if (this == s) {
@@ -113,33 +98,21 @@ public class NullStatement extends PrimitiveStatement<Void> {
         return retval.same(ns.retval);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public GenericAccessibleObject<?> getAccessibleObject() {
         return null;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void delta() {
         logger.info("Method delta not implemented: What is the delta for null?");
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void zero() {
         logger.info("Method zero not implemented: How to zero null?");
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void randomize() {
         logger.info("Method randomize not implemented: How to randomize null?");

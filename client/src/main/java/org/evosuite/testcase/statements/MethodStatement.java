@@ -308,9 +308,6 @@ public class MethodStatement extends EntityWithParametersStatement {
         return !method.isStatic();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Throwable execute(final Scope scope, PrintStream out)
             throws InvocationTargetException, IllegalArgumentException,
@@ -633,9 +630,6 @@ public class MethodStatement extends EntityWithParametersStatement {
         throw allocationRejected();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isDeclaredException(Throwable t) {
         if (t == null) {
@@ -650,9 +644,6 @@ public class MethodStatement extends EntityWithParametersStatement {
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Statement copy(TestCase newTestCase, int offset) {
         ArrayList<VariableReference> newParams = new ArrayList<>();
@@ -689,9 +680,6 @@ public class MethodStatement extends EntityWithParametersStatement {
         return m;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<VariableReference> getVariableReferences() {
         Set<VariableReference> references = super.getVariableReferences();
@@ -706,9 +694,6 @@ public class MethodStatement extends EntityWithParametersStatement {
         return references;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean acceptsReplacement(VariableReference oldVar, VariableReference newVar) {
         return super.acceptsReplacement(oldVar, newVar)
@@ -749,25 +734,16 @@ public class MethodStatement extends EntityWithParametersStatement {
     }
 
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return method.getName() + Type.getMethodDescriptor(method.getMethod());
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object s) {
         return this == s || (isSameKind(s) && sameStructure((MethodStatement) s, EQUAL_VARIABLES));
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean same(Statement s) {
         return this == s || (isSameKind(s) && sameStructure((MethodStatement) s, SAME_VARIABLES));
@@ -794,9 +770,6 @@ public class MethodStatement extends EntityWithParametersStatement {
         return eq.test(retval, other.retval) && matches(callee, other.callee, eq);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -807,9 +780,6 @@ public class MethodStatement extends EntityWithParametersStatement {
         return result;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<Class<?>> getDeclaredExceptions() {
         Set<Class<?>> ex = super.getDeclaredExceptions();
@@ -817,9 +787,6 @@ public class MethodStatement extends EntityWithParametersStatement {
         return ex;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public List<VariableReference> getUniqueVariableReferences() {
         List<VariableReference> references = super.getUniqueVariableReferences();
@@ -843,9 +810,6 @@ public class MethodStatement extends EntityWithParametersStatement {
         return super.isAccessible();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isValid() {
         assert (super.isValid());
@@ -916,25 +880,16 @@ public class MethodStatement extends EntityWithParametersStatement {
     }
 
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public GenericMethod getAccessibleObject() {
         return method;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isAssignmentStatement() {
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void changeClassLoader(ClassLoader loader) {
         method.changeClassLoader(loader);
@@ -956,9 +911,6 @@ public class MethodStatement extends EntityWithParametersStatement {
         return method.getName();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     public List<String> obtainParameterNameListInOrder() {
         final Parameter[] parameters = this.method.getParameters();
         final List<String> names = new ArrayList<String>();

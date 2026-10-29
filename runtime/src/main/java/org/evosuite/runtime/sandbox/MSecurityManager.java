@@ -880,9 +880,6 @@ public class MSecurityManager extends SecurityManager {
      * in future JDK releases, we might need to double-check this class
      */
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void checkPermission(Permission perm, Object context)
             throws SecurityException, NullPointerException {

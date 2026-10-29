@@ -27,25 +27,16 @@ package org.evosuite.junit;
  */
 public class JUnit3TestAdapter extends JUnit4TestAdapter {
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getImports() {
         return "import junit.framework.TestCase;\n";
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getClassDefinition(String testName) {
         return "public class " + testName + " extends TestCase";
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getMethodDefinition(String testName) {
         return "public void " + testName + "() ";

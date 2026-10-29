@@ -42,17 +42,11 @@ public final class IntegerConstant extends AbstractExpression<Long> implements
         super(longValue, 1, false);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return Long.toString(this.concreteValue);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (obj instanceof IntegerConstant) {

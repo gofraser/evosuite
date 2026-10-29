@@ -74,9 +74,6 @@ public class JUnit4TestAdapter implements UnitTestAdapter {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getImports() {
         String imports = "";
@@ -91,17 +88,11 @@ public class JUnit4TestAdapter implements UnitTestAdapter {
         return imports;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getClassDefinition(String testName) {
         return "public class " + testName;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getMethodDefinition(String testName) {
         StringBuilder builder = new StringBuilder();

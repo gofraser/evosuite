@@ -241,17 +241,11 @@ class Population implements Serializable {
         this.solutions.addAll(shrinkSolutions);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         return 31 * counter + capacity + this.solutions.hashCode();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {

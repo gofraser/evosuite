@@ -73,9 +73,6 @@ public class MutationFactory extends AbstractFitnessFactory<MutationTestFitness>
         this.strong = strongMutation;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public List<MutationTestFitness> getCoverageGoals() {
         if (goals != null) {

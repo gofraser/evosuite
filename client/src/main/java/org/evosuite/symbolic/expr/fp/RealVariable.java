@@ -62,41 +62,26 @@ public final class RealVariable extends AbstractExpression<Double> implements Re
         this.concreteValue = conV;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getName() {
         return name;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Double getMinValue() {
         return minValue;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Double getMaxValue() {
         return maxValue;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return this.name + "(" + concreteValue + ")";
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (obj instanceof RealVariable) {
@@ -106,9 +91,6 @@ public final class RealVariable extends AbstractExpression<Double> implements Re
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         return this.name.hashCode();

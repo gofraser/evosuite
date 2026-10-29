@@ -115,30 +115,18 @@ public class RelativeSuiteLengthBloatControl<T extends Chromosome<T>> implements
         bestFitness = best.getFitness();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void searchFinished(GeneticAlgorithm<T> algorithm) {
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void searchStarted(GeneticAlgorithm<T> algorithm) {
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void fitnessEvaluation(T result) {
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void modification(T individual) {
         // TODO Auto-generated method stub

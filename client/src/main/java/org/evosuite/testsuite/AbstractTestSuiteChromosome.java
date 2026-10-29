@@ -212,9 +212,6 @@ public abstract class AbstractTestSuiteChromosome<T extends AbstractTestSuiteChr
         this.setChanged(true);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -233,9 +230,6 @@ public abstract class AbstractTestSuiteChromosome<T extends AbstractTestSuiteChr
         return tests.equals(other.tests);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         return tests.hashCode();
@@ -301,19 +295,11 @@ public abstract class AbstractTestSuiteChromosome<T extends AbstractTestSuiteChr
                 .sum();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int size() {
         return tests.size();
     }
 
-    /**
-     * {@inheritDoc}
-     *
-     * @return a T object.
-     */
     @Override
     public abstract T clone();
 

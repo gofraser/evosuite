@@ -52,9 +52,6 @@ public class RelativeTestLengthBloatControl<T extends ExecutableChromosome<T>>
         this.bestFitness = that.bestFitness;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isTooLong(T chromosome) {
         // Always accept if fitness is better
@@ -76,45 +73,30 @@ public class RelativeTestLengthBloatControl<T extends ExecutableChromosome<T>>
         } // Don't know max length so can't reject!
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void fitnessEvaluation(T result) {
         // TODO Auto-generated method stub
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void iteration(GeneticAlgorithm<T> algorithm) {
         currentMax = algorithm.getBestIndividual().size();
         bestFitness = algorithm.getBestIndividual().getFitness();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void searchFinished(GeneticAlgorithm<T> algorithm) {
         // TODO Auto-generated method stub
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void searchStarted(GeneticAlgorithm<T> algorithm) {
         // TODO Auto-generated method stub
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void modification(T individual) {
         // TODO Auto-generated method stub

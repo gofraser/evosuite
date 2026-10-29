@@ -172,9 +172,6 @@ public class ArrayStatement extends AbstractStatement {
         this(tc, new ArrayReference(tc, GenericClassFactory.get(type), length), length);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Statement copy(TestCase newTestCase, int offset) {
         ArrayStatement copy = new ArrayStatement(newTestCase, retval.getType(), lengths);
@@ -183,17 +180,11 @@ public class ArrayStatement extends AbstractStatement {
         return copy;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object s) {
         return this == s || (isSameKind(s) && sameStructure((ArrayStatement) s, EQUAL_VARIABLES));
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean same(Statement s) {
         return this == s || (isSameKind(s) && sameStructure((ArrayStatement) s, SAME_VARIABLES));
@@ -206,9 +197,6 @@ public class ArrayStatement extends AbstractStatement {
         return Arrays.equals(lengths, other.lengths) && eq.test(retval, other.retval);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Throwable execute(Scope scope, PrintStream out)
             throws InvocationTargetException, IllegalArgumentException,
@@ -237,9 +225,6 @@ public class ArrayStatement extends AbstractStatement {
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public GenericAccessibleObject<?> getAccessibleObject() {
         return null;
@@ -257,9 +242,6 @@ public class ArrayStatement extends AbstractStatement {
 
 
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<VariableReference> getVariableReferences() {
         Set<VariableReference> references = new LinkedHashSet<>();
@@ -267,9 +249,6 @@ public class ArrayStatement extends AbstractStatement {
         return references;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -278,17 +257,11 @@ public class ArrayStatement extends AbstractStatement {
         return result;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isAssignmentStatement() {
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isValid() {
         int maxAssignment = -1;
@@ -316,9 +289,6 @@ public class ArrayStatement extends AbstractStatement {
         return super.isValid();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean mutate(TestCase test, TestFactory factory) {
         int maxAssignment = 0;
@@ -377,9 +347,6 @@ public class ArrayStatement extends AbstractStatement {
         return true;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void replace(VariableReference var1, VariableReference var2) {
     }

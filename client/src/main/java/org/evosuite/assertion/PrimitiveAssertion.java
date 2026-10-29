@@ -45,9 +45,6 @@ public class PrimitiveAssertion extends Assertion {
         return !org.apache.commons.lang3.ClassUtils.primitiveToWrapper(sourceClass).equals(value.getClass());
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Assertion copy(TestCase newTestCase, int offset) {
         PrimitiveAssertion s = new PrimitiveAssertion();
@@ -58,9 +55,6 @@ public class PrimitiveAssertion extends Assertion {
         return s;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean evaluate(Scope scope) {
         try {

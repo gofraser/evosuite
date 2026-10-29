@@ -245,9 +245,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
         return throwableClasses.stream().anyMatch(t -> t.isAssignableFrom(clazz));
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean references(VariableReference var) {
         return getVariableReferences().contains(var);
@@ -266,33 +263,21 @@ public abstract class AbstractStatement implements Statement, Serializable {
         return variables;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void setRetval(VariableReference newRetVal) {
         this.retval = Objects.requireNonNull(newRetVal, "newRetVal cannot be null");
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public List<VariableReference> getUniqueVariableReferences() {
         return new ArrayList<>(getVariableReferences());
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getCode() {
         return getCode(null);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getCode(Throwable exception) {
         TestCodeVisitor visitor = new TestCodeVisitor();
@@ -314,34 +299,22 @@ public abstract class AbstractStatement implements Statement, Serializable {
         return comment;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public final Statement clone() {
         throw new UnsupportedOperationException("Statement.clone() is not supported."
                 + " Use Statement.clone(TestCase) instead.");
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Type getReturnType() {
         return retval.getType();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Class<?> getReturnClass() {
         return retval.getVariableClass();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public VariableReference getReturnValue() {
         return retval;
@@ -375,17 +348,11 @@ public abstract class AbstractStatement implements Statement, Serializable {
         return copy;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean hasAssertions() {
         return !assertions.isEmpty();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void addAssertion(Assertion assertion) {
         if (assertion == null) {
@@ -402,42 +369,27 @@ public abstract class AbstractStatement implements Statement, Serializable {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void setAssertions(Set<Assertion> assertions) {
         assertions.forEach(a -> a.setStatement(this));
         this.assertions = assertions;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void removeAssertions() {
         assertions.clear();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void removeAssertion(Assertion assertion) {
         assertions.remove(assertion);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<Assertion> getAssertions() {
         return assertions;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<Class<?>> getDeclaredExceptions() {
         return new HashSet<>();
@@ -457,9 +409,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
         return clazz;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int getPosition() {
         return retval.getStPosition();
@@ -470,34 +419,22 @@ public abstract class AbstractStatement implements Statement, Serializable {
         return getVariableReferences().stream().allMatch(VariableReference::isAccessible);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isValid() {
         retval.getStPosition();
         return true;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isDeclaredException(Throwable t) {
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean mutate(TestCase test, TestFactory factory) {
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Statement clone(TestCase newTestCase) {
         Statement result = copy(newTestCase, 0);
@@ -507,9 +444,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
         return result;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void changeClassLoader(ClassLoader loader) {
         getVariableReferences().forEach(v -> v.changeClassLoader(loader));

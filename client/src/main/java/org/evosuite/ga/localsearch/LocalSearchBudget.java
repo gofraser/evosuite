@@ -174,9 +174,6 @@ public class LocalSearchBudget<T extends Chromosome<T>> implements SearchListene
         executedStart = MaxStatementsStoppingCondition.getNumExecutedStatements();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void searchStarted(GeneticAlgorithm<T> algorithm) {
         ga = algorithm;
@@ -185,9 +182,6 @@ public class LocalSearchBudget<T extends Chromosome<T>> implements SearchListene
         fitnessEvaluations = 0;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void iteration(GeneticAlgorithm<T> algorithm) {
         tests = 0;
@@ -195,9 +189,6 @@ public class LocalSearchBudget<T extends Chromosome<T>> implements SearchListene
         fitnessEvaluations = 0;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void searchFinished(GeneticAlgorithm<T> algorithm) {
         ga = null;

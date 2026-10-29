@@ -104,25 +104,16 @@ public class MaxStatementsStoppingCondition<T extends Chromosome<T>> extends Sto
         currentStatement.set(value);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public long getCurrentValue() {
         return currentStatement.get();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public long getLimit() {
         return Properties.SEARCH_BUDGET;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void forceCurrentValue(long value) {
         currentStatement.set(value);

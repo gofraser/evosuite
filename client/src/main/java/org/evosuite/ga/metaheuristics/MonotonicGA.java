@@ -80,9 +80,6 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
         return replacementFunction.keepOffspring(parent1, parent2, offspring1, offspring2);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @SuppressWarnings("unchecked")
     @Override
     protected void evolve() {
@@ -216,9 +213,6 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
         return randomChromosome;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void initializePopulation() {
         currentIteration = 0;
@@ -336,9 +330,6 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
         return uncoveredGoals;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void generateSolution() {
         if (Properties.ENABLE_SECONDARY_OBJECTIVE_AFTER > 0 || Properties.ENABLE_SECONDARY_OBJECTIVE_STARVATION) {

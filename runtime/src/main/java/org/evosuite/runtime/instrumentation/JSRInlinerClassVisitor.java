@@ -40,9 +40,6 @@ public class JSRInlinerClassVisitor extends ClassVisitor {
         super(Opcodes.ASM9, parent);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public MethodVisitor visitMethod(int access, String name, String desc,
                                      String signature, final String[] exceptions) {

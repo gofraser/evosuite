@@ -62,9 +62,6 @@ public abstract class AbstractExpression<T> implements Expression<T> {
         return this.parent;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public final void setParent(Expression<?> expr) {
         this.parent = expr;
@@ -77,9 +74,6 @@ public abstract class AbstractExpression<T> implements Expression<T> {
         return containsSymbolicVariable;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public final T getConcreteValue() {
         return concreteValue;

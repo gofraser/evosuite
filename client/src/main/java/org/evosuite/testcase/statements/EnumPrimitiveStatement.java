@@ -124,9 +124,6 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
         return Arrays.asList(constants);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void delta() {
         if (constants.length <= 1) {
@@ -159,9 +156,6 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
         return constants.length > 1;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void zero() {
         if (constants.length == 0) {
@@ -171,9 +165,6 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
         value = constants[0];
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void randomize() {
         if (constants.length > 1) {
@@ -182,9 +173,6 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @SuppressWarnings("unchecked")
     @Override
     public void changeClassLoader(ClassLoader loader) {

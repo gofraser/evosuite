@@ -306,9 +306,6 @@ public class CreateClassResetClassAdapter extends ClassVisitor {
         return (access & Opcodes.ACC_STATIC) == Opcodes.ACC_STATIC;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public MethodVisitor visitMethod(int methodAccess, String methodName, String descriptor, String signature,
                                      String[] exceptions) {

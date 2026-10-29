@@ -171,17 +171,11 @@ public class ExceptionCoverageTestFitness extends TestFitnessFunction {
         return fitness;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return getKey();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -193,9 +187,6 @@ public class ExceptionCoverageTestFitness extends TestFitnessFunction {
         return result;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {

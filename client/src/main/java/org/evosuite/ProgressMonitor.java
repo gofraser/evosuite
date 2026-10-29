@@ -102,17 +102,11 @@ public class ProgressMonitor<T extends Chromosome<T>> implements SearchListener<
         //out.writeObject(currentTask);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void searchStarted(GeneticAlgorithm<T> algorithm) {
         this.algorithm = algorithm;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void iteration(GeneticAlgorithm<T> algorithm) {
         T best = algorithm.getBestIndividual();
@@ -131,9 +125,6 @@ public class ProgressMonitor<T extends Chromosome<T>> implements SearchListener<
         iteration++;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void searchFinished(GeneticAlgorithm<T> algorithm) {
         currentCoverage = (int) Math.floor(algorithm.getBestIndividual().getCoverage() * 100);
@@ -142,9 +133,6 @@ public class ProgressMonitor<T extends Chromosome<T>> implements SearchListener<
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void fitnessEvaluation(T individual) {
         if (algorithm == null) {
@@ -157,9 +145,6 @@ public class ProgressMonitor<T extends Chromosome<T>> implements SearchListener<
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void modification(T individual) {
         // TODO Auto-generated method stub

@@ -65,34 +65,22 @@ public class BytePrimitiveStatement extends NumericalPrimitiveStatement<Byte> {
 
     private static final long serialVersionUID = -8123457944460041347L;
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void zero() {
         value = (byte) 0;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void delta() {
         byte delta = (byte) Math.floor(Randomness.nextGaussian() * Properties.MAX_DELTA);
         value = (byte) (value + delta);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void increment(long delta) {
         value = (byte) (value + delta);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void randomize() {
         if (Randomness.nextDouble() >= Properties.PRIMITIVE_POOL) {

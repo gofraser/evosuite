@@ -95,9 +95,6 @@ public class ReplaceArithmeticOperator implements MutationOperator {
         throw new RuntimeException("Unknown opcode: " + opcode);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public List<Mutation> apply(MethodNode mn, String className, String methodName,
                                 BytecodeInstruction instruction, Frame frame) {
@@ -412,9 +409,6 @@ public class ReplaceArithmeticOperator implements MutationOperator {
         throw new RuntimeException("Unknown double opcode: " + opcode);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isApplicable(BytecodeInstruction instruction) {
         AbstractInsnNode node = instruction.getASMNode();

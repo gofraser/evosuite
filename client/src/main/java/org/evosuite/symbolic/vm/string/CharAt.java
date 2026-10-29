@@ -47,9 +47,6 @@ public final class CharAt extends SymbolicFunction {
                 Types.INT_TO_CHAR_DESCRIPTOR);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Object executeFunction() {
 

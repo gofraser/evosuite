@@ -36,9 +36,6 @@ import java.util.Set;
 
 public class ContainsTraceObserver extends AssertionTraceObserver<ContainsTraceEntry> {
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     protected void visit(Statement statement, Scope scope, VariableReference var) {
         try {

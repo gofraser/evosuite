@@ -65,9 +65,6 @@ public abstract class Replace extends SymbolicFunction {
             super(env, Types.CHAR_CHAR_TO_STR_DESCRIPTOR);
         }
 
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public Object executeFunction() {
 
@@ -123,9 +120,6 @@ public abstract class Replace extends SymbolicFunction {
             super(env, Types.CHARSEQ_CHARSEQ_TO_STR_DESCRIPTOR);
         }
 
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public Object executeFunction() {
 

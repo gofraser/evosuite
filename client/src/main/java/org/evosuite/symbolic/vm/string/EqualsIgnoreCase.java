@@ -47,9 +47,6 @@ public final class EqualsIgnoreCase extends SymbolicFunction {
                 Types.STR_TO_BOOL_DESCRIPTOR);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Object executeFunction() {
 

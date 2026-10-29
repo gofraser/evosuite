@@ -70,9 +70,6 @@ public class InspectorTraceEntry implements OutputTraceEntry {
         return inspectorMap.size();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean differs(OutputTraceEntry other) {
         if (other instanceof InspectorTraceEntry) {
@@ -101,9 +98,6 @@ public class InspectorTraceEntry implements OutputTraceEntry {
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<Assertion> getAssertions(OutputTraceEntry other) {
         Set<Assertion> assertions = new HashSet<>();
@@ -132,9 +126,6 @@ public class InspectorTraceEntry implements OutputTraceEntry {
         return assertions;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<Assertion> getAssertions() {
         Set<Assertion> assertions = new HashSet<>();
@@ -150,9 +141,6 @@ public class InspectorTraceEntry implements OutputTraceEntry {
         return assertions;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isDetectedBy(Assertion assertion) {
         if (assertion instanceof InspectorAssertion) {
@@ -167,9 +155,6 @@ public class InspectorTraceEntry implements OutputTraceEntry {
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public OutputTraceEntry cloneEntry() {
         InspectorTraceEntry copy = new InspectorTraceEntry(var);

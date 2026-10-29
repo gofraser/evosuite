@@ -41,17 +41,11 @@ public class MinimizeMaxLengthSecondaryObjective extends SecondaryObjective<Test
         return max;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int compareChromosomes(TestSuiteChromosome chromosome1, TestSuiteChromosome chromosome2) {
         return getMaxLength(chromosome1) - getMaxLength(chromosome2);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int compareGenerations(TestSuiteChromosome parent1, TestSuiteChromosome parent2,
                                   TestSuiteChromosome child1, TestSuiteChromosome child2) {

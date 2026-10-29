@@ -2273,9 +2273,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         if (type == null) {

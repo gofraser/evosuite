@@ -38,17 +38,11 @@ public final class FieldKey {
         this.name = name;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         return this.owner.hashCode() + this.name.hashCode();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object o) {
         if (o != null && o.getClass().equals(FieldKey.class)) {
@@ -59,9 +53,6 @@ public final class FieldKey {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return this.owner + "/" + this.name;

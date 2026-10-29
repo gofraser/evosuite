@@ -74,17 +74,11 @@ public class ZeroFitnessStoppingCondition<T extends Chromosome<T>> extends Stopp
         lastFitness = Double.MAX_VALUE;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void setLimit(long limit) {
         // Do nothing
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public long getLimit() {
         return 0;
@@ -103,9 +97,6 @@ public class ZeroFitnessStoppingCondition<T extends Chromosome<T>> extends Stopp
         return (long) (lastFitness + 0.5);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void forceCurrentValue(long value) {
         lastFitness = value;

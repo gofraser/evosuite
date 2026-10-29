@@ -52,9 +52,6 @@ public class FileNamePrimitiveStatement extends EnvironmentDataStatement<EvoSuit
         super(tc, EvoSuiteFile.class, value);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getTestCode(String varName) {
         String testCode = "";
@@ -74,17 +71,11 @@ public class FileNamePrimitiveStatement extends EnvironmentDataStatement<EvoSuit
         return testCode;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void delta() {
         randomize();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void zero() {
         // there does not exist a zero value for files
@@ -105,9 +96,6 @@ public class FileNamePrimitiveStatement extends EnvironmentDataStatement<EvoSuit
         return true;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void randomize() {
         String path = Randomness.choice(tc.getAccessedEnvironment().getViewOfAccessedFiles());

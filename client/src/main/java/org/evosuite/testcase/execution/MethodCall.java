@@ -90,9 +90,6 @@ public class MethodCall implements Cloneable {
         this.callDepth = callDepth;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         StringBuffer ret = new StringBuffer();

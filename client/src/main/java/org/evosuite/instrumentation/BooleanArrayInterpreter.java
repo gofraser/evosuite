@@ -67,9 +67,6 @@ public class BooleanArrayInterpreter extends BasicInterpreter {
      */
     public static final BasicValue INT_ARRAY = new BasicValue(null);
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public BasicValue newValue(Type type) {
         if (type == null) {
@@ -175,9 +172,6 @@ public class BooleanArrayInterpreter extends BasicInterpreter {
         }
         */
 
-    /**
-     * {@inheritDoc}
-     */
     @SuppressWarnings("unchecked")
     @Override
     public BasicValue naryOperation(AbstractInsnNode insn, List values)

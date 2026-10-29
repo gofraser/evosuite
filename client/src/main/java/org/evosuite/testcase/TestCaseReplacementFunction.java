@@ -65,9 +65,6 @@ public class TestCaseReplacementFunction extends ReplacementFunction<TestChromos
         return chromosome1.size() + chromosome2.size();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean keepOffspring(TestChromosome parent1, TestChromosome parent2,
                                  TestChromosome offspring1, TestChromosome offspring2) {

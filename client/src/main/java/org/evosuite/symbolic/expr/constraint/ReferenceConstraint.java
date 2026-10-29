@@ -69,33 +69,21 @@ public class ReferenceConstraint extends Constraint<Object> {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Comparator getComparator() {
         return cmp;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Expression<Object> getLeftOperand() {
         return left;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Expression<Object> getRightOperand() {
         return right;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return left + cmp.toString() + right;

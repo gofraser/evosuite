@@ -37,9 +37,6 @@ public class OnlyMutationSuiteFitness extends MutationSuiteFitness {
         super(Properties.Criterion.ONLYMUTATION);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public double getFitness(TestSuiteChromosome individual) {
         return getWeakMutantFitness(individual, false);

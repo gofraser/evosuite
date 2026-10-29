@@ -312,35 +312,23 @@ public class ResourceController<T extends Chromosome<T>> implements SearchListen
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void searchStarted(GeneticAlgorithm<T> algorithm) {
         ga = algorithm;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void iteration(GeneticAlgorithm<T> algorithm) {
         // TODO Auto-generated method stub
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void searchFinished(GeneticAlgorithm<T> algorithm) {
         // TODO Auto-generated method stub
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void fitnessEvaluation(T individual) {
         String reason = exceededResource();
@@ -356,61 +344,40 @@ public class ResourceController<T extends Chromosome<T>> implements SearchListen
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void modification(T individual) {
         // TODO Auto-generated method stub
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void forceCurrentValue(long value) {
         // TODO Auto-generated method stub
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public long getCurrentValue() {
         // TODO Auto-generated method stub
         return 0;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public long getLimit() {
         // TODO Auto-generated method stub
         return 0;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isFinished() {
         return stopComputation;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void reset() {
         stopComputation = false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void setLimit(long limit) {
         // TODO Auto-generated method stub

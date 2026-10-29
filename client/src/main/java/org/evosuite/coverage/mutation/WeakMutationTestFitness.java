@@ -85,9 +85,6 @@ public class WeakMutationTestFitness extends MutationTestFitness {
         return fitness;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return "Weak " + mutation.toString();

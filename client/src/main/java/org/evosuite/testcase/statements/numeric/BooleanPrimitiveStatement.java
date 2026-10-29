@@ -50,33 +50,21 @@ public class BooleanPrimitiveStatement extends NumericalPrimitiveStatement<Boole
 
     private static final long serialVersionUID = 2864789903354543815L;
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void zero() {
         value = false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void delta() {
         value = !value;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void increment(long delta) {
         delta();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void randomize() {
         value = Randomness.nextBoolean();

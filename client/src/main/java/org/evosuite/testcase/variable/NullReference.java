@@ -42,9 +42,6 @@ public class NullReference extends VariableReferenceImpl {
         super(testCase, type);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public VariableReference clone() {
         throw new UnsupportedOperationException(

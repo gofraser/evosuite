@@ -78,9 +78,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
 
     // inherited from ControlFlowGraph
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean containsInstruction(BytecodeInstruction instruction) {
 
@@ -101,9 +98,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
         return byNode;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public BytecodeInstruction getInstruction(int instructionId) {
         return vertexSet().stream()
@@ -323,9 +317,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
         return r;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public BytecodeInstruction determineEntryPoint() {
 
@@ -341,9 +332,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
         return getInstructionWithSmallestId();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<BytecodeInstruction> determineExitPoints() {
 
@@ -734,9 +722,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
 
     // miscellaneous
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
@@ -747,9 +732,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
         return sb.toString();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getCFGType() {
         return "RCFG";
@@ -796,9 +778,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
         return calls;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     public boolean addVertex(BytecodeInstruction ins) {
         return super.addVertex(ins);
     }

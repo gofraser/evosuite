@@ -35,9 +35,6 @@ public class AnnotatedClassNode extends ClassNode {
         super(Opcodes.ASM9);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @SuppressWarnings("unchecked")
     @Override
     public MethodVisitor visitMethod(final int access, final String name,

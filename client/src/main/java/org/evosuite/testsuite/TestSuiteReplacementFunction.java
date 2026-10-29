@@ -68,9 +68,6 @@ public class TestSuiteReplacementFunction extends ReplacementFunction<TestSuiteC
         return chromosome1.totalLengthOfTestCases() + chromosome2.totalLengthOfTestCases();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean keepOffspring(TestSuiteChromosome parent1, TestSuiteChromosome parent2,
                                  TestSuiteChromosome offspring1, TestSuiteChromosome offspring2) {

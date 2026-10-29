@@ -65,9 +65,6 @@ public class StringPrimitiveStatement extends PrimitiveStatement<String> {
         super(tc, String.class, "");
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void zero() {
         value = "";
@@ -99,9 +96,6 @@ public class StringPrimitiveStatement extends PrimitiveStatement<String> {
         return s;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void delta() {
 
@@ -168,9 +162,6 @@ public class StringPrimitiveStatement extends PrimitiveStatement<String> {
         value = s;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void randomize() {
         if (Randomness.nextDouble() >= Properties.PRIMITIVE_POOL) {

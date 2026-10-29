@@ -154,9 +154,6 @@ public final class TestChromosome extends ExecutableChromosome<TestChromosome> {
         return chromosome;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void setLastExecutionResult(ExecutionResult lastExecutionResult) {
         if (lastExecutionResult == null) {
@@ -166,9 +163,6 @@ public final class TestChromosome extends ExecutableChromosome<TestChromosome> {
         this.lastExecutionResult = lastExecutionResult;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void setChanged(boolean changed) {
         super.setChanged(changed);
@@ -341,9 +335,6 @@ public final class TestChromosome extends ExecutableChromosome<TestChromosome> {
         return c;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void copyCachedResults(TestChromosome other) {
         if (test == null) {
@@ -445,9 +436,6 @@ public final class TestChromosome extends ExecutableChromosome<TestChromosome> {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         return test.hashCode();
@@ -942,9 +930,6 @@ public final class TestChromosome extends ExecutableChromosome<TestChromosome> {
         return test.size();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int compareTo(TestChromosome o) {
         int result = super.compareTo(o);
@@ -963,9 +948,6 @@ public final class TestChromosome extends ExecutableChromosome<TestChromosome> {
         return code.compareTo(otherCode);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return test.toCode();
@@ -980,9 +962,6 @@ public final class TestChromosome extends ExecutableChromosome<TestChromosome> {
         return lastExecutionResult != null && !lastExecutionResult.noThrownExceptions();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public ExecutionResult executeForFitnessFunction(
             TestSuiteFitnessFunction testSuiteFitnessFunction) {

@@ -151,9 +151,6 @@ public class HeuristicsVariableNameStrategy extends AbstractVariableNameStrategy
         return methodCode;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     public void addVariableInformation(Map<String, Map<VariableReference, String>> information) {
         methodNames = information.get("MethodNames");
         argumentNames = information.get("ArgumentNames");

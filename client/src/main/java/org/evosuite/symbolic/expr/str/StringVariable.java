@@ -69,9 +69,6 @@ public final class StringVariable extends AbstractExpression<String>
      * store the better value here
      */
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getMaxValue() {
         return maxValue;
@@ -86,9 +83,6 @@ public final class StringVariable extends AbstractExpression<String>
         this.maxValue = maxValue;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getName() {
         return name;
@@ -109,18 +103,12 @@ public final class StringVariable extends AbstractExpression<String>
         return bf.toString();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         String asciiPrintableString = removeNonAsciiPrintable(concreteValue);
         return name + "(\"" + asciiPrintableString.replace("\n", "").replace(" ", "") + "\")";
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (obj != null && obj instanceof StringVariable) {
@@ -130,9 +118,6 @@ public final class StringVariable extends AbstractExpression<String>
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         return name.hashCode();

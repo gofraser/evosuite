@@ -46,9 +46,6 @@ public class AllDefsCoverageSuiteFitness extends TestSuiteFitnessFunction {
     public static int totalGoals = goals.size();
 
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public double getFitness(TestSuiteChromosome suite) {
         logger.trace("Calculating defuse fitness");

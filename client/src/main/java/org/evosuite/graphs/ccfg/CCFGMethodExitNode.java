@@ -54,9 +54,6 @@ public class CCFGMethodExitNode extends CCFGNode {
         return method;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -65,9 +62,6 @@ public class CCFGMethodExitNode extends CCFGNode {
         return result;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -87,9 +81,6 @@ public class CCFGMethodExitNode extends CCFGNode {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return "Exit: " + method;

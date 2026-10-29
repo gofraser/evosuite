@@ -29,9 +29,6 @@ import org.evosuite.testcase.variable.VariableReference;
 
 public class NullTraceObserver extends AssertionTraceObserver<NullTraceEntry> {
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public synchronized void afterStatement(Statement statement, Scope scope,
                                             Throwable exception) {
@@ -48,9 +45,6 @@ public class NullTraceObserver extends AssertionTraceObserver<NullTraceEntry> {
         visitReturnValue(statement, scope);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     protected void visit(Statement statement, Scope scope, VariableReference var) {
         logger.debug("Checking for null of " + var);

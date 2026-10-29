@@ -65,41 +65,26 @@ public final class IntegerVariable extends AbstractExpression<Long> implements
         this.concreteValue = con;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getName() {
         return name;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Long getMinValue() {
         return minValue;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Long getMaxValue() {
         return maxValue;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return this.name + "(" + concreteValue + ")";
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (obj instanceof IntegerVariable) {
@@ -109,9 +94,6 @@ public final class IntegerVariable extends AbstractExpression<Long> implements
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         return name.hashCode();

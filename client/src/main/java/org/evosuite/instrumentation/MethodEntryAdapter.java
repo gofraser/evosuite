@@ -75,9 +75,6 @@ public class MethodEntryAdapter extends AbstractEvoMethodAdapter {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void onMethodEnter() {
         if (shouldSkip()) {
@@ -104,9 +101,6 @@ public class MethodEntryAdapter extends AbstractEvoMethodAdapter {
         super.onMethodEnter();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void onMethodExit(int opcode) {
         if (shouldSkip()) {

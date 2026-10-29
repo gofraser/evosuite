@@ -508,9 +508,6 @@ public class ExecutionResult implements Cloneable {
         this.executionTime = executionTime;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public ExecutionResult clone() {
         ExecutionResult copy = new ExecutionResult(test, mutation);
@@ -537,9 +534,6 @@ public class ExecutionResult implements Cloneable {
         return copy;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return "Trace:" + trace;

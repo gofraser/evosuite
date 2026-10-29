@@ -161,9 +161,6 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
     protected abstract void visit(Statement statement, Scope scope,
                                   VariableReference var) throws CodeUnderTestException;
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public synchronized void afterStatement(Statement statement, Scope scope,
                                             Throwable exception) {
@@ -205,9 +202,6 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
         // Do nothing
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public synchronized void clear() {
         //if(!checkThread())

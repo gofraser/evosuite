@@ -42,9 +42,6 @@ public class OnlyBranchCoverageFactory extends
 
     private static final Logger logger = LoggerFactory.getLogger(OnlyBranchCoverageFactory.class);
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public List<OnlyBranchCoverageTestFitness> getCoverageGoals() {
         List<OnlyBranchCoverageTestFitness> goals = new ArrayList<>();

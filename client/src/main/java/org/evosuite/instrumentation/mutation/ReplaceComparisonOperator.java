@@ -102,9 +102,6 @@ public class ReplaceComparisonOperator implements MutationOperator {
 
     private static final int FALSE = -2;
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public List<Mutation> apply(MethodNode mn, String className, String methodName,
                                 BytecodeInstruction instruction, Frame frame) {
@@ -573,9 +570,6 @@ public class ReplaceComparisonOperator implements MutationOperator {
         return replacement;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isApplicable(BytecodeInstruction instruction) {
         return instruction.isBranch();

@@ -43,9 +43,6 @@ public final class ToString extends SymbolicFunction {
         super(env, Types.JAVA_LANG_STRING, TO_STRING, Types.TO_STR_DESCRIPTOR);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Object executeFunction() {
 

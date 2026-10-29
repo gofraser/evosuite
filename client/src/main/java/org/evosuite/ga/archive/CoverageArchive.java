@@ -72,9 +72,6 @@ public class CoverageArchive extends Archive {
     public static final CoverageArchive instance = new CoverageArchive();
 
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void addTarget(TestFitnessFunction target) {
         super.addTarget(target);
@@ -87,9 +84,6 @@ public class CoverageArchive extends Archive {
         this.registerNonCoveredTargetOfAMethod(target);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void updateArchive(TestFitnessFunction target, TestChromosome solution, double fitnessValue) {
         super.updateArchive(target, solution, fitnessValue);
@@ -251,66 +245,42 @@ public class CoverageArchive extends Archive {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isArchiveEmpty() {
         return this.covered.isEmpty();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int getNumberOfTargets() {
         return this.covered.keySet().size() + this.uncovered.size();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int getNumberOfCoveredTargets() {
         return this.covered.size();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int getNumberOfCoveredTargets(Class<?> targetClass) {
         return (int) this.covered.keySet().stream().filter(target -> target.getClass() == targetClass)
                 .count();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<TestFitnessFunction> getCoveredTargets() {
         return this.covered.keySet();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int getNumberOfUncoveredTargets() {
         return this.uncovered.size();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int getNumberOfUncoveredTargets(Class<?> targetClass) {
         return (int) this.uncovered.stream().filter(target -> target.getClass() == targetClass).count();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<TestFitnessFunction> getUncoveredTargets() {
         return new LinkedHashSet<>(this.uncovered);
@@ -323,42 +293,27 @@ public class CoverageArchive extends Archive {
         return targets;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean hasTarget(TestFitnessFunction target) {
         assert target != null;
         return this.covered.containsKey(target) || this.uncovered.contains(target);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int getNumberOfSolutions() {
         return this.covered.size();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Set<TestChromosome> getSolutions() {
         return new LinkedHashSet<>(this.covered.values());
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public TestChromosome getSolution() {
         return this.getRandomSolution();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public TestChromosome getSolution(TestFitnessFunction target) {
         assert target != null;
@@ -366,18 +321,12 @@ public class CoverageArchive extends Archive {
         return this.covered.get(target);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean hasSolution(TestFitnessFunction target) {
         assert target != null;
         return this.covered.containsKey(target);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public TestChromosome getRandomSolution() {
         // TODO this gives higher probability to tests that cover more targets. Maybe it is not the best
@@ -390,9 +339,6 @@ public class CoverageArchive extends Archive {
         return randomChoice.clone();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     protected TestSuiteChromosome createMergedSolution(TestSuiteChromosome solution) {
         // Deactivate in case a test is executed and would access the archive as this might cause a
@@ -449,26 +395,17 @@ public class CoverageArchive extends Archive {
         return mergedSolution;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void shrinkSolutions(int size) {
         // NO-OP
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return "NumTargets: " + this.getNumberOfTargets() + ", NumCoveredTargets: "
                 + this.getNumberOfCoveredTargets() + ", NumSolutions: " + this.getNumberOfSolutions();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void reset() {
         super.reset();

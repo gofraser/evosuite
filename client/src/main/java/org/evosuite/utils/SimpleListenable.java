@@ -28,17 +28,11 @@ public class SimpleListenable<T> implements Listenable<T> {
 
     protected final Collection<Listener<T>> listeners = new ArrayList<>();
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void addListener(Listener<T> listener) {
         listeners.add(listener);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void deleteListener(Listener<T> listener) {
         listeners.remove(listener);

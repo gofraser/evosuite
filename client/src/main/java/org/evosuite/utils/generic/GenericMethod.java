@@ -100,24 +100,15 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         return method;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     public int getModifiers() {
         return method.getModifiers();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getName() {
         return method.getName();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Type[] getParameterTypes() {
         return getExactParameterTypes(method, owner.getType());
@@ -141,9 +132,6 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         return classes;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Type getReturnType() {
         return getExactReturnType(method, owner.getType());

@@ -45,9 +45,6 @@ public final class Trim extends SymbolicFunction {
         super(env, Types.JAVA_LANG_STRING, TRIM, Types.TO_STR_DESCRIPTOR);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Object executeFunction() {
 

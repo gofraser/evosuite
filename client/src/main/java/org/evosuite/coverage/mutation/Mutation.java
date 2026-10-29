@@ -226,18 +226,12 @@ public class Mutation implements Comparable<Mutation> {
         return defaultDistance;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return "Mutation " + id + ": " + className + "." + methodName + ":" + lineNo
                 + " - " + mutationName;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -250,9 +244,6 @@ public class Mutation implements Comparable<Mutation> {
         return result;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {

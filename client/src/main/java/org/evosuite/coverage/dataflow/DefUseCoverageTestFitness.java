@@ -335,9 +335,6 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 
     // ---      Inherited from Object           ---
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         StringBuilder r = new StringBuilder();
@@ -350,9 +347,6 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
         return r.toString();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -372,9 +366,6 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
         return result;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {

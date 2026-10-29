@@ -46,9 +46,6 @@ public class StringBooleanInterpreter extends BasicInterpreter {
     }
 
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public BasicValue naryOperation(AbstractInsnNode insn,
                                     @SuppressWarnings("rawtypes") List values)

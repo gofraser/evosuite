@@ -40,17 +40,11 @@ public final class RealConstant extends AbstractExpression<Double> implements Re
         super(doubleValue, 1, false);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return Double.toString(this.concreteValue);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (obj instanceof RealConstant) {

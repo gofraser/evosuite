@@ -71,9 +71,6 @@ public class RankBasedPreferenceSorting<T extends Chromosome<T>> implements Rank
         this.speciesContext = speciesContext;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void computeRankingAssignment(List<T> solutions,
                                          Set<? extends FitnessFunction<T>> uncoveredGoals) {
@@ -212,9 +209,6 @@ public class RankBasedPreferenceSorting<T extends Chromosome<T>> implements Rank
         return front;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     public List<T> getSubfront(int rank) {
         if (this.fronts == null || rank >= this.fronts.size()) {
             return new ArrayList<>();
@@ -222,9 +216,6 @@ public class RankBasedPreferenceSorting<T extends Chromosome<T>> implements Rank
         return this.fronts.get(rank);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     public int getNumberOfSubfronts() {
         return this.fronts.size();
     }

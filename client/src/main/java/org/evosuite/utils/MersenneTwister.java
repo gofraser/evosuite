@@ -195,9 +195,6 @@ public class MersenneTwister extends java.util.Random implements Serializable, C
 
     /* We're overriding all internal data, to my knowledge, so this should be okay */
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Object clone() throws CloneNotSupportedException {
         MersenneTwister f = (MersenneTwister) (super.clone());

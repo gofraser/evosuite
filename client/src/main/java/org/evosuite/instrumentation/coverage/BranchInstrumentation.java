@@ -54,9 +54,6 @@ public class BranchInstrumentation implements MethodInstrumentation {
 
     private ClassLoader classLoader;
 
-    /**
-     * {@inheritDoc}
-     */
     @SuppressWarnings("unchecked")
     @Override
     public void analyze(ClassLoader classLoader, MethodNode mn, String className,

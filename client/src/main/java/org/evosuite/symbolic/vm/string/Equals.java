@@ -47,9 +47,6 @@ public final class Equals extends SymbolicFunction {
                 Types.OBJECT_TO_BOOL_DESCRIPTOR);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Object executeFunction() {
 

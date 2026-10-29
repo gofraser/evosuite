@@ -53,34 +53,22 @@ public class IntPrimitiveStatement extends NumericalPrimitiveStatement<Integer> 
         super(tc, int.class, 0);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void zero() {
         value = 0;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void delta() {
         int delta = (int) Math.floor(Randomness.nextGaussian() * Properties.MAX_DELTA);
         value = value + delta;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void increment(long delta) {
         value = value + (int) delta;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void randomize() {
         if (Randomness.nextDouble() >= Properties.PRIMITIVE_POOL) {
@@ -98,9 +86,6 @@ public class IntPrimitiveStatement extends NumericalPrimitiveStatement<Integer> 
         value = -value;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Integer getValue() {
         return value;

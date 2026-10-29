@@ -142,9 +142,6 @@ public class CFGMethodAdapter extends MethodVisitor {
         return super.visitAnnotation(desc, visible);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitEnd() {
         logger.debug("Creating CFG of " + className + "." + methodName);
@@ -351,9 +348,6 @@ public class CFGMethodAdapter extends MethodVisitor {
         return insn.getClass().getSimpleName() + " opcode=" + op;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitMaxs(int maxStack, int maxLocals) {
         int maxNum = 7;

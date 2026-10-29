@@ -31,9 +31,6 @@ public class ArrayLengthAssertion extends Assertion {
 
     public int length = 0;
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Assertion copy(TestCase newTestCase, int offset) {
         ArrayLengthAssertion s = new ArrayLengthAssertion();

@@ -153,9 +153,6 @@ public class ErrorConditionMethodAdapter extends GeneratorAdapter {
         return methodName;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
         if (!inInstrumentation) {
@@ -168,9 +165,6 @@ public class ErrorConditionMethodAdapter extends GeneratorAdapter {
         super.visitMethodInsn(opcode, owner, name, desc, itf);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitFieldInsn(int opcode, String owner, String name, String desc) {
         if (!inInstrumentation) {
@@ -195,9 +189,6 @@ public class ErrorConditionMethodAdapter extends GeneratorAdapter {
         super.visitIntInsn(opcode, operand);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitTypeInsn(int opcode, String type) {
         if (!inInstrumentation) {
@@ -210,9 +201,6 @@ public class ErrorConditionMethodAdapter extends GeneratorAdapter {
         super.visitTypeInsn(opcode, type);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitInsn(int opcode) {
         if (!inInstrumentation) {
@@ -237,18 +225,12 @@ public class ErrorConditionMethodAdapter extends GeneratorAdapter {
         super.visitMultiANewArrayInsn(descriptor, numDimensions);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitEnd() {
         MethodNode mn = (MethodNode) mv;
         mn.accept(next);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitMaxs(int maxStack, int maxLocals) {
         super.visitMaxs(maxStack + 4, maxLocals);

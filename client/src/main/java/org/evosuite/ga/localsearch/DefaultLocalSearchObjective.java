@@ -135,9 +135,6 @@ public class DefaultLocalSearchObjective<T extends Chromosome<T>> implements Loc
         return isMaximization;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public List<FitnessFunction<T>> getFitnessFunctions() {
         return fitnessFunctions;

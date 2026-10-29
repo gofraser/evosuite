@@ -81,9 +81,6 @@ public class TournamentSelectionRankAndCrowdingDistanceComparator<T extends Chro
         return winner;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public T select(List<T> population) {
         return population.get(getIndex(population));

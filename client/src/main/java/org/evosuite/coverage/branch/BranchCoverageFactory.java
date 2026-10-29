@@ -98,9 +98,6 @@ public class BranchCoverageFactory extends
         return goals;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public List<BranchCoverageTestFitness> getCoverageGoals() {
         return computeCoverageGoals(true);

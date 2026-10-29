@@ -49,9 +49,6 @@ public class StandardGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
         super(factory);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     protected void evolve() {
 
@@ -116,9 +113,6 @@ public class StandardGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
         currentIteration++;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void initializePopulation() {
         currentIteration = 0;
@@ -135,9 +129,6 @@ public class StandardGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
         this.notifyIteration();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void generateSolution() {
         if (Properties.ENABLE_SECONDARY_OBJECTIVE_AFTER > 0

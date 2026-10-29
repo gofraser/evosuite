@@ -148,17 +148,11 @@ public class OutputCoverageGoal implements Serializable, IOGoal<OutputCoverageGo
         return className + "." + methodName + ":" + valueDescriptor;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         return Objects.hash(className, methodName, type, valueDescriptor);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {

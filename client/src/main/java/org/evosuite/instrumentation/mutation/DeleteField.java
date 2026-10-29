@@ -46,9 +46,6 @@ public class DeleteField implements MutationOperator {
 
     public static final String NAME = "DeleteField";
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public List<Mutation> apply(MethodNode mn, String className, String methodName,
                                 BytecodeInstruction instruction, Frame frame) {
@@ -109,9 +106,6 @@ public class DeleteField implements MutationOperator {
         return distance;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isApplicable(BytecodeInstruction instruction) {
         return instruction.getASMNode().getOpcode() == Opcodes.GETFIELD

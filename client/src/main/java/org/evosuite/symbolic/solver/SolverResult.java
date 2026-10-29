@@ -129,9 +129,6 @@ public class SolverResult implements Serializable {
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         StringBuffer buff = new StringBuffer();

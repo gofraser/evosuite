@@ -27,9 +27,6 @@ import java.util.Map;
 public class CCFGEdgeAttributeProvider implements ComponentAttributeProvider<CCFGEdge> {
 
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Map<String, String> getComponentAttributes(CCFGEdge edge) {
         Map<String, String> r = new HashMap<>();

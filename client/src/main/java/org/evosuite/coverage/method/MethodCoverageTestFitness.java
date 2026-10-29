@@ -110,9 +110,6 @@ public class MethodCoverageTestFitness extends AbstractMethodTestFitness {
         return list;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return "[METHOD] " + className + "." + methodName;

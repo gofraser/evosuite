@@ -49,9 +49,6 @@ public abstract class TestFitnessFunction
      */
     public abstract double getFitness(TestChromosome individual, ExecutionResult result);
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public double getFitness(TestChromosome individual) {
         logger.trace("Executing test case on original");
@@ -87,9 +84,6 @@ public abstract class TestFitnessFunction
     @Override
     public abstract boolean equals(Object other);
 
-    /**
-     * {@inheritDoc}
-     */
     public ExecutionResult runTest(TestCase test) {
         return TestCaseExecutor.runTest(test);
     }
@@ -192,9 +186,6 @@ public abstract class TestFitnessFunction
         return isCovered(chromosome, result);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isMaximizationFunction() {
         return false;

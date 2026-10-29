@@ -159,9 +159,6 @@ public class Inspector implements Serializable {
         return method.getReturnType();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -171,9 +168,6 @@ public class Inspector implements Serializable {
         return result;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {

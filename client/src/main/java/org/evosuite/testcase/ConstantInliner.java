@@ -105,9 +105,6 @@ public class ConstantInliner extends ExecutionObserver {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void afterStatement(Statement statement, Scope scope, Throwable exception) {
         try {

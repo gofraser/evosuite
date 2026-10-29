@@ -68,9 +68,6 @@ public class IndividualPopulationLimit<T extends Chromosome<T>> implements Popul
         this.limit = other.limit;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isPopulationFull(List<T> population) {
         return population.size() >= limit;

@@ -44,9 +44,6 @@ public class RandomSearch<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
     private static final long serialVersionUID = -7685015421245920459L;
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     protected void evolve() {
         T newChromosome = chromosomeFactory.getChromosome();
@@ -59,18 +56,12 @@ public class RandomSearch<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
         currentIteration++;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void initializePopulation() {
         generateRandomPopulation(1);
         calculateFitnessAndSortPopulation();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void generateSolution() {
         notifySearchStarted();

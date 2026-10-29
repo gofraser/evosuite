@@ -49,9 +49,6 @@ public class FitnessProportionateSelection<T extends Chromosome<T>> extends Sele
      */
     private double sumValue = 0.0;
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int getIndex(List<T> population) {
         //special case

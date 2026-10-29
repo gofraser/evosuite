@@ -62,9 +62,6 @@ public class ReplaceBitwiseOperator implements MutationOperator {
                 Opcodes.LUSHR));
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public List<Mutation> apply(MethodNode mn, String className, String methodName,
                                 BytecodeInstruction instruction, Frame frame) {
@@ -329,9 +326,6 @@ public class ReplaceBitwiseOperator implements MutationOperator {
         throw new RuntimeException("Unknown long opcode: " + opcode);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isApplicable(BytecodeInstruction instruction) {
         AbstractInsnNode node = instruction.getASMNode();

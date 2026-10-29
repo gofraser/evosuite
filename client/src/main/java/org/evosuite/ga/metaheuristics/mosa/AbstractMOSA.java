@@ -2243,9 +2243,6 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         return nextFront;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void initializePopulation() {
         logger.info("executing initializePopulation function");
@@ -2450,9 +2447,6 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         this.budgetMonitor.checkMaxCoverage(this.getNumberOfCoveredGoals());
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public List<TestChromosome> getBestIndividuals() {
         return this.getNonDominatedSolutions(this.population);

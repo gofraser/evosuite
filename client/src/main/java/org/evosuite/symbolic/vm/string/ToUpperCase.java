@@ -46,9 +46,6 @@ public final class ToUpperCase extends SymbolicFunction {
                 Types.TO_STR_DESCRIPTOR);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Object executeFunction() {
 

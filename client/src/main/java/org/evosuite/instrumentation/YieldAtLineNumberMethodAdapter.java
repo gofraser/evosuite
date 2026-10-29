@@ -46,9 +46,6 @@ public class YieldAtLineNumberMethodAdapter extends AbstractEvoMethodAdapter {
         super(mv, access, className, methodName, desc);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitLineNumber(int line, Label start) {
         super.visitLineNumber(line, start);
@@ -66,9 +63,6 @@ public class YieldAtLineNumberMethodAdapter extends AbstractEvoMethodAdapter {
                 "checkTimeout", "()V", false);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitInsn(int opcode) {
         // ATHROW instrumentation runs even in <clinit>, matching the original behavior.

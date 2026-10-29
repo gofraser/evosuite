@@ -56,17 +56,11 @@ public class FloatPrimitiveStatement extends NumericalPrimitiveStatement<Float> 
         super(tc, float.class, 0.0F);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void zero() {
         value = (float) 0.0;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void delta() {
         double probability = Randomness.nextDouble();
@@ -94,25 +88,16 @@ public class FloatPrimitiveStatement extends NumericalPrimitiveStatement<Float> 
         this.value = bd.floatValue();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void increment(long delta) {
         value = value + delta;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void increment(double delta) {
         value = value + (float) delta;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void randomize() {
         if (Randomness.nextDouble() >= Properties.PRIMITIVE_POOL) {

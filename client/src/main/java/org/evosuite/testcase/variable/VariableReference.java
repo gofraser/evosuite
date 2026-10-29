@@ -380,9 +380,6 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
      */
     String getDefaultValueString();
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     int compareTo(VariableReference other);
 

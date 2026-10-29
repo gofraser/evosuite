@@ -33,9 +33,6 @@ import java.lang.reflect.Modifier;
 public class PrimitiveFieldTraceObserver extends
         AssertionTraceObserver<PrimitiveFieldTraceEntry> {
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     protected void visit(Statement statement, Scope scope, VariableReference var) {
         logger.debug("Checking fields of " + var);

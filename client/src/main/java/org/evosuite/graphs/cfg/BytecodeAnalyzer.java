@@ -119,17 +119,11 @@ public class BytecodeAnalyzer extends Analyzer {
         return true;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     protected Frame newFrame(int numLocals, int numStack) {
         return new CFGFrame(numLocals, numStack);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     protected Frame newFrame(Frame src) {
         return new CFGFrame(src);

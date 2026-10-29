@@ -98,9 +98,6 @@ public class TypeBasedVariableNameStrategy extends AbstractVariableNameStrategy 
         return variableName += index;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     public void addVariableInformation(Map<String, Map<VariableReference, String>> information) {
         //If needed any information about types
     }

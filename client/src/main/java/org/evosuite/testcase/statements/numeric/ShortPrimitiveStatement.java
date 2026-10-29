@@ -53,34 +53,22 @@ public class ShortPrimitiveStatement extends NumericalPrimitiveStatement<Short> 
         super(tc, short.class, (short) 0);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void zero() {
         value = (short) 0;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void delta() {
         short delta = (short) Math.floor(Randomness.nextGaussian() * Properties.MAX_DELTA);
         value = (short) (value + delta);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void increment(long delta) {
         value = (short) (value + (short) delta);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void randomize() {
         short max = (short) Math.min(Properties.MAX_INT, 32767);

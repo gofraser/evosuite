@@ -50,9 +50,6 @@ public final class ReplaceFirst extends SymbolicFunction {
                 Types.STR_STR_TO_STR_DESCRIPTOR);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Object executeFunction() {
 

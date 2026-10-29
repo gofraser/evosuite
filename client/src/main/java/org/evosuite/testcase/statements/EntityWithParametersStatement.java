@@ -135,9 +135,6 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
         return Collections.unmodifiableList(parameters);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean acceptsReplacement(VariableReference var1, VariableReference var2) {
         return parametersAfterReplacing(var1, var2) != null;

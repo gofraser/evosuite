@@ -43,9 +43,6 @@ public class IBranchSecondaryObjective extends SecondaryObjective<TestSuiteChrom
         ff = new IBranchSuiteFitness();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int compareChromosomes(
             TestSuiteChromosome chromosome1,
@@ -58,9 +55,6 @@ public class IBranchSecondaryObjective extends SecondaryObjective<TestSuiteChrom
         return i;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int compareGenerations(
             TestSuiteChromosome parent1,

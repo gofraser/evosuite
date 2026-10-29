@@ -45,17 +45,11 @@ public class ClassCallNode extends CCFGNode {
         this.method = method;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         return Objects.hash(method);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -68,9 +62,6 @@ public class ClassCallNode extends CCFGNode {
         return Objects.equals(method, other.method);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return method;

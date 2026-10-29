@@ -74,9 +74,6 @@ public class BranchCondition {
         this.supportingConstraints = supportingConstraints;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         String ret = "";

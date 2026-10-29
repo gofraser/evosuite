@@ -48,9 +48,6 @@ public class JCrasherExceptionContract extends Contract {
 
     private static final List<Class<?>> uncheckedExceptions = Arrays.asList(uncheckedBugExceptions);
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public ContractViolation check(Statement statement, Scope scope, Throwable exception) {
         if (!isTargetStatement(statement)) {
@@ -98,9 +95,6 @@ public class JCrasherExceptionContract extends Contract {
         statement.addComment("Throws undeclared exception (JCrasher heuristic): " + exception.getMessage());
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return "Undeclared exception (JCrasher style)";

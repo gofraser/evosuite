@@ -57,9 +57,6 @@ public class StatementsPopulationLimit<T extends Chromosome<T>>
     public StatementsPopulationLimit(StatementsPopulationLimit<?> other) {
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isPopulationFull(List<T> population) {
         int numStatements = population.stream().map(x -> {

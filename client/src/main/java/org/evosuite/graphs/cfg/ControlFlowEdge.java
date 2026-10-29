@@ -123,9 +123,6 @@ public class ControlFlowEdge extends DefaultEdge {
         return true;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         String r = "";

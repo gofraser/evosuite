@@ -198,9 +198,6 @@ public class Branch implements Serializable, Comparable<Branch> {
         return isSwitch;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -213,9 +210,6 @@ public class Branch implements Serializable, Comparable<Branch> {
         return result;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -257,9 +251,6 @@ public class Branch implements Serializable, Comparable<Branch> {
         return Integer.compare(this.actualBranchId, other.actualBranchId);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         String r = "I" + instruction.getInstructionId();

@@ -46,9 +46,6 @@ public final class StringBuilder_Init extends SymbolicFunction {
                 Types.STR_TO_VOID_DESCRIPTOR);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Object executeFunction() {
 

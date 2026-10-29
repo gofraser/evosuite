@@ -67,9 +67,6 @@ public class LineCoverageFactory extends
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public List<LineCoverageTestFitness> getCoverageGoals() {
         List<LineCoverageTestFitness> goals = new ArrayList<>();

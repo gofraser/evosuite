@@ -52,17 +52,11 @@ public class MaxTestsStoppingCondition extends StoppingConditionImpl {
         return new MaxTestsStoppingCondition(this);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void reset() {
         numTests = 0;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isFinished() {
         return numTests >= maxTests;
@@ -73,25 +67,16 @@ public class MaxTestsStoppingCondition extends StoppingConditionImpl {
         numTests++;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public long getCurrentValue() {
         return numTests;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void setLimit(long limit) {
         maxTests = limit;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public long getLimit() {
         return maxTests;

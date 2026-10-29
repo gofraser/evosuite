@@ -64,9 +64,6 @@ public final class HasMoreTokensExpr extends AbstractExpression<Long> implements
 
     private final TokenizerExpr tokenizerExpr;
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (obj == this) {
@@ -85,9 +82,6 @@ public final class HasMoreTokensExpr extends AbstractExpression<Long> implements
         return this.tokenizerExpr.hashCode();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return "hasMoreTokens(" + tokenizerExpr.toString() + ")";

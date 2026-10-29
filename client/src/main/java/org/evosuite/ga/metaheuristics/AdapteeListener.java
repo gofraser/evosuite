@@ -43,41 +43,26 @@ public class AdapteeListener implements SearchListener<TestChromosome> {
         this.adapter = Objects.requireNonNull(adapter);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void searchStarted(GeneticAlgorithm<TestChromosome> algorithm) {
         adapter.notifySearchStarted();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void iteration(GeneticAlgorithm<TestChromosome> algorithm) {
         adapter.notifyIteration();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void searchFinished(GeneticAlgorithm<TestChromosome> algorithm) {
         adapter.notifySearchFinished();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void fitnessEvaluation(TestChromosome individual) {
         // not forwarded to the adapter
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void modification(TestChromosome individual) {
         // not forwarded to the adapter

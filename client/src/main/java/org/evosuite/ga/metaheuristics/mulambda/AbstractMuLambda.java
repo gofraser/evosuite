@@ -61,9 +61,6 @@ public abstract class AbstractMuLambda<T extends Chromosome<T>> extends GeneticA
         this.lambda = lambda;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void initializePopulation() {
         this.notifySearchStarted();
@@ -79,9 +76,6 @@ public abstract class AbstractMuLambda<T extends Chromosome<T>> extends GeneticA
         this.notifyIteration();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void generateSolution() {
         if (this.population.isEmpty()) {
@@ -135,9 +129,6 @@ public abstract class AbstractMuLambda<T extends Chromosome<T>> extends GeneticA
         this.notifySearchFinished();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     protected void evolve() {
         evolveInternal();

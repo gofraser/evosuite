@@ -61,9 +61,6 @@ public class PrimitivePoolMethodAdapter extends MethodVisitor {
         super.visitLookupSwitchInsn(dflt, keys, labels);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitIntInsn(int opcode, int operand) {
         if (opcode == Opcodes.BIPUSH || opcode == Opcodes.SIPUSH) {
@@ -76,9 +73,6 @@ public class PrimitivePoolMethodAdapter extends MethodVisitor {
         super.visitIntInsn(opcode, operand);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitLdcInsn(Object cst) {
         if (TargetClasses.isTargetScope(className)) {

@@ -51,34 +51,22 @@ public class CharPrimitiveStatement extends NumericalPrimitiveStatement<Characte
         super(tc, char.class, (char) 0);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void zero() {
         value = (char) 0;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void delta() {
         int delta = Randomness.nextInt(2 * Properties.MAX_DELTA) - Properties.MAX_DELTA;
         value = (char) (value + delta);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void increment(long delta) {
         value = (char) (value + delta);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void randomize() {
         value = Randomness.nextChar();

@@ -283,15 +283,9 @@ public abstract class Chromosome<T extends Chromosome<T>>
     @Override
     public abstract T clone();
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public abstract boolean equals(Object obj);
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public abstract int hashCode();
 

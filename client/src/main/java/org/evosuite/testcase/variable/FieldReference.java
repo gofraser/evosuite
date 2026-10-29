@@ -228,9 +228,6 @@ public class FieldReference extends VariableReferenceImpl {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public VariableReference getAdditionalVariableReference() {
         if (source != null && source.getAdditionalVariableReference() != null) {
@@ -240,9 +237,6 @@ public class FieldReference extends VariableReferenceImpl {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void setAdditionalVariableReference(VariableReference var) {
         if (source != null
@@ -333,9 +327,6 @@ public class FieldReference extends VariableReferenceImpl {
         setType(reboundField.getFieldType());
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int getStPosition() {
         for (int i = 0; i < testCase.size(); i++) {
@@ -413,9 +404,6 @@ public class FieldReference extends VariableReferenceImpl {
         return field.isAccessible();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -425,9 +413,6 @@ public class FieldReference extends VariableReferenceImpl {
         return result;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -463,9 +448,6 @@ public class FieldReference extends VariableReferenceImpl {
         return true;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void loadBytecode(GeneratorAdapter mg, Map<Integer, Integer> locals) {
         if (!isStatic()) {
@@ -480,9 +462,6 @@ public class FieldReference extends VariableReferenceImpl {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void storeBytecode(GeneratorAdapter mg, Map<Integer, Integer> locals) {
         if (!isStatic()) {
@@ -498,9 +477,6 @@ public class FieldReference extends VariableReferenceImpl {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void changeClassLoader(ClassLoader loader) {
         field.changeClassLoader(loader);

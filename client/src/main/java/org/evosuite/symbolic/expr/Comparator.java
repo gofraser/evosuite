@@ -127,9 +127,6 @@ public enum Comparator {
      */
     public abstract Comparator swap();
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return str;

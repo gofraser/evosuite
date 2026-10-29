@@ -65,9 +65,6 @@ public class MIO extends AbstractMOSA {
         super(factory);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     protected void evolve() {
 
@@ -144,9 +141,6 @@ public class MIO extends AbstractMOSA {
         this.currentIteration++;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void initializePopulation() {
         this.notifySearchStarted();
@@ -172,9 +166,6 @@ public class MIO extends AbstractMOSA {
         this.notifyIteration();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void generateSolution() {
         if (this.population.isEmpty()) {

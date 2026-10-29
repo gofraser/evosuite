@@ -109,9 +109,6 @@ public abstract class MutationSuiteFitness extends TestSuiteFitnessFunction {
         return true;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public ExecutionResult runTest(TestCase test) {
         return runTest(test, null);
@@ -241,9 +238,6 @@ public abstract class MutationSuiteFitness extends TestSuiteFitnessFunction {
         return fitness;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public abstract double getFitness(TestSuiteChromosome individual);
 

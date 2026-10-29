@@ -35,9 +35,6 @@ public class ArrayEqualsAssertion extends Assertion {
 
     private static final long serialVersionUID = -1868479914750970330L;
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Assertion copy(TestCase newTestCase, int offset) {
         ArrayEqualsAssertion s = new ArrayEqualsAssertion();
@@ -95,9 +92,6 @@ public class ArrayEqualsAssertion extends Assertion {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         final int prime = 31;

@@ -121,9 +121,6 @@ public class ArrayAllocationLimitMethodAdapter extends ArrayAllocationMethodAdap
         super.visitLabel(ok);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitIntInsn(int opcode, int operand) {
         if (opcode == Opcodes.NEWARRAY) {
@@ -134,9 +131,6 @@ public class ArrayAllocationLimitMethodAdapter extends ArrayAllocationMethodAdap
         super.visitIntInsn(opcode, operand);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitTypeInsn(int opcode, String type) {
 
@@ -179,9 +173,6 @@ public class ArrayAllocationLimitMethodAdapter extends ArrayAllocationMethodAdap
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitMultiANewArrayInsn(String desc, int dims) {
 

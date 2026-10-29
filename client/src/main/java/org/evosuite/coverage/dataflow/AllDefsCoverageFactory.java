@@ -34,9 +34,6 @@ import java.util.Set;
 public class AllDefsCoverageFactory extends
         AbstractFitnessFactory<AllDefsCoverageTestFitness> {
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public List<AllDefsCoverageTestFitness> getCoverageGoals() {
 

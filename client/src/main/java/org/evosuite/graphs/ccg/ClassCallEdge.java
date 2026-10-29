@@ -48,17 +48,11 @@ public class ClassCallEdge extends DefaultEdge {
         return callInstruction;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         return Objects.hash(callInstruction);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -71,9 +65,6 @@ public class ClassCallEdge extends DefaultEdge {
         return Objects.equals(callInstruction, other.callInstruction);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return callInstruction.toString();

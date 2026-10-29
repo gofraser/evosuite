@@ -52,9 +52,6 @@ public abstract class ValueOf extends SymbolicFunction {
             super(env, desc);
         }
 
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public final Object executeFunction() {
 
@@ -103,9 +100,6 @@ public abstract class ValueOf extends SymbolicFunction {
             super(env, Types.OBJECT_TO_STR_DESCRIPTOR);
         }
 
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public Object executeFunction() {
 

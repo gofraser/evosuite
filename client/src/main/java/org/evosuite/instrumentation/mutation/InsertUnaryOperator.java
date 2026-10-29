@@ -48,9 +48,6 @@ public class InsertUnaryOperator implements MutationOperator {
 
     public static final String NAME = "InsertUnaryOp";
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public List<Mutation> apply(MethodNode mn, String className, String methodName,
                                 BytecodeInstruction instruction, Frame frame) {
@@ -163,9 +160,6 @@ public class InsertUnaryOperator implements MutationOperator {
         return mutations;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isApplicable(BytecodeInstruction instruction) {
         AbstractInsnNode node = instruction.getASMNode();

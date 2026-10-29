@@ -50,9 +50,6 @@ public class RemoveFinalMethodAdapter extends MethodVisitor {
         this.className = className;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitFieldInsn(int opcode, String owner, String name, String desc) {
         if ((opcode == Opcodes.PUTFIELD || opcode == Opcodes.PUTSTATIC)

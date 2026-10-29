@@ -37,9 +37,6 @@ import org.evosuite.testcase.variable.VariableReference;
  */
 public class SameTraceObserver extends AssertionTraceObserver<SameTraceEntry> {
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     protected void visit(Statement statement, Scope scope, VariableReference var) {
         // TODO: Only MethodStatement?

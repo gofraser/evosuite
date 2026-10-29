@@ -381,9 +381,6 @@ public class CallContext implements Serializable {
         return calls().get(0).getMethodName();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         StringBuilder builder = new StringBuilder();

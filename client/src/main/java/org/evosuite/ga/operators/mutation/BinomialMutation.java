@@ -44,9 +44,6 @@ public class BinomialMutation extends MutationDistribution {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean toMutate(int index) {
         return this.bitsToBeModified.contains(index);

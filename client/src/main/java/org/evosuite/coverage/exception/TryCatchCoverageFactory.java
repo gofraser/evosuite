@@ -39,9 +39,6 @@ public class TryCatchCoverageFactory extends AbstractFitnessFactory<TryCatchCove
 
     private static final Logger logger = LoggerFactory.getLogger(TryCatchCoverageFactory.class);
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public List<TryCatchCoverageTestFitness> getCoverageGoals() {
         List<TryCatchCoverageTestFitness> goals = new ArrayList<>();

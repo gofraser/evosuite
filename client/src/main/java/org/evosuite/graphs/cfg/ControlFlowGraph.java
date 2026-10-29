@@ -287,17 +287,11 @@ public abstract class ControlFlowGraph<V> extends
         return (access & Opcodes.ACC_STATIC) == Opcodes.ACC_STATIC;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getName() {
         return methodName + " " + getCFGType();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     protected String dotSubFolder() {
         return toFileString(className) + "/" + getCFGType() + "/";

@@ -50,9 +50,6 @@ public class PrimitiveFieldAssertion extends Assertion {
         this.field = field;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Assertion copy(TestCase newTestCase, int offset) {
         PrimitiveFieldAssertion s = new PrimitiveFieldAssertion();
@@ -64,9 +61,6 @@ public class PrimitiveFieldAssertion extends Assertion {
         return s;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean evaluate(Scope scope) {
         try {
@@ -90,9 +84,6 @@ public class PrimitiveFieldAssertion extends Assertion {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -101,9 +92,6 @@ public class PrimitiveFieldAssertion extends Assertion {
         return result;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {

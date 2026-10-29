@@ -56,9 +56,6 @@ public class PrimitiveClassAdapter extends ClassVisitor {
         this.className = className.replaceAll("/", ".");
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visit(int version, int access, String name, String signature,
                       String superName, String[] interfaces) {
@@ -68,9 +65,6 @@ public class PrimitiveClassAdapter extends ClassVisitor {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public FieldVisitor visitField(int access, String name, String desc,
                                    String signature, Object value) {
@@ -106,9 +100,6 @@ public class PrimitiveClassAdapter extends ClassVisitor {
      * java.lang.String, java.lang.String, java.lang.String[])
      */
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public MethodVisitor visitMethod(int methodAccess, String name, String descriptor,
                                      String signature, String[] exceptions) {

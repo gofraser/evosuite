@@ -102,9 +102,6 @@ public class PurityAnalysisMethodVisitor extends MethodVisitor {
         this.descriptor = descriptor;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void visitFieldInsn(int opcode, String owner, String name,
                                String desc) {

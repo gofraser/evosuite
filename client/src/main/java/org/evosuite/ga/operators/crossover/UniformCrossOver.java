@@ -35,12 +35,6 @@ public class UniformCrossOver<T extends Chromosome<T>> extends CrossOverFunction
 
     private static final long serialVersionUID = 2981387570766261795L;
 
-    /**
-     * {@inheritDoc}
-     *
-     * @param parent1 a T object.
-     * @param parent2 a T object.
-     */
     @Override
     public void crossOver(T parent1, T parent2)
             throws ConstructionFailedException {

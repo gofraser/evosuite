@@ -39,9 +39,6 @@ public class MuPlusLambdaEA<T extends Chromosome<T>> extends AbstractMuLambda<T>
         super(factory, mu, lambda);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     protected void evolveInternal() {
 

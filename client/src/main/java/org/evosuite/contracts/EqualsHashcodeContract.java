@@ -39,9 +39,6 @@ import java.util.List;
  */
 public class EqualsHashcodeContract extends Contract {
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public ContractViolation check(Statement statement, Scope scope,
                                    Throwable exception) {
@@ -141,9 +138,6 @@ public class EqualsHashcodeContract extends Contract {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return "Equals hashcode check";

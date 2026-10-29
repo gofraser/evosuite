@@ -43,17 +43,11 @@ public class MinimizeExceptionsSecondaryObjective extends SecondaryObjective<Tes
         return sum;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int compareChromosomes(TestSuiteChromosome chromosome1, TestSuiteChromosome chromosome2) {
         return getNumExceptions(chromosome1) - getNumExceptions(chromosome2);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int compareGenerations(TestSuiteChromosome parent1, TestSuiteChromosome parent2,
                                   TestSuiteChromosome child1, TestSuiteChromosome child2) {

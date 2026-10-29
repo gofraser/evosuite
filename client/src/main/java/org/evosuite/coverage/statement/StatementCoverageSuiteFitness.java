@@ -64,9 +64,6 @@ public class StatementCoverageSuiteFitness extends TestSuiteFitnessFunction {
         logger.info("Total statement goals: " + this.numStatements);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean updateCoveredGoals() {
         if (!Properties.TEST_ARCHIVE) {
@@ -126,9 +123,6 @@ public class StatementCoverageSuiteFitness extends TestSuiteFitnessFunction {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public double getFitness(TestSuiteChromosome suite) {
         List<ExecutionResult> results = runTestSuite(suite);

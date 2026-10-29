@@ -36,9 +36,6 @@ import java.util.List;
  */
 public class EqualsNullContract extends Contract {
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public ContractViolation check(Statement statement, Scope scope, Throwable exception) {
         for (VariableReference var : getAllVariables(scope)) {
@@ -95,9 +92,6 @@ public class EqualsNullContract extends Contract {
         statement.addComment("Violates contract equals(null)");
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return "Equals null check";

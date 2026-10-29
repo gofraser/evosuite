@@ -33,25 +33,16 @@ public class ExitBlock extends BasicBlock {
         super(className, methodName, -2);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean isExitBlock() {
         return true;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getName() {
         return "ExitBlock for method " + methodName;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return getName();

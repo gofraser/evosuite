@@ -138,9 +138,6 @@ public class ArrayIndex extends VariableReferenceImpl {
         indices.set(0, index);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int getStPosition() {
         assert (array != null);
@@ -167,9 +164,6 @@ public class ArrayIndex extends VariableReferenceImpl {
         return ArrayUtil.buildArrayIndexName(array.getName(), indices);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void loadBytecode(GeneratorAdapter mg, Map<Integer, Integer> locals) {
         if (indices.size() > 1) {
@@ -181,9 +175,6 @@ public class ArrayIndex extends VariableReferenceImpl {
 
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void storeBytecode(GeneratorAdapter mg, Map<Integer, Integer> locals) {
         if (indices.size() > 1) {
@@ -201,9 +192,6 @@ public class ArrayIndex extends VariableReferenceImpl {
         mg.arrayStore(org.objectweb.asm.Type.getType(type.getRawClass()));
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean same(VariableReference r) {
         if (r == null) {
@@ -458,9 +446,6 @@ public class ArrayIndex extends VariableReferenceImpl {
         return new ArrayIndex(newTestCase, (ArrayReference) array.clone(newTestCase), indices);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public VariableReference getAdditionalVariableReference() {
         if (array.getAdditionalVariableReference() == null) {
@@ -470,9 +455,6 @@ public class ArrayIndex extends VariableReferenceImpl {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void setAdditionalVariableReference(VariableReference var) {
         assert (var instanceof ArrayReference);
@@ -503,9 +485,6 @@ public class ArrayIndex extends VariableReferenceImpl {
         return new ArrayIndex(testCase, (ArrayReference) reboundArray, new ArrayList<>(indices));
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -517,9 +496,6 @@ public class ArrayIndex extends VariableReferenceImpl {
         return result;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {

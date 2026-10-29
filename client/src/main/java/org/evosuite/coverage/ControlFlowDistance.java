@@ -60,9 +60,6 @@ public class ControlFlowDistance implements Comparable<ControlFlowDistance> {
         this.branchDistance = branchDistance;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int compareTo(ControlFlowDistance o) {
         if (approachLevel != o.approachLevel) {
@@ -136,9 +133,6 @@ public class ControlFlowDistance implements Comparable<ControlFlowDistance> {
         return approachLevel + FitnessFunction.normalize(branchDistance);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -152,17 +146,11 @@ public class ControlFlowDistance implements Comparable<ControlFlowDistance> {
                 && Double.compare(that.branchDistance, branchDistance) == 0;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         return Objects.hash(approachLevel, branchDistance);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         return "Approach = " + approachLevel + ", branch distance = " + branchDistance;
