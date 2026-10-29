@@ -35,6 +35,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.xml.XMLConstants;
 import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
 import javax.xml.bind.Unmarshaller;
 import javax.xml.transform.stream.StreamSource;
@@ -43,6 +44,9 @@ import javax.xml.validation.SchemaFactory;
 import java.io.*;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.*;
@@ -546,30 +550,46 @@ public class StorageManager {
     }
 
 
-    private void commitDatabase(Project db) {
-
-        StringWriter writer = null;
+    /**
+     * Replace the database on disk. The new content is built completely and written to a temporary file
+     * beside the database first, so that a failure at any step leaves the previous database in place.
+     */
+    void commitDatabase(Project db) {
+        String xml;
         try {
-            writer = new StringWriter();
-            JAXBContext context = JAXBContext.newInstance(Project.class);
-            Marshaller m = context.createMarshaller();
-            m.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true); // TODO remove me!
-            m.marshal(db, writer);
+            xml = marshal(db);
         } catch (Exception e) {
-            logger.error("Failed to create XML representation: " + e.getMessage(), e);
+            logger.error("Failed to create XML representation, keeping the previous database: "
+                    + e.getMessage(), e);
+            return;
         }
 
-        /*
-         * TODO: to be safe, we should first write to tmp file, delete original, and then
-         * rename the tmp
-         */
         File current = getProjectInfoFile();
-        current.delete();
+        File temporary = new File(current.getPath() + ".tmp");
         try {
-            FileUtils.write(current, writer.toString());
+            write(temporary, xml);
+            try {
+                Files.move(temporary.toPath(), current.toPath(), StandardCopyOption.ATOMIC_MOVE,
+                        StandardCopyOption.REPLACE_EXISTING);
+            } catch (AtomicMoveNotSupportedException e) {
+                Files.move(temporary.toPath(), current.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
         } catch (IOException e) {
-            logger.error("Failed to write to database: " + e.getMessage(), e);
+            logger.error("Failed to write to database, keeping the previous one: " + e.getMessage(), e);
+            temporary.delete();
         }
+    }
+
+    String marshal(Project db) throws JAXBException {
+        StringWriter writer = new StringWriter();
+        Marshaller m = JAXBContext.newInstance(Project.class).createMarshaller();
+        m.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true); // TODO remove me!
+        m.marshal(db, writer);
+        return writer.toString();
+    }
+
+    void write(File file, String content) throws IOException {
+        FileUtils.write(file, content);
     }
 
     private static File getProjectInfoFile() {

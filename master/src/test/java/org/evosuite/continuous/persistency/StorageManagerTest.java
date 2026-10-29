@@ -27,6 +27,7 @@ import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.continuous.project.ProjectAnalyzer;
 import org.evosuite.continuous.project.ProjectStaticData;
 import java.io.File;
+import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -220,5 +221,62 @@ public class StorageManagerTest {
                 "std_err_MASTER.log", "std_out_MASTER.log"}) {
             Files.write(logs.resolve(log), new byte[0]);
         }
+    }
+
+    private Path databaseWithContent(String prefix) throws Exception {
+        Path ctg = Files.createTempDirectory(prefix);
+        Properties.CTG_DIR = ctg.toString();
+        Path file = ctg.resolve(Properties.CTG_PROJECT_INFO);
+        Files.write(file, "previous database".getBytes(StandardCharsets.UTF_8));
+        return file;
+    }
+
+    @Test
+    public void commitReplacesTheDatabaseAndLeavesNoTemporaryFile() throws Exception {
+        Path file = databaseWithContent("evosuite-ctg-commit-");
+        Files.delete(file);
+        Project project = StorageManager.getDatabaseProject();
+        Files.write(file, "previous database".getBytes(StandardCharsets.UTF_8));
+
+        new StorageManager().commitDatabase(project);
+
+        Assertions.assertNotEquals("previous database",
+                new String(Files.readAllBytes(file), StandardCharsets.UTF_8));
+        Assertions.assertFalse(Files.exists(file.resolveSibling(file.getFileName() + ".tmp")));
+        FileUtils.deleteDirectory(file.getParent().toFile());
+    }
+
+    @Test
+    public void marshallingFailureKeepsThePreviousDatabase() throws Exception {
+        Path file = databaseWithContent("evosuite-ctg-marshal-");
+        StorageManager storage = new StorageManager() {
+            @Override
+            String marshal(Project db) throws javax.xml.bind.JAXBException {
+                throw new javax.xml.bind.JAXBException("injected");
+            }
+        };
+
+        storage.commitDatabase(new Project());
+
+        Assertions.assertEquals("previous database", new String(Files.readAllBytes(file), StandardCharsets.UTF_8));
+        FileUtils.deleteDirectory(file.getParent().toFile());
+    }
+
+    @Test
+    public void writeFailureKeepsThePreviousDatabase() throws Exception {
+        Path file = databaseWithContent("evosuite-ctg-write-");
+        StorageManager storage = new StorageManager() {
+            @Override
+            void write(File target, String content) throws IOException {
+                Files.write(target.toPath(), "half".getBytes(StandardCharsets.UTF_8));
+                throw new IOException("injected");
+            }
+        };
+
+        storage.commitDatabase(new Project());
+
+        Assertions.assertEquals("previous database", new String(Files.readAllBytes(file), StandardCharsets.UTF_8));
+        Assertions.assertFalse(Files.exists(file.resolveSibling(file.getFileName() + ".tmp")), "partial file left behind");
+        FileUtils.deleteDirectory(file.getParent().toFile());
     }
 }
