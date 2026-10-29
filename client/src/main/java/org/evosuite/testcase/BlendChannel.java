@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
-package org.evosuite.llm.search;
+package org.evosuite.testcase;
 
 /**
  * Channel through which an LLM-injected union entrant was produced. Used for

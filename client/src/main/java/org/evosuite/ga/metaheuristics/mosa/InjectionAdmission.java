@@ -24,7 +24,7 @@ import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.search.AttemptTicket;
 import org.evosuite.llm.search.AttributedCandidate;
-import org.evosuite.llm.search.BlendChannel;
+import org.evosuite.testcase.BlendChannel;
 import org.evosuite.llm.search.CoveredGoals;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
 import org.evosuite.llm.search.ProblemCardLogRecorder;

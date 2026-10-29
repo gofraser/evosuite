@@ -19,7 +19,7 @@
  */
 package org.evosuite.testcase;
 
-import org.evosuite.llm.search.BlendChannel;
+import org.evosuite.testcase.BlendChannel;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;

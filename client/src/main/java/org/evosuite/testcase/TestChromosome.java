@@ -25,7 +25,6 @@ import org.evosuite.coverage.mutation.MutationExecutionResult;
 import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.ga.SecondaryObjective;
 import org.evosuite.ga.localsearch.LocalSearchObjective;
-import org.evosuite.llm.search.BlendChannel;
 import org.evosuite.llm.search.ProblemCardType;
 import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.testcase.execution.ExecutionResult;

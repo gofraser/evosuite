@@ -21,7 +21,7 @@ package org.evosuite.ga.metaheuristics.mosa;
 
 import org.evosuite.Properties;
 import org.evosuite.ga.operators.crossover.CrossOverFunction;
-import org.evosuite.llm.search.BlendChannel;
+import org.evosuite.testcase.BlendChannel;
 import org.evosuite.llm.search.AttemptTicket;
 import org.evosuite.llm.search.AttributedCandidate;
 import org.evosuite.llm.search.RepeatedInjectionMemory;
