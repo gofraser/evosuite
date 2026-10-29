@@ -49,16 +49,6 @@ class ObjectRuleTemplateSynthesizer {
     private static final double NO_PAYOFF_SYNTHESIS_BUDGET_FRACTION = 0.05;
     private static final int NO_PAYOFF_MAX_CONSECUTIVE_ATTEMPTS = 30;
     private static final int NO_PAYOFF_MIN_ATTEMPTS = 1;
-    // Log the synthesis-timeout fallback once per class rather than once per attempt: a class
-    // whose construction genuinely needs more than the budget would otherwise log on every
-    // generation.
-    private static final Set<String> TIMEOUT_WARNED_CLASSES =
-            java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
-
-    static void resetSynthesisTimeoutWarnings() {
-        TIMEOUT_WARNED_CLASSES.clear();
-    }
-
     private final ObjectRuleGenerationCoordinator owner;
 
     ObjectRuleTemplateSynthesizer(ObjectRuleGenerationCoordinator owner) {
@@ -138,7 +128,7 @@ class ObjectRuleTemplateSynthesizer {
                 if (runtime.synthesisAttemptTimedOut()) {
                     String targetClass = org.evosuite.testcase.synthesizer.TargetContext.activeClassName();
                     if (targetClass != null && !targetClass.isEmpty()
-                            && TIMEOUT_WARNED_CLASSES.add(targetClass)) {
+                            && runtime.markSynthesisTimeoutWarned(targetClass)) {
                         logger.warn("EvoObj synthesis for {} exceeded the {} ms synthesis budget; "
                                         + "falling back to ordinary generation for this attempt",
                                 targetClass, synthesisTimeoutMillis);
@@ -195,7 +185,7 @@ class ObjectRuleTemplateSynthesizer {
 
             // Cached functional-mock recipes are part of the normal first execution, not an
             // additional execution, and apply only to a previously improving shape.
-            FunctionalMockSetupCoordinator.applyCachedSetup(test);
+            runtime.getMockSetup().applyCachedSetup(test);
             session.synthesisTimeMs += System.currentTimeMillis() - synthesisStart;
 
             long execStart = System.currentTimeMillis();
@@ -227,7 +217,7 @@ class ObjectRuleTemplateSynthesizer {
                             && originalGoalFitness > 0.0
                             && originalGoalFitness < Double.MAX_VALUE)) {
                 List<FunctionalMockSetupCoordinator.RepairProposal> setupRepairs =
-                        FunctionalMockSetupCoordinator.proposeRepairs(
+                        runtime.getMockSetup().proposeRepairs(
                                 test, result, numericMockSetupHint(b));
                 FunctionalMockSetupCoordinator.RepairProposal bestRepair = null;
                 TestCase bestRepairTest = null;
@@ -240,7 +230,7 @@ class ObjectRuleTemplateSynthesizer {
                     ExecutionResult repairedResult =
                             TestCaseExecutor.getInstance().execute(setupRepair.getTest());
                     session.templateExecTimeMs += System.currentTimeMillis() - repairExecStart;
-                    FunctionalMockSetupCoordinator.recordExtraExecution(setupRepair);
+                    runtime.getMockSetup().recordExtraExecution(setupRepair);
 
                     boolean repairedReachedEntry =
                             TemplateExecutionOutcome.from(
@@ -278,10 +268,10 @@ class ObjectRuleTemplateSynthesizer {
                         // Entry reachability or working-goal fitness makes this repaired individual
                         // worth injecting once, but only immediate coverage justifies applying the
                         // same mock stubs to every later synthesis.
-                        FunctionalMockSetupCoordinator.recordSuccess(
+                        runtime.getMockSetup().recordSuccess(
                                 setupRepair, bestRepairGoalFitness == 0.0);
                     } else {
-                        FunctionalMockSetupCoordinator.recordFailure(setupRepair);
+                        runtime.getMockSetup().recordFailure(setupRepair);
                     }
                 }
                 if (acceptsBestRepair) {

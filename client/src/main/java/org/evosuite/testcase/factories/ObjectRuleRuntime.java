@@ -8,11 +8,12 @@ import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.coverage.fbranch.FBranchDefUseAnalyzer;
 import org.evosuite.graphs.interprocedural.DefUseAnalyzer;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
-import org.evosuite.testcase.synthesizer.DataDependencyUtil;
 import org.evosuite.testcase.synthesizer.FunctionalMockSetupCoordinator;
 import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
 import org.evosuite.testcase.synthesizer.TargetContext;
 import org.evosuite.testcase.synthesizer.TemplateCache;
+import org.evosuite.testcase.synthesizer.ValueSettings;
+import java.lang.reflect.Executable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -20,6 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -45,6 +47,10 @@ public final class ObjectRuleRuntime {
     private volatile Long synthesisAttemptDeadlineNanos;
     private volatile boolean synthesisAttemptTimedOut;
     private final AtomicLong resetEpoch = new AtomicLong();
+    private volatile FunctionalMockSetupCoordinator mockSetup = new FunctionalMockSetupCoordinator();
+    private final Map<List<Object>, LinkedHashMap<Executable, List<ValueSettings>>>
+            setterAnalysisCache = new LinkedHashMap<>();
+    private final Set<String> timeoutWarnedClasses = ConcurrentHashMap.newKeySet();
 
     /**
      * Physical methods ({@code className#methodName}, keyed on the branch's own containing method
@@ -186,6 +192,30 @@ public final class ObjectRuleRuntime {
     }
 
     /**
+     * Returns the functional-mock setup recipes and counters of this run.
+     */
+    public FunctionalMockSetupCoordinator getMockSetup() {
+        return mockSetup;
+    }
+
+    /**
+     * Returns the setter search results of this run, keyed by field, target class name and search
+     * depth. Callers synchronize on the returned map.
+     */
+    public Map<List<Object>, LinkedHashMap<Executable, List<ValueSettings>>> getSetterAnalysisCache() {
+        return setterAnalysisCache;
+    }
+
+    /**
+     * Records that the synthesis-timeout fallback was reported for a class and returns whether this
+     * is the first report, so a class whose construction needs more than the budget is logged once
+     * per run rather than once per attempt.
+     */
+    public boolean markSynthesisTimeoutWarned(String className) {
+        return timeoutWarnedClasses.add(className);
+    }
+
+    /**
      * Monotonically increasing lifecycle token used by collaborators which outlive a context
      * reset but still hold per-run negative caches.
      */
@@ -290,8 +320,10 @@ public final class ObjectRuleRuntime {
         FBranchDefUseAnalyzer.analyzedMethods.clear();
         DefUseAnalyzer.resetSingleton();
         org.evosuite.utils.MethodUtil.resetCache();
-        FunctionalMockSetupCoordinator.reset();
-        DataDependencyUtil.resetSetterAnalysisCache();
-        ObjectRuleTemplateSynthesizer.resetSynthesisTimeoutWarnings();
+        mockSetup = new FunctionalMockSetupCoordinator();
+        synchronized (setterAnalysisCache) {
+            setterAnalysisCache.clear();
+        }
+        timeoutWarnedClasses.clear();
     }
 }

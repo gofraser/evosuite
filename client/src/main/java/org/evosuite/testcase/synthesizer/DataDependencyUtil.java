@@ -44,41 +44,7 @@ public class DataDependencyUtil {
 
     private static final Logger logger = LoggerFactory.getLogger(DataDependencyUtil.class);
 
-    private static final Map<SetterCacheKey, LinkedHashMap<Executable, List<ValueSettings>>>
-            SETTER_ANALYSIS_CACHE = new LinkedHashMap<>();
     private static final double MAX_SETTER_ANALYSIS_BUDGET_FRACTION = 0.05;
-
-    private static final class SetterCacheKey {
-        private final Field field;
-        private final String targetClassName;
-        private final int depth;
-
-        private SetterCacheKey(Field field, String targetClassName, int depth) {
-            this.field = field;
-            this.targetClassName = targetClassName;
-            this.depth = depth;
-        }
-
-        @Override
-        public boolean equals(Object other) {
-            if (!(other instanceof SetterCacheKey)) {
-                return false;
-            }
-            SetterCacheKey key = (SetterCacheKey) other;
-            return depth == key.depth
-                    && field.equals(key.field)
-                    && targetClassName.equals(key.targetClassName);
-        }
-
-        @Override
-        public int hashCode() {
-            return java.util.Objects.hash(field, targetClassName, depth);
-        }
-    }
-
-    public static synchronized void resetSetterAnalysisCache() {
-        SETTER_ANALYSIS_CACHE.clear();
-    }
 
     /**
      * Return the concrete case value when the selected switch goal depends on this exact field. The
@@ -186,10 +152,6 @@ public class DataDependencyUtil {
             }
         }
         return -1;
-    }
-
-    static synchronized int setterAnalysisCacheSize() {
-        return SETTER_ANALYSIS_CACHE.size();
     }
 
     /**
@@ -444,11 +406,12 @@ public class DataDependencyUtil {
     @SuppressWarnings("rawtypes")
     public static LinkedHashMap<Executable, List<ValueSettings>> searchForPotentialSettersInClass(
             Field field, String targetClassName) throws ClassNotFoundException {
-        SetterCacheKey cacheKey =
-                new SetterCacheKey(field, targetClassName, Properties.FIELD_SETTER_SEARCH_DEPTH);
-        synchronized (DataDependencyUtil.class) {
-            LinkedHashMap<Executable, List<ValueSettings>> cached =
-                    SETTER_ANALYSIS_CACHE.get(cacheKey);
+        Map<List<Object>, LinkedHashMap<Executable, List<ValueSettings>>> setterCache =
+                TestGenerationContext.getInstance().getObjectRuleRuntime().getSetterAnalysisCache();
+        List<Object> cacheKey =
+                Arrays.asList(field, targetClassName, Properties.FIELD_SETTER_SEARCH_DEPTH);
+        synchronized (setterCache) {
+            LinkedHashMap<Executable, List<ValueSettings>> cached = setterCache.get(cacheKey);
             if (cached != null) {
                 return cached;
             }
@@ -560,8 +523,8 @@ public class DataDependencyUtil {
             TestGenerationContext.getInstance().getObjectRuleRuntime().endSetterAnalysis();
         }
 
-        synchronized (DataDependencyUtil.class) {
-            SETTER_ANALYSIS_CACHE.put(cacheKey, map);
+        synchronized (setterCache) {
+            setterCache.put(cacheKey, map);
         }
         return map;
     }

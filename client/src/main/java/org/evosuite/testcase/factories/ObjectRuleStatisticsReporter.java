@@ -30,6 +30,7 @@ public final class ObjectRuleStatisticsReporter {
      */
     public static void publish(ObjectRuleRuntime runtime) {
         ObjectRuleSession session = runtime.getSession();
+        FunctionalMockSetupCoordinator mockSetup = runtime.getMockSetup();
 
         track(RuntimeVariable.ObjectGraphBranches, countObjectGraphBranches(runtime));
         track(RuntimeVariable.ObjectGraphMaxSize, maxObjectGraphSize(runtime));
@@ -55,23 +56,23 @@ public final class ObjectRuleStatisticsReporter {
                 RuntimeVariable.ObjectRuleInconsistentTemplates,
                 session.inconsistentTemplatesDiscarded);
         track(RuntimeVariable.ObjectRuleMockSetupOpportunities,
-                FunctionalMockSetupCoordinator.getOpportunities());
+                mockSetup.getOpportunities());
         track(RuntimeVariable.ObjectRuleMockSetupMethodsObserved,
-                FunctionalMockSetupCoordinator.getMethodsObserved());
+                mockSetup.getMethodsObserved());
         track(RuntimeVariable.ObjectRuleMockSetupStubsAdded,
-                FunctionalMockSetupCoordinator.getStubsAdded());
+                mockSetup.getStubsAdded());
         track(RuntimeVariable.ObjectRuleMockSetupAttempts,
-                FunctionalMockSetupCoordinator.getAttempts());
+                mockSetup.getAttempts());
         track(RuntimeVariable.ObjectRuleMockSetupSuccesses,
-                FunctionalMockSetupCoordinator.getSuccesses());
+                mockSetup.getSuccesses());
         track(RuntimeVariable.ObjectRuleMockSetupProactiveUses,
-                FunctionalMockSetupCoordinator.getProactiveUses());
+                mockSetup.getProactiveUses());
         track(RuntimeVariable.ObjectRuleMockSetupExtraExecutions,
-                FunctionalMockSetupCoordinator.getExtraExecutions());
+                mockSetup.getExtraExecutions());
         track(RuntimeVariable.ObjectRuleMockSetupNegativeCacheHits,
-                FunctionalMockSetupCoordinator.getNegativeCacheHits());
+                mockSetup.getNegativeCacheHits());
         track(RuntimeVariable.ObjectRuleMockSetupBlacklistedRecipes,
-                FunctionalMockSetupCoordinator.getBlacklistedRecipes());
+                mockSetup.getBlacklistedRecipes());
     }
 
     private static void track(RuntimeVariable variable, Number value) {

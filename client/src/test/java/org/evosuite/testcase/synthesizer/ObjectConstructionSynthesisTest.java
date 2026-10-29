@@ -377,7 +377,8 @@ public class ObjectConstructionSynthesisTest {
 				DataDependencyUtil.searchForPotentialSettersInClass(field, sutClass.getName());
 
 		assertSame(first, second, "setter discovery should be reused within one generation run");
-		assertEquals(1, DataDependencyUtil.setterAnalysisCacheSize());
+		assertEquals(1, TestGenerationContext.getInstance().getObjectRuleRuntime()
+				.getSetterAnalysisCache().size());
 		assertEquals(Collections.singletonList("initialize"),
 				first.keySet().stream().map(Executable::getName).collect(Collectors.toList()),
 				"a direct non-null initializer should terminate discovery before transitive "

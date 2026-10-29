@@ -51,18 +51,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class FunctionalMockCachedSetupDuplicateStubTest {
 
     private String oldTargetClass;
+    private FunctionalMockSetupCoordinator mockSetup;
 
     @BeforeEach
     public void setUp() {
         oldTargetClass = Properties.TARGET_CLASS;
         Properties.TARGET_CLASS = Consumer.class.getName();
-        FunctionalMockSetupCoordinator.reset();
+        mockSetup = new FunctionalMockSetupCoordinator();
     }
 
     @AfterEach
     public void tearDown() {
         Properties.TARGET_CLASS = oldTargetClass;
-        FunctionalMockSetupCoordinator.reset();
     }
 
     @Test
@@ -70,15 +70,15 @@ public class FunctionalMockCachedSetupDuplicateStubTest {
         TestCase first = partiallyStubbedTemplate();
         ExecutionResult initial = TestCaseExecutor.getInstance().execute(first);
         FunctionalMockSetupCoordinator.RepairProposal proposal =
-                FunctionalMockSetupCoordinator.proposeRepair(first, initial);
+                mockSetup.proposeRepair(first, initial);
         assertNotNull(proposal, "precondition: the missing value()/other() returns are repaired");
         ExecutionResult repaired = TestCaseExecutor.getInstance().execute(proposal.getTest());
         assertTrue(repaired.noThrownExceptions(),
                 "precondition: the observed repair executes cleanly");
-        FunctionalMockSetupCoordinator.recordSuccess(proposal, true);
+        mockSetup.recordSuccess(proposal, true);
 
         TestCase later = partiallyStubbedTemplate();
-        assertTrue(FunctionalMockSetupCoordinator.applyCachedSetup(later),
+        assertTrue(mockSetup.applyCachedSetup(later),
                 "precondition: the cached recipe is replayed onto the partially stubbed mock");
         ExecutionResult result = TestCaseExecutor.getInstance().execute(later);
         assertTrue(result.noThrownExceptions(),

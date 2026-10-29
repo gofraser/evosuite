@@ -38,18 +38,18 @@ import static org.junit.Assert.assertTrue;
 public class FunctionalMockSetupCoordinatorTest {
 
     private String oldTargetClass;
+    private FunctionalMockSetupCoordinator mockSetup;
 
     @Before
     public void setUp() {
         oldTargetClass = Properties.TARGET_CLASS;
         Properties.TARGET_CLASS = MockConsumer.class.getName();
-        FunctionalMockSetupCoordinator.reset();
+        mockSetup = new FunctionalMockSetupCoordinator();
     }
 
     @After
     public void tearDown() {
         Properties.TARGET_CLASS = oldTargetClass;
-        FunctionalMockSetupCoordinator.reset();
     }
 
     @Test
@@ -62,21 +62,21 @@ public class FunctionalMockSetupCoordinatorTest {
         assertTrue(originalMock.getMockedMethods().isEmpty());
 
         FunctionalMockSetupCoordinator.RepairProposal proposal =
-                FunctionalMockSetupCoordinator.proposeRepair(original, initial);
+                mockSetup.proposeRepair(original, initial);
 
         assertNotNull(proposal);
         assertTrue(originalMock.getMockedMethods().isEmpty());
         assertTrue(proposal.getTest().size() > original.size());
 
-        FunctionalMockSetupCoordinator.recordExtraExecution(proposal);
+        mockSetup.recordExtraExecution(proposal);
         ExecutionResult repaired = TestCaseExecutor.getInstance().execute(proposal.getTest());
         assertTrue(repaired.noThrownExceptions());
         assertTrue(proposal.getTest().toCode().contains("doReturn"));
-        FunctionalMockSetupCoordinator.recordSuccess(proposal, true);
+        mockSetup.recordSuccess(proposal, true);
 
-        assertEquals(1, FunctionalMockSetupCoordinator.getExtraExecutions());
-        assertEquals(1, FunctionalMockSetupCoordinator.getAttempts());
-        assertEquals(1, FunctionalMockSetupCoordinator.getSuccesses());
+        assertEquals(1, mockSetup.getExtraExecutions());
+        assertEquals(1, mockSetup.getAttempts());
+        assertEquals(1, mockSetup.getSuccesses());
     }
 
     @Test
@@ -84,18 +84,18 @@ public class FunctionalMockSetupCoordinatorTest {
         TestCase first = unstubbedTemplate();
         ExecutionResult initial = TestCaseExecutor.getInstance().execute(first);
         FunctionalMockSetupCoordinator.RepairProposal proposal =
-                FunctionalMockSetupCoordinator.proposeRepair(first, initial);
+                mockSetup.proposeRepair(first, initial);
         assertNotNull(proposal);
-        FunctionalMockSetupCoordinator.recordExtraExecution(proposal);
+        mockSetup.recordExtraExecution(proposal);
         assertTrue(TestCaseExecutor.getInstance().execute(proposal.getTest()).noThrownExceptions());
-        FunctionalMockSetupCoordinator.recordSuccess(proposal, true);
+        mockSetup.recordSuccess(proposal, true);
 
         TestCase later = unstubbedTemplate();
-        assertTrue(FunctionalMockSetupCoordinator.applyCachedSetup(later));
+        assertTrue(mockSetup.applyCachedSetup(later));
         assertTrue(TestCaseExecutor.getInstance().execute(later).noThrownExceptions());
 
-        assertEquals(1, FunctionalMockSetupCoordinator.getExtraExecutions());
-        assertEquals(1, FunctionalMockSetupCoordinator.getProactiveUses());
+        assertEquals(1, mockSetup.getExtraExecutions());
+        assertEquals(1, mockSetup.getProactiveUses());
     }
 
     @Test
@@ -103,14 +103,14 @@ public class FunctionalMockSetupCoordinatorTest {
         TestCase first = unstubbedTemplate();
         ExecutionResult initial = TestCaseExecutor.getInstance().execute(first);
         FunctionalMockSetupCoordinator.RepairProposal proposal =
-                FunctionalMockSetupCoordinator.proposeRepair(first, initial);
+                mockSetup.proposeRepair(first, initial);
         assertNotNull(proposal);
         assertTrue(TestCaseExecutor.getInstance().execute(proposal.getTest()).noThrownExceptions());
-        FunctionalMockSetupCoordinator.recordSuccess(proposal, true);
+        mockSetup.recordSuccess(proposal, true);
 
         TestCase later = unstubbedTemplate(OtherMockConsumer.class.getMethod(
                 "consumeOther", Service.class));
-        assertFalse(FunctionalMockSetupCoordinator.applyCachedSetup(later));
+        assertFalse(mockSetup.applyCachedSetup(later));
         ExecutionResult laterInitial = TestCaseExecutor.getInstance().execute(later);
         assertFalse(laterInitial.noThrownExceptions());
         assertEquals(1, ((FunctionalMockStatement) later.getStatement(0))
@@ -122,16 +122,16 @@ public class FunctionalMockSetupCoordinatorTest {
         TestCase first = unstubbedTemplate();
         ExecutionResult initial = TestCaseExecutor.getInstance().execute(first);
         FunctionalMockSetupCoordinator.RepairProposal proposal =
-                FunctionalMockSetupCoordinator.proposeRepair(first, initial);
+                mockSetup.proposeRepair(first, initial);
         assertNotNull(proposal);
         assertTrue(TestCaseExecutor.getInstance().execute(proposal.getTest()).noThrownExceptions());
-        FunctionalMockSetupCoordinator.recordSuccess(proposal, true);
+        mockSetup.recordSuccess(proposal, true);
 
         TestCase later = unstubbedTemplate();
         FunctionalMockStatement mock = (FunctionalMockStatement) later.getStatement(0);
         mock.addMethodStubbing(new MethodDescriptor(Service.class.getMethod("other"),
                 GenericClassFactory.get(Service.class)), Collections.emptyList());
-        assertTrue(FunctionalMockSetupCoordinator.applyCachedSetup(later));
+        assertTrue(mockSetup.applyCachedSetup(later));
         assertTrue(TestCaseExecutor.getInstance().execute(later).noThrownExceptions());
     }
 
@@ -140,17 +140,17 @@ public class FunctionalMockSetupCoordinatorTest {
         TestCase first = unstubbedTemplate();
         ExecutionResult initial = TestCaseExecutor.getInstance().execute(first);
         FunctionalMockSetupCoordinator.RepairProposal proposal =
-                FunctionalMockSetupCoordinator.proposeRepair(first, initial);
+                mockSetup.proposeRepair(first, initial);
         assertNotNull(proposal);
-        FunctionalMockSetupCoordinator.recordExtraExecution(proposal);
+        mockSetup.recordExtraExecution(proposal);
         assertTrue(TestCaseExecutor.getInstance().execute(proposal.getTest()).noThrownExceptions());
 
-        FunctionalMockSetupCoordinator.recordSuccess(proposal, false);
+        mockSetup.recordSuccess(proposal, false);
 
         TestCase later = unstubbedTemplate();
-        assertFalse(FunctionalMockSetupCoordinator.applyCachedSetup(later));
-        assertEquals(1, FunctionalMockSetupCoordinator.getSuccesses());
-        assertEquals(0, FunctionalMockSetupCoordinator.getProactiveUses());
+        assertFalse(mockSetup.applyCachedSetup(later));
+        assertEquals(1, mockSetup.getSuccesses());
+        assertEquals(0, mockSetup.getProactiveUses());
     }
 
     @Test
@@ -159,17 +159,17 @@ public class FunctionalMockSetupCoordinatorTest {
             TestCase original = unstubbedTemplate();
             ExecutionResult initial = TestCaseExecutor.getInstance().execute(original);
             FunctionalMockSetupCoordinator.RepairProposal proposal =
-                    FunctionalMockSetupCoordinator.proposeRepair(original, initial);
+                    mockSetup.proposeRepair(original, initial);
             assertNotNull(proposal);
-            FunctionalMockSetupCoordinator.recordFailure(proposal);
+            mockSetup.recordFailure(proposal);
         }
 
         TestCase repeated = unstubbedTemplate();
         ExecutionResult repeatedResult = TestCaseExecutor.getInstance().execute(repeated);
-        assertNull(FunctionalMockSetupCoordinator.proposeRepair(repeated, repeatedResult));
-        assertEquals(3, FunctionalMockSetupCoordinator.getAttempts());
-        assertEquals(1, FunctionalMockSetupCoordinator.getBlacklistedRecipes());
-        assertEquals(1, FunctionalMockSetupCoordinator.getNegativeCacheHits());
+        assertNull(mockSetup.proposeRepair(repeated, repeatedResult));
+        assertEquals(3, mockSetup.getAttempts());
+        assertEquals(1, mockSetup.getBlacklistedRecipes());
+        assertEquals(1, mockSetup.getNegativeCacheHits());
     }
 
     @Test
@@ -178,15 +178,15 @@ public class FunctionalMockSetupCoordinatorTest {
         ExecutionResult initial = TestCaseExecutor.getInstance().execute(original);
 
         List<FunctionalMockSetupCoordinator.RepairProposal> proposals =
-                FunctionalMockSetupCoordinator.proposeRepairs(original, initial);
+                mockSetup.proposeRepairs(original, initial);
 
         assertEquals(1, proposals.size());
         assertTrue(TestCaseExecutor.getInstance().execute(
                 proposals.get(0).getTest()).noThrownExceptions());
 
-        FunctionalMockSetupCoordinator.recordSuccess(proposals.get(0), true);
+        mockSetup.recordSuccess(proposals.get(0), true);
         TestCase later = unstubbedBooleanTemplate();
-        assertTrue(FunctionalMockSetupCoordinator.applyCachedSetup(later));
+        assertTrue(mockSetup.applyCachedSetup(later));
         assertEquals(1, booleanValues(later).size());
     }
 
@@ -199,7 +199,7 @@ public class FunctionalMockSetupCoordinatorTest {
                 .getInvocationObservationsNeedingStubs().size());
 
         FunctionalMockSetupCoordinator.RepairProposal proposal =
-                FunctionalMockSetupCoordinator.proposeRepair(original, initial);
+                mockSetup.proposeRepair(original, initial);
 
         assertNotNull(proposal);
         ExecutionResult repaired = TestCaseExecutor.getInstance().execute(proposal.getTest());
@@ -215,7 +215,7 @@ public class FunctionalMockSetupCoordinatorTest {
         assertEquals(0, IntConsumer.lastValue);
 
         List<FunctionalMockSetupCoordinator.RepairProposal> proposals =
-                FunctionalMockSetupCoordinator.proposeRepairs(original, initial, 257);
+                mockSetup.proposeRepairs(original, initial, 257);
 
         assertEquals(1, proposals.size());
         TestCase repaired = proposals.get(0).getTest();

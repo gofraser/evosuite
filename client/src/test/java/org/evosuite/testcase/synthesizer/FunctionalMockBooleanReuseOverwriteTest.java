@@ -50,6 +50,7 @@ public class FunctionalMockBooleanReuseOverwriteTest {
 
     private String oldTargetClass;
     private double oldPrimitiveReuse;
+    private FunctionalMockSetupCoordinator mockSetup;
 
     @BeforeEach
     public void setUp() {
@@ -57,14 +58,13 @@ public class FunctionalMockBooleanReuseOverwriteTest {
         oldPrimitiveReuse = Properties.PRIMITIVE_REUSE_PROBABILITY;
         Properties.TARGET_CLASS = Consumer.class.getName();
         Properties.PRIMITIVE_REUSE_PROBABILITY = 1.0;
-        FunctionalMockSetupCoordinator.reset();
+        mockSetup = new FunctionalMockSetupCoordinator();
     }
 
     @AfterEach
     public void tearDown() {
         Properties.TARGET_CLASS = oldTargetClass;
         Properties.PRIMITIVE_REUSE_PROBABILITY = oldPrimitiveReuse;
-        FunctionalMockSetupCoordinator.reset();
     }
 
     @Test
@@ -81,7 +81,7 @@ public class FunctionalMockBooleanReuseOverwriteTest {
 
         ExecutionResult initial = TestCaseExecutor.getInstance().execute(original);
         FunctionalMockSetupCoordinator.RepairProposal proposal =
-                FunctionalMockSetupCoordinator.proposeRepair(original, initial);
+                mockSetup.proposeRepair(original, initial);
         assertNotNull(proposal, "precondition: the unstubbed boolean return is repaired");
         TestCase repaired = proposal.getTest();
         assertTrue(repaired.toCode().contains("doReturn"),

@@ -65,18 +65,18 @@ import static org.mockito.Mockito.mock;
 public class FunctionalMockCachedSetupRollbackTest {
 
     private String oldTargetClass;
+    private FunctionalMockSetupCoordinator mockSetup;
 
     @BeforeEach
     public void setUp() {
         oldTargetClass = Properties.TARGET_CLASS;
         Properties.TARGET_CLASS = Consumer.class.getName();
-        FunctionalMockSetupCoordinator.reset();
+        mockSetup = new FunctionalMockSetupCoordinator();
     }
 
     @AfterEach
     public void tearDown() {
         Properties.TARGET_CLASS = oldTargetClass;
-        FunctionalMockSetupCoordinator.reset();
     }
 
     @Test
@@ -84,11 +84,11 @@ public class FunctionalMockCachedSetupRollbackTest {
         TestCase first = unstubbedTemplate();
         ExecutionResult initial = TestCaseExecutor.getInstance().execute(first);
         FunctionalMockSetupCoordinator.RepairProposal proposal =
-                FunctionalMockSetupCoordinator.proposeRepair(first, initial);
+                mockSetup.proposeRepair(first, initial);
         assertNotNull(proposal, "precondition: the missing value() return is repaired");
         assertTrue(TestCaseExecutor.getInstance().execute(proposal.getTest()).noThrownExceptions(),
                 "precondition: the observed repair executes cleanly");
-        FunctionalMockSetupCoordinator.recordSuccess(proposal, true);
+        mockSetup.recordSuccess(proposal, true);
 
         TestCase later = unstubbedTemplate();
         List<Statement> original = new ArrayList<>();
@@ -107,7 +107,7 @@ public class FunctionalMockCachedSetupRollbackTest {
         try (MockedStatic<TestFactory> factories =
                      Mockito.mockStatic(TestFactory.class, Mockito.CALLS_REAL_METHODS)) {
             factories.when(TestFactory::getInstance).thenReturn(factory);
-            assertFalse(FunctionalMockSetupCoordinator.applyCachedSetup(later));
+            assertFalse(mockSetup.applyCachedSetup(later));
         }
 
         // Compare identities without assertSame: rendering a corrupted test for the message would throw.
