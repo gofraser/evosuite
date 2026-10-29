@@ -1643,7 +1643,7 @@ public class TestFactory {
      * to specify the position of the last valid statement of {@code test} by supplying an
      * appropriate index {@code lastPosition}. After a successful insertion, returns the updated
      * position of the last valid statement (which is always non-negative), or if there was an error
-     * the constant {@link org.evosuite.testcase.mutation.InsertionStrategy#INSERTION_ERROR
+     * the constant {@link org.evosuite.testcase.mutation.RandomInsertion#INSERTION_ERROR
      * INSERTION_ERROR}.
      *
      * @param test the test case in which to insert

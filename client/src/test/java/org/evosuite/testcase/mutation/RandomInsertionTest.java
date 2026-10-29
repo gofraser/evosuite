@@ -47,7 +47,7 @@ public class RandomInsertionTest {
         // It shouldn't crash
         int pos = ri.insertStatement(tc, 0);
         // Since TestCluster is likely empty/not initialized with generators, it should fail to insert
-        assertEquals(InsertionStrategy.INSERTION_ERROR, pos);
+        assertEquals(RandomInsertion.INSERTION_ERROR, pos);
     }
 
     @Test
@@ -60,6 +60,6 @@ public class RandomInsertionTest {
         RandomInsertion ri = new RandomInsertion();
         TestCase tc = new DefaultTestCase();
         int pos = ri.insertStatement(tc, 0);
-        assertEquals(InsertionStrategy.INSERTION_ERROR, pos);
+        assertEquals(RandomInsertion.INSERTION_ERROR, pos);
     }
 }
