@@ -29,7 +29,6 @@ import org.evosuite.continuous.project.ProjectStaticData;
 import org.evosuite.continuous.project.ProjectStaticData.ClassInfo;
 import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.FileIOUtils;
-import org.evosuite.utils.LoggingUtils;
 import org.evosuite.xsd.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

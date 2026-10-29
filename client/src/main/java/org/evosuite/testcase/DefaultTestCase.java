@@ -28,7 +28,6 @@ import org.evosuite.utils.ConstructionFailedException;
 // Presentation metadata is stored natively on the test case.
 import org.evosuite.runtime.util.Inputs;
 import org.evosuite.setup.TestClusterUtils;
-import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.statements.environment.AccessedEnvironment;

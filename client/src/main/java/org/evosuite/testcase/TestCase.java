@@ -22,7 +22,6 @@ package org.evosuite.testcase;
 import org.evosuite.assertion.Assertion;
 import org.evosuite.contracts.ContractViolation;
 import org.evosuite.utils.ConstructionFailedException;
-import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.statements.environment.AccessedEnvironment;
 import org.evosuite.testcase.variable.VariableReference;

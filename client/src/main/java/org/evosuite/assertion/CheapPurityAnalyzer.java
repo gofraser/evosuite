@@ -20,7 +20,6 @@
 package org.evosuite.assertion;
 
 import org.evosuite.instrumentation.BytecodeInstrumentation;
-import org.evosuite.runtime.classhandling.ClassResetter;
 import org.evosuite.runtime.mock.MockList;
 import org.evosuite.setup.InheritanceTree;
 import org.evosuite.setup.DependencyAnalysis;

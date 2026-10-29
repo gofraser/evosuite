@@ -21,7 +21,6 @@ package org.evosuite.coverage.dataflow;
 
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.ExecutionTrace;
-import org.evosuite.testcase.execution.MethodCall;
 
 import java.util.*;
 

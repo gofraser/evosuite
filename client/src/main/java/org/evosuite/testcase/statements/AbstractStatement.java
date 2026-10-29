@@ -45,7 +45,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiPredicate;
 
-import static java.util.stream.Collectors.joining;
 
 /**
  * Abstract superclass of test case statements.

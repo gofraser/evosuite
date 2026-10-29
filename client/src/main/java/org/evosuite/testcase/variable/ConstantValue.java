@@ -25,7 +25,6 @@ import org.evosuite.testcase.statements.Statement;
 import org.evosuite.utils.NumberFormatter;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
-import org.evosuite.utils.generic.GenericClassImpl;
 
 import java.lang.reflect.Type;
 

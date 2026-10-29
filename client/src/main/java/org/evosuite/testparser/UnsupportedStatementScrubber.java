@@ -19,7 +19,6 @@
  */
 package org.evosuite.testparser;
 
-import com.github.javaparser.ast.body.Parameter;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.*;
 import org.evosuite.testcase.statements.*;

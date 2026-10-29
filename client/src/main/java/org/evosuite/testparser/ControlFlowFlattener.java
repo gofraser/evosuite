@@ -24,8 +24,6 @@ import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.IfStmt;
 import com.github.javaparser.ast.stmt.TryStmt;
-import org.evosuite.testcase.statements.Statement;
-import org.evosuite.testcase.statements.UninterpretedStatement;
 
 /**
  * Flattens the control flow that LLM-written tests wrap around their statements. A try block is

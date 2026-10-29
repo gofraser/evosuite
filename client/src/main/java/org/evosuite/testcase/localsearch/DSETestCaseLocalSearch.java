@@ -19,7 +19,6 @@
  */
 package org.evosuite.testcase.localsearch;
 
-import org.evosuite.Properties;
 import org.evosuite.ga.localsearch.LocalSearchBudget;
 import org.evosuite.ga.localsearch.LocalSearchObjective;
 import org.evosuite.symbolic.dse.DSETestGenerator;
