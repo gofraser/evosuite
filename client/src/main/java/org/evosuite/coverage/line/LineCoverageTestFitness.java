@@ -167,34 +167,27 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
         }
         double fitness = 1.0;
 
-        // Deactivate coverage archive while measuring fitness, since branchcoverage fitness
-        // evaluating will attempt to claim coverage for it in the archive
-        try (Archive.UpdateSuppression ignored = Archive.suppressUpdates()) {
-            if (result.getTrace().getCoveredLines().contains(this.line)) {
-                fitness = 0.0;
-            } else {
-                double r = Double.MAX_VALUE;
+        if (result.getTrace().getCoveredLines().contains(this.line)) {
+            fitness = 0.0;
+        } else {
+            double r = Double.MAX_VALUE;
 
-                // Find minimum distance to satisfying any of the control dependencies
-                for (BranchCoverageTestFitness branchFitness : branchFitnesses) {
-                    double newFitness = branchFitness.getFitness(individual, result);
-                    if (newFitness == 0.0) {
-                        // Although the BranchCoverage goal has been covered, it is not part of the
-                        // optimisation
-                        individual.getTestCase().removeCoveredGoal(branchFitness);
-                        // If the control dependency was covered, then likely
-                        // an exception happened before the line was reached
-                        newFitness = 1.0;
-                    } else {
-                        newFitness = 1.0 + normalize(newFitness);
-                    }
-                    if (newFitness < r) {
-                        r = newFitness;
-                    }
+            // Find minimum distance to satisfying any of the control dependencies
+            for (BranchCoverageTestFitness branchFitness : branchFitnesses) {
+                double newFitness = branchFitness.distance(result);
+                if (newFitness == 0.0) {
+                    // If the control dependency was covered, then likely
+                    // an exception happened before the line was reached
+                    newFitness = 1.0;
+                } else {
+                    newFitness = 1.0 + normalize(newFitness);
                 }
-
-                fitness = r;
+                if (newFitness < r) {
+                    r = newFitness;
+                }
             }
+
+            fitness = r;
         }
         updateIndividual(individual, fitness);
 

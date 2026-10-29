@@ -107,6 +107,17 @@ public class BranchCoverageTestFitness extends TestFitnessFunction {
 
 
     /**
+     * Approach level and branch distance of this goal in an execution, without recording it in
+     * the individual, its covered goals or the archive.
+     *
+     * @param result the execution to measure
+     * @return the distance, 0.0 if the goal is covered
+     */
+    public double distance(ExecutionResult result) {
+        return goal.getDistance(result).getResultingBranchFitness();
+    }
+
+    /**
      * {@inheritDoc}
      *
      * <p>Calculate approach level + branch distance.
@@ -144,10 +155,8 @@ public class BranchCoverageTestFitness extends TestFitnessFunction {
         // set as coverage criterion to optimize. However, branches are
         // the backbone for all other criteria and thus they are always used in DynaMOSA
         if (ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.BRANCH)) {
-            // Skip when this branch goal isn't a registered target — happens when
-            // LineCoverageTestFitness invokes us with a synthetic root-Branch goal
-            // for a non-branchless method as part of control-dependency analysis.
-            // Its static-flag suppression of archive updates is fragile, so guard here.
+            // Skip when this branch goal isn't a registered target, e.g. a root-branch goal
+            // of a method that is not branchless.
             Archive archive = Archive.getArchiveInstance();
             if (archive.hasTarget(this)) {
                 archive.updateArchive(this, individual, fitness);

@@ -109,7 +109,7 @@ public class StatementCoverageReproduceTest {
         TestableStatementCoverageTestFitness fitness = new TestableStatementCoverageTestFitness(instruction);
 
         BranchCoverageTestFitness mockBranchFitness = mock(BranchCoverageTestFitness.class);
-        when(mockBranchFitness.getFitness(Mockito.any(), Mockito.any())).thenReturn(0.0);
+        when(mockBranchFitness.distance(Mockito.any())).thenReturn(0.0);
         fitness.addBranchFitness(mockBranchFitness);
 
         DefaultTestCase testCase = new DefaultTestCase();
@@ -127,6 +127,8 @@ public class StatementCoverageReproduceTest {
 
         // Expect 1.0 penalty
         assertEquals(1.0, calculatedFitness, 0.001);
+        // The auxiliary branch goals are only measured, never evaluated as goals of the individual
+        Mockito.verify(mockBranchFitness, Mockito.never()).getFitness(Mockito.any(), Mockito.any());
     }
 
     @Test
@@ -143,7 +145,7 @@ public class StatementCoverageReproduceTest {
         TestableStatementCoverageTestFitness fitness = new TestableStatementCoverageTestFitness(instruction);
 
         BranchCoverageTestFitness mockBranchFitness = mock(BranchCoverageTestFitness.class);
-        when(mockBranchFitness.getFitness(Mockito.any(), Mockito.any())).thenReturn(0.0);
+        when(mockBranchFitness.distance(Mockito.any())).thenReturn(0.0);
         fitness.addBranchFitness(mockBranchFitness);
 
         DefaultTestCase testCase = new DefaultTestCase();
