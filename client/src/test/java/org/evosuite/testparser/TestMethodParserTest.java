@@ -50,4 +50,29 @@ class TestMethodParserTest {
         assertFalse(TestMethodParser.mentionsTestAnnotation("void a() {}"));
         assertFalse(TestMethodParser.mentionsTestAnnotation(null));
     }
+
+    @Test
+    void aliasRecoveryLeavesLiteralsCommentsAndTextBlocksAlone() {
+        String src = "import a.b.Real as Alias;\n"
+                + "class T {\n"
+                + "  // Alias in a line comment\n"
+                + "  /* Alias in a block comment */\n"
+                + "  Object o = new Alias(); String s = \"Alias \\\" Alias\"; char c = 'A'; long l = 1L;\n"
+                + "  String t = \"\"\"\n    Alias \\\"\"\" Alias\n    \"\"\"; Alias x;\n"
+                + "}\n";
+        assertEquals("class T {\n"
+                + "  // Alias in a line comment\n"
+                + "  /* Alias in a block comment */\n"
+                + "  Object o = new a.b.Real(); String s = \"Alias \\\" Alias\"; char c = 'A'; long l = 1L;\n"
+                + "  String t = \"\"\"\n    Alias \\\"\"\" Alias\n    \"\"\"; a.b.Real x;\n"
+                + "}\n", TestMethodParser.sanitizeAliasImports(src));
+    }
+
+    @Test
+    void aliasRecoveryReplacesWholeTokensOnceWithOverlappingAliases() {
+        String src = "import x.Foo as Bar;\nimport y.Bar as Baz;\nimport z.Q as Q2;\n"
+                + "class T { Bar a; Baz b; Bars c; Q2 d; Q2s e; my_Bar f; Bar$In g; }\n";
+        assertEquals("class T { x.Foo a; y.Bar b; Bars c; z.Q d; Q2s e; my_Bar f; Bar$In g; }\n",
+                TestMethodParser.sanitizeAliasImports(src));
+    }
 }

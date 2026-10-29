@@ -104,20 +104,72 @@ public class TestMethodParser {
             }
         } while (matcher.find());
         String rewritten = ALIASED_IMPORT_LINE_PATTERN.matcher(code).replaceAll("");
+        Map<String, String> replacements = new LinkedHashMap<>();
         for (Map.Entry<String, String> entry : aliasToFqn.entrySet()) {
             String alias = entry.getKey();
             String fqn = entry.getValue();
             // Skip the no-op case where the alias matches the FQN's simple name.
             int lastDot = fqn.lastIndexOf('.');
             String simple = lastDot >= 0 ? fqn.substring(lastDot + 1) : fqn;
-            if (alias.equals(simple)) {
-                continue;
+            if (!alias.equals(simple)) {
+                replacements.put(alias, fqn);
             }
-            rewritten = rewritten.replaceAll(
-                    "\\b" + Pattern.quote(alias) + "\\b",
-                    Matcher.quoteReplacement(fqn));
         }
-        return rewritten;
+        return replaceIdentifiersInCode(rewritten, replacements);
+    }
+
+    /**
+     * Replaces every identifier token that is a key of {@code replacements} by its value, in one
+     * pass so a replacement is never itself rewritten. String and character literals, text blocks
+     * and comments are copied unchanged.
+     */
+    private static String replaceIdentifiersInCode(String code, Map<String, String> replacements) {
+        if (replacements.isEmpty()) {
+            return code;
+        }
+        StringBuilder out = new StringBuilder(code.length());
+        int n = code.length();
+        int i = 0;
+        while (i < n) {
+            char c = code.charAt(i);
+            int end;
+            if (code.startsWith("//", i)) {
+                end = code.indexOf('\n', i);
+                end = end < 0 ? n : end;
+            } else if (code.startsWith("/*", i)) {
+                end = code.indexOf("*/", i + 2);
+                end = end < 0 ? n : end + 2;
+            } else if (code.startsWith("\"\"\"", i)) {
+                end = i + 3;
+                while (end < n && !code.startsWith("\"\"\"", end)) {
+                    end += code.charAt(end) == '\\' ? 2 : 1;
+                }
+                end += 3;
+            } else if (c == '"' || c == '\'') {
+                end = i + 1;
+                while (end < n && code.charAt(end) != c && code.charAt(end) != '\n') {
+                    end += code.charAt(end) == '\\' ? 2 : 1;
+                }
+                end += 1;
+            } else if (Character.isJavaIdentifierPart(c)) {
+                // An identifier, or a number whose suffix letters must not be read as one.
+                end = i + 1;
+                while (end < n && Character.isJavaIdentifierPart(code.charAt(end))) {
+                    end++;
+                }
+                String token = code.substring(i, end);
+                String replacement = Character.isJavaIdentifierStart(c) ? replacements.get(token) : null;
+                out.append(replacement != null ? replacement : token);
+                i = end;
+                continue;
+            } else {
+                end = i + 1;
+            }
+            end = Math.min(end, n);
+            out.append(code, i, end);
+            i = end;
+        }
+        return out.toString();
     }
 
     /**
