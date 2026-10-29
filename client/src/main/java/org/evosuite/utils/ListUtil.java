@@ -75,14 +75,14 @@ public abstract class ListUtil {
         return result;
     }
 
-    private static int getIndex(List<?> population) {
+    private static int getIndex(List<?> population, double rankBias) {
         double r = Randomness.nextDouble();
-        double d = org.evosuite.Properties.RANK_BIAS
-                - Math.sqrt((org.evosuite.Properties.RANK_BIAS * org.evosuite.Properties.RANK_BIAS)
-                - (4.0 * (org.evosuite.Properties.RANK_BIAS - 1.0) * r));
+        double d = rankBias
+                - Math.sqrt((rankBias * rankBias)
+                - (4.0 * (rankBias - 1.0) * r));
         int length = population.size();
 
-        d = d / 2.0 / (org.evosuite.Properties.RANK_BIAS - 1.0);
+        d = d / 2.0 / (rankBias - 1.0);
 
         //this is not needed because population is sorted based on Maximization
         //if(maximize)
@@ -92,8 +92,13 @@ public abstract class ListUtil {
         return index;
     }
 
-    public static <T> T selectRankBiased(List<T> list) {
-        int index = getIndex(list);
+    /**
+     * Picks an element of a list sorted best first, favouring the front.
+     *
+     * @param rankBias the selection pressure, between 1 and 2
+     */
+    public static <T> T selectRankBiased(List<T> list, double rankBias) {
+        int index = getIndex(list, rankBias);
         return list.get(index);
     }
 }

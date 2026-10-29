@@ -199,7 +199,7 @@ public class RandomInsertion implements InsertionStrategy {
             return null;
         } else if (Properties.SORT_OBJECTS) {
             candidateVariables.sort(Comparator.comparingInt(VariableReference::getDistance));
-            return ListUtil.selectRankBiased(candidateVariables);
+            return ListUtil.selectRankBiased(candidateVariables, Properties.RANK_BIAS);
         } else {
             return Randomness.choice(candidateVariables);
         }

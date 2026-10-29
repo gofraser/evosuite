@@ -37,12 +37,12 @@ public class RandomAccessQueueConcurrencyTest {
 
     @Test
     public void defaultRandomAccessQueueConcurrentReadWriteDoesNotFail() throws Exception {
-        assertNull(runConcurrentReadWrite(new DefaultRandomAccessQueue<>()));
+        assertNull(runConcurrentReadWrite(new DefaultRandomAccessQueue<>(50)));
     }
 
     @Test
     public void frequencyBasedRandomAccessQueueConcurrentReadWriteDoesNotFail() throws Exception {
-        assertNull(runConcurrentReadWrite(new FrequencyBasedRandomAccessQueue<>()));
+        assertNull(runConcurrentReadWrite(new FrequencyBasedRandomAccessQueue<>(50)));
     }
 
     private Throwable runConcurrentReadWrite(ConstantBag<Integer> queue) throws Exception {

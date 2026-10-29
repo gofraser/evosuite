@@ -19,7 +19,6 @@
  */
 package org.evosuite.seeding;
 
-import org.evosuite.Properties;
 import org.evosuite.utils.Randomness;
 
 import java.util.ArrayDeque;
@@ -44,6 +43,15 @@ public class DefaultRandomAccessQueue<T> implements ConstantBag<T> {
 
     private final Queue<T> queue = new ArrayDeque<>();
 
+    private final int maxSize;
+
+    /**
+     * @param maxSize the number of constants to keep; the oldest one is dropped beyond that
+     */
+    public DefaultRandomAccessQueue(int maxSize) {
+        this.maxSize = Math.max(1, maxSize);
+    }
+
     @Override
     public synchronized void add(T value) {
         if (value == null) {
@@ -57,7 +65,7 @@ public class DefaultRandomAccessQueue<T> implements ConstantBag<T> {
     }
 
     private void reduceSize() {
-        if (queue.size() > Math.max(1, Properties.DYNAMIC_POOL_SIZE)) {
+        if (queue.size() > maxSize) {
             T value = queue.poll();
             valueSet.remove(value);
         }

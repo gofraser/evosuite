@@ -128,7 +128,9 @@ public class ConstantPoolManager {
      */
     static ConstantPool newDynamicPool(boolean variableProbability) {
         return new TypedConstantPool("DynamicConstantPool",
-                variableProbability ? FrequencyBasedRandomAccessQueue::new : DefaultRandomAccessQueue::new,
+                variableProbability
+                        ? () -> new FrequencyBasedRandomAccessQueue<>(Properties.DYNAMIC_POOL_SIZE)
+                        : () -> new DefaultRandomAccessQueue<>(Properties.DYNAMIC_POOL_SIZE),
                 false, false);
     }
 

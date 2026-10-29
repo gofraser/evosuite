@@ -2014,7 +2014,7 @@ public class TestCluster {
         }
 
         GenericAccessibleObject<?> choice = Properties.SORT_CALLS
-                ? ListUtil.selectRankBiased(candidateTestMethods)
+                ? ListUtil.selectRankBiased(candidateTestMethods, Properties.RANK_BIAS)
                 : Randomness.choice(candidateTestMethods);
 
         logger.debug("Chosen call: " + choice);
