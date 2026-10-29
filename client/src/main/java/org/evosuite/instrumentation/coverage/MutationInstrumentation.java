@@ -52,7 +52,7 @@ import java.util.*;
  */
 public class MutationInstrumentation implements MethodInstrumentation {
 
-    private static final Logger logger = LoggerFactory.getLogger(MethodInstrumentation.class);
+    private static final Logger logger = LoggerFactory.getLogger(MutationInstrumentation.class);
 
     private final List<MutationOperator> mutationOperators;
 

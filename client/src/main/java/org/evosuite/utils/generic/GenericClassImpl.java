@@ -41,7 +41,7 @@ import java.util.*;
 
 public class GenericClassImpl implements Serializable, GenericClass<GenericClassImpl> {
 
-    private static final Logger logger = LoggerFactory.getLogger(GenericClass.class);
+    private static final Logger logger = LoggerFactory.getLogger(GenericClassImpl.class);
 
     private static final List<String> primitiveClasses = Arrays.asList("char", "int", "short",
             "long", "boolean",
