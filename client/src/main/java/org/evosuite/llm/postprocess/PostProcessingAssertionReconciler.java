@@ -25,6 +25,9 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testsuite.TestSuiteChromosome;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * Neutral suite-level reconciliation for assertions applied by post-processing.
  * It distinguishes assertions still present in stable tests from assertions
@@ -49,9 +52,16 @@ final class PostProcessingAssertionReconciler {
         return count;
     }
 
-    static Reconciliation reconcile(TestSuiteChromosome suite, int initiallyAppliedAssertions) {
+    /**
+     * Walks the suite once. {@code shippedBySignature} is only filled when
+     * {@code collectSignatures} is set, because rendering each assertion's
+     * signature is needed solely for the lifecycle trace.
+     */
+    static Reconciliation reconcile(TestSuiteChromosome suite, int initiallyAppliedAssertions,
+                                    boolean collectSignatures) {
         int shipped = 0;
         int stillPresentButCommented = 0;
+        Map<String, Integer> shippedBySignature = new HashMap<>();
         if (suite != null) {
             for (TestChromosome chromosome : suite.getTestChromosomes()) {
                 if (chromosome == null || chromosome.getTestCase() == null) {
@@ -60,14 +70,22 @@ final class PostProcessingAssertionReconciler {
                 TestCase test = chromosome.getTestCase();
                 if (test.isUnstable()) {
                     stillPresentButCommented += countTemplateAssertions(test);
-                } else {
-                    shipped += countTemplateAssertions(test);
+                    continue;
+                }
+                for (Assertion assertion : test.getAssertions()) {
+                    if (assertion instanceof TemplateCodeAssertion) {
+                        shipped++;
+                        if (collectSignatures) {
+                            shippedBySignature.merge(LlmPostProcessor.assertionSignatureForSession(
+                                    (TemplateCodeAssertion) assertion), 1, Integer::sum);
+                        }
+                    }
                 }
             }
         }
         int removedUnstable = Math.max(0, initiallyAppliedAssertions - shipped);
         removedUnstable = Math.max(removedUnstable, stillPresentButCommented);
-        return new Reconciliation(shipped, removedUnstable);
+        return new Reconciliation(shipped, removedUnstable, shippedBySignature);
     }
 
     private static int countTemplateAssertions(TestCase test) {
@@ -86,10 +104,17 @@ final class PostProcessingAssertionReconciler {
     static final class Reconciliation {
         private final int shipped;
         private final int removedUnstable;
+        private final Map<String, Integer> shippedBySignature;
 
-        private Reconciliation(int shipped, int removedUnstable) {
+        private Reconciliation(int shipped, int removedUnstable, Map<String, Integer> shippedBySignature) {
             this.shipped = shipped;
             this.removedUnstable = removedUnstable;
+            this.shippedBySignature = shippedBySignature;
+        }
+
+        /** Shipped assertions per signature; empty unless the reconciliation collected signatures. */
+        Map<String, Integer> shippedBySignature() {
+            return shippedBySignature;
         }
 
         int shipped() {

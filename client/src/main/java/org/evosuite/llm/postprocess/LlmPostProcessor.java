@@ -249,14 +249,18 @@ public class LlmPostProcessor {
     public void publishFinalAssertionReconciliation(LlmPostProcessingPhaseContext phaseContext,
                                                     TestSuiteChromosome suite,
                                                     int initiallyAppliedAssertions) {
+        PostProcessingSession session = phaseContext.session();
         PostProcessingAssertionReconciler.Reconciliation reconciliation =
-                PostProcessingAssertionReconciler.reconcile(suite,
-                initiallyAppliedAssertions);
-        int removedCompile = compileRemovedAssertionCount(phaseContext.session());
+                PostProcessingAssertionReconciler.reconcile(suite, initiallyAppliedAssertions,
+                        !session.appliedAssertions.isEmpty());
+        int removedCompile = compileRemovedAssertionCount(session);
         PostProcessingTelemetryPublisher.publishAssertionReconciliation(
                 Math.max(0, reconciliation.removedUnstable() - removedCompile),
                 removedCompile, reconciliation.shipped());
-        publishFinalAssertionLifecycle(phaseContext.session(), suite);
+        if (!session.appliedAssertions.isEmpty()) {
+            publishFinalAssertionLifecycle(session.appliedAssertions, session.compileRemovedAssertions,
+                    reconciliation.shippedBySignature());
+        }
     }
 
     /**
@@ -283,32 +287,18 @@ public class LlmPostProcessor {
         return count;
     }
 
-    static void publishFinalAssertionLifecycle(PostProcessingSession session,
-                                               TestSuiteChromosome suite) {
-        List<AppliedAssertionTrace> applied = session.appliedAssertions;
-        Map<String, Integer> removedCompile = session.compileRemovedAssertions;
-        if (applied.isEmpty()) {
-            return;
-        }
-        Map<String, Integer> shipped = new HashMap<>();
-        if (suite != null) {
-            for (TestChromosome chromosome : suite.getTestChromosomes()) {
-                if (chromosome == null || chromosome.getTestCase() == null
-                        || chromosome.getTestCase().isUnstable()) {
-                    continue;
-                }
-                for (Assertion assertion : chromosome.getTestCase().getAssertions()) {
-                    if (assertion instanceof TemplateCodeAssertion) {
-                        String signature = assertionSignatureForSession((TemplateCodeAssertion) assertion);
-                        shipped.put(signature, shipped.getOrDefault(signature, 0) + 1);
-                    }
-                }
-            }
-        }
+    /**
+     * Traces what became of each applied assertion. Works on copies of the
+     * counts it consumes, so publishing twice gives the same answer.
+     */
+    static void publishFinalAssertionLifecycle(List<AppliedAssertionTrace> applied,
+                                               Map<String, Integer> removedCompileBySignature,
+                                               Map<String, Integer> shippedBySignature) {
+        Map<String, Integer> shipped = new HashMap<>(shippedBySignature);
+        Map<String, Integer> removedCompile = new HashMap<>(removedCompileBySignature);
         for (AppliedAssertionTrace trace : applied) {
             int remaining = shipped.getOrDefault(trace.signature, 0);
-            int compileRemoved = removedCompile == null
-                    ? 0 : removedCompile.getOrDefault(trace.signature, 0);
+            int compileRemoved = removedCompile.getOrDefault(trace.signature, 0);
             String state;
             if (remaining > 0) {
                 state = "shipped";

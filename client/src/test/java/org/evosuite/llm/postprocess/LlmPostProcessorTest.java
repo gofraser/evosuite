@@ -1035,6 +1035,48 @@ class LlmPostProcessorTest {
     }
 
     @Test
+    void finalReconciliation_givesTheSameLifecycleWhenPublishedTwice() throws Exception {
+        Properties.LLM_POSTPROCESSING_ENABLED = true;
+        Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
+        Properties.TARGET_CLASS = null;
+        Properties.LLM_POSTPROCESSING_ASSERTION_REPAIR_ATTEMPTS = 0;
+        CapturingClientNode node = installCapturingClientNode();
+        DefaultTestCase test = uninterpretedIntReturnTest();
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        suite.addTest(test);
+        markAllTestsExecutedNormally(suite);
+        MockChatLanguageModel model = new MockChatLanguageModel();
+        model.enqueue(LlmFeature.POST_PROCESSING,
+                "{\"schemaVersion\":2,\"assertions\":["
+                        + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
+                        + "\"expected\":\"7\",\"actual\":\"v1\"}]}");
+        Path traceDir = Files.createTempDirectory("llm-twice-lifecycle");
+        LlmConfiguration configuration = new LlmConfiguration(
+                Properties.LlmProvider.NONE, "mock", "", "", 0.0,
+                1024, 2, 0, 1, true, traceDir, "test-twice-lifecycle");
+        LlmService service = new LlmService(
+                model, LlmBudgetCoordinator.of(1), configuration,
+                new LlmStatistics(), new LlmTraceRecorder(configuration));
+
+        LlmPostProcessor phaseProcessor = processor(service, new RecordingFallbackRunner(0),
+                new FinalScopeCandidateRunner(7));
+        LlmPostProcessingPhaseContext phaseContext = phaseProcessor.createPhaseContext();
+        int applied = phaseProcessor.runUnifiedPostProcessing(suite,
+                MinimizationResult.disabled(suite), phaseContext);
+        phaseProcessor.recordAssertionsRemovedByCompileFilter(phaseContext,
+                Collections.singletonList(test));
+        suite.clearTests();
+        phaseProcessor.publishFinalAssertionReconciliation(phaseContext, suite, applied);
+        phaseProcessor.publishFinalAssertionReconciliation(phaseContext, suite, applied);
+
+        assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Compile));
+        String trace = new String(Files.readAllBytes(traceDir.resolve("llm-trace.jsonl")),
+                StandardCharsets.UTF_8);
+        assertEquals(2, trace.split("\"lifecycle_state\":\"removed_compile\"", -1).length - 1);
+        assertFalse(trace.contains("\"lifecycle_state\":\"removed_unstable\""));
+    }
+
+    @Test
     void runUnifiedPostProcessing_buildsPromptFromExecutedCandidateClone() {
         Properties.LLM_POSTPROCESSING_ENABLED = true;
         Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
@@ -1431,7 +1473,7 @@ class LlmPostProcessorTest {
         suite.addTest(unstable);
 
         PostProcessingAssertionReconciler.Reconciliation reconciliation =
-                PostProcessingAssertionReconciler.reconcile(suite, 3);
+                PostProcessingAssertionReconciler.reconcile(suite, 3, false);
 
         assertEquals(1, reconciliation.shipped());
         assertEquals(2, reconciliation.removedUnstable());
