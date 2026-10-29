@@ -211,26 +211,26 @@ public final class Capturer {
      */
     public static void capture(final int captureId, final Object receiver,
                                final String methodName, final String methodDesc, final Object[] methodParams) {
-        try {
-            if (isCapturing()) {
-                setCapturing(false);
-
+        if (isCapturing()) {
+            setCapturing(false);
+            try {
                 if (logger.isDebugEnabled()) {
                     logger.debug("Method call captured:  captureId={} receiver={} type={} method={} "
                                     + "methodDesc={} params={}",
                             captureId, System.identityHashCode(receiver),
-                            receiver.getClass().getName(), methodName,
+                            receiver == null ? null : receiver.getClass().getName(), methodName,
                             methodDesc, Arrays.toString(methodParams));
                 }
 
                 currentLog.log(captureId, receiver, methodName, methodDesc, methodParams);
+            } catch (Throwable t) {
+                // TODO: Handle properly?
+                logger.error("Capture failed", t);
+            } finally {
                 if (TimeController.getInstance().isThereStillTimeInThisPhase()) {
                     setCapturing(true);
                 }
             }
-        } catch (Throwable t) {
-            // TODO: Handle properly?
-            logger.error("Capture failed", t);
         }
     }
 
@@ -253,25 +253,20 @@ public final class Capturer {
      */
     public static void enable(final int captureId, final Object receiver,
                               final Object returnValue) {
-        try {
-            if (isCapturing()) {
-                setCapturing(false);
-
+        if (isCapturing()) {
+            setCapturing(false);
+            try {
                 if (logger.isDebugEnabled()) {
                     logger.debug("enabled: capturedId={}", captureId);
-                    //logger.debug("enabled: capturedId={} receiver={} returnValue={} returnValueOID={}",
-                    //            new Object[] { captureId,
-                    //                   System.identityHashCode(receiver), System.identityHashCode(returnValue),
-                    //                  System.identityHashCode(returnValue) });
                 }
 
                 currentLog.logEnd(captureId, receiver, returnValue);
+            } catch (Throwable t) {
+                // TODO: Handle properly
+                logger.error("Enable failed", t);
+            } finally {
                 setCapturing(true);
             }
-        } catch (Throwable t) {
-            // TODO: Handle properly
-            logger.error("Enable failed", t);
-
         }
     }
 }

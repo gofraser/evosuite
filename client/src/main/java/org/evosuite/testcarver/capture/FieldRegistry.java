@@ -217,11 +217,13 @@ public final class FieldRegistry {
                 }
                 logger.debug("Notify modification of field {} on class {}", fieldName, internalClassName);
                 if (Modifier.isStatic(targetField.getModifiers())) {
-                    Capturer.capture(captureId, receiver,
+                    // a static write has no receiver; the declaring class stands in for it
+                    final Class<?> staticReceiver = targetField.getDeclaringClass();
+                    Capturer.capture(captureId, staticReceiver,
                             CaptureLog.PUTSTATIC, desc,
                             new Object[]{fieldName,
                                     currentValue});
-                    Capturer.enable(captureId, receiver,
+                    Capturer.enable(captureId, staticReceiver,
                             CaptureLog.RETURN_TYPE_VOID);
 
                 } else {
