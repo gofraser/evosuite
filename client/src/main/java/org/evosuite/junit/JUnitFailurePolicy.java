@@ -56,6 +56,64 @@ final class JUnitFailurePolicy {
         return test.isFailing() && !isHungTest(failure);
     }
 
+    /** What a failure of a JUnit check says about its test. */
+    enum Verdict {
+        /** The failure of a test the search recorded as failing. */
+        EXPECTED,
+        /** The failure belongs to no test: the scaffolding of the suite failed. */
+        SUITE_FAILURE,
+        /** The runner could not attach the Java agent. */
+        AGENT_ATTACH,
+        /** The test ended on a resource limit of the runtime, as it did during the search. */
+        RESOURCE_LIMIT,
+        /** A watchdog timeout, which races with the resource limits. */
+        TIMEOUT,
+        /** A timeout of a test that never ran because the watchdog had stopped the run. */
+        WATCHDOG_CASUALTY,
+        /** A broken class initializer or a missing display. */
+        ENVIRONMENT,
+        /** None of the above: the test is unstable. */
+        UNSTABLE
+    }
+
+    /**
+     * Classifies a failure, testing the explanations in the order of the list of {@link Verdict}s
+     * and stopping at the first that applies; the callers differ only in what they do about each.
+     *
+     * @param result       the result the failure belongs to
+     * @param failure      the failure to classify
+     * @param test         the test the failure was attributed to, or null if there is none
+     * @param testClasses  the test classes that were run
+     * @param culpritSeen  whether the test that hung has been seen already (see
+     *                     {@link #isWatchdogCasualty})
+     */
+    static Verdict classify(JUnitResult result, JUnitFailure failure, TestCase test,
+                            Class<?>[] testClasses, AtomicBoolean culpritSeen) {
+        String testName = failure.getDescriptionMethodName();
+        if (test != null && isExpectedFailure(test, failure)) {
+            return Verdict.EXPECTED;
+        }
+        if (testName == null) {
+            return Verdict.SUITE_FAILURE;
+        }
+        if (isAgentAttachFailure(testName, failure)) {
+            return Verdict.AGENT_ATTACH;
+        }
+        if (isResourceLimitFailure(failure, testClasses)) {
+            return Verdict.RESOURCE_LIMIT;
+        }
+        if (isTimeoutException(failure)) {
+            return Verdict.TIMEOUT;
+        }
+        if (isWatchdogCasualty(result, failure, culpritSeen)) {
+            return Verdict.WATCHDOG_CASUALTY;
+        }
+        if (isDeterministicEnvironmentFailure(failure)) {
+            return Verdict.ENVIRONMENT;
+        }
+        return Verdict.UNSTABLE;
+    }
+
     /**
      * Whether the failure is the JUnit runner failing to attach the Java agent, which says
      * nothing about the tests.
@@ -99,7 +157,7 @@ final class JUnitFailurePolicy {
         if (failure == null) {
             return false;
         }
-        String cls = normalizeFailureClassName(failure.getExceptionClassName());
+        String cls = failure.getExceptionClassName();
         String message = failure.getMessage();
         // the class name carries the shading prefix when Mockito is the relocated copy
         return cls.endsWith("org.mockito.exceptions.base.MockitoException")
@@ -132,7 +190,7 @@ final class JUnitFailurePolicy {
      */
     static boolean isTimeoutExceeded(JUnitFailure failure) {
         return failure != null
-                && normalizeFailureClassName(failure.getExceptionClassName())
+                && failure.getExceptionClassName()
                 .endsWith("org.evosuite.testcase.execution.TestCaseExecutor$TimeoutExceeded");
     }
 
@@ -196,7 +254,7 @@ final class JUnitFailurePolicy {
         if (failure == null) {
             return false;
         }
-        String cls = normalizeFailureClassName(failure.getExceptionClassName());
+        String cls = failure.getExceptionClassName();
         if (!"java.lang.ExceptionInInitializerError".equals(cls)
                 && !"java.lang.NoClassDefFoundError".equals(cls)) {
             return false;
@@ -225,7 +283,7 @@ final class JUnitFailurePolicy {
         if (failure == null) {
             return false;
         }
-        String failureClass = normalizeFailureClassName(failure.getExceptionClassName());
+        String failureClass = failure.getExceptionClassName();
         String message = failure.getMessage();
         List<String> trace = failure.getExceptionStackTrace();
 
@@ -254,7 +312,7 @@ final class JUnitFailurePolicy {
 
     static boolean shouldRetryWithInstrumentingAfterFailure(JUnitResult result) {
         for (JUnitFailure failure : result.getFailures()) {
-            String failureClass = normalizeFailureClassName(failure.getExceptionClassName());
+            String failureClass = failure.getExceptionClassName();
             String message = failure.getMessage();
             List<String> trace = failure.getExceptionStackTrace();
             if ("java.awt.HeadlessException".equals(failureClass)) {
@@ -278,17 +336,6 @@ final class JUnitFailurePolicy {
             }
         }
         return false;
-    }
-
-    static String normalizeFailureClassName(String rawClassName) {
-        if (rawClassName == null) {
-            return "";
-        }
-        String trimmed = rawClassName.trim();
-        if (trimmed.startsWith("class ")) {
-            return trimmed.substring("class ".length()).trim();
-        }
-        return trimmed;
     }
 
     static boolean isGraphicsEnvironmentNullFailure(String message, List<String> trace) {

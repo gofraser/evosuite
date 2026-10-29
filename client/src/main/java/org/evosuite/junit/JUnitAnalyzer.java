@@ -26,7 +26,6 @@ import org.evosuite.TimeController;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.instrumentation.NonInstrumentingClassLoader;
 import org.evosuite.junit.writer.TestSuiteWriter;
-import org.evosuite.junit.writer.TestSuiteWriterUtils;
 import org.evosuite.runtime.InitializingListener;
 import org.evosuite.runtime.InitializingListenerUtils;
 import org.evosuite.runtime.LoopCounter;
@@ -291,85 +290,78 @@ public abstract class JUnitAnalyzer {
             // remove from "tests" by identity; re-deriving names from the shrinking list would
             // point later failures at different tests.
             final List<TestCase> written = new ArrayList<>(tests);
-            failure_loop:
             for (JUnitFailure failure : result.getFailures()) {
                 String testName = failure.getDescriptionMethodName();//TODO check if correct
                 // A test that hung is not one whose failure was expected: a test recorded as
                 // failing during the search may well be the one that was killed there.
-                int writtenIndex = testMethodNames.indexOf(testName);
-                if (testName != null && writtenIndex >= 0
-                        && JUnitFailurePolicy.isExpectedFailure(written.get(writtenIndex), failure)) {
-                    logger.info("Failure is expected, continuing...");
-                    continue failure_loop;
+                int writtenIndex = writtenIndexOf(testMethodNames, testName, written.size());
+                switch (JUnitFailurePolicy.classify(result, failure,
+                        writtenIndex >= 0 ? written.get(writtenIndex) : null, testClasses,
+                        watchdogCulpritSeen)) {
+                    case EXPECTED:
+                        logger.info("Failure is expected, continuing...");
+                        continue;
+                    case SUITE_FAILURE:
+                        /*
+                         * this can happen if there is a failure in the scaffolding (eg @AfterClass/@BeforeClass).
+                         * in such case, everything need to be deleted
+                         */
+                        StringBuilder sb = new StringBuilder();
+                        sb.append("Issue in scaffolding of the test suite: ").append(failure.getMessage()).append("\n");
+                        sb.append("Stack trace:\n");
+                        for (String elem : failure.getExceptionStackTrace()) {
+                            sb.append(elem).append("\n");
+                        }
+                        logger.error(sb.toString());
+                        numUnstable = tests.size();
+                        tests.clear();
+                        return numUnstable;
+                    case AGENT_ATTACH:
+                        // On the Sheffield cluster, the "well-known fle is not secure" issue is impossible to
+                        // understand, so it might be best to ignore it for now.
+                        logger.warn("Likely error with EvoSuite instrumentation, ignoring failure in test execution");
+                        continue;
+                    case RESOURCE_LIMIT:
+                        // TooManyResourcesException during JUnit check means the SUT hit the
+                        // per-loop iteration cap (RuntimeSettings.maxNumberOfIterationsPerLoop).
+                        // During search this cap is also active, so any test that ran to
+                        // completion during generation must also have terminated this way; the
+                        // rerun is reproducing the same termination, not exposing a new bug.
+                        // Treat the test as valid and keep it in the suite.
+                        logger.debug("Ignoring expected TooManyResourcesException for test {} "
+                                + "(SUT loop terminated by iteration cap, same as during search): {}",
+                                testName, failure.getMessage());
+                        continue;
+                    case TIMEOUT:
+                        // In JUnit re-checks, watchdog timeouts can race with loop-cap termination.
+                        // Treat TimeoutException as equivalent to TooManyResourcesException to avoid
+                        // dropping tests solely due to phase-specific watchdog scheduling.
+                        logger.debug("Ignoring expected TimeoutException for test {} "
+                                        + "(equivalent to loop-cap termination during JUnit re-check): {}",
+                                testName, failure.getMessage());
+                        continue;
+                    case WATCHDOG_CASUALTY:
+                        // Once the watchdog has given up on the run it raises the kill switch, and every
+                        // test after the one that hung times out on its first instrumented line. Only the
+                        // first such failure is evidence about a test (the one that hung); the others
+                        // were never given a chance to run, and removing them used to throw away most of
+                        // the suite for a single stuck static initializer.
+                        logger.warn("Keeping test {}: it timed out only because the JUnit-check watchdog "
+                                + "had already stopped the run", testName);
+                        continue;
+                    case ENVIRONMENT:
+                        // Class initialization and GUI environment failures are deterministic
+                        // environmental issues (e.g., broken static initializers, no display) rather than
+                        // assertion instability. Remove those tests, but do not count them as unstable.
+                        logger.warn("Removing test {} due deterministic environment failure: {}: {}",
+                                testName, failure.getExceptionClassName(), failure.getMessage());
+                        if (writtenIndex >= 0) {
+                            removeByIdentity(tests, written.get(writtenIndex));
+                        }
+                        continue;
+                    default:
+                        break;
                 }
-
-                if (testName == null) {
-                    /*
-                     * this can happen if there is a failure in the scaffolding (eg @AfterClass/@BeforeClass).
-                     * in such case, everything need to be deleted
-                     */
-                    StringBuilder sb = new StringBuilder();
-                    sb.append("Issue in scaffolding of the test suite: ").append(failure.getMessage()).append("\n");
-                    sb.append("Stack trace:\n");
-                    for (String elem : failure.getExceptionStackTrace()) {
-                        sb.append(elem).append("\n");
-                    }
-                    logger.error(sb.toString());
-                    numUnstable = tests.size();
-                    tests.clear();
-                    return numUnstable;
-                }
-
-                // On the Sheffield cluster, the "well-known fle is not secure" issue is impossible to understand,
-                // so it might be best to ignore it for now.
-                if (JUnitFailurePolicy.isAgentAttachFailure(testName, failure)) {
-                    logger.warn("Likely error with EvoSuite instrumentation, ignoring failure in test execution");
-                    continue failure_loop;
-                }
-
-                // TooManyResourcesException during JUnit check means the SUT hit the
-                // per-loop iteration cap (RuntimeSettings.maxNumberOfIterationsPerLoop).
-                // During search this cap is also active, so any test that ran to
-                // completion during generation must also have terminated this way; the
-                // rerun is reproducing the same termination, not exposing a new bug.
-                // Treat the test as valid and keep it in the suite.
-                if (JUnitFailurePolicy.isResourceLimitFailure(failure, testClasses)) {
-                    logger.debug("Ignoring expected TooManyResourcesException for test {} "
-                            + "(SUT loop terminated by iteration cap, same as during search): {}",
-                            testName, failure.getMessage());
-                    continue failure_loop;
-                }
-                // In JUnit re-checks, watchdog timeouts can race with loop-cap termination.
-                // Treat TimeoutException as equivalent to TooManyResourcesException to avoid
-                // dropping tests solely due to phase-specific watchdog scheduling.
-                if (JUnitFailurePolicy.isTimeoutException(failure)) {
-                    logger.debug("Ignoring expected TimeoutException for test {} "
-                                    + "(equivalent to loop-cap termination during JUnit re-check): {}",
-                            testName, failure.getMessage());
-                    continue failure_loop;
-                }
-
-                // Once the watchdog has given up on the run it raises the kill switch, and every
-                // test after the one that hung times out on its first instrumented line. Only the
-                // first such failure is evidence about a test (the one that hung); the others
-                // were never given a chance to run, and removing them used to throw away most of
-                // the suite for a single stuck static initializer.
-                if (JUnitFailurePolicy.isWatchdogCasualty(result, failure, watchdogCulpritSeen)) {
-                    logger.warn("Keeping test {}: it timed out only because the JUnit-check watchdog "
-                            + "had already stopped the run", testName);
-                    continue failure_loop;
-                }
-
-                // Class initialization and GUI environment failures are deterministic
-                // environmental issues (e.g., broken static initializers, no display) rather than
-                // assertion instability. Remove those tests, but do not count them as unstable.
-                if (JUnitFailurePolicy.isDeterministicEnvironmentFailure(failure)) {
-                    logger.warn("Removing test {} due deterministic environment failure: {}: {}",
-                            testName, failure.getExceptionClassName(), failure.getMessage());
-                    removeTestByName(tests, written, testMethodNames, testName);
-                    continue failure_loop;
-                }
-
 
                 logger.warn("Found unstable test named " + testName + " -> "
                         + failure.getExceptionClassName() + ": " + failure.getMessage());
@@ -384,30 +376,27 @@ public abstract class JUnitAnalyzer {
                 }
 
                 boolean toRemove = !(failure.isAssertionError());
-                for (int i = 0; i < written.size(); i++) {
-                    if (testName.equals(testMethodNames.get(i))) {
-                        final TestCase failingTest = written.get(i);
-                        logger.warn("Failing test:\n " + failingTest.toCode());
-                        // An unstable test that is kept is written with the stubs its code shows
-                        FunctionalMockStatement.completePendingStubsWithNulls(failingTest);
-                        numUnstable++;
-                        /*
-                         * we have a match. should we remove it or mark as unstable?
-                         * When we have an Assert.* failing, we can just comment out
-                         * all the assertions in the test case. If it is an "assert"
-                         * in the SUT that fails, we do want to have the JUnit test fail.
-                         * On the other hand, if a test fail due to an uncaught exception,
-                         * we should delete it, as it would either represent a bug in EvoSuite
-                         * or something we cannot (easily) fix here
-                         */
-                        if (!toRemove) {
-                            logger.debug("Going to mark test as unstable: " + testName);
-                            failingTest.setUnstable(true);
-                        } else {
-                            logger.debug("Going to remove unstable test: " + testName);
-                            removeByIdentity(tests, failingTest);
-                        }
-                        break;
+                if (writtenIndex >= 0) {
+                    final TestCase failingTest = written.get(writtenIndex);
+                    logger.warn("Failing test:\n " + failingTest.toCode());
+                    // An unstable test that is kept is written with the stubs its code shows
+                    FunctionalMockStatement.completePendingStubsWithNulls(failingTest);
+                    numUnstable++;
+                    /*
+                     * we have a match. should we remove it or mark as unstable?
+                     * When we have an Assert.* failing, we can just comment out
+                     * all the assertions in the test case. If it is an "assert"
+                     * in the SUT that fails, we do want to have the JUnit test fail.
+                     * On the other hand, if a test fail due to an uncaught exception,
+                     * we should delete it, as it would either represent a bug in EvoSuite
+                     * or something we cannot (easily) fix here
+                     */
+                    if (!toRemove) {
+                        logger.debug("Going to mark test as unstable: " + testName);
+                        failingTest.setUnstable(true);
+                    } else {
+                        logger.debug("Going to remove unstable test: " + testName);
+                        removeByIdentity(tests, failingTest);
                     }
                 }
             }
@@ -428,12 +417,13 @@ public abstract class JUnitAnalyzer {
         }
     }
 
-    private static void removeTestByName(List<TestCase> tests, List<TestCase> written,
-                                         List<String> testMethodNames, String testName) {
-        int index = testMethodNames.indexOf(testName);
-        if (index >= 0) {
-            removeByIdentity(tests, written.get(index));
-        }
+    /**
+     * The index of the test the writer named {@code testName}, or -1 if there is none among the
+     * first {@code testCount}.
+     */
+    private static int writtenIndexOf(List<String> testMethodNames, String testName, int testCount) {
+        int index = testName == null ? -1 : testMethodNames.indexOf(testName);
+        return index < testCount ? index : -1;
     }
 
     private static void removeByIdentity(List<TestCase> tests, TestCase test) {
@@ -681,31 +671,22 @@ public abstract class JUnitAnalyzer {
     private static Set<String> mapUnexpectedFailureNames(JUnitResult result, List<TestCase> tests,
                                                           Class<?>[] testClasses,
                                                           List<String> testMethodNames) {
-        Map<String, TestCase> testByName = new LinkedHashMap<>();
-        for (int i = 0; i < tests.size(); i++) {
-            testByName.putIfAbsent(testMethodNames.get(i), tests.get(i));
-        }
-
         Set<String> failures = new LinkedHashSet<>();
         AtomicBoolean watchdogCulpritSeen = new AtomicBoolean(false);
         for (JUnitFailure failure : result.getFailures()) {
             String testName = failure.getDescriptionMethodName();
-            if (testName == null) {
-                failures.add("suite-initialization");
-                continue;
+            int index = writtenIndexOf(testMethodNames, testName, tests.size());
+            switch (JUnitFailurePolicy.classify(result, failure, index >= 0 ? tests.get(index) : null,
+                    testClasses, watchdogCulpritSeen)) {
+                case SUITE_FAILURE:
+                    failures.add("suite-initialization");
+                    break;
+                case UNSTABLE:
+                    failures.add(testName);
+                    break;
+                default:
+                    break;
             }
-            TestCase mapped = testByName.get(testName);
-            if (mapped != null && JUnitFailurePolicy.isExpectedFailure(mapped, failure)) {
-                continue;
-            }
-            if (JUnitFailurePolicy.isAgentAttachFailure(testName, failure)
-                    || JUnitFailurePolicy.isResourceLimitFailure(failure, testClasses)
-                    || JUnitFailurePolicy.isTimeoutException(failure)
-                    || JUnitFailurePolicy.isWatchdogCasualty(result, failure, watchdogCulpritSeen)
-                    || JUnitFailurePolicy.isDeterministicEnvironmentFailure(failure)) {
-                continue;
-            }
-            failures.add(testName);
         }
         return failures;
     }

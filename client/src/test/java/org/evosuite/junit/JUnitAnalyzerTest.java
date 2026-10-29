@@ -611,7 +611,7 @@ public class JUnitAnalyzerTest {
         JUnitResult result = new JUnitResult(false, 1, 1);
         JUnitFailure failure = new JUnitFailure(
                 "headless",
-                "class java.awt.HeadlessException",
+                "java.awt.HeadlessException",
                 "test0",
                 false,
                 "");
@@ -630,7 +630,7 @@ public class JUnitAnalyzerTest {
         JUnitResult result = new JUnitResult(false, 1, 1);
         JUnitFailure failure = new JUnitFailure(
                 "Local GraphicsEnvironment must not be null",
-                "class java.awt.AWTError",
+                "java.awt.AWTError",
                 "test0",
                 false,
                 "");
@@ -667,7 +667,7 @@ public class JUnitAnalyzerTest {
 
         JUnitFailure failure = new JUnitFailure(
                 "No X11 DISPLAY variable was set, but this program performed an operation which requires it.",
-                "class java.awt.HeadlessException",
+                "java.awt.HeadlessException",
                 "test0",
                 false,
                 "");
