@@ -43,7 +43,19 @@ public class LoopCounter {
 
     private Object delegate;
 
+    /** {@code checkLoop(int)} of the delegate, looked up once because it is called on every loop back-edge. */
+    private java.lang.reflect.Method delegateCheckLoop;
+
     public void setDelegate(Object delegate) {
+        java.lang.reflect.Method checkLoop = null;
+        if (delegate != null) {
+            try {
+                checkLoop = delegate.getClass().getMethod("checkLoop", int.class);
+            } catch (Exception e) {
+                // Ignore: a delegate without checkLoop(int) is never consulted
+            }
+        }
+        this.delegateCheckLoop = checkLoop;
         this.delegate = delegate;
     }
 
@@ -418,8 +430,7 @@ public class LoopCounter {
                         "Loop terminated early: thread was interrupted (likely timeout)");
             }
             try {
-                java.lang.reflect.Method m = delegate.getClass().getMethod("checkLoop", int.class);
-                m.invoke(delegate, index);
+                delegateCheckLoop.invoke(delegate, index);
             } catch (java.lang.reflect.InvocationTargetException e) {
                 if (e.getCause() instanceof TooManyResourcesException) {
                     throw (TooManyResourcesException) e.getCause();

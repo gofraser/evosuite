@@ -985,7 +985,7 @@ public class GuiSupport {
         return true;
     }
 
-    private static boolean isHeadlessSafely() {
+    public static boolean isHeadlessSafely() {
         try {
             return GraphicsEnvironment.isHeadless();
         } catch (Throwable ignored) {

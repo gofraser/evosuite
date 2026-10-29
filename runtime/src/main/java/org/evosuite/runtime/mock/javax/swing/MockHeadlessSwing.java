@@ -130,7 +130,7 @@ public final class MockHeadlessSwing {
         if (!MockFramework.isEnabled()) {
             return false;
         }
-        if (isHeadlessSafe()) {
+        if (GuiSupport.isHeadlessSafely()) {
             return true;
         }
         // EvoSuite temporarily flips headless to false for two scopes that are
@@ -256,15 +256,6 @@ public final class MockHeadlessSwing {
             }
         } catch (Throwable t) {
             logger.debug("Could not install minimal font: {}", t.toString());
-        }
-    }
-
-    private static boolean isHeadlessSafe() {
-        try {
-            return GraphicsEnvironment.isHeadless();
-        } catch (Throwable ignored) {
-            // If AWT initialization is broken, prefer headless-safe behavior.
-            return true;
         }
     }
 
