@@ -29,6 +29,7 @@ import org.evosuite.graphs.cfg.ActualControlFlowGraph;
 import org.evosuite.graphs.cfg.BytecodeAnalyzer;
 import org.evosuite.graphs.cfg.RawControlFlowGraph;
 import org.evosuite.setup.DependencyAnalysis;
+import org.evosuite.utils.PerClassLoader;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
@@ -60,7 +61,7 @@ public class GraphPool {
 
     private static final Logger logger = LoggerFactory.getLogger(GraphPool.class);
 
-    private static final Map<ClassLoader, GraphPool> instanceMap = new ConcurrentHashMap<>();
+    private static final PerClassLoader<GraphPool> pools = new PerClassLoader<>();
 
     private final ClassLoader classLoader;
 
@@ -78,10 +79,7 @@ public class GraphPool {
      * @return GraphPool instance
      */
     public static GraphPool getInstance(ClassLoader classLoader) {
-        // Handle null classLoader (bootstrap classloader) by using a sentinel key,
-        // since ConcurrentHashMap doesn't allow null keys
-        ClassLoader key = classLoader != null ? classLoader : ClassLoader.getSystemClassLoader();
-        return instanceMap.computeIfAbsent(key, GraphPool::new);
+        return pools.get(classLoader, GraphPool::new);
     }
 
     /**
@@ -444,15 +442,15 @@ public class GraphPool {
     }
 
     public static void clearAll(String className) {
-        instanceMap.values().forEach(pool -> pool.clear(className));
+        pools.values().forEach(pool -> pool.clear(className));
     }
 
     public static void clearAll(String className, String methodName) {
-        instanceMap.values().forEach(pool -> pool.clear(className, methodName));
+        pools.values().forEach(pool -> pool.clear(className, methodName));
     }
 
     public static void clearAll() {
-        instanceMap.clear();
+        pools.clear();
     }
 
     /**
@@ -462,9 +460,7 @@ public class GraphPool {
      * @param classLoader the class loader whose pool is no longer needed
      */
     public static void release(ClassLoader classLoader) {
-        if (classLoader != null) {
-            instanceMap.remove(classLoader);
-        }
+        pools.release(classLoader);
     }
 
 }

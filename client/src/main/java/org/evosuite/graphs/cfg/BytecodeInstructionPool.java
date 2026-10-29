@@ -21,6 +21,7 @@ package org.evosuite.graphs.cfg;
 
 import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.runtime.instrumentation.AnnotatedLabel;
+import org.evosuite.utils.PerClassLoader;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
@@ -37,7 +38,7 @@ public class BytecodeInstructionPool {
 
     private static final Logger logger = LoggerFactory.getLogger(BytecodeInstructionPool.class);
 
-    private static final Map<ClassLoader, BytecodeInstructionPool> instanceMap = new LinkedHashMap<>();
+    private static final PerClassLoader<BytecodeInstructionPool> pools = new PerClassLoader<>();
 
     private final ClassLoader classLoader;
 
@@ -52,11 +53,7 @@ public class BytecodeInstructionPool {
      * @return BytecodeInstructionPool instance
      */
     public static BytecodeInstructionPool getInstance(ClassLoader classLoader) {
-        if (!instanceMap.containsKey(classLoader)) {
-            instanceMap.put(classLoader, new BytecodeInstructionPool(classLoader));
-        }
-
-        return instanceMap.get(classLoader);
+        return pools.get(classLoader, BytecodeInstructionPool::new);
     }
 
     // maps className -> method inside that class -> list of
@@ -505,7 +502,7 @@ public class BytecodeInstructionPool {
      * Clears all instances of BytecodeInstructionPool.
      */
     public static void clearAll() {
-        BytecodeInstructionPool.instanceMap.clear();
+        pools.clear();
     }
 
     /**
@@ -515,7 +512,7 @@ public class BytecodeInstructionPool {
      * @param classLoader the class loader whose pool is no longer needed
      */
     public static void release(ClassLoader classLoader) {
-        instanceMap.remove(classLoader);
+        pools.release(classLoader);
     }
 
     /**
@@ -533,7 +530,7 @@ public class BytecodeInstructionPool {
      * @param className class name
      */
     public static void clearAll(String className) {
-        for (BytecodeInstructionPool pool : instanceMap.values()) {
+        for (BytecodeInstructionPool pool : pools.values()) {
             pool.clear(className);
         }
     }
@@ -557,7 +554,7 @@ public class BytecodeInstructionPool {
      * @param methodName method name
      */
     public static void clearAll(String className, String methodName) {
-        for (BytecodeInstructionPool pool : instanceMap.values()) {
+        for (BytecodeInstructionPool pool : pools.values()) {
             pool.clear(className, methodName);
         }
     }

@@ -22,6 +22,7 @@ package org.evosuite.coverage.branch;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.CFGMethodAdapter;
 import org.evosuite.setup.DependencyAnalysis;
+import org.evosuite.utils.PerClassLoader;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.LabelNode;
 import org.objectweb.asm.tree.LookupSwitchInsnNode;
@@ -82,7 +83,7 @@ public class BranchPool {
     // number of known Branches - used for actualBranchIds
     private int branchCounter = 0;
 
-    private static final Map<ClassLoader, BranchPool> instanceMap = new HashMap<>();
+    private static final PerClassLoader<BranchPool> pools = new PerClassLoader<>();
 
     /**
      * Returns the BranchPool instance for the given class loader.
@@ -91,11 +92,7 @@ public class BranchPool {
      * @return the BranchPool instance.
      */
     public static BranchPool getInstance(ClassLoader classLoader) {
-        if (!instanceMap.containsKey(classLoader)) {
-            instanceMap.put(classLoader, new BranchPool());
-        }
-
-        return instanceMap.get(classLoader);
+        return pools.get(classLoader, k -> new BranchPool());
     }
 
     /**
@@ -105,7 +102,7 @@ public class BranchPool {
      * @param classLoader the class loader whose pool is no longer needed
      */
     public static void release(ClassLoader classLoader) {
-        instanceMap.remove(classLoader);
+        pools.release(classLoader);
     }
     // fill the pool
 

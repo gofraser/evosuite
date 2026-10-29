@@ -20,11 +20,11 @@
 package org.evosuite.coverage.mutation;
 
 import org.evosuite.graphs.cfg.BytecodeInstruction;
+import org.evosuite.utils.PerClassLoader;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.InsnList;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 
 /**
@@ -33,10 +33,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author fraser
  */
 public class MutationPool {
-    private static final Map<ClassLoader, MutationPool> instanceMap = new ConcurrentHashMap<>();
+    private static final PerClassLoader<MutationPool> pools = new PerClassLoader<>();
 
     public static MutationPool getInstance(ClassLoader classLoader) {
-        return instanceMap.computeIfAbsent(classLoader, k -> new MutationPool());
+        return pools.get(classLoader, k -> new MutationPool());
     }
 
     /**
@@ -46,9 +46,7 @@ public class MutationPool {
      * @param classLoader the class loader whose pool is no longer needed
      */
     public static void release(ClassLoader classLoader) {
-        if (classLoader != null) {
-            instanceMap.remove(classLoader);
-        }
+        pools.release(classLoader);
     }
 
     private MutationPool() {
