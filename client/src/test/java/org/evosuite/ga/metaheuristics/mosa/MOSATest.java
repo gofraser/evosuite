@@ -21,6 +21,8 @@ package org.evosuite.ga.metaheuristics.mosa;
 
 import org.evosuite.Properties;
 import org.evosuite.ga.ChromosomeFactory;
+import org.evosuite.ga.FitnessFunction;
+import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.TestChromosome;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,5 +45,23 @@ public class MOSATest extends MosaTestSupport {
     public void testInitialization() {
         assertNotNull(mosa);
         assertTrue(mosa.getFitnessFunctions().isEmpty());
+    }
+
+    @Test
+    public void testObjectivesAreSeenByInheritedMethods() {
+        TestFitnessFunction goal = mock(TestFitnessFunction.class);
+        mosa.addFitnessFunction(goal);
+
+        assertEquals(1, mosa.getNumberOfFitnessFunctions());
+        assertSame(goal, mosa.getFitnessFunction());
+        assertEquals(1, mosa.getFitnessFunctions().size());
+    }
+
+    @Test
+    public void testRejectsFitnessFunctionsThatAreNotTestFitnessFunctions() {
+        FitnessFunction<TestChromosome> other = mock(FitnessFunction.class);
+
+        assertThrows(IllegalArgumentException.class, () -> mosa.addFitnessFunction(other));
+        assertEquals(0, mosa.getNumberOfFitnessFunctions());
     }
 }
