@@ -64,10 +64,6 @@ public class SimpleMutationAssertionGenerator extends AssertionGenerator {
 
     protected final Map<Integer, Mutation> mutants = new HashMap<>();
 
-    protected static final Map<Mutation, Integer> timedOutMutations = new HashMap<>();
-
-    protected static final Map<Mutation, Integer> exceptionMutations = new HashMap<>();
-
     /**
      * Default constructor.
      */
@@ -463,20 +459,6 @@ public class SimpleMutationAssertionGenerator extends AssertionGenerator {
                 killed.add(m.getId());
                 continue;
             }
-            if (timedOutMutations.containsKey(m)) {
-                if (timedOutMutations.get(m) >= Properties.MUTATION_TIMEOUTS) {
-                    logger.debug("Skipping timed out mutant");
-                    killed.add(m.getId());
-                    continue;
-                }
-            }
-            if (exceptionMutations.containsKey(m)) {
-                if (exceptionMutations.get(m) >= Properties.MUTATION_TIMEOUTS) {
-                    logger.debug("Skipping mutant with exceptions");
-                    killed.add(m.getId());
-                    continue;
-                }
-            }
             if (Properties.MAX_MUTANTS_PER_TEST > 0
                     && numExecutedMutants > Properties.MAX_MUTANTS_PER_TEST) {
                 break;
@@ -508,21 +490,11 @@ public class SimpleMutationAssertionGenerator extends AssertionGenerator {
 
             if (mutantResult.hasTimeout()) {
                 logger.debug("Increasing timeout count!");
-                if (!timedOutMutations.containsKey(m)) {
-                    timedOutMutations.put(m, 1);
-                } else {
-                    timedOutMutations.put(m, timedOutMutations.get(m) + 1);
-                }
                 MutationTimeouts.timeOut(m);
 
             } else if (!mutantResult.noThrownExceptions()
                     && origResult.noThrownExceptions()) {
                 logger.debug("Increasing exception count.");
-                if (!exceptionMutations.containsKey(m)) {
-                    exceptionMutations.put(m, 1);
-                } else {
-                    exceptionMutations.put(m, exceptionMutations.get(m) + 1);
-                }
                 MutationTimeouts.raisedException(m);
             }
 
