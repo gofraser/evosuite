@@ -22,6 +22,7 @@ package org.evosuite.testcase.synthesizer.var;
 import com.examples.with.different.packagename.objectconstruction.tuning.CastParameterExample;
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
+import org.evosuite.ContextResetter;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.coverage.branch.Branch;
@@ -54,7 +55,7 @@ public class ParameterCastDescriptorTest {
         Properties.TARGET_METHOD = "";
         Properties.TARGET_CLASS = "";
         Properties.APPLY_OBJECT_RULE = false;
-        TestGenerationContext.getInstance().resetContext();
+        ContextResetter.reset();
     }
 
     @Test

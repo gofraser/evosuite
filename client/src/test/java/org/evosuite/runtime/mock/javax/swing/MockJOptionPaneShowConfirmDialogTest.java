@@ -22,6 +22,7 @@ package org.evosuite.runtime.mock.javax.swing;
 import com.examples.with.different.packagename.mock.javax.swing.ShowConfirmDialogExample;
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
+import org.evosuite.ContextResetter;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.coverage.branch.BranchCoverageSuiteFitness;
@@ -58,14 +59,14 @@ public class MockJOptionPaneShowConfirmDialogTest {
         Properties.TARGET_CLASS = ShowConfirmDialogExample.class.getCanonicalName();
         Properties.REPLACE_GUI = true;
         RuntimeSettings.mockGUI = true;
-        TestGenerationContext.getInstance().resetContext();
+        ContextResetter.reset();
     }
 
     @AfterEach
     public void tearDown() {
         RuntimeSettings.mockGUI = DEFAULT_MOCK_GUI;
         Properties.REPLACE_GUI = DEFAULT_REPLACE_GUI;
-        TestGenerationContext.getInstance().resetContext();
+        ContextResetter.reset();
     }
 
     @org.junit.jupiter.api.Test

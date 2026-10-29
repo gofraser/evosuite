@@ -112,7 +112,7 @@ public class ObjectRuleFactoryTest {
         Properties.APPLY_OBJECT_RULE = false;
         Properties.P_OBJECT_RULE_APPLICATION = 0.6;
         org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getSession().clearWorkingTarget();
-        org.evosuite.TestGenerationContext.getInstance().resetContext();
+        org.evosuite.ContextResetter.reset();
     }
 
     private static String signatureOf(Class<?> clazz, String methodName, int paramNum) {

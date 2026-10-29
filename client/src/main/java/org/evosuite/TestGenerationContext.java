@@ -19,49 +19,16 @@
  */
 package org.evosuite;
 
-import org.evosuite.assertion.InspectorManager;
-import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.classpath.ResourceList;
-import org.evosuite.contracts.ContractChecker;
-import org.evosuite.contracts.FailingTestSet;
 import org.evosuite.coverage.branch.BranchPool;
-import org.evosuite.coverage.dataflow.DefUsePool;
 import org.evosuite.coverage.mutation.MutationPool;
-import org.evosuite.coverage.mutation.MutationTimeouts;
-import org.evosuite.ga.archive.Archive;
-import org.evosuite.ga.stoppingconditions.GlobalTimeStoppingCondition;
-import org.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
 import org.evosuite.graphs.GraphPool;
 import org.evosuite.graphs.cfg.BytecodeInstructionPool;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
-import org.evosuite.instrumentation.LinePool;
-import org.evosuite.runtime.Runtime;
 import org.evosuite.runtime.classhandling.ClassResetter;
-import org.evosuite.runtime.classhandling.ModifiedTargetStaticFields;
-import org.evosuite.runtime.instrumentation.MethodCallReplacementCache;
-import org.evosuite.runtime.instrumentation.RemoveFinalClassAdapter;
-import org.evosuite.runtime.util.JOptionPaneInputs;
-import org.evosuite.runtime.util.SystemInUtil;
-import org.evosuite.seeding.CastClassManager;
-import org.evosuite.seeding.ConstantPoolManager;
-import org.evosuite.seeding.ObjectPoolManager;
-import org.evosuite.setup.ConcreteClassAnalyzer;
-import org.evosuite.setup.DependencyAnalysis;
-import org.evosuite.setup.TestCluster;
 import org.evosuite.setup.TestClusterGenerator;
-import org.evosuite.symbolic.dse.DSEStatistics;
-import org.evosuite.testcarver.extraction.CarvingManager;
-import org.evosuite.testcase.execution.ExecutionTracer;
-import org.evosuite.testcase.execution.TestCaseExecutor;
-import org.evosuite.testcase.execution.reset.ClassReInitializer;
 import org.evosuite.testcase.factories.ObjectRuleRuntime;
 import org.evosuite.utils.MasterClassLoaderBridge;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.File;
-import java.util.Arrays;
-import java.util.List;
 
 /**
  * Context for test generation.
@@ -69,8 +36,6 @@ import java.util.List;
  * @author Gordon Fraser
  */
 public class TestGenerationContext {
-
-    private static final Logger logger = LoggerFactory.getLogger(TestGenerationContext.class);
 
     private static final TestGenerationContext singleton = new TestGenerationContext();
 
@@ -170,6 +135,14 @@ public class TestGenerationContext {
     }
 
     /**
+     * Replaces the instrumenting class loader with a fresh one, so that classes can be
+     * instrumented again.
+     */
+    public synchronized void renewClassLoader() {
+        classLoader = new InstrumentingClassLoader(getPreferredParentClassLoader());
+    }
+
+    /**
      * Get the test cluster generator.
      *
      * @return the test cluster generator
@@ -206,7 +179,7 @@ public class TestGenerationContext {
      * <p>Instrumenting a class registers its bytecode instructions, control flow graphs,
      * branches and mutants in pools keyed by the loader that instrumented it. Those entries
      * reference the loader, so without this call every such loader, and all it instrumented,
-     * stays reachable until the next {@link #resetContext()}. The loader of this context is
+     * stays reachable until the next {@link ContextResetter#reset()}. The loader of this context is
      * never released.
      *
      * @param loader a class loader that is no longer used
@@ -221,109 +194,5 @@ public class TestGenerationContext {
         MutationPool.release(loader);
         ResourceList.release(loader);
         ClassResetter.getInstance().releaseClassLoader(loader);
-    }
-
-    /**
-     * Resets the test generation context.
-     *
-     * <p>This involves clearing pools (branch, mutation, graph, etc.), resetting static state,
-     * re-initializing the instrumenting class loader, and resetting the archive and stopping
-     * conditions. This is typically done when starting a new search or when re-instrumentation is
-     * needed.
-     */
-    public void resetContext() {
-        logger.info("*** Resetting context");
-
-        // A fresh context needs a fresh class loader to make sure we can
-        // re-instrument classes
-        classLoader = new InstrumentingClassLoader(getPreferredParentClassLoader());
-
-        TestCaseExecutor.pullDown();
-        TestCaseExecutor.resetAdaptiveTimeoutStateIfPresent();
-
-        ExecutionTracer.getExecutionTracer().clear();
-
-        BranchPool.clearAll();
-        RemoveFinalClassAdapter.reset();
-        org.evosuite.testcase.statements.FunctionalMockStatement.resetUsefulMockSurfaceCache();
-        LinePool.reset();
-        MutationPool.getInstance(classLoader).clear();
-
-        // TODO: Clear only pool of current classloader?
-        GraphPool.clearAll();
-        DefUsePool.clear();
-
-        // Reset all run-scoped object-construction analysis and synthesis state.
-        objectRuleRuntime.reset();
-
-        // TODO: Clear only pool of current classloader?
-        BytecodeInstructionPool.clearAll();
-
-        // TODO: After this, the test cluster is empty until
-        // DependencyAnalysis.analyse is called
-
-        // Keep inheritance metadata when classpath is unchanged; it is safe to rebuild other
-        // caches.
-        DependencyAnalysis.clear(true);
-        TestCluster.reset();
-        CastClassManager.getInstance().clear();
-        org.evosuite.utils.generic.GenericClassImpl.clearSatisfiesBoundariesCache();
-        ConcreteClassAnalyzer.getInstance().clear();
-        // This counts the current level of recursion during test generation
-        org.evosuite.testcase.TestFactory.getInstance().reset();
-
-        MaxStatementsStoppingCondition.setNumExecutedStatements(0);
-        GlobalTimeStoppingCondition.forceReset();
-        MutationTimeouts.resetStatic();
-
-        // Forget the old SUT
-        Properties.resetTargetClass();
-
-        TestCaseExecutor.initExecutor();
-
-        Archive.getArchiveInstance().reset();
-
-        // Constant pool
-        ConstantPoolManager.getInstance().reset();
-        ObjectPoolManager.getInstance().reset();
-        CarvingManager.getInstance().clear();
-
-        // TODO: Why are we doing this?
-        if (Properties.INSTRUMENT_CONTEXT || !Properties.TARGET_CLASS.isEmpty()) {
-            try {
-                // 1. Initialize the callGraph before using
-                String cp = ClassPathHandler.getInstance().getTargetProjectClasspath();
-                DependencyAnalysis.analyzeClass(Properties.TARGET_CLASS, Arrays.asList(cp.split(File.pathSeparator)));
-                testClusterGenerator = new TestClusterGenerator(
-                        DependencyAnalysis.getInheritanceTree());
-                // 2. Use the callGraph
-                testClusterGenerator.generateCluster(DependencyAnalysis.getCallGraph());
-            } catch (RuntimeException e) {
-                logger.error(e.getMessage(), e);
-            } catch (ClassNotFoundException e) {
-                logger.error(e.getMessage(), e);
-            }
-        }
-
-        if (Properties.CHECK_CONTRACTS) {
-            FailingTestSet.changeClassLoader(classLoader);
-        }
-        ContractChecker.setActive(true);
-
-        SystemInUtil.resetSingleton();
-        JOptionPaneInputs.resetSingleton();
-        Runtime.resetSingleton();
-        MethodCallReplacementCache.resetSingleton();
-
-        DSEStatistics.clear();
-
-        // keep the list of initialized classes (clear them when needed in
-        // the system test cases)
-        final List<String> initializedClasses = ClassReInitializer.getInstance().getInitializedClasses();
-        ClassReInitializer.resetSingleton();
-        ClassReInitializer.getInstance().addInitializedClasses(initializedClasses);
-
-        InspectorManager.resetSingleton();
-        ModifiedTargetStaticFields.resetSingleton();
     }
 }

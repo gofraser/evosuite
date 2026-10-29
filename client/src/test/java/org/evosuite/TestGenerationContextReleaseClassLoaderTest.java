@@ -87,7 +87,7 @@ public class TestGenerationContextReleaseClassLoaderTest {
     @Test
     public void aCheckLoaderAddsNoMutantsToThePoolOfTheContext() throws Exception {
         Properties.CRITERION = new Properties.Criterion[]{Properties.Criterion.WEAKMUTATION};
-        TestGenerationContext.getInstance().resetContext();
+        ContextResetter.reset();
         ClassLoader sutLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
         sutLoader.loadClass(TARGET_CLASS);
         int mutants = MutationPool.getInstance(sutLoader).getMutants().size();

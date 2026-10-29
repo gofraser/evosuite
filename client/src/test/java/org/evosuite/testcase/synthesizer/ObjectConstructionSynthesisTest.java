@@ -94,7 +94,7 @@ public class ObjectConstructionSynthesisTest {
 		Properties.TARGET_METHOD = "";
 		Properties.TARGET_CLASS = "";
 		Properties.APPLY_OBJECT_RULE = false;
-		org.evosuite.TestGenerationContext.getInstance().resetContext();
+		org.evosuite.ContextResetter.reset();
 	}
 
 	private static String signatureOf(Class<?> clazz, String methodName, int paramNum) {

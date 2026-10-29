@@ -20,7 +20,7 @@
 package org.evosuite.testcase.dmon;
 
 import org.evosuite.Properties;
-import org.evosuite.TestGenerationContext;
+import org.evosuite.ContextResetter;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestChromosome;
@@ -79,7 +79,7 @@ public class DmonLinkageErrorTest {
         Files.createDirectories(dir);
         Files.write(dir.resolve("Holder.class"), cw.toByteArray());
 
-        TestGenerationContext.getInstance().resetContext();
+        ContextResetter.reset();
         ClassPathHandler.getInstance().addElementToTargetProjectClassPath(
                 dir.getParent().toString());
     }
@@ -89,7 +89,7 @@ public class DmonLinkageErrorTest {
         Properties.DMON_ENABLED = oldEnabled;
         Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
         Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
-        TestGenerationContext.getInstance().resetContext();
+        ContextResetter.reset();
     }
 
     @Test
@@ -138,7 +138,7 @@ public class DmonLinkageErrorTest {
         Path dir = folder.newFolder("cp2").toPath().resolve("dmonlinkage");
         Files.createDirectories(dir);
         Files.write(dir.resolve("BadInit.class"), cw.toByteArray());
-        TestGenerationContext.getInstance().resetContext();
+        ContextResetter.reset();
         ClassPathHandler.getInstance().addElementToTargetProjectClassPath(dir.getParent().toString());
 
         TestChromosome chromosome = new TestChromosome();

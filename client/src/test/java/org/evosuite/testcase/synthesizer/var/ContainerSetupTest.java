@@ -86,7 +86,7 @@ public class ContainerSetupTest {
         Properties.TARGET_CLASS = "";
         Properties.TARGET_METHOD = "";
         TargetContext.clearActive();
-        org.evosuite.TestGenerationContext.getInstance().resetContext();
+        org.evosuite.ContextResetter.reset();
     }
 
     // Fixtures

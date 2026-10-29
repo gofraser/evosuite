@@ -21,6 +21,7 @@ package org.evosuite.clinit;
 
 import com.examples.with.different.packagename.clinit.SimpleClass;
 import org.evosuite.Properties;
+import org.evosuite.ContextResetter;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
@@ -77,7 +78,7 @@ public class TestClassInitialization {
         Properties.CLIENT_ON_THREAD = true;
         final String className = SimpleClass.class.getCanonicalName();
         TestCaseExecutor.initExecutor();
-        TestGenerationContext.getInstance().resetContext();
+        ContextResetter.reset();
         ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
         InstrumentingClassLoader classLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
         assertFalse(classLoader.getLoadedClasses().contains(className));

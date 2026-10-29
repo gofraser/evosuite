@@ -22,6 +22,7 @@ package org.evosuite.coverage.branch;
 import com.examples.with.different.packagename.cdg.ExceptionalControlFlow;
 import com.examples.with.different.packagename.cdg.NestedConditions;
 import org.evosuite.Properties;
+import org.evosuite.ContextResetter;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.coverage.ControlFlowDistance;
@@ -74,7 +75,7 @@ public class ControlFlowDistanceCalculatorTest {
         ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
         Properties.getInstance().resetToDefaults();
         Properties.TARGET_CLASS = "";
-        TestGenerationContext.getInstance().resetContext();
+        ContextResetter.reset();
         ClassReInitializer.resetSingleton();
 
         analyzeClass(NestedConditions.class);
@@ -82,7 +83,7 @@ public class ControlFlowDistanceCalculatorTest {
 
     @AfterEach
     public void tearDown() {
-        TestGenerationContext.getInstance().resetContext();
+        ContextResetter.reset();
         ClassReInitializer.resetSingleton();
         Properties.getInstance().resetToDefaults();
     }
@@ -154,7 +155,7 @@ public class ControlFlowDistanceCalculatorTest {
         }
 
         // ... then restart the branch IDs with the nested conditions.
-        TestGenerationContext.getInstance().resetContext();
+        ContextResetter.reset();
         analyzeClass(NestedConditions.class);
 
         assertEquals(0, ControlFlowDistanceCalculator.getCDGDepth(

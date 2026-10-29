@@ -207,7 +207,7 @@ public class TestSuiteGenerator {
                                 && !t.equals(Properties.Criterion.MUTATION))
                         .toArray(Properties.Criterion[]::new);
                 if (newCriteria.length < Properties.CRITERION.length) {
-                    TestGenerationContext.getInstance().resetContext();
+                    ContextResetter.reset();
                     LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                             + "Attempting re-instrumentation without mutation");
                     Properties.CRITERION = newCriteria;
@@ -464,7 +464,7 @@ public class TestSuiteGenerator {
      * Context-sensitive criteria (CBRANCH/IBRANCH) expand branch goals through the call graph of the
      * target class. If dependency analysis failed for this class, the call graph was never built:
      * the failure is logged and swallowed during setup (ClientNodeImpl.doDependencyAnalysis,
-     * TestGenerationContext.resetContext), so the class object loads yet getCallGraph() is null.
+     * ContextResetter.reset), so the class object loads yet getCallGraph() is null.
      * Drop the affected criteria and carry on with whatever is left - losing context sensitivity is
      * much better than producing no test suite at all.
      *

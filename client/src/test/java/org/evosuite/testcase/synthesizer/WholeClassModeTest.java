@@ -74,7 +74,7 @@ public class WholeClassModeTest {
 		Properties.P_OBJECT_RULE_APPLICATION = 0.6;
 		org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getSession().clearWorkingTarget();
 		TargetContext.clearActive();
-		org.evosuite.TestGenerationContext.getInstance().resetContext();
+		org.evosuite.ContextResetter.reset();
 	}
 
 	private static String signatureOf(Class<?> clazz, String methodName, int paramNum) {

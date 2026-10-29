@@ -85,7 +85,7 @@ public class ObjectRuleStatisticsTest {
             org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getTemplateCache().reset();
             session().clearWorkingTarget();
             TimeController.resetSingleton();
-            org.evosuite.TestGenerationContext.getInstance().resetContext();
+            org.evosuite.ContextResetter.reset();
         } finally {
             templateSynthesizerLogger.detachAppender(templateSynthesizerLogAppender);
             templateSynthesizerLogger.setAdditive(templateSynthesizerLoggerAdditive);
@@ -252,7 +252,7 @@ public class ObjectRuleStatisticsTest {
 
     @Test
     public void statsSafeWhenContextEmpty() {
-        org.evosuite.TestGenerationContext.getInstance().resetContext();
+        org.evosuite.ContextResetter.reset();
         ObjectRuleRuntime runtime = org.evosuite.TestGenerationContext.getInstance()
                 .getObjectRuleRuntime();
         assertEquals(0, ObjectRuleStatisticsReporter.countObjectGraphBranches(runtime));

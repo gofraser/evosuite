@@ -43,7 +43,7 @@ public class MOSATestSuiteAdapter extends TestSuiteAdapter<AbstractMOSA> {
     /**
      * Cached best individual, snapshotted after generateSolution() completes
      * while the archive is still populated. Post-search cleanup
-     * (CoverageCriteriaAnalyzer → resetContext → Archive.reset) clears the
+     * (CoverageCriteriaAnalyzer → ContextResetter.reset → Archive.reset) clears the
      * archive, so later calls to getBestIndividual() must use this cache.
      * Non-transient so it survives RMI serialization (CLIENT_ON_THREAD).
      */

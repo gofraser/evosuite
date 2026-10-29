@@ -112,7 +112,7 @@ public class SystemTestBase {
         // converters that call value.toString() to drive type conversion.
         RuntimeSettings.deactivateAllMocking();
         TestCaseExecutor.getInstance().newObservers();
-        TestGenerationContext.getInstance().resetContext();
+        ContextResetter.reset();
         ClassReInitializer.resetSingleton();
         System.setProperties(currentProperties);
         TimeZone.setDefault(currentTimeZone);
@@ -168,7 +168,7 @@ public class SystemTestBase {
         Properties.NEW_STATISTICS = true;
         Properties.STATISTICS_BACKEND = StatisticsBackend.DEBUG;
 
-        TestGenerationContext.getInstance().resetContext();
+        ContextResetter.reset();
         ClassReInitializer.resetSingleton();
 
         //change seed every month

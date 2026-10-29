@@ -21,6 +21,7 @@ package org.evosuite.graphs.cdg;
 
 import com.examples.with.different.packagename.cdg.*;
 import org.evosuite.Properties;
+import org.evosuite.ContextResetter;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.graphs.GraphPool;
@@ -51,13 +52,13 @@ public class ControlDependenceGraphIntegrationTest {
         ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
         Properties.getInstance().resetToDefaults();
         Properties.TARGET_CLASS = "";
-        TestGenerationContext.getInstance().resetContext();
+        ContextResetter.reset();
         ClassReInitializer.resetSingleton();
     }
 
     @AfterEach
     public void tearDown() {
-        TestGenerationContext.getInstance().resetContext();
+        ContextResetter.reset();
         ClassReInitializer.resetSingleton();
         Properties.getInstance().resetToDefaults();
     }

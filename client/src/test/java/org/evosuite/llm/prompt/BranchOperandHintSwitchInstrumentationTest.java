@@ -21,6 +21,7 @@ package org.evosuite.llm.prompt;
 
 import com.examples.with.different.packagename.llm.SwitchOperandFixture;
 import org.evosuite.Properties;
+import org.evosuite.ContextResetter;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.coverage.branch.Branch;
@@ -64,7 +65,7 @@ class BranchOperandHintSwitchInstrumentationTest {
         ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
         Properties.getInstance().resetToDefaults();
         Properties.TARGET_CLASS = "";
-        TestGenerationContext.getInstance().resetContext();
+        ContextResetter.reset();
         ClassReInitializer.resetSingleton();
 
         originalFlag = Properties.LLM_BRANCH_OPERAND_HINTS;
@@ -79,7 +80,7 @@ class BranchOperandHintSwitchInstrumentationTest {
     void tearDown() {
         Properties.LLM_BRANCH_OPERAND_HINTS = originalFlag;
         ExecutionTracer.getExecutionTracer().clear();
-        TestGenerationContext.getInstance().resetContext();
+        ContextResetter.reset();
         ClassReInitializer.resetSingleton();
         Properties.getInstance().resetToDefaults();
     }

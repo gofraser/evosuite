@@ -436,7 +436,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
 
     /**
      * Clears the {@link #hasUsefulMockSurface(Class)} cache. Called by
-     * {@code TestGenerationContext.resetContext()} alongside {@link RemoveFinalClassAdapter#reset()},
+     * {@code ContextResetter.reset()} alongside {@link RemoveFinalClassAdapter#reset()},
      * whose bookkeeping this cache is derived from.
      */
     public static void resetUsefulMockSurfaceCache() {

@@ -23,6 +23,7 @@ import com.examples.with.different.packagename.concolic.MIMEType;
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.Properties.StoppingCondition;
+import org.evosuite.ContextResetter;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.coverage.FitnessFunctions;
@@ -63,7 +64,7 @@ public class TestLocalSearchMIMEType {
         Randomness.setSeed(42);
         Properties.TARGET_CLASS = "";
 
-        TestGenerationContext.getInstance().resetContext();
+        ContextResetter.reset();
         ClassReInitializer.resetSingleton();
 
         Randomness.setSeed(42);
@@ -84,7 +85,7 @@ public class TestLocalSearchMIMEType {
         } else {
             ExecutionTracer.disableTraceCalls();
         }
-        TestGenerationContext.getInstance().resetContext();
+        ContextResetter.reset();
         ClassReInitializer.resetSingleton();
 
         System.setProperties(currentProperties);

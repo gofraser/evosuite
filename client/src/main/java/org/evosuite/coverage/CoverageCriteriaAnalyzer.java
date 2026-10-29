@@ -21,6 +21,7 @@ package org.evosuite.coverage;
 
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
+import org.evosuite.ContextResetter;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.TimeController;
 import org.evosuite.rmi.ClientServices;
@@ -93,7 +94,7 @@ public class CoverageCriteriaAnalyzer {
                 "criterion", new Properties.Criterion[]{criterion})) {
 
             logger.info("Re-instrumenting for criterion: {}", criterion);
-            TestGenerationContext.getInstance().resetContext();
+            ContextResetter.reset();
 
             // Need to load class explicitly in case there are no test cases.
             // If there are tests, then this is redundant
@@ -143,7 +144,7 @@ public class CoverageCriteriaAnalyzer {
         // If reinstrumentation happened, we might need to restore the original instrumentation
         // otherwise things like the MutationPool may not be up to date
         if (reinstrumented) {
-            TestGenerationContext.getInstance().resetContext();
+            ContextResetter.reset();
             Properties.getInitializedTargetClass();
 
             // Migrate test cases to the new classloader so that reflection objects

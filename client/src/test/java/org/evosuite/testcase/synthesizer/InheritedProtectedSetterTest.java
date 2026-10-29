@@ -28,7 +28,7 @@ import java.util.List;
 import com.examples.with.different.packagename.synthprotected.ProtectedInitChild;
 import com.examples.with.different.packagename.synthprotected.base.ProtectedInitBase;
 import org.evosuite.Properties;
-import org.evosuite.TestGenerationContext;
+import org.evosuite.ContextResetter;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.utils.generic.JavacScratchCompiler;
@@ -50,7 +50,7 @@ public class InheritedProtectedSetterTest {
         Properties.TARGET_CLASS = "";
         Properties.CLASS_PREFIX = "";
         Properties.APPLY_OBJECT_RULE = false;
-        TestGenerationContext.getInstance().resetContext();
+        ContextResetter.reset();
     }
 
     @Test

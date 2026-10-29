@@ -26,6 +26,7 @@ import ch.qos.logback.core.read.ListAppender;
 import com.examples.with.different.packagename.FlagExample1;
 import org.evosuite.PhaseMemoryGuard;
 import org.evosuite.Properties;
+import org.evosuite.ContextResetter;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.coverage.TestFitnessFactory;
@@ -80,7 +81,7 @@ public class TestTestSuiteMinimizer {
         ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
         Properties.getInstance().resetToDefaults();
         Randomness.setSeed(42);
-        TestGenerationContext.getInstance().resetContext();
+        ContextResetter.reset();
         ClassReInitializer.resetSingleton();
         Randomness.setSeed(42);
         currentProperties = (java.util.Properties) System.getProperties().clone();
@@ -98,7 +99,7 @@ public class TestTestSuiteMinimizer {
     @AfterEach
     public void tearDown() {
         try {
-            TestGenerationContext.getInstance().resetContext();
+            ContextResetter.reset();
             System.setProperties(currentProperties);
             Properties.getInstance().resetToDefaults();
         } finally {

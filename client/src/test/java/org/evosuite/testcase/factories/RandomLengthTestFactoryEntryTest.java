@@ -6,6 +6,7 @@ import com.examples.with.different.packagename.objectconstruction.wholeclass.Fai
 import com.examples.with.different.packagename.objectconstruction.wholeclass.ReceiverFallbackBase;
 import com.examples.with.different.packagename.objectconstruction.wholeclass.WorkingReceiver;
 import org.evosuite.Properties;
+import org.evosuite.ContextResetter;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.setup.DependencyAnalysis;
@@ -122,7 +123,7 @@ class RandomLengthTestFactoryEntryTest {
     void tearDown() {
         Properties.TARGET_CLASS = "";
         Properties.TARGET_METHOD = "";
-        TestGenerationContext.getInstance().resetContext();
+        ContextResetter.reset();
     }
 
     @Test

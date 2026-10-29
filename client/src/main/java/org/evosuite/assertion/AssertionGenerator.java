@@ -20,6 +20,7 @@
 package org.evosuite.assertion;
 
 import org.evosuite.Properties;
+import org.evosuite.ContextResetter;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.TimeController;
 import org.evosuite.coverage.mutation.MutationPool;
@@ -227,7 +228,7 @@ public abstract class AssertionGenerator {
         Sandbox.goingToExecuteUnsafeCodeOnSameThread();
         try {
             TestGenerationContext.getInstance().setAssertionGenerationContext(true);
-            TestGenerationContext.getInstance().resetContext();
+            ContextResetter.reset();
             TestGenerationContext.getInstance().goingToExecuteSUTCode();
             // We need to reset the target Class since it requires a different instrumentation
             // for handling assertion generation.
