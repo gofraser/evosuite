@@ -73,32 +73,22 @@ public class LightweightTestGenerationResult<T extends Chromosome<T>> implements
             return out;
         }
 
-        try {
+        attempt(() -> {
             out.status = source.getTestGenerationStatus();
-        } catch (Throwable ignored) {
-            // Best-effort snapshot: skip any value the source result cannot provide.
-        }
-        try {
+        });
+        attempt(() -> {
             out.errorMessage = safe(source.getErrorMessage());
-        } catch (Throwable ignored) {
-            // Best-effort snapshot: skip any value the source result cannot provide.
-        }
-        try {
+        });
+        attempt(() -> {
             out.classUnderTest = safe(source.getClassUnderTest());
-        } catch (Throwable ignored) {
-            // Best-effort snapshot: skip any value the source result cannot provide.
-        }
-        try {
+        });
+        attempt(() -> {
             String[] criterion = source.getTargetCriterion();
             out.targetCriterion = criterion == null ? new String[0] : Arrays.copyOf(criterion, criterion.length);
-        } catch (Throwable ignored) {
-            // Best-effort snapshot: skip any value the source result cannot provide.
-        }
-        try {
+        });
+        attempt(() -> {
             out.testSuiteCode = safe(source.getTestSuiteCode());
-        } catch (Throwable ignored) {
-            // Best-effort snapshot: skip any value the source result cannot provide.
-        }
+        });
 
         // Do not copy per-test TestCase objects.
         // Copy only code/comments/coverage keyed by names visible in test code map.
@@ -108,114 +98,97 @@ public class LightweightTestGenerationResult<T extends Chromosome<T>> implements
         testNames.addAll(extractLikelyTestNames(out.testSuiteCode));
 
         for (String name : testNames) {
-            try {
+            attempt(() -> {
                 String code = source.getTestCode(name);
                 if (code != null) {
                     out.testCode.put(name, code);
                 }
-            } catch (Throwable ignored) {
-                // Best-effort snapshot: skip any value the source result cannot provide.
-            }
-            try {
+            });
+            attempt(() -> {
                 String comment = source.getComment(name);
                 if (comment != null) {
                     out.comments.put(name, comment);
                 }
-            } catch (Throwable ignored) {
-                // Best-effort snapshot: skip any value the source result cannot provide.
-            }
-            try {
+            });
+            attempt(() -> {
                 Set<Integer> lines = source.getCoveredLines(name);
                 if (lines != null) {
                     out.coveredLinesByTest.put(name, new LinkedHashSet<>(lines));
                 }
-            } catch (Throwable ignored) {
-                // Best-effort snapshot: skip any value the source result cannot provide.
-            }
-            try {
+            });
+            attempt(() -> {
                 Set<BranchInfo> branches = source.getCoveredBranches(name);
                 if (branches != null) {
                     out.coveredBranchesByTest.put(name, new LinkedHashSet<>(branches));
                 }
-            } catch (Throwable ignored) {
-                // Best-effort snapshot: skip any value the source result cannot provide.
-            }
-            try {
+            });
+            attempt(() -> {
                 Set<MutationInfo> mutants = source.getCoveredMutants(name);
                 if (mutants != null) {
                     out.coveredMutantsByTest.put(name, new LinkedHashSet<>(mutants));
                 }
-            } catch (Throwable ignored) {
-                // Best-effort snapshot: skip any value the source result cannot provide.
-            }
-            try {
+            });
+            attempt(() -> {
                 Set<Failure> failures = source.getContractViolations(name);
                 if (failures != null) {
                     out.contractViolations.put(name, new LinkedHashSet<>(failures));
                 }
-            } catch (Throwable ignored) {
-                // Best-effort snapshot: skip any value the source result cannot provide.
-            }
+            });
         }
 
-        try {
+        attempt(() -> {
             Set<Integer> lines = source.getCoveredLines();
             if (lines != null) {
                 out.coveredLines.addAll(lines);
             }
-        } catch (Throwable ignored) {
-            // Best-effort snapshot: skip any value the source result cannot provide.
-        }
-        try {
+        });
+        attempt(() -> {
             Set<Integer> lines = source.getUncoveredLines();
             if (lines != null) {
                 out.uncoveredLines.addAll(lines);
             }
-        } catch (Throwable ignored) {
-            // Best-effort snapshot: skip any value the source result cannot provide.
-        }
-        try {
+        });
+        attempt(() -> {
             Set<BranchInfo> branches = source.getCoveredBranches();
             if (branches != null) {
                 out.coveredBranches.addAll(branches);
             }
-        } catch (Throwable ignored) {
-            // Best-effort snapshot: skip any value the source result cannot provide.
-        }
-        try {
+        });
+        attempt(() -> {
             Set<BranchInfo> branches = source.getUncoveredBranches();
             if (branches != null) {
                 out.uncoveredBranches.addAll(branches);
             }
-        } catch (Throwable ignored) {
-            // Best-effort snapshot: skip any value the source result cannot provide.
-        }
-        try {
+        });
+        attempt(() -> {
             Set<MutationInfo> mutants = source.getCoveredMutants();
             if (mutants != null) {
                 out.coveredMutants.addAll(mutants);
             }
-        } catch (Throwable ignored) {
-            // Best-effort snapshot: skip any value the source result cannot provide.
-        }
-        try {
+        });
+        attempt(() -> {
             Set<MutationInfo> mutants = source.getUncoveredMutants();
             if (mutants != null) {
                 out.uncoveredMutants.addAll(mutants);
             }
-        } catch (Throwable ignored) {
-            // Best-effort snapshot: skip any value the source result cannot provide.
-        }
-        try {
+        });
+        attempt(() -> {
             Set<MutationInfo> mutants = source.getExceptionMutants();
             if (mutants != null) {
                 out.exceptionMutants.addAll(mutants);
             }
-        } catch (Throwable ignored) {
-            // Best-effort snapshot: skip any value the source result cannot provide.
-        }
+        });
 
         return out;
+    }
+
+    /** Runs one getter of the source result; a value the source cannot provide is skipped. */
+    private static void attempt(Runnable copy) {
+        try {
+            copy.run();
+        } catch (RuntimeException ignored) {
+            // Best-effort snapshot: skip any value the source result cannot provide.
+        }
     }
 
     private static String safe(String value) {
