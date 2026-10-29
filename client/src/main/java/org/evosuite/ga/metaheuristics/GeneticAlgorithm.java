@@ -1127,38 +1127,32 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
                 logger.warn("File already exists, it is overwritten: " + populationFile.getName());
             }
 
-            FileWriter fw = new FileWriter(populationFile.getAbsoluteFile());
-            BufferedWriter bw = new BufferedWriter(fw);
-            PrintWriter out = new PrintWriter(bw);
-
-            // header
-            final String header = fitnessFunctions.stream()
-                    .map(ff -> ff.getClass().getSimpleName())
-                    .collect(joining(","));
-
-            if (Properties.ALGORITHM == Algorithm.NSGAII) {
-                out.println("rank," + header);
-            } else if (Properties.ALGORITHM == Algorithm.SPEA2) {
-                out.println("strength," + header);
-            }
-
-            // content
-            for (T t : individuals) {
-                final String content = fitnessFunctions.stream()
-                        .map(ff -> Double.toString(t.getFitness(ff)))
+            try (PrintWriter out = new PrintWriter(new BufferedWriter(
+                    new FileWriter(populationFile.getAbsoluteFile())))) {
+                // header
+                final String header = fitnessFunctions.stream()
+                        .map(ff -> ff.getClass().getSimpleName())
                         .collect(joining(","));
 
                 if (Properties.ALGORITHM == Algorithm.NSGAII) {
-                    out.println(t.getRank() + "," + content);
+                    out.println("rank," + header);
                 } else if (Properties.ALGORITHM == Algorithm.SPEA2) {
-                    out.println(t.getDistance() + "," + content);
+                    out.println("strength," + header);
+                }
+
+                // content
+                for (T t : individuals) {
+                    final String content = fitnessFunctions.stream()
+                            .map(ff -> Double.toString(t.getFitness(ff)))
+                            .collect(joining(","));
+
+                    if (Properties.ALGORITHM == Algorithm.NSGAII) {
+                        out.println(t.getRank() + "," + content);
+                    } else if (Properties.ALGORITHM == Algorithm.SPEA2) {
+                        out.println(t.getDistance() + "," + content);
+                    }
                 }
             }
-
-            out.close();
-            bw.close();
-            fw.close();
-
         } catch (IOException e) {
             logger.error("Error writing individuals to file", e);
         }
