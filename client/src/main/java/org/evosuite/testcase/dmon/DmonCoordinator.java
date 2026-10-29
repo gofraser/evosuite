@@ -26,6 +26,7 @@ import org.evosuite.testcase.statements.MethodStatement;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 /**
@@ -42,6 +43,54 @@ public class DmonCoordinator {
     // failing analysis (e.g. an ASM bytecode read that yields no hint) is computed once per
     // failure signature rather than once per retry attempt or execution of the same site.
     private final Map<CacheKey, Optional<DmonPromotionPlan>> analysisCache = new ConcurrentHashMap<>();
+
+    /**
+     * Ends a suppression started by {@link #suppressDmon()} or {@link #suppressPromotion()}.
+     */
+    public interface Suppression extends AutoCloseable {
+        @Override
+        void close();
+    }
+
+    // Depths rather than flags so that suppressions can nest. Executions run on a worker
+    // thread, hence atomic.
+    private static final AtomicInteger dmonSuppressions = new AtomicInteger();
+    private static final AtomicInteger promotionSuppressions = new AtomicInteger();
+
+    private static Suppression suppress(AtomicInteger depth) {
+        depth.incrementAndGet();
+        return depth::decrementAndGet;
+    }
+
+    /**
+     * Switches DMoN off until the returned handle is closed: no failed statement is assisted,
+     * recorded or analyzed, whatever {@link Properties#DMON_ENABLED} says.
+     */
+    public static Suppression suppressDmon() {
+        return suppress(dmonSuppressions);
+    }
+
+    /**
+     * Stops promotions from being applied in place until the returned handle is closed,
+     * whatever {@link Properties#DMON_PROMOTE_IN_PLACE} says. Assist still works.
+     */
+    public static Suppression suppressPromotion() {
+        return suppress(promotionSuppressions);
+    }
+
+    /**
+     * Whether DMoN is configured on and not suppressed.
+     */
+    public static boolean isEnabled() {
+        return Properties.DMON_ENABLED && dmonSuppressions.get() == 0;
+    }
+
+    /**
+     * Whether promotions are configured to be applied in place and not suppressed.
+     */
+    public static boolean isPromotionEnabled() {
+        return Properties.DMON_PROMOTE_IN_PLACE && promotionSuppressions.get() == 0;
+    }
 
     /**
      * Returns the singleton instance of the DmonCoordinator.
@@ -110,7 +159,7 @@ public class DmonCoordinator {
     private Optional<DmonPromotionPlan> analyze(String discriminator, String declaringClassName,
                                                 Throwable throwable,
                                                 Supplier<Optional<DmonPromotionPlan>> analysis) {
-        if (!Properties.DMON_ENABLED || Properties.NO_RUNTIME_DEPENDENCY) {
+        if (!isEnabled() || Properties.NO_RUNTIME_DEPENDENCY) {
             return Optional.empty();
         }
         if (!Properties.DMON_CACHE_ANALYSIS) {

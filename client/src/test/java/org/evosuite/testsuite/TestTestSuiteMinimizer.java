@@ -37,6 +37,7 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testcase.dmon.DmonCoordinator;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.ExecutionTrace;
 import org.evosuite.testcase.execution.ExecutionTraceImpl;
@@ -692,7 +693,7 @@ public class TestTestSuiteMinimizer {
 
             @Override
             public double getFitness(TestSuiteChromosome suite) {
-                promotionEnabledDuringMinimization.add(Properties.DMON_PROMOTE_IN_PLACE);
+                promotionEnabledDuringMinimization.add(DmonCoordinator.isPromotionEnabled());
                 return 0.0;
             }
         };
@@ -702,7 +703,7 @@ public class TestTestSuiteMinimizer {
         assertFalse(promotionEnabledDuringMinimization.isEmpty());
         assertFalse(promotionEnabledDuringMinimization.contains(Boolean.TRUE),
                 "DMoN promotion must be off while the minimizer re-executes tests");
-        assertTrue(Properties.DMON_PROMOTE_IN_PLACE, "the setting must be restored afterwards");
+        assertTrue(DmonCoordinator.isPromotionEnabled(), "the setting must be restored afterwards");
     }
 
     @Test

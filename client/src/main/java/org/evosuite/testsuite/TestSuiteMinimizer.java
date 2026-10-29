@@ -37,6 +37,7 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testcase.dmon.DmonCoordinator;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testcase.execution.TestCaseExecutor;
@@ -212,10 +213,8 @@ public class TestSuiteMinimizer {
         // decided during the search; the minimizer must only shrink the tests, not add to them.
         // Switched off before the coverage baseline, so the baseline and the minimized suite are
         // measured the same way and the baseline run does not promote into the input suite.
-        final boolean promoteInPlace = Properties.DMON_PROMOTE_IN_PLACE;
-        Properties.DMON_PROMOTE_IN_PLACE = false;
         MinimizationStatus status = MinimizationStatus.COMPLETED;
-        try {
+        try (DmonCoordinator.Suppression ignored = DmonCoordinator.suppressPromotion()) {
             // Snapshot the input suite so that, if the inner work OOMs or otherwise throws,
             // we can revert to the pre-minimization suite. The un-minimized suite covers a
             // strict superset of the minimized one, so this preserves coverage at the cost
@@ -244,8 +243,6 @@ public class TestSuiteMinimizer {
                     && shouldEnforceCoveragePreservation(coveredGoalsBefore)) {
                 status = reconcileCoverageAfterMinimization(suite, snapshot, coveredGoalsBefore, status);
             }
-        } finally {
-            Properties.DMON_PROMOTE_IN_PLACE = promoteInPlace;
         }
 
         ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Minimized_Size,

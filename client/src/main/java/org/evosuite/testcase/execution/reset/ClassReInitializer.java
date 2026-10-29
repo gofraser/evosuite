@@ -23,6 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.assertion.CheapPurityAnalyzer;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.dmon.DmonCoordinator;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.ExecutionTrace;
 import org.evosuite.testcase.statements.AssignmentStatement;
@@ -102,7 +103,7 @@ public class ClassReInitializer {
                     FieldReference fieldReference = (FieldReference) statement.getReturnValue();
                     if (fieldReference.getField().isStatic()) {
                         moreClassesForStaticReset.add(fieldReference.getField().getOwnerClass().getClassName());
-                    } else if (Properties.DMON_ENABLED
+                    } else if (DmonCoordinator.isEnabled()
                             && assignsDmonPromotedMock(tc, ((AssignmentStatement) statement).getValue())) {
                         /*
                          * DMoN promotions can assign into singleton instance fields
@@ -146,7 +147,7 @@ public class ClassReInitializer {
                 PrivateFieldStatement fieldStatement = (PrivateFieldStatement) statement;
                 if (fieldStatement.isStaticField()) {
                     moreClassesForStaticReset.add(fieldStatement.getOwnerClassName());
-                } else if (Properties.DMON_ENABLED && assignsDmonPromotedMock(tc, lastParameter(fieldStatement))) {
+                } else if (DmonCoordinator.isEnabled() && assignsDmonPromotedMock(tc, lastParameter(fieldStatement))) {
                     /*
                      * DMoN promotions may write private instance fields on singleton
                      * objects (eg, Configuration.getInstance().service = mock). Even

@@ -172,7 +172,7 @@ public class DmonEphemeralAssist {
                      Throwable throwable,
                      PrintStream out)
             throws InvocationTargetException, IllegalAccessException, InstantiationException {
-        if (!Properties.DMON_ENABLED || Properties.NO_RUNTIME_DEPENDENCY) {
+        if (!DmonCoordinator.isEnabled() || Properties.NO_RUNTIME_DEPENDENCY) {
             return throwable;
         }
         if (!(statement instanceof ConstructorStatement) && !(statement instanceof MethodStatement)) {
@@ -288,7 +288,7 @@ public class DmonEphemeralAssist {
     }
 
     private static void maybeRecordDmonCandidate(ExecutionResult result, Statement statement, Throwable throwable) {
-        if (!Properties.DMON_ENABLED || Properties.NO_RUNTIME_DEPENDENCY) {
+        if (!DmonCoordinator.isEnabled() || Properties.NO_RUNTIME_DEPENDENCY) {
             return;
         }
         if (!(statement instanceof ConstructorStatement) && !(statement instanceof MethodStatement)) {

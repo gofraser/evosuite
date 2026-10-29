@@ -23,6 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.symbolic.TestCaseBuilder;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.dmon.DmonCoordinator;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.utils.generic.GenericMethod;
@@ -92,7 +93,7 @@ public class TestSuiteWriterRegressionTest {
         private static boolean observedDmonEnabled;
 
         public static void record() {
-            observedDmonEnabled = Properties.DMON_ENABLED;
+            observedDmonEnabled = DmonCoordinator.isEnabled();
         }
     }
 
@@ -305,7 +306,7 @@ public class TestSuiteWriterRegressionTest {
 
         Assertions.assertFalse(DmonWriterProbe.observedDmonEnabled,
                 "Post-search writer execution should not run with DMoN enabled");
-        Assertions.assertTrue(Properties.DMON_ENABLED,
+        Assertions.assertTrue(DmonCoordinator.isEnabled(),
                 "Writer must restore the caller's DMoN configuration after execution");
     }
 

@@ -38,6 +38,7 @@ import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestCodeVisitor;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testcase.dmon.DmonCoordinator;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.ExecutionTraceImpl;
@@ -451,16 +452,12 @@ public class TestSuiteWriter implements Opcodes {
     protected ExecutionResult runTest(TestCase test) {
 
         ExecutionResult result = new ExecutionResult(test, null);
-        boolean oldDmonEnabled = Properties.DMON_ENABLED;
 
-        try {
-            Properties.DMON_ENABLED = false;
+        try (DmonCoordinator.Suppression ignored = DmonCoordinator.suppressDmon()) {
             logger.debug("Executing test");
             result = executor.execute(test);
         } catch (Exception e) {
             throw new Error(e);
-        } finally {
-            Properties.DMON_ENABLED = oldDmonEnabled;
         }
 
         return result;

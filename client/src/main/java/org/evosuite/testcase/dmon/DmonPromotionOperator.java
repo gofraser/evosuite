@@ -104,7 +104,8 @@ public final class DmonPromotionOperator {
      * @return The updated execution result.
      */
     public static ExecutionResult applyIfNeeded(TestChromosome individual, ExecutionResult result) {
-        if (!Properties.DMON_ENABLED || !Properties.DMON_PROMOTE_IN_PLACE || Properties.NO_RUNTIME_DEPENDENCY) {
+        if (!DmonCoordinator.isEnabled() || !DmonCoordinator.isPromotionEnabled()
+                || Properties.NO_RUNTIME_DEPENDENCY) {
             return result;
         }
         if (individual == null || result == null) {
@@ -312,15 +313,13 @@ public final class DmonPromotionOperator {
                                                        ExecutionResult originalResult,
                                                        ValidationStaticRestore restore,
                                                        DmonPromotionPlan plan) {
-        boolean oldDmonEnabled = Properties.DMON_ENABLED;
         boolean restoreOk = true;
         ExecutionResult validated = null;
         boolean validatedSuccess = false;
         boolean progressAccepted = false;
         boolean keptUnchanged = false;
         boolean keptInconclusive = false;
-        try {
-            Properties.DMON_ENABLED = false;
+        try (DmonCoordinator.Suppression ignored = DmonCoordinator.suppressDmon()) {
             validated = TestCaseExecutor.runTest(individual.getTestCase());
             int insertedStatements = individual.getTestCase().size() - backup.size();
             boolean progress = isValidationProgressAccepted(validated, plan);
@@ -347,7 +346,6 @@ public final class DmonPromotionOperator {
                     logger.warn("DMoN validation static-state restore failed: {}", e.getMessage());
                 }
             }
-            Properties.DMON_ENABLED = oldDmonEnabled;
         }
         if (keptUnchanged) {
             return new PromotionAttempt(markContaminatedIfNeeded(originalResult, !restoreOk), true,

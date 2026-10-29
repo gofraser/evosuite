@@ -124,4 +124,34 @@ public class DmonCoordinatorTest {
             Properties.TARGET_CLASS = oldTarget;
         }
     }
+
+    @Test
+    public void suppressionsNestAndLeaveTheConfigurationAlone() {
+        boolean oldEnabled = Properties.DMON_ENABLED;
+        boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
+        try {
+            Properties.DMON_ENABLED = true;
+            Properties.DMON_PROMOTE_IN_PLACE = true;
+
+            try (DmonCoordinator.Suppression outer = DmonCoordinator.suppressDmon()) {
+                try (DmonCoordinator.Suppression inner = DmonCoordinator.suppressDmon()) {
+                    Assert.assertFalse(DmonCoordinator.isEnabled());
+                }
+                Assert.assertFalse(DmonCoordinator.isEnabled());
+                Assert.assertTrue(DmonCoordinator.isPromotionEnabled());
+            }
+            Assert.assertTrue(DmonCoordinator.isEnabled());
+
+            try (DmonCoordinator.Suppression promotion = DmonCoordinator.suppressPromotion()) {
+                Assert.assertTrue(DmonCoordinator.isEnabled());
+                Assert.assertFalse(DmonCoordinator.isPromotionEnabled());
+            }
+            Assert.assertTrue(DmonCoordinator.isPromotionEnabled());
+            Assert.assertTrue(Properties.DMON_ENABLED);
+            Assert.assertTrue(Properties.DMON_PROMOTE_IN_PLACE);
+        } finally {
+            Properties.DMON_ENABLED = oldEnabled;
+            Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
+        }
+    }
 }
