@@ -264,7 +264,7 @@ public class Date extends java.util.Date {
     @Override
     @SuppressWarnings("deprecation")
     public void setDate(int date) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "setTime", "(I)V", new Object[]{date});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "setDate", "(I)V", new Object[]{date});
         super.setDate(date);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, CaptureLog.RETURN_TYPE_VOID);
     }
@@ -272,7 +272,7 @@ public class Date extends java.util.Date {
     @Override
     @SuppressWarnings("deprecation")
     public int getDay() {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "getDays", "()I", new Object[]{});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "getDay", "()I", new Object[]{});
         int ret = super.getDay();
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, ret);
         return ret;
@@ -281,7 +281,7 @@ public class Date extends java.util.Date {
     @Override
     @SuppressWarnings("deprecation")
     public int getHours() {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "getHous", "()I", new Object[]{});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "getHours", "()I", new Object[]{});
         int ret = super.getHours();
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, ret);
         return ret;
@@ -298,7 +298,7 @@ public class Date extends java.util.Date {
     @Override
     @SuppressWarnings("deprecation")
     public int getMinutes() {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "getMinuates", "()I", new Object[]{});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "getMinutes", "()I", new Object[]{});
         int ret = super.getMinutes();
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, ret);
         return ret;

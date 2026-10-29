@@ -82,7 +82,7 @@ public abstract class DateFormat extends java.text.DateFormat {
 
     @Override
     public Object parseObject(String source, ParsePosition pos) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_TEXT_DATEFORMAT, this, "parse",
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_TEXT_DATEFORMAT, this, "parseObject",
                 "(Ljava/lang/String;Ljava/text/ParsePosition;)Ljava/lang/Object;", new Object[]{source, pos});
         Object ret = super.parseObject(source, pos);
         if (ret instanceof java.util.Date) {

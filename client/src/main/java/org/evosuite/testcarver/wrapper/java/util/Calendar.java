@@ -512,7 +512,7 @@ public class Calendar extends java.util.Calendar {
 
     @Override
     public void roll(int field, boolean up) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "roll", "(II)V", new Object[]{field, up});
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "roll", "(IZ)V", new Object[]{field, up});
         wrappedCalendar.roll(field, up);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, CaptureLog.RETURN_TYPE_VOID);
     }

@@ -145,7 +145,7 @@ public class SimpleDateFormat extends java.text.SimpleDateFormat {
      */
     public void applyPattern(String pattern) {
         Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_TEXT_SIMPLEDATEFORMAT, this, "applyPattern",
-                "(Ljava/lang/String;)V", new Object[]{});
+                "(Ljava/lang/String;)V", new Object[]{pattern});
         super.applyPattern(pattern);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_TEXT_SIMPLEDATEFORMAT, this, CaptureLog.RETURN_TYPE_VOID);
     }
@@ -157,7 +157,7 @@ public class SimpleDateFormat extends java.text.SimpleDateFormat {
      */
     public void applyLocalizedPattern(String pattern) {
         Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_TEXT_SIMPLEDATEFORMAT, this, "applyLocalizedPattern",
-                "(Ljava/lang/String;)V", new Object[]{});
+                "(Ljava/lang/String;)V", new Object[]{pattern});
         super.applyLocalizedPattern(pattern);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_TEXT_SIMPLEDATEFORMAT, this, CaptureLog.RETURN_TYPE_VOID);
     }
