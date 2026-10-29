@@ -46,9 +46,6 @@ import javax.tools.ToolProvider;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;
@@ -57,20 +54,15 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Enumeration;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
 import java.util.stream.Collectors;
 
 /**
@@ -90,11 +82,6 @@ public abstract class JUnitAnalyzer {
     private static final String CLASS = ".class";
     private static final int MAX_LOGGED_SOURCE_EXCERPT_LINES_PER_FILE = 200;
     private static final int MAX_LOGGED_SOURCE_EXCERPT_CHARS_TOTAL = 20_000;
-    private static final String FILE_SYSTEM_PROVIDER_SERVICE_RESOURCE =
-            "META-INF/services/java.nio.file.spi.FileSystemProvider";
-    private static final int MAX_LOGGED_FILE_SYSTEM_PROVIDER_CLASSPATH_ENTRIES = 30;
-    private static final int MAX_LOGGED_FILE_SYSTEM_PROVIDER_IMPLEMENTATIONS_PER_ENTRY = 10;
-    private static final int MAX_LOGGED_FILE_SYSTEM_PROVIDER_SERVICE_URLS = 30;
     /**
      * The class loader of the JUnit check in progress. Every check gets a fresh one, which is
      * released (see {@link #releaseCheckLoader()}) once the check is over, so that the classes
@@ -824,7 +811,7 @@ public abstract class JUnitAnalyzer {
                     stopChecksDueToMemoryExhaustion(tests.size(), attempt.getInfrastructureFailure());
                     return CompileOutcome.notJudged(NotJudgedReason.OUT_OF_MEMORY);
                 }
-                disableCompileCheckDueToInfrastructure(attempt.getInfrastructureFailure(), compilerClasspath);
+                disableCompileCheckDueToInfrastructure(attempt.getInfrastructureFailure());
                 return CompileOutcome.notJudged(NotJudgedReason.COMPILE_CHECK_DISABLED);
             }
 
@@ -843,8 +830,7 @@ public abstract class JUnitAnalyzer {
 
                 if (diagnostics.sawErrorWhileWriting()) {
                     disableCompileCheckDueToInfrastructure(
-                            new IllegalStateException("javac could not write compiled test artifacts"),
-                            compilerClasspath);
+                        new IllegalStateException("javac could not write compiled test artifacts"));
                     return CompileOutcome.notJudged(NotJudgedReason.COMPILE_CHECK_DISABLED);
                 }
 
@@ -880,8 +866,7 @@ public abstract class JUnitAnalyzer {
                     // Deleting it here would throw away a perfectly good test. Running out of
                     // heap is handled above: that is the client's memory, not a javac problem.
                     disableCompileCheckDueToInfrastructure(
-                            new IllegalStateException("javac crashed: " + firstLine(compilerOutput)),
-                            compilerClasspath);
+                            new IllegalStateException("javac crashed: " + firstLine(compilerOutput)));
                     return CompileOutcome.notJudged(NotJudgedReason.COMPILE_CHECK_DISABLED);
                 }
 
@@ -891,8 +876,7 @@ public abstract class JUnitAnalyzer {
             if (!hasCompiledClassFilesForGeneratedSources(generated)) {
                 disableCompileCheckDueToInfrastructure(
                         new IllegalStateException(
-                                "javac reported success but produced no .class files for generated tests"),
-                        compilerClasspath);
+                                "javac reported success but produced no .class files for generated tests"));
                 return CompileOutcome.notJudged(NotJudgedReason.COMPILE_CHECK_DISABLED);
             }
             return CompileOutcome.compiled(generated, suite.getTestMethodNames());
@@ -910,7 +894,7 @@ public abstract class JUnitAnalyzer {
                 return CompileOutcome.notJudged(NotJudgedReason.OUT_OF_MEMORY);
             }
             if (GeneratedTestCompiler.isJavacInfrastructureFailure(e)) {
-                disableCompileCheckDueToInfrastructure(e, compilerClasspath);
+                disableCompileCheckDueToInfrastructure(e);
                 return CompileOutcome.notJudged(NotJudgedReason.COMPILE_CHECK_DISABLED);
             }
             logger.error("Unexpected runtime exception while compiling generated tests", e);
@@ -921,19 +905,18 @@ public abstract class JUnitAnalyzer {
                 return CompileOutcome.notJudged(NotJudgedReason.OUT_OF_MEMORY);
             }
             if (GeneratedTestCompiler.isJavacInfrastructureFailure(e)) {
-                disableCompileCheckDueToInfrastructure(e, compilerClasspath);
+                disableCompileCheckDueToInfrastructure(e);
                 return CompileOutcome.notJudged(NotJudgedReason.COMPILE_CHECK_DISABLED);
             }
             throw e;
         }
     }
 
-    private static void disableCompileCheckDueToInfrastructure(Throwable failure, String compilerClasspath) {
+    private static void disableCompileCheckDueToInfrastructure(Throwable failure) {
         boolean first = JUnitCheckState.disableCompileCheck();
         logger.error("Javac infrastructure failure during compile check. "
                         + "Disabling compile filtering for the remainder of this run and keeping generated tests.",
                 failure);
-        logFileSystemProviderClasspathDiagnostics(compilerClasspath);
         if (first) {
             JUnitCheckState.recordIncomplete("javac infrastructure failure disabled compile filtering: " + failure);
         }
@@ -1019,178 +1002,6 @@ public abstract class JUnitAnalyzer {
         }
         int end = text.indexOf('\n');
         return end < 0 ? text.trim() : text.substring(0, end).trim();
-    }
-
-    private static void logFileSystemProviderClasspathDiagnostics(String classpath) {
-        Map<String, List<String>> providersByEntry = findFileSystemProviderServiceDeclarations(classpath);
-        if (providersByEntry.isEmpty()) {
-            logger.error("No {} declaration was found on the compiler classpath used during failure analysis",
-                    FILE_SYSTEM_PROVIDER_SERVICE_RESOURCE);
-        } else {
-            logFileSystemProviderDeclarations(
-                    "Compiler classpath entry {} declares {} provider(s) via {}: {}",
-                    providersByEntry);
-        }
-        logRuntimeFileSystemProviderDiagnostics();
-    }
-
-    private static void logFileSystemProviderDeclarations(String messagePattern,
-                                                          Map<String, List<String>> providersByEntry) {
-        int logged = 0;
-        for (Map.Entry<String, List<String>> entry : providersByEntry.entrySet()) {
-            if (logged >= MAX_LOGGED_FILE_SYSTEM_PROVIDER_CLASSPATH_ENTRIES) {
-                logger.error("Omitted {} additional classpath entries declaring {}",
-                        providersByEntry.size() - logged,
-                        FILE_SYSTEM_PROVIDER_SERVICE_RESOURCE);
-                break;
-            }
-            List<String> providerClasses = entry.getValue();
-            if (providerClasses.size() > MAX_LOGGED_FILE_SYSTEM_PROVIDER_IMPLEMENTATIONS_PER_ENTRY) {
-                List<String> visibleProviders = providerClasses.subList(0,
-                        MAX_LOGGED_FILE_SYSTEM_PROVIDER_IMPLEMENTATIONS_PER_ENTRY);
-                logger.error(messagePattern + " ({} more omitted)",
-                        entry.getKey(),
-                        providerClasses.size(),
-                        FILE_SYSTEM_PROVIDER_SERVICE_RESOURCE,
-                        visibleProviders,
-                        providerClasses.size() - visibleProviders.size());
-            } else {
-                logger.error(messagePattern,
-                        entry.getKey(),
-                        providerClasses.size(),
-                        FILE_SYSTEM_PROVIDER_SERVICE_RESOURCE,
-                        providerClasses);
-            }
-            logged++;
-        }
-    }
-
-    private static void logRuntimeFileSystemProviderDiagnostics() {
-        String defaultProviderProperty = System.getProperty("java.nio.file.spi.DefaultFileSystemProvider");
-        logger.error("System property java.nio.file.spi.DefaultFileSystemProvider={}",
-                defaultProviderProperty == null ? "<unset>" : defaultProviderProperty);
-
-        String runtimeClasspath = System.getProperty("java.class.path");
-        Map<String, List<String>> runtimeProviders = findFileSystemProviderServiceDeclarations(runtimeClasspath);
-        if (runtimeProviders.isEmpty()) {
-            logger.error("No {} declaration was found on java.class.path",
-                    FILE_SYSTEM_PROVIDER_SERVICE_RESOURCE);
-        } else {
-            logFileSystemProviderDeclarations(
-                    "Runtime classpath entry {} declares {} provider(s) via {}: {}",
-                    runtimeProviders);
-        }
-
-        logVisibleFileSystemProviderServiceResources();
-    }
-
-    private static void logVisibleFileSystemProviderServiceResources() {
-        ClassLoader systemLoader = ClassLoader.getSystemClassLoader();
-        if (systemLoader == null) {
-            logger.error("System class loader is null while checking visible {} resources",
-                    FILE_SYSTEM_PROVIDER_SERVICE_RESOURCE);
-            return;
-        }
-
-        int count = 0;
-        try {
-            Enumeration<URL> resources = systemLoader.getResources(FILE_SYSTEM_PROVIDER_SERVICE_RESOURCE);
-            while (resources.hasMoreElements()) {
-                URL resource = resources.nextElement();
-                count++;
-                if (count <= MAX_LOGGED_FILE_SYSTEM_PROVIDER_SERVICE_URLS) {
-                    logger.error("System class loader resource {} for {}",
-                            resource, FILE_SYSTEM_PROVIDER_SERVICE_RESOURCE);
-                }
-            }
-        } catch (IOException e) {
-            logger.error("Failed to enumerate {} resources from system class loader: {}",
-                    FILE_SYSTEM_PROVIDER_SERVICE_RESOURCE, e.getMessage());
-            return;
-        }
-
-        if (count == 0) {
-            logger.error("System class loader has no visible {} resources",
-                    FILE_SYSTEM_PROVIDER_SERVICE_RESOURCE);
-            return;
-        }
-        if (count > MAX_LOGGED_FILE_SYSTEM_PROVIDER_SERVICE_URLS) {
-            logger.error("Omitted {} additional {} resources from system class loader",
-                    count - MAX_LOGGED_FILE_SYSTEM_PROVIDER_SERVICE_URLS,
-                    FILE_SYSTEM_PROVIDER_SERVICE_RESOURCE);
-        }
-    }
-
-    private static Map<String, List<String>> findFileSystemProviderServiceDeclarations(String classpath) {
-        Map<String, List<String>> providersByEntry = new LinkedHashMap<>();
-        if (classpath == null || classpath.trim().isEmpty()) {
-            return providersByEntry;
-        }
-
-        String[] classpathEntries = classpath.split(File.pathSeparator);
-        for (String entry : classpathEntries) {
-            if (entry == null || entry.trim().isEmpty()) {
-                continue;
-            }
-            File classpathEntry = new File(entry);
-            List<String> providers = readFileSystemProviderServiceDeclarations(classpathEntry);
-            if (!providers.isEmpty()) {
-                providersByEntry.put(classpathEntry.getAbsolutePath(), providers);
-            }
-        }
-        return providersByEntry;
-    }
-
-    private static List<String> readFileSystemProviderServiceDeclarations(File classpathEntry) {
-        if (classpathEntry == null || !classpathEntry.exists()) {
-            return Collections.emptyList();
-        }
-
-        if (classpathEntry.isDirectory()) {
-            File serviceFile = new File(classpathEntry, FILE_SYSTEM_PROVIDER_SERVICE_RESOURCE);
-            if (!serviceFile.isFile()) {
-                return Collections.emptyList();
-            }
-            try (BufferedReader reader = Files.newBufferedReader(serviceFile.toPath(), StandardCharsets.UTF_8)) {
-                return parseServiceProviderDeclarations(reader);
-            } catch (IOException e) {
-                logger.debug("Could not inspect service declarations in directory {}: {}",
-                        classpathEntry.getAbsolutePath(), e.getMessage());
-                return Collections.emptyList();
-            }
-        }
-
-        if (classpathEntry.isFile() && classpathEntry.getName().endsWith(".jar")) {
-            try (JarFile jar = new JarFile(classpathEntry)) {
-                JarEntry serviceEntry = jar.getJarEntry(FILE_SYSTEM_PROVIDER_SERVICE_RESOURCE);
-                if (serviceEntry == null) {
-                    return Collections.emptyList();
-                }
-                try (InputStream in = jar.getInputStream(serviceEntry);
-                        BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
-                    return parseServiceProviderDeclarations(reader);
-                }
-            } catch (IOException e) {
-                logger.debug("Could not inspect service declarations in jar {}: {}",
-                        classpathEntry.getAbsolutePath(), e.getMessage());
-            }
-        }
-
-        return Collections.emptyList();
-    }
-
-    private static List<String> parseServiceProviderDeclarations(BufferedReader reader) throws IOException {
-        LinkedHashSet<String> providers = new LinkedHashSet<>();
-        String line;
-        while ((line = reader.readLine()) != null) {
-            int comment = line.indexOf('#');
-            String sanitized = comment >= 0 ? line.substring(0, comment) : line;
-            String providerClass = sanitized.trim();
-            if (!providerClass.isEmpty()) {
-                providers.add(providerClass);
-            }
-        }
-        return new ArrayList<>(providers);
     }
 
     private static List<String> resolveExtensionInitializationOrderForCompileCheck() {

@@ -152,19 +152,19 @@ public class JUnitAnalyzerCheckIncompleteTest {
     @Test
     public void compileCheckDisabledDueToInfrastructureRecordsIncompleteOnlyOnce() throws Exception {
         Method disable = JUnitAnalyzer.class.getDeclaredMethod(
-                "disableCompileCheckDueToInfrastructure", Throwable.class, String.class);
+                "disableCompileCheckDueToInfrastructure", Throwable.class);
         disable.setAccessible(true);
         try {
             JUnitCheckState.resetAllForTests();
 
             assertFalse(JUnitCheckState.isIncomplete());
-            disable.invoke(null, new RuntimeException("infra"), "");
+            disable.invoke(null, new RuntimeException("infra"));
             assertTrue(JUnitCheckState.isCompileCheckDisabled());
             assertTrue(JUnitCheckState.isIncomplete());
             assertEquals(1, JUnitCheckState.getIncompleteRounds());
 
             // Already-disabled state: a second infrastructure failure is not a fresh give-up.
-            disable.invoke(null, new RuntimeException("infra again"), "");
+            disable.invoke(null, new RuntimeException("infra again"));
             assertEquals(1, JUnitCheckState.getIncompleteRounds());
         } finally {
             JUnitCheckState.resetAllForTests();

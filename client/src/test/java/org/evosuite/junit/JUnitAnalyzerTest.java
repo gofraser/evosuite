@@ -720,50 +720,14 @@ public class JUnitAnalyzerTest {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
-    public void testFindFileSystemProviderServiceDeclarationsScansJarAndDirectory() throws Exception {
-        File jarWithProvider = Files.createTempFile("evosuite-fs-provider", ".jar").toFile();
-        jarWithProvider.deleteOnExit();
-
-        try (JarOutputStream out = new JarOutputStream(Files.newOutputStream(jarWithProvider.toPath()))) {
-            out.putNextEntry(new JarEntry("META-INF/services/java.nio.file.spi.FileSystemProvider"));
-            out.write(("# comment\n" +
-                    "x.provider.First\n" +
-                    "x.provider.First\n" +
-                    "x.provider.Second # inline comment\n").getBytes(StandardCharsets.UTF_8));
-            out.closeEntry();
-        }
-
-        File providerDir = Files.createTempDirectory("evosuite-fs-provider-dir").toFile();
-        providerDir.deleteOnExit();
-        File serviceFile = new File(providerDir, "META-INF/services/java.nio.file.spi.FileSystemProvider");
-        Assertions.assertTrue(serviceFile.getParentFile().mkdirs() || serviceFile.getParentFile().isDirectory());
-        Files.write(serviceFile.toPath(), Collections.singletonList("y.provider.Only"), StandardCharsets.UTF_8);
-        serviceFile.deleteOnExit();
-
-        Method scanner = JUnitAnalyzer.class.getDeclaredMethod(
-                "findFileSystemProviderServiceDeclarations", String.class);
-        scanner.setAccessible(true);
-
-        String classpath = jarWithProvider.getAbsolutePath() + File.pathSeparator + providerDir.getAbsolutePath();
-        Map<String, List<String>> providersByEntry = (Map<String, List<String>>) scanner.invoke(null, classpath);
-
-        Assertions.assertEquals(2, providersByEntry.size());
-        Assertions.assertEquals(Arrays.asList("x.provider.First", "x.provider.Second"),
-                providersByEntry.get(jarWithProvider.getAbsolutePath()));
-        Assertions.assertEquals(Collections.singletonList("y.provider.Only"),
-                providersByEntry.get(providerDir.getAbsolutePath()));
-    }
-
-    @Test
     public void testDisableCompileCheckDueToInfrastructureSetsRunWideFlag() throws Exception {
         try {
             JUnitCheckState.resetAllForTests();
 
             Method disable = JUnitAnalyzer.class.getDeclaredMethod(
-                    "disableCompileCheckDueToInfrastructure", Throwable.class, String.class);
+                    "disableCompileCheckDueToInfrastructure", Throwable.class);
             disable.setAccessible(true);
-            disable.invoke(null, new RuntimeException("infra"), "");
+            disable.invoke(null, new RuntimeException("infra"));
 
             Assertions.assertTrue(JUnitCheckState.isCompileCheckDisabled());
             Assertions.assertFalse(JUnitCheckState.isCompileCheckDisabledLogged());
@@ -773,10 +737,6 @@ public class JUnitAnalyzerTest {
             Assertions.assertEquals(1, infrastructureErrors.size());
             Assertions.assertEquals(RuntimeException.class.getName(),
                     infrastructureErrors.get(0).getThrowableProxy().getClassName());
-            Assertions.assertTrue(eventsContaining(analyzerLogAppender, Level.ERROR,
-                    "No META-INF/services/java.nio.file.spi.FileSystemProvider declaration was found")
-                    .stream().anyMatch(event -> event.getFormattedMessage()
-                            .contains("compiler classpath used during failure analysis")));
         } finally {
             JUnitCheckState.resetAllForTests();
         }
