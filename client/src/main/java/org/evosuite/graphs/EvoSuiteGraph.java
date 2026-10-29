@@ -73,9 +73,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
     ComponentAttributeProvider<V> vertexAttributeProvider = null;
     ComponentAttributeProvider<E> edgeAttributeProvider = null;
 
-    /**
-     * Constructor for EvoSuiteGraph.
-     */
     protected EvoSuiteGraph(Class<E> edgeClass) {
 
         graph = new DefaultDirectedGraph<>(edgeClass);
@@ -84,9 +81,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
         setId();
     }
 
-    /**
-     * Constructor for EvoSuiteGraph.
-     */
     protected EvoSuiteGraph(DirectedGraph<V, E> graph, Class<E> edgeClass) {
         if (graph == null || edgeClass == null) {
             throw new IllegalArgumentException("null given");
@@ -105,9 +99,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     // retrieving nodes and edges
 
-    /**
-     * getEdgeSource.
-     */
     public V getEdgeSource(E e) {
         if (!containsEdge(e)) {
             throw new IllegalArgumentException("edge not in graph");
@@ -116,9 +107,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
         return graph.getEdgeSource(e);
     }
 
-    /**
-     * getEdgeTarget.
-     */
     public V getEdgeTarget(E e) {
         if (!containsEdge(e)) {
             throw new IllegalArgumentException("edge not in graph");
@@ -127,9 +115,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
         return graph.getEdgeTarget(e);
     }
 
-    /**
-     * outgoingEdgesOf.
-     */
     public Set<E> outgoingEdgesOf(V node) {
         if (!containsVertex(node)) { // should this just return null?
             throw new IllegalArgumentException(
@@ -138,9 +123,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
         return new LinkedHashSet<>(graph.outgoingEdgesOf(node));
     }
 
-    /**
-     * incomingEdgesOf.
-     */
     public Set<E> incomingEdgesOf(V node) {
         if (!containsVertex(node)) { // should this just return null?
             throw new IllegalArgumentException("node not contained in this graph ");
@@ -148,9 +130,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
         return new LinkedHashSet<>(graph.incomingEdgesOf(node));
     }
 
-    /**
-     * getChildren.
-     */
     public Set<V> getChildren(V node) {
         if (!containsVertex(node)) {
             logger.warn("getChildren call requests a node not contained in the current graph. Node: " + node);
@@ -170,9 +149,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
         return r;
     }
 
-    /**
-     * getParents.
-     */
     public Set<V> getParents(V node) {
         if (!containsVertex(node)) { // should this just return null?
             throw new IllegalArgumentException(
@@ -192,16 +168,10 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
         return r;
     }
 
-    /**
-     * vertexSet.
-     */
     public Set<V> vertexSet() {
         return new LinkedHashSet<>(graph.vertexSet());
     }
 
-    /**
-     * edgeSet.
-     */
     public Set<E> edgeSet() {
         return new LinkedHashSet<>(graph.edgeSet());
     }
@@ -230,17 +200,11 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     // building the graph
 
-    /**
-     * addVertices.
-     */
     protected void addVertices(EvoSuiteGraph<V, E> other) {
 
         addVertices(other.vertexSet());
     }
 
-    /**
-     * addVertices.
-     */
     protected void addVertices(Collection<V> vs) {
         if (vs == null) {
             throw new IllegalArgumentException("null given");
@@ -254,24 +218,15 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
         }
     }
 
-    /**
-     * addVertex.
-     */
     protected boolean addVertex(V v) {
         return graph.addVertex(v);
     }
 
-    /**
-     * addEdge.
-     */
     protected E addEdge(V src, V target) {
 
         return graph.addEdge(src, target);
     }
 
-    /**
-     * addEdge.
-     */
     protected boolean addEdge(V src, V target, E e) {
 
         return graph.addEdge(src, target, e);
@@ -356,23 +311,14 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     // different counts
 
-    /**
-     * vertexCount.
-     */
     public int vertexCount() {
         return graph.vertexSet().size();
     }
 
-    /**
-     * edgeCount.
-     */
     public int edgeCount() {
         return graph.edgeSet().size();
     }
 
-    /**
-     * outDegreeOf.
-     */
     public int outDegreeOf(V node) { // TODO rename to sth. like childCount()
         if (node == null || !containsVertex(node)) {
             return -1;
@@ -381,9 +327,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
         return graph.outDegreeOf(node);
     }
 
-    /**
-     * inDegreeOf.
-     */
     public int inDegreeOf(V node) { // TODO rename sth. like parentCount()
         if (node == null || !containsVertex(node)) {
             return -1;
@@ -394,38 +337,23 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     // some queries
 
-    /**
-     * getEdge.
-     */
     public E getEdge(V v1, V v2) {
         return graph.getEdge(v1, v2);
     }
 
-    /**
-     * containsVertex.
-     */
     public boolean containsVertex(V v) {
         // documentation says containsVertex() returns false on when given null
         return graph.containsVertex(v);
     }
 
-    /**
-     * containsEdge.
-     */
     public boolean containsEdge(V v1, V v2) {
         return graph.containsEdge(v1, v2);
     }
 
-    /**
-     * containsEdge.
-     */
     public boolean containsEdge(E e) {
         return graph.containsEdge(e);
     }
 
-    /**
-     * isEmpty.
-     */
     public boolean isEmpty() {
         return graph.vertexSet().isEmpty();
     }
@@ -517,9 +445,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     // utilities
 
-    /**
-     * getRandomVertex.
-     */
     public V getRandomVertex() {
         // TODO that's not really random
         for (V v : graph.vertexSet()) {
@@ -529,17 +454,11 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
         return null;
     }
 
-    /**
-     * getDistance.
-     */
     public int getDistance(V v1, V v2) {
         DijkstraShortestPath<V, E> d = new DijkstraShortestPath<>(graph, v1, v2);
         return (int) Math.round(d.getPathLength());
     }
 
-    /**
-     * isDirectSuccessor.
-     */
     public boolean isDirectSuccessor(V v1, V v2) {
 
         return (containsEdge(v1, v2) && inDegreeOf(v2) == 1);
@@ -547,18 +466,12 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     // TODO make like determineEntry/ExitPoints
 
-    /**
-     * determineBranches.
-     */
     public Set<V> determineBranches() {
         return graph.vertexSet().stream()
                 .filter(instruction -> outDegreeOf(instruction) > 1)
                 .collect(toCollection(LinkedHashSet::new));
     }
 
-    /**
-     * determineJoins.
-     */
     public Set<V> determineJoins() {
         return vertexSet().stream()
                 .filter(instruction -> inDegreeOf(instruction) > 1)
@@ -602,9 +515,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     // visualizing the graph TODO clean up!
 
-    /**
-     * toDot.
-     */
     public void toDot() {
 
         createGraphDirectory();
@@ -627,9 +537,6 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
         return "";
     }
 
-    /**
-     * toFileString.
-     */
     protected String toFileString(String name) {
 
         return name.replaceAll("\\(", "_").replaceAll("\\)", "_")
@@ -672,24 +579,15 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
         }
     }
 
-    /**
-     * getName.
-     */
     public String getName() {
         return "EvoSuiteGraph_" + graphId;
     }
 
-    /**
-     * registerVertexAttributeProvider.
-     */
     public void registerVertexAttributeProvider(
             ComponentAttributeProvider<V> vertexAttributeProvider) {
         this.vertexAttributeProvider = vertexAttributeProvider;
     }
 
-    /**
-     * registerEdgeAttributeProvider.
-     */
     public void registerEdgeAttributeProvider(
             ComponentAttributeProvider<E> edgeAttributeProvider) {
         this.edgeAttributeProvider = edgeAttributeProvider;

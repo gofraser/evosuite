@@ -1012,9 +1012,6 @@ public class Properties {
         UNIFORM, BINOMIAL
     }
 
-    /**
-     * Constant <code>MUTATION_PROBABILITY_DISTRIBUTION</code>.
-     */
     @Parameter(key = "mutation_probability_distribution", group = "Search Algorithm",
             description = "Mutation probability distribution")
     public static MutationProbabilityDistribution MUTATION_PROBABILITY_DISTRIBUTION =
@@ -3781,9 +3778,6 @@ public class Properties {
      */
     private java.util.Properties properties;
 
-    /**
-     * Constructor.
-     */
     private Properties(boolean loadProperties, boolean silent) {
         if (loadProperties) {
             loadProperties(silent);

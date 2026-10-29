@@ -41,9 +41,6 @@ import java.net.URL;
 public class CarvingClassLoader extends TransformingClassLoader {
     private final Instrumenter instrumenter = new Instrumenter();
 
-    /**
-     * Constructor for CarvingClassLoader.
-     */
     public CarvingClassLoader() {
         super(ClassLoader.getSystemClassLoader(), CarvingClassLoader.class.getClassLoader());
     }

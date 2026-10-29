@@ -70,9 +70,6 @@ public class VariableNameStrategyFactory {
         return get(Properties.VARIABLE_NAMING_STRATEGY);
     }
 
-    /**
-     * gatherInformation.
-     */
     public static boolean gatherInformation() {
         return Properties.VariableNamingStrategy.HEURISTICS_BASED.equals(Properties.VARIABLE_NAMING_STRATEGY);
     }

@@ -27,9 +27,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Created by gordon on 22/12/2015.
- */
 public class NumberedTestNameGenerationStrategy implements TestNameGenerationStrategy {
 
     private final Map<TestCase, String> testToName = new HashMap<>();

@@ -349,16 +349,10 @@ public class BytecodeInstructionPool {
         return null;
     }
 
-    /**
-     * knownClasses.
-     */
     public synchronized Set<String> knownClasses() {
         return new LinkedHashSet<>(instructionMap.keySet());
     }
 
-    /**
-     * knownMethods.
-     */
     public synchronized Set<String> knownMethods(String className) {
         Set<String> r = new LinkedHashSet<>();
 
@@ -384,9 +378,6 @@ public class BytecodeInstructionPool {
         return false;
     }
 
-    /**
-     * getInstructionsIn.
-     */
     public synchronized List<BytecodeInstruction> getInstructionsIn(String className, String methodName) {
         if (instructionMap.get(className) == null
                 || instructionMap.get(className).get(methodName) == null) {
@@ -418,9 +409,6 @@ public class BytecodeInstructionPool {
         return r;
     }
 
-    /**
-     * logInstructionsIn.
-     */
     public synchronized void logInstructionsIn(String className, String methodName) {
 
         logger.debug("Printing instructions in " + className + "." + methodName + ":");
@@ -436,9 +424,6 @@ public class BytecodeInstructionPool {
 
     }
 
-    /**
-     * createFakeInstruction.
-     */
     public synchronized BytecodeInstruction createFakeInstruction(String className, String methodName) {
 
         AbstractInsnNode fakeNode = new InsnNode(Opcodes.NOP);
@@ -454,9 +439,6 @@ public class BytecodeInstructionPool {
 
     }
 
-    /**
-     * clear.
-     */
     public synchronized void clear() {
         instructionMap.clear();
         knownMethodNodes.clear();
@@ -479,9 +461,6 @@ public class BytecodeInstructionPool {
         pools.release(classLoader);
     }
 
-    /**
-     * clear.
-     */
     public synchronized void clear(String className) {
         instructionMap.remove(className);
     }
@@ -497,9 +476,6 @@ public class BytecodeInstructionPool {
         }
     }
 
-    /**
-     * clear.
-     */
     public synchronized void clear(String className, String methodName) {
         if (instructionMap.containsKey(className)) {
             instructionMap.get(className).remove(methodName);
@@ -518,9 +494,6 @@ public class BytecodeInstructionPool {
         }
     }
 
-    /**
-     * forgetInstruction.
-     */
     public synchronized boolean forgetInstruction(BytecodeInstruction ins) {
         if (!instructionMap.containsKey(ins.getClassName())) {
             return false;

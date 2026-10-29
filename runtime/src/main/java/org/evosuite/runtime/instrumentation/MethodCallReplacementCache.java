@@ -223,9 +223,6 @@ public class MethodCallReplacementCache {
 
     }
 
-    /**
-     * <p>Getter for the field <code>instance</code>.</p>
-     */
     public static MethodCallReplacementCache getInstance() {
         int current = RuntimeSettings.mockingFingerprint();
         MethodCallReplacementCache cache = instance;
@@ -238,9 +235,6 @@ public class MethodCallReplacementCache {
         return cache;
     }
 
-    /**
-     * <p>resetSingleton.</p>
-     */
     public static void resetSingleton() {
         instance = null;
     }
@@ -269,9 +263,6 @@ public class MethodCallReplacementCache {
         specialReplacementCalls.get(replacement.getClassName()).put(replacement.getMethodNameWithDesc(), replacement);
     }
 
-    /**
-     * <p>hasReplacementCall.</p>
-     */
     public boolean hasReplacementCall(String className, String methodNameWithDesc) {
         if (!replacementCalls.containsKey(className)) {
             return false;
@@ -280,16 +271,10 @@ public class MethodCallReplacementCache {
         return replacementCalls.get(className).containsKey(methodNameWithDesc);
     }
 
-    /**
-     * <p>getReplacementCall.</p>
-     */
     public MethodCallReplacement getReplacementCall(String className, String methodNameWithDesc) {
         return replacementCalls.get(className).get(methodNameWithDesc);
     }
 
-    /**
-     * <p>hasSpecialReplacementCall.</p>
-     */
     public boolean hasSpecialReplacementCall(String className, String methodNameWithDesc) {
         if (!specialReplacementCalls.containsKey(className)) {
             return false;
@@ -298,9 +283,6 @@ public class MethodCallReplacementCache {
         return specialReplacementCalls.get(className).containsKey(methodNameWithDesc);
     }
 
-    /**
-     * <p>getSpecialReplacementCall.</p>
-     */
     public MethodCallReplacement getSpecialReplacementCall(String className, String methodNameWithDesc) {
         return specialReplacementCalls.get(className).get(methodNameWithDesc);
     }

@@ -48,11 +48,6 @@ public class BooleanHelper {
 
     static Map<Integer, Integer> lastDistance = new HashMap<>();
 
-    /**
-     * <p>
-     * clearStack.
-     * </p>
-     */
     public static void clearStack() {
         lastDistance.clear();
     }
@@ -206,11 +201,6 @@ public class BooleanHelper {
     }
 
 
-    /**
-     * <p>
-     * intSub.
-     * </p>
-     */
     public static int intSub(int a, int b) {
         long sub = (long) a - (long) b;
         if (sub < -K) {
@@ -238,11 +228,6 @@ public class BooleanHelper {
         }
     }
 
-    /**
-     * <p>
-     * fromDouble.
-     * </p>
-     */
     @Deprecated
     public static int fromDouble(double d) {
         //logger.info("Converting double " + d);
@@ -264,11 +249,6 @@ public class BooleanHelper {
         }
     }
 
-    /**
-     * <p>
-     * fromFloat.
-     * </p>
-     */
     @Deprecated
     public static int fromFloat(float d) {
         //logger.info("Converting float " + d);
@@ -289,11 +269,6 @@ public class BooleanHelper {
         }
     }
 
-    /**
-     * <p>
-     * fromLong.
-     * </p>
-     */
     @Deprecated
     public static int fromLong(long d) {
         /*
@@ -312,11 +287,6 @@ public class BooleanHelper {
         return d3;
     }
 
-    /**
-     * <p>
-     * booleanToInt.
-     * </p>
-     */
     public static int booleanToInt(boolean b) {
         if (b) {
             return TRUE;
@@ -325,11 +295,6 @@ public class BooleanHelper {
         }
     }
 
-    /**
-     * <p>
-     * intToBoolean.
-     * </p>
-     */
     public static boolean intToBoolean(int x) {
         return x > 0;
     }
@@ -361,11 +326,6 @@ public class BooleanHelper {
         }
     }
 
-    /**
-     * <p>
-     * IOR.
-     * </p>
-     */
     @SuppressWarnings("checkstyle:methodname")
     public static int IOR(int a, int b) {
         int ret = 0;
@@ -388,21 +348,11 @@ public class BooleanHelper {
         return ret;
     }
 
-    /**
-     * <p>
-     * IAND.
-     * </p>
-     */
     @SuppressWarnings("checkstyle:methodname")
     public static int IAND(int a, int b) {
         return Math.min(a, b);
     }
 
-    /**
-     * <p>
-     * IXOR.
-     * </p>
-     */
     @SuppressWarnings("checkstyle:methodname")
     public static int IXOR(int a, int b) {
         int ret = 0;
@@ -419,11 +369,6 @@ public class BooleanHelper {
         return ret;
     }
 
-    /**
-     * <p>
-     * isEqual.
-     * </p>
-     */
     public static int isEqual(Object o1, Object o2, int opcode) {
         if (opcode == Opcodes.IF_ACMPEQ) {
             return o1 == o2 ? K : -K;
@@ -442,22 +387,12 @@ public class BooleanHelper {
     private static final Stack<Long> parametersLong = new Stack<>();
     private static final Stack<Double> parametersDouble = new Stack<>();
 
-    /**
-     * <p>
-     * popParameterBooleanFromInt.
-     * </p>
-     */
     public static boolean popParameterBooleanFromInt() {
         int i = parametersInteger.pop();
         boolean result = i > 0;
         return result;
     }
 
-    /**
-     * <p>
-     * popParameterIntFromBoolean.
-     * </p>
-     */
     public static int popParameterIntFromBoolean() {
         boolean i = parametersBoolean.pop();
         if (i) {
@@ -467,173 +402,78 @@ public class BooleanHelper {
         }
     }
 
-    /**
-     * <p>
-     * popParameterBoolean.
-     * </p>
-     */
     public static boolean popParameterBoolean() {
         return parametersBoolean.pop();
     }
 
-    /**
-     * <p>
-     * popParameterChar.
-     * </p>
-     */
     public static char popParameterChar() {
         return parametersChar.pop();
     }
 
-    /**
-     * <p>
-     * popParameterByte.
-     * </p>
-     */
     public static byte popParameterByte() {
         return parametersByte.pop();
     }
 
-    /**
-     * <p>
-     * popParameterShort.
-     * </p>
-     */
     public static short popParameterShort() {
         return parametersShort.pop();
     }
 
-    /**
-     * <p>
-     * popParameterInt.
-     * </p>
-     */
     public static int popParameterInt() {
         return parametersInteger.pop();
     }
 
-    /**
-     * <p>
-     * popParameterFloat.
-     * </p>
-     */
     public static float popParameterFloat() {
         return parametersFloat.pop();
     }
 
-    /**
-     * <p>
-     * popParameterLong.
-     * </p>
-     */
     public static long popParameterLong() {
         return parametersLong.pop();
     }
 
-    /**
-     * <p>
-     * popParameterDouble.
-     * </p>
-     */
     public static double popParameterDouble() {
         return parametersDouble.pop();
     }
 
-    /**
-     * <p>
-     * popParameterObject.
-     * </p>
-     */
     public static Object popParameterObject() {
         return parametersObject.pop();
     }
 
-    /**
-     * <p>
-     * popParameter.
-     * </p>
-     */
     public static Object popParameter(Object o) {
         return parametersObject.pop();
     }
 
-    /**
-     * <p>
-     * pushParameter.
-     * </p>
-     */
     public static void pushParameter(boolean o) {
         parametersBoolean.push(o);
     }
 
-    /**
-     * <p>
-     * pushParameter.
-     * </p>
-     */
     public static void pushParameter(char o) {
         parametersChar.push(o);
     }
 
-    /**
-     * <p>
-     * pushParameter.
-     * </p>
-     */
     public static void pushParameter(byte o) {
         parametersByte.push(o);
     }
 
-    /**
-     * <p>
-     * pushParameter.
-     * </p>
-     */
     public static void pushParameter(short o) {
         parametersShort.push(o);
     }
 
-    /**
-     * <p>
-     * pushParameter.
-     * </p>
-     */
     public static void pushParameter(int o) {
         parametersInteger.push(o);
     }
 
-    /**
-     * <p>
-     * pushParameter.
-     * </p>
-     */
     public static void pushParameter(float o) {
         parametersFloat.push(o);
     }
 
-    /**
-     * <p>
-     * pushParameter.
-     * </p>
-     */
     public static void pushParameter(long o) {
         parametersLong.push(o);
     }
 
-    /**
-     * <p>
-     * pushParameter.
-     * </p>
-     */
     public static void pushParameter(double o) {
         parametersDouble.push(o);
     }
 
-    /**
-     * <p>
-     * pushParameter.
-     * </p>
-     */
     public static void pushParameter(Object o) {
         parametersObject.push(o);
     }

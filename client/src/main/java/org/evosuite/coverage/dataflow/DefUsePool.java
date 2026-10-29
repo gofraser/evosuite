@@ -349,9 +349,6 @@ public class DefUsePool {
 
     // functionality to retrieve information from the pool
 
-    /**
-     * knowsDefinitionForVariableOf.
-     */
     public static boolean knowsDefinitionForVariableOf(BytecodeInstruction du) {
         if (!du.isDefUse()) {
             throw new IllegalArgumentException("defuse expected");
@@ -369,17 +366,11 @@ public class DefUsePool {
         }
     }
 
-    /**
-     * isKnown.
-     */
     public static boolean isKnown(BytecodeInstruction instruction) {
 
         return isKnownAsDefinition(instruction) || isKnownAsUse(instruction);
     }
 
-    /**
-     * isKnownAsDefinition.
-     */
     public static boolean isKnownAsDefinition(BytecodeInstruction instruction) {
         return registeredDefs.containsKey(instruction);
     }
@@ -392,30 +383,18 @@ public class DefUsePool {
         return defuseIdsToUses.containsKey(defuseId);
     }
 
-    /**
-     * isKnownAsUse.
-     */
     public static boolean isKnownAsUse(BytecodeInstruction instruction) {
         return registeredUses.containsKey(instruction);
     }
 
-    /**
-     * isKnownAsFieldMethodCall.
-     */
     public static boolean isKnownAsFieldMethodCall(BytecodeInstruction instruction) {
         return knownFieldMethodCalls.contains(instruction);
     }
 
-    /**
-     * isKnownAsParameterUse.
-     */
     public static boolean isKnownAsParameterUse(BytecodeInstruction instruction) {
         return knownParameterUses.contains(instruction);
     }
 
-    /**
-     * retrieveRegisteredDefinitions.
-     */
     public static Set<Definition> retrieveRegisteredDefinitions() {
         Set<Definition> r = new HashSet<>();
         for (Integer defId : registeredDefs.values()) {
@@ -424,9 +403,6 @@ public class DefUsePool {
         return r;
     }
 
-    /**
-     * retrieveRegisteredUses.
-     */
     public static Set<Use> retrieveRegisteredUses() {
         Set<Use> r = new HashSet<>();
         for (Integer useId : registeredUses.values()) {
@@ -440,9 +416,6 @@ public class DefUsePool {
 
     }
 
-    /**
-     * retrieveRegisteredParameterUses.
-     */
     public static Set<Use> retrieveRegisteredParameterUses() {
         Set<Use> r = new HashSet<>();
         for (BytecodeInstruction instruction : knownParameterUses) {
@@ -451,9 +424,6 @@ public class DefUsePool {
         return r;
     }
 
-    /**
-     * getDefinitionByInstruction.
-     */
     public static Definition getDefinitionByInstruction(BytecodeInstruction def) {
         if (!isKnownAsDefinition(def)) {
             return null;
@@ -462,9 +432,6 @@ public class DefUsePool {
         return getDefinitionByDefId(getRegisteredDefId(def));
     }
 
-    /**
-     * getUseByInstruction.
-     */
     public static Use getUseByInstruction(BytecodeInstruction use) {
         if (!isKnownAsUse(use)) {
             return null;
@@ -505,23 +472,14 @@ public class DefUsePool {
         return (Definition) du;
     }
 
-    /**
-     * getUseByUseId.
-     */
     public static Use getUseByUseId(int useId) {
         return useIdsToUses.get(useId);
     }
 
-    /**
-     * getDefinitionByDefId.
-     */
     public static Definition getDefinitionByDefId(int defId) {
         return defIdsToDefs.get(defId);
     }
 
-    /**
-     * getRegisteredDefUseId.
-     */
     public static int getRegisteredDefUseId(BytecodeInstruction instruction) {
         if (registeredDUs.containsKey(instruction)) {
             return registeredDUs.get(instruction);
@@ -530,9 +488,6 @@ public class DefUsePool {
         return -1;
     }
 
-    /**
-     * getRegisteredDefId.
-     */
     public static int getRegisteredDefId(BytecodeInstruction instruction) {
         if (registeredDefs.containsKey(instruction)) {
             return registeredDefs.get(instruction);
@@ -541,9 +496,6 @@ public class DefUsePool {
         return -1;
     }
 
-    /**
-     * getRegisteredUseId.
-     */
     public static int getRegisteredUseId(BytecodeInstruction instruction) {
         if (registeredUses.containsKey(instruction)) {
             return registeredUses.get(instruction);

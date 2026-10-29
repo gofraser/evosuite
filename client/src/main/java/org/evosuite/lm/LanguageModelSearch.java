@@ -31,9 +31,6 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Set;
 
-/**
- * Created by mat on 07/04/2014.
- */
 public abstract class LanguageModelSearch implements Comparator<Chromosome> {
     protected static final int GENERATIONS = 1000000;
     private static final Logger logger = LoggerFactory.getLogger(LanguageModelSearch.class);

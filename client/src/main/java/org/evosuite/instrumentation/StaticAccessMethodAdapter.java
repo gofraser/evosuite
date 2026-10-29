@@ -43,11 +43,6 @@ public class StaticAccessMethodAdapter extends MethodVisitor {
     private final String className;
     private final String methodName;
 
-    /**
-     * <p>
-     * Constructor for StaticAccessMethodAdapter.
-     * </p>
-     */
     public StaticAccessMethodAdapter(String className, String methodName, MethodVisitor mv) {
         super(Opcodes.ASM9, mv);
         this.className = className;

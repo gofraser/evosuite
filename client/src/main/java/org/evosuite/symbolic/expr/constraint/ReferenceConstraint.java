@@ -46,11 +46,6 @@ public class ReferenceConstraint extends Constraint<Object> {
     private final Expression<Object> left;
     private final Expression<Object> right;
 
-    /**
-     * <p>
-     * Constructor for ReferenceConstraint.
-     * </p>
-     */
     public ReferenceConstraint(Expression<Object> left, Comparator cmp,
                                Expression<Object> right) {
         super();

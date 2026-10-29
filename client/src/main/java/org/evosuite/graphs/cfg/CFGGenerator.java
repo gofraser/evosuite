@@ -223,23 +223,14 @@ public class CFGGenerator {
 
     // getter
 
-    /**
-     * Getter for the field <code>rawGraph</code>.
-     */
     protected RawControlFlowGraph getRawGraph() {
         return rawGraph;
     }
 
-    /**
-     * Getter for the field <code>className</code>.
-     */
     public String getClassName() {
         return className;
     }
 
-    /**
-     * Getter for the field <code>methodName</code>.
-     */
     public String getMethodName() {
         return methodName;
     }

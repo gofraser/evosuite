@@ -35,9 +35,6 @@ import java.net.SocketImplFactory;
 import java.net.SocketOptions;
 import java.nio.channels.ServerSocketChannel;
 
-/**
- * Created by arcuri on 6/29/14.
- */
 public class MockServerSocket extends ServerSocket implements OverrideMock {
 
     private boolean created = false;

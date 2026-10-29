@@ -42,9 +42,6 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
     private final String className;
     private final String methodName;
 
-    /**
-     * Constructor for ControlDependenceGraph.
-     */
     public ControlDependenceGraph(ActualControlFlowGraph cfg) {
         super(ControlFlowEdge.class);
 
@@ -63,9 +60,6 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
         return cfg.knowsInstruction(ins);
     }
 
-    /**
-     * getControlDependenceDepth.
-     */
     public int getControlDependenceDepth(ControlDependency dependence) {
         int min = Integer.MAX_VALUE;
         for (BasicBlock root : determineEntryPoints()) {
@@ -78,9 +72,6 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
         return min;
     }
 
-    /**
-     * getAlternativeBlocks.
-     */
     public Set<BasicBlock> getAlternativeBlocks(ControlDependency dependency) {
         Set<BasicBlock> blocks = new LinkedHashSet<>();
         Branch branch = dependency.getBranch();
@@ -164,9 +155,6 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
         return r;
     }
 
-    /**
-     * getControlDependentBranchIds.
-     */
     public Set<Integer> getControlDependentBranchIds(BasicBlock ins) {
 
         Set<ControlDependency> dependentBranches = getControlDependentBranches(ins);
@@ -443,16 +431,10 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
         return toFileString(className) + "/CDG/";
     }
 
-    /**
-     * <p>Getter for the field <code>className</code>.</p>
-     */
     public String getClassName() {
         return className;
     }
 
-    /**
-     * <p>Getter for the field <code>methodName</code>.</p>
-     */
     public String getMethodName() {
         return methodName;
     }

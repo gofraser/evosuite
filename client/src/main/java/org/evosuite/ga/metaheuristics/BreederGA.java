@@ -46,9 +46,6 @@ public class BreederGA<T extends Chromosome<T>> extends StandardGA<T> {
     private static final long serialVersionUID = 8305884372813786175L;
     private final Logger logger = LoggerFactory.getLogger(BreederGA.class);
 
-    /**
-     * Constructor.
-     */
     public BreederGA(ChromosomeFactory<T> factory) {
         super(factory);
     }

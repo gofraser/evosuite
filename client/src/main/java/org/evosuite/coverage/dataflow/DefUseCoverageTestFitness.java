@@ -200,9 +200,6 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 
     // debugging methods
 
-    /**
-     * setCovered.
-     */
     public void setCovered(TestChromosome individual, ExecutionTrace trace,
                            Integer objectId) {
         if (PRINT_DEBUG) {
@@ -235,65 +232,38 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 
     //  ---         Getter      ---
 
-    /**
-     * Getter for the field <code>goalVariable</code>.
-     */
     public String getGoalVariable() {
         return goalVariable;
     }
 
-    /**
-     * Getter for the field <code>goalDefinition</code>.
-     */
     public Definition getGoalDefinition() {
         return goalDefinition;
     }
 
-    /**
-     * Getter for the field <code>goalUse</code>.
-     */
     public Use getGoalUse() {
         return goalUse;
     }
 
-    /**
-     * Getter for the field <code>goalUseFitness</code>.
-     */
     public TestFitnessFunction getGoalUseFitness() {
         return goalUseFitness;
     }
 
-    /**
-     * Getter for the field <code>goalDefinitionFitness</code>.
-     */
     public TestFitnessFunction getGoalDefinitionFitness() {
         return goalDefinitionFitness;
     }
 
-    /**
-     * isInterMethodPair.
-     */
     public boolean isInterMethodPair() {
         return type.equals(DefUsePairType.INTER_METHOD);
     }
 
-    /**
-     * isIntraClassPair.
-     */
     public boolean isIntraClassPair() {
         return type.equals(DefUsePairType.INTRA_CLASS);
     }
 
-    /**
-     * Getter for the field <code>type</code>.
-     */
     public DefUsePairType getType() {
         return type;
     }
 
-    /**
-     * isParameterGoal.
-     */
     public boolean isParameterGoal() {
         return goalDefinition == null;
     }

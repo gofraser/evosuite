@@ -29,9 +29,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
-/**
- * Created by gordon on 17/03/2016.
- */
 public class ExceptionTransformationClassAdapter extends ClassVisitor {
 
     private static final Logger logger = LoggerFactory.getLogger(ExceptionTransformationClassAdapter.class);

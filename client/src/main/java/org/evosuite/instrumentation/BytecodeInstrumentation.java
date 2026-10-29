@@ -75,11 +75,6 @@ public class BytecodeInstrumentation {
     private final Instrumenter testCarvingInstrumenter;
     private final InstrumentationConfig config;
 
-    /**
-     * <p>
-     * Constructor for BytecodeInstrumentation.
-     * </p>
-     */
     public BytecodeInstrumentation() {
         this(InstrumentationConfig.fromProperties());
     }
@@ -120,11 +115,6 @@ public class BytecodeInstrumentation {
         return false;
     }
 
-    /**
-     * <p>
-     * shouldTransform.
-     * </p>
-     */
     public boolean shouldTransform(String className) {
         if (!config.ttEnabled()) {
             return false;

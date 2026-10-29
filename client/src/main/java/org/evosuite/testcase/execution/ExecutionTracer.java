@@ -121,24 +121,15 @@ public class ExecutionTracer {
      */
     private static volatile Thread currentThread = null;
 
-    /**
-     * <p>setThread.</p>
-     */
     public static void setThread(Thread thread) {
         currentThread = thread;
     }
 
-    /**
-     * <p>disable.</p>
-     */
     public static void disable() {
         ExecutionTracer tracer = ExecutionTracer.getExecutionTracer();
         tracer.disabled = true;
     }
 
-    /**
-     * <p>enable.</p>
-     */
     public static void enable() {
         ExecutionTracer tracer = ExecutionTracer.getExecutionTracer();
         tracer.disabled = false;
@@ -176,17 +167,11 @@ public class ExecutionTracer {
         }
     }
 
-    /**
-     * <p>isEnabled.</p>
-     */
     public static boolean isEnabled() {
         ExecutionTracer tracer = ExecutionTracer.getExecutionTracer();
         return !tracer.disabled;
     }
 
-    /**
-     * <p>Setter for the field <code>killSwitch</code>.</p>
-     */
     public static void setKillSwitch(boolean value) {
         ExecutionTracer tracer = ExecutionTracer.getExecutionTracer();
         tracer.killSwitch = value;
@@ -207,9 +192,6 @@ public class ExecutionTracer {
         return getExecutionTracer().killSwitchProbeCount;
     }
 
-    /**
-     * <p>Setter for the field <code>checkCallerThread</code>.</p>
-     */
     public static void setCheckCallerThread(boolean checkCallerThread) {
         ExecutionTracer.checkCallerThread = checkCallerThread;
     }
@@ -230,16 +212,10 @@ public class ExecutionTracer {
         ExecutionTraceImpl.disableContext();
     }
 
-    /**
-     * <p>disableTraceCalls.</p>
-     */
     public static void disableTraceCalls() {
         ExecutionTraceImpl.disableTraceCalls();
     }
 
-    /**
-     * <p>enableTraceCalls.</p>
-     */
     public static void enableTraceCalls() {
         ExecutionTraceImpl.enableTraceCalls();
     }
@@ -248,9 +224,6 @@ public class ExecutionTracer {
         return ExecutionTraceImpl.isTraceCallsEnabled();
     }
 
-    /**
-     * <p>getExecutionTracer.</p>
-     */
     public static ExecutionTracer getExecutionTracer() {
         if (instance == null) {
             instance = new ExecutionTracer();
@@ -895,9 +868,6 @@ public class ExecutionTracer {
         }
     }
 
-    /**
-     * <p>passedMutation.</p>
-     */
     public static void passedMutation(double distance, int mutationId) {
         ExecutionTracer tracer = getExecutionTracer();
         if (tracer.disabled) {
@@ -913,9 +883,6 @@ public class ExecutionTracer {
         tracer.trace.mutationPassed(mutationId, distance);
     }
 
-    /**
-     * <p>exceptionThrown.</p>
-     */
     public static void exceptionThrown(Object exception, String className,
                                        String methodName) {
         ExecutionTracer tracer = getExecutionTracer();
@@ -933,9 +900,6 @@ public class ExecutionTracer {
 
     }
 
-    /**
-     * <p>statementExecuted.</p>
-     */
     public static void statementExecuted() {
         ExecutionTracer tracer = getExecutionTracer();
         if (tracer.disabled) {
@@ -951,9 +915,6 @@ public class ExecutionTracer {
         tracer.numStatements++;
     }
 
-    /**
-     * <p>getNumStatementsExecuted.</p>
-     */
     public int getNumStatementsExecuted() {
         return numStatements;
     }

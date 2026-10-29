@@ -38,9 +38,6 @@ public class SimpleListenable<T> implements Listenable<T> {
         listeners.remove(listener);
     }
 
-    /**
-     * <p>fireEvent.</p>
-     */
     public void fireEvent(T event) {
         for (Listener<T> listener : listeners) {
             listener.receiveEvent(event);

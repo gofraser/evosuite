@@ -44,9 +44,6 @@ public class AccessibleClassAdapter extends ClassVisitor {
     private final ClassLoader classLoader;
     private final boolean recordVisibility;
 
-    /**
-     * <p>Constructor for AccessibleClassAdapter.</p>
-     */
     public AccessibleClassAdapter(ClassVisitor cv, String className) {
         this(cv, className, null, false);
     }

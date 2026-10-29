@@ -43,20 +43,10 @@ public abstract class AbstractMethodTestFitness extends TestFitnessFunction {
         this.methodName = Objects.requireNonNull(methodName, "methodName cannot be null");
     }
 
-    /**
-     * <p>
-     * getClassName.
-     * </p>
-     */
     public String getClassName() {
         return className;
     }
 
-    /**
-     * <p>
-     * getMethod.
-     * </p>
-     */
     public String getMethod() {
         return methodName;
     }

@@ -114,11 +114,6 @@ public abstract class MutationSuiteFitness extends TestSuiteFitnessFunction {
         return runTest(test, null);
     }
 
-    /**
-     * <p>
-     * runTest.
-     * </p>
-     */
     public ExecutionResult runTest(TestCase test, Mutation mutant) {
 
         return MutationTestFitness.runTest(test, mutant);

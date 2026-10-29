@@ -29,9 +29,6 @@ public abstract class MutationDistribution implements Serializable {
 
     private static final long serialVersionUID = -5800252656232641574L;
 
-    /**
-     * Constant <code>logger</code>.
-     */
     protected static final Logger logger = LoggerFactory.getLogger(MutationDistribution.class);
 
     protected int sizeOfDistribution;

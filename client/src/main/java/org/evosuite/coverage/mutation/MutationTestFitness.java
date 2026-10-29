@@ -64,11 +64,6 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
 
     protected final int diameter;
 
-    /**
-     * <p>
-     * Constructor for MutationTestFitness.
-     * </p>
-     */
     public MutationTestFitness(Mutation mutation) {
         this.mutation = mutation;
         this.mutantId = mutation.getId();
@@ -83,11 +78,6 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
         diameter = cfg.getDiameter();
     }
 
-    /**
-     * <p>
-     * Getter for the field <code>mutation</code>.
-     * </p>
-     */
     public Mutation getMutation() {
         return mutation;
     }
@@ -97,11 +87,6 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
         return runTest(test, null);
     }
 
-    /**
-     * <p>
-     * runTest.
-     * </p>
-     */
     public static ExecutionResult runTest(TestCase test, Mutation mutant) {
 
         ExecutionResult result = new ExecutionResult(test, mutant);
@@ -137,11 +122,6 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
         return result;
     }
 
-    /**
-     * <p>
-     * getExecutionDistance.
-     * </p>
-     */
     protected double getExecutionDistance(ExecutionResult result) {
         double fitness = 0.0;
         if (!result.getTrace().wasMutationTouched(mutation.getId())) {

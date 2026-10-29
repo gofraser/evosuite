@@ -26,9 +26,6 @@ import org.evosuite.testsuite.TestSuiteFitnessFunction;
 
 import java.io.IOException;
 
-/**
- * Created by mat on 20/03/2014.
- */
 public class LanguageModelSuiteFitness extends TestSuiteFitnessFunction {
 
     private static final long serialVersionUID = 8985543347957256453L;
@@ -36,9 +33,6 @@ public class LanguageModelSuiteFitness extends TestSuiteFitnessFunction {
     private final LangModel languageModel;
 
 
-    /**
-     * Constructor.
-     */
     public LanguageModelSuiteFitness() {
         backingFitness = new BranchCoverageSuiteFitness();
         try {

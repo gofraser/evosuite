@@ -32,9 +32,6 @@ import org.objectweb.asm.Opcodes;
  */
 public class YieldAtLineNumberMethodAdapter extends AbstractEvoMethodAdapter {
 
-    /**
-     * <p>Constructor for YieldAtLineNumberMethodAdapter.</p>
-     */
     public YieldAtLineNumberMethodAdapter(MethodVisitor mv, int access, String className,
                                           String methodName, String desc) {
         super(mv, access, className, methodName, desc);

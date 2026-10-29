@@ -31,9 +31,6 @@ import org.objectweb.asm.Opcodes;
 public class LoopCounterClassAdapter extends ClassVisitor {
     private String className;
 
-    /**
-     * <p>Constructor for LoopCounterClassAdapter.</p>
-     */
     public LoopCounterClassAdapter(ClassVisitor cv) {
         super(Opcodes.ASM9, cv);
     }

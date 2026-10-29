@@ -32,11 +32,6 @@ import java.util.regex.Pattern;
  */
 public class StringHelper {
 
-    /**
-     * <p>
-     * editDistance.
-     * </p>
-     */
     public static int editDistance(String s, String t) {
         // if (s == null || t == null) {
         //     throw new IllegalArgumentException("Strings must not be null");
@@ -110,11 +105,6 @@ public class StringHelper {
      * how different they are
      */
 
-    /**
-     * <p>
-     * StringEquals.
-     * </p>
-     */
     @SuppressWarnings("checkstyle:methodname")
     public static int StringEquals(String first, Object second) {
         if (first == null) {
@@ -257,11 +247,6 @@ public class StringHelper {
         }
     }
 
-    /**
-     * <p>
-     * getDistanceBasedOnLeftAlignment.
-     * </p>
-     */
     protected static int getDistanceBasedOnLeftAlignment(String a, String b) {
         int differences = 0;
         int min = Math.min(a.length(), b.length());
@@ -312,11 +297,6 @@ public class StringHelper {
         }
     }
 
-    /**
-     * <p>
-     * StringEqualsIgnoreCase.
-     * </p>
-     */
     @SuppressWarnings("checkstyle:methodname")
     public static int StringEqualsIgnoreCase(String first, String second) {
         if (first == null) {
@@ -335,11 +315,6 @@ public class StringHelper {
         return StringEquals(first.toLowerCase(), second.toLowerCase());
     }
 
-    /**
-     * <p>
-     * StringStartsWith.
-     * </p>
-     */
     @SuppressWarnings("checkstyle:methodname")
     public static int StringStartsWith(String value, String prefix, int start) {
         int len = Math.min(prefix.length(), value.length());
@@ -347,11 +322,6 @@ public class StringHelper {
         return StringEquals(value.substring(start, Math.min(start + len, value.length())), prefix);
     }
 
-    /**
-     * <p>
-     * StringEndsWith.
-     * </p>
-     */
     @SuppressWarnings("checkstyle:methodname")
     public static int StringEndsWith(String value, String suffix) {
         int len = Math.min(suffix.length(), value.length());
@@ -360,11 +330,6 @@ public class StringHelper {
         return StringEquals(val1, suffix);
     }
 
-    /**
-     * <p>
-     * StringIsEmpty.
-     * </p>
-     */
     @SuppressWarnings("checkstyle:methodname")
     public static int StringIsEmpty(String value) {
         int len = value.length();
@@ -375,11 +340,6 @@ public class StringHelper {
         }
     }
 
-    /**
-     * <p>
-     * StringRegionMatches.
-     * </p>
-     */
     @SuppressWarnings("checkstyle:methodname")
     public static int StringRegionMatches(String value, boolean ignoreCase,
                                           int thisStart, String string, int start, int length) {

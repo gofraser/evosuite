@@ -95,11 +95,6 @@ public abstract class AssertionGenerator {
             SameTraceEntry.class, InspectorTraceEntry.class, PrimitiveFieldTraceEntry.class, NullTraceEntry.class,
             ArrayTraceEntry.class, ArrayLengthTraceEntry.class, ContainsTraceEntry.class};
 
-    /**
-     * <p>
-     * Constructor for AssertionGenerator.
-     * </p>
-     */
     public AssertionGenerator() {
         registerObservers();
     }
@@ -122,11 +117,6 @@ public abstract class AssertionGenerator {
         }
     }
 
-    /**
-     * <p>
-     * addAssertions.
-     * </p>
-     */
     public abstract void addAssertions(TestCase test);
 
     /**

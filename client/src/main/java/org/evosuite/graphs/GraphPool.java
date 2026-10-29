@@ -65,9 +65,6 @@ public class GraphPool {
 
     private final ClassLoader classLoader;
 
-    /**
-     * Private constructor.
-     */
     private GraphPool(ClassLoader classLoader) {
         this.classLoader = classLoader;
     }

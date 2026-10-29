@@ -93,23 +93,14 @@ public class ArraySymbolicLengthName {
         this.symbolicName = buildSymbolicLengthDimensionName(arrayReferenceName, dimension);
     }
 
-    /**
-     * Getter for the field <code>dimension</code>.
-     */
     public int getDimension() {
         return dimension;
     }
 
-    /**
-     * Getter for the field <code>symbolicName</code>.
-     */
     public String getSymbolicName() {
         return symbolicName;
     }
 
-    /**
-     * Getter for the field <code>arrayReferenceName</code>.
-     */
     public String getArrayReferenceName() {
         return arrayReferenceName;
     }

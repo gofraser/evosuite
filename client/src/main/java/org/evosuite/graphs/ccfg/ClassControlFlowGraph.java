@@ -354,9 +354,6 @@ public class ClassControlFlowGraph extends EvoSuiteGraph<CCFGNode, CCFGEdge> {
         return GraphPool.getInstance(classLoader).getRawCFG(className, ccgNode.getMethod());
     }
 
-    /**
-     * getMethodExitOf.
-     */
     public CCFGMethodExitNode getMethodExitOf(CCFGMethodEntryNode methodEntry) {
         if (methodEntry == null) {
             return null;
@@ -365,9 +362,6 @@ public class ClassControlFlowGraph extends EvoSuiteGraph<CCFGNode, CCFGEdge> {
         return methodExits.get(methodEntry.getMethod());
     }
 
-    /**
-     * getMethodEntryOf.
-     */
     public CCFGMethodEntryNode getMethodEntryOf(CCFGMethodExitNode methodExit) {
         if (methodExit == null) {
             return null;
@@ -555,9 +549,6 @@ public class ClassControlFlowGraph extends EvoSuiteGraph<CCFGNode, CCFGEdge> {
                 getFrameNode(FrameNodeType.LOOP), new CCFGFrameEdge());
     }
 
-    /**
-     * getFrameNode.
-     */
     public CCFGFrameNode getFrameNode(FrameNodeType type) {
         return frameNodes.get(type);
     }

@@ -21,9 +21,6 @@ package org.evosuite.runtime;
 
 import org.evosuite.runtime.sandbox.Sandbox;
 
-/**
- * Created by arcuri on 6/10/14.
- */
 public class RuntimeSettings {
 
     /*

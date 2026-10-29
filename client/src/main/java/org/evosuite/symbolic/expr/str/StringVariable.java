@@ -42,11 +42,6 @@ public final class StringVariable extends AbstractExpression<String>
 
     private String maxValue;
 
-    /**
-     * <p>
-     * Constructor for StringVariable.
-     * </p>
-     */
     public StringVariable(String name, String concVal) {
         super(concVal, 1, true);
         this.name = name;

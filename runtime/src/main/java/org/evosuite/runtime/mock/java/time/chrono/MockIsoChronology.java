@@ -25,9 +25,6 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.chrono.IsoChronology;
 
-/**
- * Created by gordon on 24/01/2016.
- */
 public class MockIsoChronology implements StaticReplacementMock {
     @Override
     public String getMockedClassName() {

@@ -84,16 +84,10 @@ public class MaxStatementsStoppingCondition<T extends Chromosome<T>> extends Sto
         currentStatement.set(0);
     }
 
-    /**
-     * <p>getNumExecutedStatements.</p>
-     */
     public static long getNumExecutedStatements() {
         return currentStatement.get();
     }
 
-    /**
-     * <p>setNumExecutedStatements.</p>
-     */
     public static void setNumExecutedStatements(long value) {
         currentStatement.set(value);
     }

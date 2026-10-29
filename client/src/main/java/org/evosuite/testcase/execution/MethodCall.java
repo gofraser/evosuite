@@ -67,9 +67,6 @@ public class MethodCall implements Cloneable {
         }
     }
 
-    /**
-     * <p>Constructor for MethodCall.</p>
-     */
     public MethodCall(String className, String methodName, int methodId,
                       int callingObjectId, int callDepth) {
         this.className = className;
@@ -113,9 +110,6 @@ public class MethodCall implements Cloneable {
         return ret.toString();
     }
 
-    /**
-     * <p>explain.</p>
-     */
     public String explain() {
         // TODO StringBuilder-explain() functions to construct string templates like explainList()
         StringBuffer r = new StringBuffer();

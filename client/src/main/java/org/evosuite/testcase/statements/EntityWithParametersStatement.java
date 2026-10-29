@@ -241,9 +241,6 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
         return parameters.size();
     }
 
-    /**
-     * replaceParameterReference.
-     */
     public void replaceParameterReference(VariableReference var, int numParameter) throws IllegalArgumentException {
         Inputs.checkNull(var);
         if (numParameter < 0 || numParameter >= parameters.size()) {

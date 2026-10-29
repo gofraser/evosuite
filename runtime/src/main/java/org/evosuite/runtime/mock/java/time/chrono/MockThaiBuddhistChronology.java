@@ -25,9 +25,6 @@ import java.time.ZoneId;
 import java.time.chrono.ThaiBuddhistChronology;
 import java.time.chrono.ThaiBuddhistDate;
 
-/**
- * Created by gordon on 24/01/2016.
- */
 public class MockThaiBuddhistChronology implements StaticReplacementMock {
     @Override
     public String getMockedClassName() {

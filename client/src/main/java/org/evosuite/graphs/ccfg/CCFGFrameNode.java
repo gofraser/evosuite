@@ -23,16 +23,10 @@ public class CCFGFrameNode extends CCFGNode {
 
     private final ClassControlFlowGraph.FrameNodeType type;
 
-    /**
-     * Constructor for CCFGFrameNode.
-     */
     public CCFGFrameNode(ClassControlFlowGraph.FrameNodeType type) {
         this.type = type;
     }
 
-    /**
-     * Getter for the field <code>type</code>.
-     */
     public ClassControlFlowGraph.FrameNodeType getType() {
         return type;
     }

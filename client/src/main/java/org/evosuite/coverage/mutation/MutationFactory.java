@@ -54,19 +54,9 @@ public class MutationFactory extends AbstractFitnessFactory<MutationTestFitness>
     private final MethodNameMatcher matcher = new MethodNameMatcher();
 
 
-    /**
-     * <p>
-     * Constructor for MutationFactory.
-     * </p>
-     */
     public MutationFactory() {
     }
 
-    /**
-     * <p>
-     * Constructor for MutationFactory.
-     * </p>
-     */
     public MutationFactory(boolean strongMutation) {
         this.strong = strongMutation;
     }

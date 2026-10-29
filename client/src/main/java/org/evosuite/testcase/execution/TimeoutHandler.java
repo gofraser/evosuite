@@ -28,11 +28,6 @@ import java.util.concurrent.*;
 
 public class TimeoutHandler<T> {
 
-    /**
-     * <p>
-     * Constructor for TimeoutHandler.
-     * </p>
-     */
     public TimeoutHandler() {
         super();
         this.bean = ManagementFactory.getThreadMXBean();
@@ -48,9 +43,6 @@ public class TimeoutHandler<T> {
      */
     private volatile Thread taskThread;
 
-    /**
-     * Constant <code>logger</code>.
-     */
     protected static final Logger logger = LoggerFactory.getLogger(TimeoutHandler.class);
 
     /**
@@ -63,20 +55,10 @@ public class TimeoutHandler<T> {
         this.taskThread = thread;
     }
 
-    /**
-     * <p>
-     * getLastTask.
-     * </p>
-     */
     public FutureTask<T> getLastTask() {
         return task;
     }
 
-    /**
-     * <p>
-     * execute.
-     * </p>
-     */
     public T execute(final Callable<T> testcase, ExecutorService executor, long timeout,
                      boolean timeoutBasedOnCpu) throws TimeoutException, InterruptedException,
             ExecutionException {

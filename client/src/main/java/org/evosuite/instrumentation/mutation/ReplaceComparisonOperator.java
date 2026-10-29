@@ -163,9 +163,6 @@ public class ReplaceComparisonOperator implements MutationOperator {
         return mutations;
     }
 
-    /**
-     * <p>getInfectionDistance.</p>
-     */
     public InsnList getInfectionDistance(int opcodeOrig, int opcodeNew) {
         InsnList distance = new InsnList();
         switch (opcodeOrig) {
@@ -374,18 +371,12 @@ public class ReplaceComparisonOperator implements MutationOperator {
                 + opcodeNew);
     }
 
-    /**
-     * <p>getInfectionDistance.</p>
-     */
     public static double getInfectionDistance(int left, int right, int opcodeOrig,
                                               int opcodeNew) {
         long val = (long) left - (long) right;
         return getDistance(val, opcodeOrig, opcodeNew);
     }
 
-    /**
-     * <p>getInfectionDistance.</p>
-     */
     public static double getInfectionDistance(int intVal, int opcodeOrig, int opcodeNew) {
         long val = intVal;
         return getDistance(val, opcodeOrig, opcodeNew);

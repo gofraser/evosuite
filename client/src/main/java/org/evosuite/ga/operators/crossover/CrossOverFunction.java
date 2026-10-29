@@ -35,9 +35,6 @@ public abstract class CrossOverFunction<T extends Chromosome<T>> implements Seri
 
     private static final long serialVersionUID = -4765602400132319324L;
 
-    /**
-     * Constant <code>logger</code>.
-     */
     protected static final Logger logger = LoggerFactory.getLogger(CrossOverFunction.class);
 
     /**

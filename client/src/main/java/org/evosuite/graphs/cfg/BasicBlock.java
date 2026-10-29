@@ -176,9 +176,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
         return controlDependencies;
     }
 
-    /**
-     * hasControlDependenciesSet.
-     */
     public boolean hasControlDependenciesSet() {
         return controlDependencies != null;
     }
@@ -226,9 +223,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
 
     // retrieve information
 
-    /**
-     * containsInstruction.
-     */
     public boolean containsInstruction(BytecodeInstruction instruction) {
         if (instruction == null) {
             throw new IllegalArgumentException("null given");
@@ -237,9 +231,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
         return instructions.contains(instruction);
     }
 
-    /**
-     * containsInstruction.
-     */
     public boolean containsInstruction(AbstractInsnNode insnNode) {
         for (BytecodeInstruction instruction : instructions) {
             if (instruction.getASMNode().equals(insnNode)) {
@@ -249,9 +240,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
         return false;
     }
 
-    /**
-     * getFirstInstruction.
-     */
     public BytecodeInstruction getFirstInstruction() {
         if (instructions.isEmpty()) {
             return null;
@@ -259,9 +247,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
         return instructions.get(0);
     }
 
-    /**
-     * getLastInstruction.
-     */
     public BytecodeInstruction getLastInstruction() {
         if (instructions.isEmpty()) {
             return null;
@@ -269,9 +254,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
         return instructions.get(instructions.size() - 1);
     }
 
-    /**
-     * getFirstLine.
-     */
     public int getFirstLine() {
         for (BytecodeInstruction ins : instructions) {
             if (ins.hasLineNumberSet()) {
@@ -282,9 +264,6 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
         return -1;
     }
 
-    /**
-     * getLastLine.
-     */
     public int getLastLine() {
 
         int r = -1;
@@ -298,30 +277,18 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
         return r;
     }
 
-    /**
-     * getName.
-     */
     public String getName() {
         return (isAuxiliaryBlock ? "aux" : "") + "BasicBlock " + id;
     }
 
-    /**
-     * Getter for the field <code>className</code>.
-     */
     public String getClassName() {
         return className;
     }
 
-    /**
-     * Getter for the field <code>methodName</code>.
-     */
     public String getMethodName() {
         return methodName;
     }
 
-    /**
-     * explain.
-     */
     public String explain() {
         StringBuilder r = new StringBuilder();
         r.append(getName()).append(":\n");
@@ -419,23 +386,14 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
         return isExitBlock() == other.isExitBlock();
     }
 
-    /**
-     * checkSanity.
-     */
     public void checkSanity() {
         logger.debug("checking sanity of " + this);
     }
 
-    /**
-     * isEntryBlock.
-     */
     public boolean isEntryBlock() {
         return false;
     }
 
-    /**
-     * isExitBlock.
-     */
     public boolean isExitBlock() {
         return false;
     }

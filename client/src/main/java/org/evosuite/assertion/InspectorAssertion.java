@@ -51,9 +51,6 @@ public class InspectorAssertion extends Assertion {
         this.value = value;
     }
 
-    /**
-     * <p>Getter for the field <code>inspector</code>.</p>
-     */
     public Inspector getInspector() {
         return inspector;
     }

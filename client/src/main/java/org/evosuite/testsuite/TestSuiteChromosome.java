@@ -125,30 +125,15 @@ public final class TestSuiteChromosome
         return this;
     }
 
-    /**
-     * <p>
-     * Constructor for TestSuiteChromosome.
-     * </p>
-     */
     public TestSuiteChromosome() {
         super();
     }
 
 
-    /**
-     * <p>
-     * Constructor for TestSuiteChromosome.
-     * </p>
-     */
     public TestSuiteChromosome(ChromosomeFactory<TestChromosome> testChromosomeFactory) {
         super(testChromosomeFactory);
     }
 
-    /**
-     * <p>
-     * Constructor for TestSuiteChromosome.
-     * </p>
-     */
     protected TestSuiteChromosome(TestSuiteChromosome source) {
         super(source);
         this.extensionInitializationOrder = new ArrayList<>(source.extensionInitializationOrder);
@@ -242,11 +227,6 @@ public final class TestSuiteChromosome
         }
     }
 
-    /**
-     * <p>
-     * getCoveredGoals.
-     * </p>
-     */
     public Set<TestFitnessFunction> getCoveredGoals() {
         Set<TestFitnessFunction> goals = new LinkedHashSet<>();
         for (TestChromosome t : tests) {
@@ -265,11 +245,6 @@ public final class TestSuiteChromosome
         tests.forEach(t -> t.getTestCase().removeCoveredGoal(f));
     }
 
-    /**
-     * <p>
-     * getTests.
-     * </p>
-     */
     public List<TestCase> getTests() {
         return tests.stream()
                 .map(TestChromosome::getTestCase)

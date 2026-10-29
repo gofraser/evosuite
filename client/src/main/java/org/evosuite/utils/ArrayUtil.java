@@ -33,9 +33,6 @@ public abstract class ArrayUtil {
     public static final char OPEN_SQUARE_BRACKET = '[';
     public static final String INPUT_OBJECT_MUST_BE_AN_ARRAY_EXCEPTION_MESSAGE = "Input object must be an array.";
 
-    /**
-     * <p>asSet.</p>
-     */
     @SuppressWarnings("unchecked")
     public static <T> Set<T> asSet(T... values) {
         return new HashSet<>(Arrays.asList(values));
@@ -46,9 +43,6 @@ public abstract class ArrayUtil {
      */
     public static final String DEFAULT_JOIN_SEPARATOR = IterUtil.DEFAULT_JOIN_SEPARATOR;
 
-    /**
-     * <p>box.</p>
-     */
     public static Integer[] box(int[] array) {
         Integer[] result = new Integer[array.length];
 
@@ -60,9 +54,6 @@ public abstract class ArrayUtil {
         return result;
     }
 
-    /**
-     * <p>box.</p>
-     */
     public static Long[] box(long[] array) {
         Long[] result = new Long[array.length];
 
@@ -74,9 +65,6 @@ public abstract class ArrayUtil {
         return result;
     }
 
-    /**
-     * <p>box.</p>
-     */
     public static Byte[] box(byte[] array) {
         Byte[] result = new Byte[array.length];
 
@@ -88,44 +76,26 @@ public abstract class ArrayUtil {
         return result;
     }
 
-    /**
-     * <p>join.</p>
-     */
     public static String join(Object[] array, String separator) {
         return StringUtils.join(array, separator);
     }
 
-    /**
-     * <p>join.</p>
-     */
     public static String join(Object[] array) {
         return StringUtils.join(array, DEFAULT_JOIN_SEPARATOR);
     }
 
-    /**
-     * <p>join.</p>
-     */
     public static String join(long[] array, String separator) {
         return join(box(array), separator);
     }
 
-    /**
-     * <p>join.</p>
-     */
     public static String join(long[] array) {
         return join(array, DEFAULT_JOIN_SEPARATOR);
     }
 
-    /**
-     * <p>join.</p>
-     */
     public static String join(byte[] array, String separator) {
         return join(box(array), separator);
     }
 
-    /**
-     * <p>join.</p>
-     */
     public static String join(byte[] array) {
         return join(array, DEFAULT_JOIN_SEPARATOR);
     }

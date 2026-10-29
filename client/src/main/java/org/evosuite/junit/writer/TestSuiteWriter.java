@@ -78,9 +78,6 @@ import static org.evosuite.junit.writer.TestSuiteWriterUtils.*;
  */
 public class TestSuiteWriter implements Opcodes {
 
-    /**
-     * Constant <code>logger</code>.
-     */
     private static final Logger logger = LoggerFactory.getLogger(TestSuiteWriter.class);
 
     public static final String NOT_GENERATED_TEST_NAME = "notGeneratedAnyTest";

@@ -33,29 +33,14 @@ public class TestSuiteReplacementFunction extends ReplacementFunction<TestSuiteC
 
     private static final long serialVersionUID = -8472469271120247395L;
 
-    /**
-     * <p>
-     * Constructor for TestSuiteReplacementFunction.
-     * </p>
-     */
     public TestSuiteReplacementFunction(boolean maximize) {
         super(maximize);
     }
 
-    /**
-     * <p>
-     * Constructor for TestSuiteReplacementFunction.
-     * </p>
-     */
     public TestSuiteReplacementFunction() {
         super(false);
     }
 
-    /**
-     * <p>
-     * getLengthSum.
-     * </p>
-     */
     public int getLengthSum(TestSuiteChromosome chromosome1, TestSuiteChromosome chromosome2) {
         return chromosome1.totalLengthOfTestCases() + chromosome2.totalLengthOfTestCases();
     }

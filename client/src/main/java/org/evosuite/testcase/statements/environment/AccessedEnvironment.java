@@ -62,9 +62,6 @@ public class AccessedEnvironment implements Serializable {
     private final Set<EndPointInfo> remoteContactedPorts;
 
 
-    /**
-     * Constructor.
-     */
     public AccessedEnvironment() {
         localFiles = new LinkedHashSet<>();
         remoteURLs = new LinkedHashSet<>();

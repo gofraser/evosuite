@@ -55,11 +55,6 @@ public class NumberFormatter {
         return value instanceof Enum;
     }
 
-    /**
-     * <p>
-     * getNumberString.
-     * </p>
-     */
     public static String getNumberString(Object value, TestCodeVisitor visitor) {
         if (value == null) {
             return "null";
@@ -204,11 +199,6 @@ public class NumberFormatter {
         }
     }
 
-    /**
-     * <p>
-     * getBoxedClassName.
-     * </p>
-     */
     public static String getBoxedClassName(Object value) {
         if (value.getClass().equals(Double.class)) {
             return "double";

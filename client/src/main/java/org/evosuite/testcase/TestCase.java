@@ -112,9 +112,6 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
 
     boolean contains(Statement statement);
 
-    /**
-     * <p>clone.</p>
-     */
     TestCase clone();
 
     /**
@@ -151,9 +148,6 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
      */
     Set<TestFitnessFunction> getCoveredGoals();
 
-    /**
-     * <p>getDeclaredExceptions.</p>
-     */
     Set<Class<?>> getDeclaredExceptions();
 
     /**

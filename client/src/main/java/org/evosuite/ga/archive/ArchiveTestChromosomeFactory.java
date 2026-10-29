@@ -43,9 +43,6 @@ public class ArchiveTestChromosomeFactory implements ChromosomeFactory<TestChrom
      */
     private List<TestChromosome> seededTests;
 
-    /**
-     * Constructor.
-     */
     public ArchiveTestChromosomeFactory() {
         //This does happen in CTG
         seededTests = SerializedSeedTestFactory.loadCtgSeeds();

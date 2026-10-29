@@ -31,9 +31,6 @@ public class OnePlusOneEA<T extends Chromosome<T>> extends MuPlusLambdaEA<T> {
 
     private static final long serialVersionUID = 5229089847512798127L;
 
-    /**
-     * Constructor.
-     */
     public OnePlusOneEA(ChromosomeFactory<T> factory) {
         super(factory, 1, 1);
     }

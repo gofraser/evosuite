@@ -259,9 +259,6 @@ public class TestCaseExecutor implements ThreadFactory {
         PermissionStatistics.getInstance().setThreadGroupToMonitor(TEST_EXECUTION_THREAD_GROUP);
     }
 
-    /**
-     * <p>Getter for the field <code>instance</code>.</p>
-     */
     public static synchronized TestCaseExecutor getInstance() {
         if (instance == null) {
             instance = new TestCaseExecutor();
@@ -357,20 +354,10 @@ public class TestCaseExecutor implements ThreadFactory {
         }
     }
 
-    /**
-     * <p>
-     * setup.
-     * </p>
-     */
     public void setup() {
         // start own thread
     }
 
-    /**
-     * <p>
-     * pullDown.
-     * </p>
-     */
     public static void pullDown() {
         if (instance != null) {
             synchronized (instance) {
@@ -394,11 +381,6 @@ public class TestCaseExecutor implements ThreadFactory {
         return snapshot != null && !snapshot.isShutdown() && !snapshot.isTerminated();
     }
 
-    /**
-     * <p>
-     * initExecutor.
-     * </p>
-     */
     public static void initExecutor() {
         if (instance != null) {
             synchronized (instance) {
@@ -479,11 +461,6 @@ public class TestCaseExecutor implements ThreadFactory {
     }
 
 
-    /**
-     * <p>
-     * addObserver.
-     * </p>
-     */
     public void addObserver(ExecutionObserver observer) {
         if (observers.add(observer)) {
             logger.debug("Adding observer");
@@ -507,22 +484,12 @@ public class TestCaseExecutor implements ThreadFactory {
         logger.info("Added observer " + observerClass.getSimpleName());
     }
 
-    /**
-     * <p>
-     * removeObserver.
-     * </p>
-     */
     public void removeObserver(ExecutionObserver observer) {
         if (observers.remove(observer)) {
             logger.debug("Removing observer");
         }
     }
 
-    /**
-     * <p>
-     * newObservers.
-     * </p>
-     */
     public void newObservers() {
         observers = new LinkedHashSet<>();
     }

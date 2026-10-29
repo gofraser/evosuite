@@ -29,11 +29,6 @@ import java.util.Set;
 public final class RealConstant extends AbstractExpression<Double> implements RealValue {
     private static final long serialVersionUID = 1L;
 
-    /**
-     * <p>
-     * Constructor for RealConstant.
-     * </p>
-     */
     public RealConstant(double doubleValue) {
         super(doubleValue, 1, false);
     }

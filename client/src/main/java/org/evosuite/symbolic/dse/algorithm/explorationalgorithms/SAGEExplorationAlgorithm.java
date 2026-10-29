@@ -40,9 +40,6 @@ import java.util.Queue;
  */
 public class SAGEExplorationAlgorithm extends ExplorationAlgorithm {
 
-    /**
-     * Constructor.
-     */
     public SAGEExplorationAlgorithm(DSEStatistics statistics, boolean showProgress) {
         super(statistics, showProgress);
 

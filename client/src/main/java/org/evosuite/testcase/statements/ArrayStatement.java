@@ -103,50 +103,25 @@ public class ArrayStatement extends AbstractStatement {
 
     private int[] lengths;
 
-    /**
-     * <p>
-     * Constructor for ArrayStatement.
-     * </p>
-     */
     public ArrayStatement(TestCase tc, ArrayReference arrayReference) {
         this(tc, arrayReference,
                 createRandom(determineDimensions(arrayReference.getType())));
     }
 
-    /**
-     * <p>
-     * Constructor for ArrayStatement.
-     * </p>
-     */
     public ArrayStatement(TestCase tc, ArrayReference arrayReference, int[] length) {
         super(tc, arrayReference);
         setLengths(length);
         arrayReference.setLengths(lengths);
     }
 
-    /**
-     * <p>
-     * Constructor for ArrayStatement.
-     * </p>
-     */
     public ArrayStatement(TestCase tc, java.lang.reflect.Type type) {
         this(tc, type, createRandom(determineDimensions(type)));
     }
 
-    /**
-     * <p>
-     * Constructor for ArrayStatement.
-     * </p>
-     */
     public ArrayStatement(TestCase tc, java.lang.reflect.Type type, int length) {
         this(tc, type, new int[]{length});
     }
 
-    /**
-     * <p>
-     * Constructor for ArrayStatement.
-     * </p>
-     */
     public ArrayStatement(TestCase tc, java.lang.reflect.Type type, int[] length) {
         this(tc, new ArrayReference(tc, GenericClassFactory.get(type), length), length);
     }
@@ -210,9 +185,6 @@ public class ArrayStatement extends AbstractStatement {
     }
 
 
-    /**
-     * Getter for the field <code>lengths</code>.
-     */
     public List<Integer> getLengths() {
         return Arrays.asList(ArrayUtils.toObject(lengths));
     }
@@ -328,40 +300,24 @@ public class ArrayStatement extends AbstractStatement {
     public void replace(VariableReference var1, VariableReference var2) {
     }
 
-    /**
-     * <p>
-     * Setter for the field <code>lengths</code>.
-     * </p>
-     */
     public void setLengths(int[] lengths) {
         this.lengths = new int[lengths.length];
         System.arraycopy(lengths, 0, this.lengths, 0, lengths.length);
         ((ArrayReference) retval).setLengths(lengths);
     }
 
-    /**
-     * <p>
-     * Setter for the field <code>lengths</code>.
-     * </p>
-     */
     public void setLength(int length, int index) {
         lengths[index] = length;
         ((ArrayReference) retval).setLength(length, index);
     }
 
 
-    /**
-     * setSize.
-     */
     public void setSize(int size) {
         /// assert lengths.length == 1;
         this.lengths[0] = size;
         ((ArrayReference) retval).setArrayLength(size);
     }
 
-    /**
-     * size.
-     */
     public int size() {
         // assert lengths.length == 1;
         return lengths[0];

@@ -34,9 +34,6 @@ public class MethodEntryAdapter extends AbstractEvoMethodAdapter {
     private final String fullMethodName;
     private final int access;
 
-    /**
-     * <p>Constructor for MethodEntryAdapter.</p>
-     */
     public MethodEntryAdapter(MethodVisitor mv, int access, String className,
                               String methodName, String desc) {
         super(mv, access, className, methodName, desc);

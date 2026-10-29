@@ -106,9 +106,6 @@ public class SymbolicObserver extends ExecutionObserver {
 
     private final SymbolicEnvironment env;
 
-    /**
-     * Constructor.
-     */
     public SymbolicObserver(SymbolicEnvironment env) {
         this.env = env;
     }

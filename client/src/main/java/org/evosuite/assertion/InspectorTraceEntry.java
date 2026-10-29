@@ -41,24 +41,15 @@ public class InspectorTraceEntry implements OutputTraceEntry {
     private final Map<String, Inspector> methodInspectorMap = new HashMap<>();
     private final VariableReference var;
 
-    /**
-     * <p>Constructor for InspectorTraceEntry.</p>
-     */
     public InspectorTraceEntry(VariableReference var) {
         this.var = var;
     }
 
-    /**
-     * <p>addValue.</p>
-     */
     public void addValue(Inspector inspector, Object value) {
         inspectorMap.put(inspector, value);
         methodInspectorMap.put(inspector.getClassName() + " " + inspector.getMethodCall(), inspector);
     }
 
-    /**
-     * <p>size.</p>
-     */
     public int size() {
         return inspectorMap.size();
     }

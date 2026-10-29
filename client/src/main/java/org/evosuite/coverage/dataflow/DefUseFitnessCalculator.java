@@ -56,9 +56,6 @@ public class DefUseFitnessCalculator {
     private final String defVariable;
     private final String useVariable;
 
-    /**
-     * Constructor for DefUseFitnessCalculator.
-     */
     public DefUseFitnessCalculator(DefUseCoverageTestFitness goal,
                                    TestChromosome individual, ExecutionResult result) {
         this.goal = goal;
@@ -553,18 +550,12 @@ public class DefUseFitnessCalculator {
 
     // auxiliary methods
 
-    /**
-     * normalize.
-     */
     public static double normalize(double value) {
         // TODO just copied this from FitnessFunction because it was not visible
         // from here
         return value / (1.0 + value);
     }
 
-    /**
-     * hasEntryLowerThan.
-     */
     public static boolean hasEntryLowerThan(List<Integer> list, Integer border) {
         for (Integer pos : list) {
             if (pos < border) {
@@ -574,9 +565,6 @@ public class DefUseFitnessCalculator {
         return false;
     }
 
-    /**
-     * hasEntryInBetween.
-     */
     public static boolean hasEntryInBetween(List<Integer> list, Integer start, Integer end) {
         for (Integer pos : list) {
             if (start < pos && pos < end) {
@@ -586,9 +574,6 @@ public class DefUseFitnessCalculator {
         return false;
     }
 
-    /**
-     * getMaxEntryLowerThan.
-     */
     public static Integer getMaxEntryLowerThan(List<Integer> list, Integer border) {
         int lastPos = -1;
         for (Integer defPos : list) {
@@ -599,9 +584,6 @@ public class DefUseFitnessCalculator {
         return lastPos;
     }
 
-    /**
-     * hasEntriesForId.
-     */
     public static boolean hasEntriesForId(
             Map<Integer, HashMap<Integer, Integer>> objectDUMap, int targetId) {
         if (objectDUMap == null) {
@@ -616,9 +598,6 @@ public class DefUseFitnessCalculator {
         return false;
     }
 
-    /**
-     * hasEntriesForId.
-     */
     public static boolean hasEntriesForId(
             Map<Integer, HashMap<Integer, Integer>> objectDUMap, Integer objectId,
             int targetId) {

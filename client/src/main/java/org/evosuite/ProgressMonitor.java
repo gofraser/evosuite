@@ -50,9 +50,6 @@ public class ProgressMonitor<T extends Chromosome<T>> implements SearchListener<
     protected int iteration;
     protected ClientState state;
 
-    /**
-     * Default constructor.
-     */
     public ProgressMonitor() {
         currentCoverage = 0;
         lastCoverage = 0;

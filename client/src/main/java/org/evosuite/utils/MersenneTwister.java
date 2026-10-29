@@ -203,9 +203,6 @@ public class MersenneTwister extends java.util.Random implements Serializable, C
         return f;
     }
 
-    /**
-     * <p>stateEquals.</p>
-     */
     public boolean stateEquals(Object o) {
         if (o == this) {
             return true;

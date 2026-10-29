@@ -24,24 +24,15 @@ public class CCFGMethodEntryNode extends CCFGNode {
     private final String method;
     private final CCFGCodeNode entryInstruction;
 
-    /**
-     * Constructor for CCFGMethodEntryNode.
-     */
     public CCFGMethodEntryNode(String method, CCFGCodeNode entryInstruction) {
         this.method = method;
         this.entryInstruction = entryInstruction;
     }
 
-    /**
-     * getMethod.
-     */
     public String getMethod() {
         return method;
     }
 
-    /**
-     * getEntryInstruction.
-     */
     public CCFGCodeNode getEntryInstruction() {
         return entryInstruction;
     }

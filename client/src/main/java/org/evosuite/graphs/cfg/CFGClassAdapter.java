@@ -51,9 +51,6 @@ public class CFGClassAdapter extends ClassVisitor {
      */
     private boolean isEnum = false;
 
-    /**
-     * Constructor.
-     */
     public CFGClassAdapter(ClassLoader classLoader, ClassVisitor visitor, String className) {
         super(Opcodes.ASM9, visitor);
         this.className = className;

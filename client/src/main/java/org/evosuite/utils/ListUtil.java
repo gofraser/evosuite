@@ -25,32 +25,20 @@ import java.util.List;
 import java.util.Random;
 
 public abstract class ListUtil {
-    /**
-     * <p>tail.</p>
-     */
     public static <T> List<T> tail(List<T> list) {
         return list.subList(1, list.size());
     }
 
-    /**
-     * <p>anyEquals.</p>
-     */
     public static <T> boolean anyEquals(List<T> list, T obj) {
         return list.contains(obj);
     }
 
-    /**
-     * <p>shuffledList.</p>
-     */
     public static <T> List<T> shuffledList(List<T> list) {
         ArrayList<T> result = new ArrayList<>(list);
         Collections.shuffle(result);
         return result;
     }
 
-    /**
-     * <p>shuffledList.</p>
-     */
     public static <T> List<T> shuffledList(List<T> list, Random rnd) {
         ArrayList<T> result = new ArrayList<>(list);
         Collections.shuffle(result, rnd);

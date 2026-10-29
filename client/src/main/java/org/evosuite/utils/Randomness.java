@@ -69,20 +69,10 @@ public class Randomness implements Serializable {
         random = new MersenneTwister(seed);
     }
 
-    /**
-     * <p>
-     * Getter for the field <code>instance</code>.
-     * </p>
-     */
     public static Randomness getInstance() {
         return instance;
     }
 
-    /**
-     * <p>
-     * nextBoolean.
-     * </p>
-     */
     public static boolean nextBoolean() {
         return random.nextBoolean();
     }
@@ -115,47 +105,22 @@ public class Randomness implements Serializable {
         return random.nextInt(max - min) + min;
     }
 
-    /**
-     * <p>
-     * nextInt.
-     * </p>
-     */
     public static int nextInt() {
         return random.nextInt();
     }
 
-    /**
-     * <p>
-     * nextChar.
-     * </p>
-     */
     public static char nextChar() {
         return (char) (nextInt(32, 128));
     }
 
-    /**
-     * <p>
-     * nextShort.
-     * </p>
-     */
     public static short nextShort() {
         return (short) (random.nextInt(2 * 32767) - 32767);
     }
 
-    /**
-     * <p>
-     * nextLong.
-     * </p>
-     */
     public static long nextLong() {
         return random.nextLong();
     }
 
-    /**
-     * <p>
-     * nextByte.
-     * </p>
-     */
     public static byte nextByte() {
         return (byte) (random.nextInt(256) - 128);
     }
@@ -171,39 +136,19 @@ public class Randomness implements Serializable {
         return random.nextDouble();
     }
 
-    /**
-     * <p>
-     * nextDouble.
-     * </p>
-     */
     public static double nextDouble(double min, double max) {
         return min + (random.nextDouble() * (max - min));
     }
 
-    /**
-     * <p>
-     * nextFloat.
-     * </p>
-     */
     public static float nextFloat() {
         return random.nextFloat();
     }
 
-    /**
-     * <p>
-     * Setter for the field <code>seed</code>.
-     * </p>
-     */
     public static void setSeed(long seed) {
         Randomness.seed = seed;
         random.setSeed(seed);
     }
 
-    /**
-     * <p>
-     * Getter for the field <code>seed</code>.
-     * </p>
-     */
     public static long getSeed() {
         return seed;
     }
@@ -354,20 +299,10 @@ public class Randomness implements Serializable {
         return elements[position];
     }
 
-    /**
-     * <p>
-     * shuffle.
-     * </p>
-     */
     public static void shuffle(List<?> list) {
         Collections.shuffle(list, random);
     }
 
-    /**
-     * <p>
-     * nextString.
-     * </p>
-     */
     public static String nextString(int length) {
         char[] characters = new char[length];
         for (int i = 0; i < length; i++) {

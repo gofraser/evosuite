@@ -41,9 +41,6 @@ public class ConstantValue extends VariableReferenceImpl {
 
     private Object value;
 
-    /**
-     * Constructor for ConstantValue.
-     */
     public ConstantValue(TestCase testCase, GenericClass<?> type) {
         super(testCase, type);
     }
@@ -58,9 +55,6 @@ public class ConstantValue extends VariableReferenceImpl {
         setValue(value);
     }
 
-    /**
-     * Constructor for ConstantValue.
-     */
     public ConstantValue(TestCase testCase, Type type) {
         this(testCase, GenericClassFactory.get(type));
     }
@@ -88,16 +82,10 @@ public class ConstantValue extends VariableReferenceImpl {
         throw new IllegalArgumentException("Constant value not defined in new test");
     }
 
-    /**
-     * Getter for the field <code>value</code>.
-     */
     public Object getValue() {
         return value;
     }
 
-    /**
-     * Setter for the field <code>value</code>.
-     */
     public void setValue(Object value) {
         this.value = value;
     }

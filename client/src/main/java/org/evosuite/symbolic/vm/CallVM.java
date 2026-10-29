@@ -79,9 +79,6 @@ public final class CallVM implements IVM {
     private int stackParamCount = 0;
     private final HashMap<Member, MemberInfo> memberInfos = new HashMap<>();
 
-    /**
-     * Constructor.
-     */
     public CallVM(SymbolicEnvironment env, ConcolicInstrumentingClassLoader classLoader) {
         this.env = env;
         this.classLoader = classLoader;

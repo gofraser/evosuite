@@ -50,26 +50,17 @@ public class ArrayReference extends VariableReferenceImpl {
 
     private int[] lengths;
 
-    /**
-     * Constructor for ArrayReference.
-     */
     public ArrayReference(TestCase tc, Class<?> clazz) {
         this(tc, GenericClassFactory.get(clazz),
                 new int[ArrayStatement.determineDimensions(clazz)]);
     }
 
-    /**
-     * Constructor for ArrayReference.
-     */
     public ArrayReference(TestCase tc, GenericClass<?> clazz, int[] lengths) {
         super(tc, clazz);
         assert (lengths.length > 0);
         setLengths(lengths);
     }
 
-    /**
-     * Constructor for ArrayReference.
-     */
     public ArrayReference(TestCase tc, GenericClass<?> clazz, int arrayLength) {
         this(tc, clazz, new int[]{arrayLength});
     }
@@ -117,24 +108,15 @@ public class ArrayReference extends VariableReferenceImpl {
      */
     public static final int MAX_CANDIDATE_INDICES = 20;
 
-    /**
-     * getArrayLength.
-     */
     public int getArrayLength() {
         return lengths[0];
     }
 
-    /**
-     * setArrayLength.
-     */
     public void setArrayLength(int l) {
         assert (l >= 0);
         lengths[0] = l;
     }
 
-    /**
-     * Getter for the field <code>lengths</code>.
-     */
     public List<Integer> getLengths() {
         return Arrays.asList(ArrayUtils.toObject(lengths));
     }
@@ -164,9 +146,6 @@ public class ArrayReference extends VariableReferenceImpl {
         return structuralLengths.get(0);
     }
 
-    /**
-     * Setter for the field <code>lengths</code>.
-     */
     public void setLengths(int[] lengths) {
         this.lengths = new int[lengths.length];
         for (int i = 0; i < lengths.length; i++) {
@@ -210,16 +189,10 @@ public class ArrayReference extends VariableReferenceImpl {
         }
     }
 
-    /**
-     * getArrayDimensions.
-     */
     public int getArrayDimensions() {
         return lengths.length;
     }
 
-    /**
-     * Setter for the field <code>lengths</code>.
-     */
     public void setLengths(List<Integer> lengths) {
         this.lengths = new int[lengths.size()];
         int idx = 0;

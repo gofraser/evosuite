@@ -24,9 +24,6 @@ import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAccessor;
 
-/**
- * Created by gordon on 24/01/2016.
- */
 public class MockOffsetTime implements StaticReplacementMock {
     @Override
     public String getMockedClassName() {

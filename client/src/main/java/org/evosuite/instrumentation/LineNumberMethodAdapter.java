@@ -43,9 +43,6 @@ public class LineNumberMethodAdapter extends AbstractEvoMethodAdapter {
 
     int currentLine = 0;
 
-    /**
-     * <p>Constructor for LineNumberMethodAdapter.</p>
-     */
     public LineNumberMethodAdapter(MethodVisitor mv, int access, String className, String methodName,
                                    String desc) {
         super(mv, access, className, methodName, desc);

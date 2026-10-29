@@ -30,16 +30,10 @@ public class ClassCallEdge extends DefaultEdge {
 
     private final BytecodeInstruction callInstruction;
 
-    /**
-     * Constructor for ClassCallEdge.
-     */
     public ClassCallEdge(BytecodeInstruction callInstruction) {
         this.callInstruction = callInstruction;
     }
 
-    /**
-     * Getter for the field <code>callInstruction</code>.
-     */
     public BytecodeInstruction getCallInstruction() {
         return callInstruction;
     }

@@ -46,9 +46,6 @@ public class FieldReference extends VariableReferenceImpl {
 
     private VariableReference source;
 
-    /**
-     * Constructor for FieldReference.
-     */
     public FieldReference(TestCase testCase, GenericField field, VariableReference source) {
         super(testCase, field.getFieldType());
         assert (source != null || field.isStatic()) : "No source object was supplied, "
@@ -82,9 +79,6 @@ public class FieldReference extends VariableReferenceImpl {
 
     }
 
-    /**
-     * Constructor for FieldReference.
-     */
     public FieldReference(TestCase testCase, GenericField field) {
         super(testCase, field.getFieldType());
         this.field = field;

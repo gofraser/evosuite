@@ -81,9 +81,6 @@ public final class ConcolicMethodAdapter extends GeneratorAdapter {
     private final OperandStack stack;
     private final Set<Label> exceptionHandlers = new HashSet<>();
 
-    /**
-     * Constructor.
-     */
     ConcolicMethodAdapter(MethodVisitor mv, int access, String className, String methName,
                           String desc) {
         super(Opcodes.ASM9, mv, access, methName, desc);

@@ -54,9 +54,6 @@ public class DSETestCase implements Comparable<DSETestCase>, Cloneable {
      */
     private final GenerationalSearchPathCondition originalPathCondition;
 
-    /**
-     * Constructor.
-     */
     public DSETestCase(TestCase testCase, GenerationalSearchPathCondition originalPathCondition, double score) {
         this.score = score;
         this.testCase = testCase;

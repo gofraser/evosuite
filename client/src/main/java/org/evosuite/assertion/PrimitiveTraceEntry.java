@@ -36,9 +36,6 @@ public class PrimitiveTraceEntry implements OutputTraceEntry {
 
     protected Object value;
 
-    /**
-     * <p>Constructor for PrimitiveTraceEntry.</p>
-     */
     public PrimitiveTraceEntry(VariableReference var, Object value) {
         this.var = var;
         this.value = value;

@@ -50,11 +50,6 @@ public class BranchCoverageTestFitness extends TestFitnessFunction {
         this.goal = Objects.requireNonNull(goal, "goal cannot be null");
     }
 
-    /**
-     * <p>
-     * getBranch.
-     * </p>
-     */
     public Branch getBranch() {
         return goal.getBranch();
     }
@@ -67,29 +62,14 @@ public class BranchCoverageTestFitness extends TestFitnessFunction {
         return goal;
     }
 
-    /**
-     * <p>
-     * getClassName.
-     * </p>
-     */
     public String getClassName() {
         return goal.getClassName();
     }
 
-    /**
-     * <p>
-     * getMethod.
-     * </p>
-     */
     public String getMethod() {
         return goal.getMethodName();
     }
 
-    /**
-     * <p>
-     * getBranchExpressionValue.
-     * </p>
-     */
     public boolean getBranchExpressionValue() {
         return goal.getValue();
     }

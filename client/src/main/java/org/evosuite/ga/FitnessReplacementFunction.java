@@ -30,16 +30,10 @@ public class FitnessReplacementFunction<T extends Chromosome<T>> extends Replace
     private static final long serialVersionUID = 8492857847521917540L;
 
 
-    /**
-     * <p>Constructor for FitnessReplacementFunction.</p>
-     */
     public FitnessReplacementFunction(boolean maximize) {
         super(maximize);
     }
 
-    /**
-     * <p>Constructor for FitnessReplacementFunction.</p>
-     */
     public FitnessReplacementFunction() {
         this(false);
     }

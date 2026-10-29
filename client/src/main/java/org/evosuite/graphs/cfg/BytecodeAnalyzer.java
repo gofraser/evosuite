@@ -42,9 +42,6 @@ public class BytecodeAnalyzer extends Analyzer {
 
     CFGGenerator cfgGenerator;
 
-    /**
-     * Constructor for BytecodeAnalyzer.
-     */
     public BytecodeAnalyzer() {
         super(new SourceInterpreter());
     }

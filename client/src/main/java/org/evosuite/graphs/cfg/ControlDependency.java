@@ -31,9 +31,6 @@ public class ControlDependency implements Serializable, Comparable<ControlDepend
     private final Branch branch;
     private final boolean branchExpressionValue;
 
-    /**
-     * Constructor for ControlDependency.
-     */
     public ControlDependency(Branch branch, boolean branchExpressionValue) {
         if (branch == null) {
             throw new IllegalArgumentException(
@@ -44,16 +41,10 @@ public class ControlDependency implements Serializable, Comparable<ControlDepend
         this.branchExpressionValue = branchExpressionValue;
     }
 
-    /**
-     * Getter for the field <code>branch</code>.
-     */
     public Branch getBranch() {
         return branch;
     }
 
-    /**
-     * Getter for the field <code>branchExpressionValue</code>.
-     */
     public boolean getBranchExpressionValue() {
         return branchExpressionValue;
     }

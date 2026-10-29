@@ -489,11 +489,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         return rawClass == void.class ? Void.class : ClassUtils.primitiveToWrapper(rawClass);
     }
 
-    /**
-     * <p>
-     * getClassName.
-     * </p>
-     */
     public String getClassName() {
         return rawClass.getName();
     }
@@ -514,20 +509,10 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         }
     }
 
-    /**
-     * <p>
-     * getComponentName.
-     * </p>
-     */
     public String getComponentName() {
         return rawClass.getComponentType().getSimpleName();
     }
 
-    /**
-     * <p>
-     * getComponentType.
-     * </p>
-     */
     public Type getComponentType() {
         return GenericTypeReflector.getArrayComponentType(type);
     }
@@ -1054,11 +1039,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         return new ArrayList<>();
     }
 
-    /**
-     * <p>
-     * getRawClass.
-     * </p>
-     */
     public Class<?> getRawClass() {
         return rawClass;
     }
@@ -1076,11 +1056,6 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         return new GenericClassImpl(rawClass);
     }
 
-    /**
-     * <p>
-     * getSimpleName.
-     * </p>
-     */
     public String getSimpleName() {
         // return raw_class.getSimpleName();
         // ClassUtils.getShortClassName converts every '$' to '.', treating it as
@@ -1116,20 +1091,10 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         return superType != null ? new GenericClassImpl(superType) : new GenericClassImpl(this);
     }
 
-    /**
-     * <p>
-     * Getter for the field <code>type</code>.
-     * </p>
-     */
     public Type getType() {
         return type;
     }
 
-    /**
-     * <p>
-     * getTypeName.
-     * </p>
-     */
     public String getTypeName() {
         String cached = cachedTypeName;
         if (cached == null) {
@@ -1560,38 +1525,18 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         return rawClass.isArray();
     }
 
-    /**
-     * <p>
-     * isAssignableFrom.
-     * </p>
-     */
     public boolean isAssignableFrom(GenericClass<?> rhsType) {
         return isAssignable(type, rhsType.getType());
     }
 
-    /**
-     * <p>
-     * isAssignableFrom.
-     * </p>
-     */
     public boolean isAssignableFrom(Type rhsType) {
         return isAssignable(type, rhsType);
     }
 
-    /**
-     * <p>
-     * isAssignableTo.
-     * </p>
-     */
     public boolean isAssignableTo(GenericClass<?> lhsType) {
         return isAssignable(lhsType.getType(), type);
     }
 
-    /**
-     * <p>
-     * isAssignableTo.
-     * </p>
-     */
     public boolean isAssignableTo(Type lhsType) {
         return isAssignable(lhsType, type);
     }

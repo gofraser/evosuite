@@ -26,9 +26,6 @@ import javax.swing.*;
 import java.util.Calendar;
 import java.util.Date;
 
-/**
- * Created by gordon on 01/02/2016.
- */
 public class MockSpinnerDateModel extends SpinnerDateModel implements OverrideMock {
 
     private static final long serialVersionUID = -7236911608512230647L;

@@ -51,9 +51,6 @@ public class TimeDeltaStoppingCondition<T extends Chromosome<T>> extends Stoppin
 
     private static final Logger logger = LoggerFactory.getLogger(TimeDeltaStoppingCondition.class);
 
-    /**
-     * Default constructor.
-     */
     public TimeDeltaStoppingCondition() {
         startTime = 0L;
         lastImprovement = 0L;

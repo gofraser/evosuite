@@ -54,11 +54,6 @@ public class ErrorConditionMethodAdapter extends GeneratorAdapter {
     protected List<ErrorBranchInstrumenter> instrumentation;
 
 
-    /**
-     * <p>
-     * Constructor for ErrorConditionMethodAdapter.
-     * </p>
-     */
     public ErrorConditionMethodAdapter(MethodVisitor mv, String className,
                                        String methodName, int access, String desc) {
         super(Opcodes.ASM9,

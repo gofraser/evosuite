@@ -36,9 +36,6 @@ public class NullTraceEntry implements OutputTraceEntry {
 
     private final VariableReference var;
 
-    /**
-     * <p>Constructor for NullTraceEntry.</p>
-     */
     public NullTraceEntry(VariableReference var, boolean result) {
         this.var = var;
         this.isNull = result;

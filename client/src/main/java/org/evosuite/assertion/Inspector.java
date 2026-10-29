@@ -40,11 +40,6 @@ public class Inspector implements Serializable {
 
     protected transient Method method;
 
-    /**
-     * <p>
-     * Constructor for Inspector.
-     * </p>
-     */
     public Inspector(Class<?> clazz, Method m) {
         this.clazz = clazz;
         method = m;
@@ -68,11 +63,6 @@ public class Inspector implements Serializable {
         }
     }
 
-    /**
-     * <p>
-     * getValue.
-     * </p>
-     */
     public Object getValue(Object object) throws IllegalArgumentException,
             IllegalAccessException, InvocationTargetException {
 
@@ -106,38 +96,18 @@ public class Inspector implements Serializable {
         return ret;
     }
 
-    /**
-     * <p>
-     * Getter for the field <code>method</code>.
-     * </p>
-     */
     public Method getMethod() {
         return method;
     }
 
-    /**
-     * <p>
-     * getMethodCall.
-     * </p>
-     */
     public String getMethodCall() {
         return method.getName();
     }
 
-    /**
-     * <p>
-     * getClassName.
-     * </p>
-     */
     public String getClassName() {
         return clazz.getName();
     }
 
-    /**
-     * <p>
-     * getReturnType.
-     * </p>
-     */
     public Class<?> getReturnType() {
         return method.getReturnType();
     }

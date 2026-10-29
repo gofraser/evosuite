@@ -63,9 +63,6 @@ public class ClassReInitializer {
         instance = null;
     }
 
-    /**
-     * <p>Getter for the field <code>instance</code>.</p>
-     */
     public static ClassReInitializer getInstance() {
         if (instance == null) {
             instance = new ClassReInitializer();

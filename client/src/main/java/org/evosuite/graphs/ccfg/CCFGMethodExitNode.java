@@ -23,16 +23,10 @@ public class CCFGMethodExitNode extends CCFGNode {
 
     private final String method;
 
-    /**
-     * Constructor for CCFGMethodExitNode.
-     */
     public CCFGMethodExitNode(String method) {
         this.method = method;
     }
 
-    /**
-     * isExitOfMethodEntry.
-     */
     public boolean isExitOfMethodEntry(CCFGMethodEntryNode methodEntry) {
         if (methodEntry == null) {
             return false;
@@ -40,9 +34,6 @@ public class CCFGMethodExitNode extends CCFGNode {
         return methodEntry.getMethod().equals(method);
     }
 
-    /**
-     * Getter for the field <code>method</code>.
-     */
     public String getMethod() {
         return method;
     }

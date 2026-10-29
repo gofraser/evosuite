@@ -110,9 +110,6 @@ public class Branch implements Serializable, Comparable<Branch> {
         }
     }
 
-    /**
-     * <p>Getter for the field <code>actualBranchId</code>.</p>
-     */
     public int getActualBranchId() {
         return actualBranchId;
     }
@@ -138,9 +135,6 @@ public class Branch implements Serializable, Comparable<Branch> {
         return isSwitch && targetCaseValue != null;
     }
 
-    /**
-     * <p>Getter for the field <code>targetCaseValue</code>.</p>
-     */
     public Integer getTargetCaseValue() {
         // in order to avoid confusion when targetCaseValue is null
         if (!isSwitch) {
@@ -151,30 +145,18 @@ public class Branch implements Serializable, Comparable<Branch> {
         return targetCaseValue; // null for default case
     }
 
-    /**
-     * <p>Getter for the field <code>instruction</code>.</p>
-     */
     public BytecodeInstruction getInstruction() {
         return instruction;
     }
 
-    /**
-     * <p>getClassName.</p>
-     */
     public String getClassName() {
         return instruction.getClassName();
     }
 
-    /**
-     * <p>getMethodName.</p>
-     */
     public String getMethodName() {
         return instruction.getMethodName();
     }
 
-    /**
-     * <p>isSwitchCaseBranch.</p>
-     */
     public boolean isSwitchCaseBranch() {
         return isSwitch;
     }
@@ -251,16 +233,10 @@ public class Branch implements Serializable, Comparable<Branch> {
         return r;
     }
 
-    /**
-     * <p>isInstrumented.</p>
-     */
     public boolean isInstrumented() {
         return isInstrumented;
     }
 
-    /**
-     * <p>setInstrumented.</p>
-     */
     public void setInstrumented(boolean isInstrumented) {
         this.isInstrumented = isInstrumented;
     }

@@ -72,29 +72,14 @@ public class PermissionStatistics {
     }
 
 
-    /**
-     * <p>
-     * Getter for the field <code>instance</code>.
-     * </p>
-     */
     public static PermissionStatistics getInstance() {
         return instance;
     }
 
-    /**
-     * <p>
-     * getRecentFileReadPermissions.
-     * </p>
-     */
     public String[] getRecentFileReadPermissions() {
         return recentAccess.toArray(new String[0]);
     }
 
-    /**
-     * <p>
-     * resetRecentStatistic.
-     * </p>
-     */
     public void resetRecentStatistic() {
         recentAccess.clear();
     }
@@ -111,11 +96,6 @@ public class PermissionStatistics {
         }
     }
 
-    /**
-     * <p>
-     * permissionAllowed.
-     * </p>
-     */
     public void permissionAllowed(Permission permission) {
         rememberRecentReadFilePermissions(permission);
         String name = permission.getClass().getName();
@@ -148,11 +128,6 @@ public class PermissionStatistics {
         return type;
     }
 
-    /**
-     * <p>
-     * permissionDenied.
-     * </p>
-     */
     public void permissionDenied(Permission permission) {
         incCurrentCount(permission.getClass());
         rememberRecentReadFilePermissions(permission);
@@ -187,137 +162,62 @@ public class PermissionStatistics {
         return 0;
     }
 
-    /**
-     * <p>
-     * getNumAllPermission.
-     * </p>
-     */
     public int getNumAllPermission() {
         return getCurrentCount(java.security.AllPermission.class);
     }
 
-    /**
-     * <p>
-     * getNumSecurityPermission.
-     * </p>
-     */
     public int getNumSecurityPermission() {
         return getCurrentCount(java.security.SecurityPermission.class);
     }
 
-    /**
-     * <p>
-     * getNumUnresolvedPermission.
-     * </p>
-     */
     public int getNumUnresolvedPermission() {
         return getCurrentCount(java.security.UnresolvedPermission.class);
     }
 
-    /**
-     * <p>
-     * getNumAWTPermission.
-     * </p>
-     */
     public int getNumAWTPermission() {
         return getCurrentCount(java.awt.AWTPermission.class);
     }
 
-    /**
-     * <p>
-     * getNumFilePermission.
-     * </p>
-     */
     public int getNumFilePermission() {
         return getCurrentCount(java.io.FilePermission.class);
     }
 
-    /**
-     * <p>
-     * getNumSerializablePermission.
-     * </p>
-     */
     public int getNumSerializablePermission() {
         return getCurrentCount(java.io.SerializablePermission.class);
     }
 
-    /**
-     * <p>
-     * getNumReflectPermission.
-     * </p>
-     */
     public int getNumReflectPermission() {
         return getCurrentCount(java.lang.reflect.ReflectPermission.class);
     }
 
-    /**
-     * <p>
-     * getNumRuntimePermission.
-     * </p>
-     */
     public int getNumRuntimePermission() {
         return getCurrentCount(java.lang.RuntimePermission.class);
     }
 
-    /**
-     * <p>
-     * getNumNetPermission.
-     * </p>
-     */
     public int getNumNetPermission() {
         return getCurrentCount(java.net.NetPermission.class);
     }
 
-    /**
-     * <p>
-     * getNumSocketPermission.
-     * </p>
-     */
     public int getNumSocketPermission() {
         return getCurrentCount(java.net.SocketPermission.class);
     }
 
-    /**
-     * <p>
-     * getNumSQLPermission.
-     * </p>
-     */
     public int getNumSQLPermission() {
         return getCurrentCount(java.sql.SQLPermission.class);
     }
 
-    /**
-     * <p>
-     * getNumPropertyPermission.
-     * </p>
-     */
     public int getNumPropertyPermission() {
         return getCurrentCount(java.util.PropertyPermission.class);
     }
 
-    /**
-     * <p>
-     * getNumLoggingPermission.
-     * </p>
-     */
     public int getNumLoggingPermission() {
         return getCurrentCount(java.util.logging.LoggingPermission.class);
     }
 
-    /**
-     * <p>
-     * getNumSSLPermission.
-     * </p>
-     */
     public int getNumSSLPermission() {
         return getCurrentCount(javax.net.ssl.SSLPermission.class);
     }
 
-    /**
-     * <p>
-     * getNumAuthPermission.
-     * </p>
-     */
     public int getNumAuthPermission() {
         return getCurrentCount(javax.security.auth.AuthPermission.class)
                 + getCurrentCount(javax.security.auth.PrivateCredentialPermission.class)
@@ -325,20 +225,10 @@ public class PermissionStatistics {
                 + getCurrentCount(javax.security.auth.kerberos.ServicePermission.class);
     }
 
-    /**
-     * <p>
-     * getNumAudioPermission.
-     * </p>
-     */
     public int getNumAudioPermission() {
         return getCurrentCount(javax.sound.sampled.AudioPermission.class);
     }
 
-    /**
-     * <p>
-     * getNumOtherPermission.
-     * </p>
-     */
     public int getNumOtherPermission() {
         int sum = getNumAllPermission() + getNumSecurityPermission()
                 + getNumUnresolvedPermission() + getNumAWTPermission()
@@ -357,20 +247,10 @@ public class PermissionStatistics {
         return total - sum;
     }
 
-    /**
-     * <p>
-     * hasDeniedPermissions.
-     * </p>
-     */
     public boolean hasDeniedPermissions() {
         return !deniedCount.isEmpty();
     }
 
-    /**
-     * <p>
-     * printStatistics.
-     * </p>
-     */
     public void printStatistics(Logger inputLog) {
         forcePermissionInit();
         if (hasDeniedPermissions()) {
@@ -443,11 +323,6 @@ public class PermissionStatistics {
         }
     }
 
-    /**
-     * <p>
-     * Getter for the field <code>maxThreads</code>.
-     * </p>
-     */
     public int getMaxThreads() {
         return maxThreads;
     }

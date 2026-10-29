@@ -27,16 +27,10 @@ import java.util.Map;
 public class CFGFrame extends Frame {
     Map<Integer, CFGFrame> successors = new HashMap<>();
 
-    /**
-     * Constructor for CFGFrame.
-     */
     public CFGFrame(int numLocals, int numStack) {
         super(numLocals, numStack);
     }
 
-    /**
-     * Constructor for CFGFrame.
-     */
     public CFGFrame(Frame src) {
         super(src);
     }

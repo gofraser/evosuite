@@ -45,9 +45,6 @@ import java.util.Map;
  */
 public class BranchInstrumentation implements MethodInstrumentation {
 
-    /**
-     * Constant <code>logger</code>.
-     */
     protected static final Logger logger = LoggerFactory.getLogger(BranchInstrumentation.class);
 
     private static final String EXECUTION_TRACER = Type.getInternalName(ExecutionTracer.class);
@@ -103,11 +100,6 @@ public class BranchInstrumentation implements MethodInstrumentation {
         mn.maxStack += 4;
     }
 
-    /**
-     * <p>
-     * getInstrumentation.
-     * </p>
-     */
     protected InsnList getInstrumentation(BytecodeInstruction instruction) {
         if (instruction == null) {
             throw new IllegalArgumentException("null given");
@@ -247,11 +239,6 @@ public class BranchInstrumentation implements MethodInstrumentation {
         }
     }
 
-    /**
-     * <p>
-     * addInstrumentationForDefaultSwitchCase.
-     * </p>
-     */
     protected void addInstrumentationForDefaultSwitchCase(BytecodeInstruction v,
                                                           InsnList instrumentation) {
 
@@ -265,11 +252,6 @@ public class BranchInstrumentation implements MethodInstrumentation {
 
     }
 
-    /**
-     * <p>
-     * addInstrumentationForDefaultTableswitchCase.
-     * </p>
-     */
     protected void addInstrumentationForDefaultTableswitchCase(BytecodeInstruction v,
                                                                InsnList instrumentation) {
 
@@ -300,11 +282,6 @@ public class BranchInstrumentation implements MethodInstrumentation {
 
     }
 
-    /**
-     * <p>
-     * addInstrumentationForDefaultLookupswitchCase.
-     * </p>
-     */
     protected void addInstrumentationForDefaultLookupswitchCase(BytecodeInstruction v,
                                                                 InsnList instrumentation) {
 
@@ -336,11 +313,6 @@ public class BranchInstrumentation implements MethodInstrumentation {
 
     }
 
-    /**
-     * <p>
-     * addDefaultCaseInstrumentation.
-     * </p>
-     */
     protected void addDefaultCaseInstrumentation(BytecodeInstruction v,
                                                  InsnList instrumentation, AbstractInsnNode mySwitch,
                                                  LabelNode defaultLabel,
@@ -367,11 +339,6 @@ public class BranchInstrumentation implements MethodInstrumentation {
 
     }
 
-    /**
-     * <p>
-     * addDefaultCaseCoveredCall.
-     * </p>
-     */
     protected void addDefaultCaseCoveredCall(BytecodeInstruction v,
                                              InsnList instrumentation, int defaultCaseBranchId) {
 
@@ -384,11 +351,6 @@ public class BranchInstrumentation implements MethodInstrumentation {
 
     }
 
-    /**
-     * <p>
-     * addDefaultCaseNotCoveredCall.
-     * </p>
-     */
     protected void addDefaultCaseNotCoveredCall(BytecodeInstruction v,
                                                 InsnList instrumentation, int defaultCaseBranchId) {
 

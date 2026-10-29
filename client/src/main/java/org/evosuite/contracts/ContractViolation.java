@@ -63,11 +63,6 @@ public class ContractViolation {
 
     private boolean isMinimized = false;
 
-    /**
-     * <p>
-     * Constructor for ContractViolation.
-     * </p>
-     */
     public ContractViolation(Contract contract, Statement statement,
                              Throwable exception, VariableReference... variables) {
         this.contract = contract;

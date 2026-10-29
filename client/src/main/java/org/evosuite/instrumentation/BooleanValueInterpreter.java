@@ -39,23 +39,14 @@ import java.util.List;
  */
 public class BooleanValueInterpreter extends BasicInterpreter {
 
-    /**
-     * Constant <code>BOOLEAN_VALUE</code>.
-     */
     public static final BasicValue BOOLEAN_VALUE = new BasicValue(Type.BOOLEAN_TYPE);
 
-    /**
-     * Constant <code>BOOLEAN_ARRAY</code>.
-     */
     public static final BasicValue BOOLEAN_ARRAY = new BasicValue(Type.getType("[Z"));
 
     private final boolean isStatic;
 
     private final Type[] types;
 
-    /**
-     * <p>Constructor for BooleanValueInterpreter.</p>
-     */
     public BooleanValueInterpreter(String desc, boolean isStatic) {
         super(ASM9);
         this.types = Type.getArgumentTypes(desc);

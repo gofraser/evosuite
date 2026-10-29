@@ -66,9 +66,6 @@ public class SocketStoppingCondition<T extends Chromosome<T>> implements Stoppin
         return (SocketStoppingCondition<T>) instance;
     }
 
-    /**
-     * <p>accept.</p>
-     */
     public void accept() {
         Thread t = new Thread(() -> {
             ServerSocket serverSocket = null;

@@ -131,11 +131,6 @@ public class InspectorManager {
                 Arrays.asList("capacity"));
     }
 
-    /**
-     * <p>
-     * Getter for the field <code>instance</code>.
-     * </p>
-     */
     public static InspectorManager getInstance() {
         if (instance == null) {
             instance = new InspectorManager();
@@ -272,11 +267,6 @@ public class InspectorManager {
         inspectors.put(clazz, inspectorList);
     }
 
-    /**
-     * <p>
-     * Getter for the field <code>inspectors</code>.
-     * </p>
-     */
     public List<Inspector> getInspectors(Class<?> clazz) {
         if (!inspectors.containsKey(clazz)) {
             determineInspectors(clazz);
@@ -284,11 +274,6 @@ public class InspectorManager {
         return inspectors.get(clazz);
     }
 
-    /**
-     * <p>
-     * removeInspector.
-     * </p>
-     */
     public void removeInspector(Class<?> clazz, Inspector inspector) {
         if (inspectors.containsKey(clazz)) {
             inspectors.get(clazz).remove(inspector);

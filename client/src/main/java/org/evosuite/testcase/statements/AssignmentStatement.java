@@ -54,11 +54,6 @@ public class AssignmentStatement extends AbstractStatement {
 
     protected VariableReference parameter;
 
-    /**
-     * <p>
-     * Constructor for AssignmentStatement.
-     * </p>
-     */
     public AssignmentStatement(TestCase tc, VariableReference var, VariableReference value) {
         super(tc, var);
         rejectFinalFieldTarget(var);
@@ -189,9 +184,6 @@ public class AssignmentStatement extends AbstractStatement {
         super.setRetval(newRetVal);
     }
 
-    /**
-     * getValue.
-     */
     public VariableReference getValue() {
         return this.parameter;
     }

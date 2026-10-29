@@ -36,9 +36,6 @@ public class IBranchSecondaryObjective extends SecondaryObjective<TestSuiteChrom
 
     private static final long serialVersionUID = 7211557650429998223L;
 
-    /**
-     * Default constructor.
-     */
     public IBranchSecondaryObjective() {
         ff = new IBranchSuiteFitness();
     }

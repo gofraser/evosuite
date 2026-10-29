@@ -31,9 +31,6 @@ import org.objectweb.asm.commons.JSRInlinerAdapter;
  */
 public class JSRInlinerClassVisitor extends ClassVisitor {
 
-    /**
-     * <p>Constructor for JSRInlinerClassVisitor.</p>
-     */
     public JSRInlinerClassVisitor(ClassVisitor parent) {
         super(Opcodes.ASM9, parent);
     }

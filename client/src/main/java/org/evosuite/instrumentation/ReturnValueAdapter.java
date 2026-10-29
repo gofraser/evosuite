@@ -33,9 +33,6 @@ public class ReturnValueAdapter extends AbstractEvoMethodAdapter {
 
     private final String fullMethodName;
 
-    /**
-     * <p>Constructor for ReturnValueAdapter.</p>
-     */
     public ReturnValueAdapter(MethodVisitor mv, int access, String className, String methodName,
                               String desc) {
         super(mv, access, className, methodName, desc);

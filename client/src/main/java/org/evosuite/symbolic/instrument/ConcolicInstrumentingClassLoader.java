@@ -45,9 +45,6 @@ public class ConcolicInstrumentingClassLoader extends TransformingClassLoader {
 
     private final ConcolicBytecodeInstrumentation instrumentation;
 
-    /**
-     * Constructor.
-     */
     public ConcolicInstrumentingClassLoader(ConcolicBytecodeInstrumentation instrumentation) {
         super(ConcolicInstrumentingClassLoader.class.getClassLoader(),
                 ConcolicInstrumentingClassLoader.class.getClassLoader());

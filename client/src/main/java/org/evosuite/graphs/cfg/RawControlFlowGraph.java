@@ -113,9 +113,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
     // return null;
     // }
 
-    /**
-     * addEdge.
-     */
     protected ControlFlowEdge addEdge(BytecodeInstruction src,
                                       BytecodeInstruction target, boolean isExceptionEdge) {
 
@@ -227,9 +224,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
 
     // functionality used to create ActualControlFlowGraph
 
-    /**
-     * determineBasicBlockFor.
-     */
     public BasicBlock determineBasicBlockFor(BytecodeInstruction instruction) {
         if (instruction == null) {
             throw new IllegalArgumentException("null given");
@@ -337,18 +331,12 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
 
     }
 
-    /**
-     * getInstructionWithSmallestId.
-     */
     public BytecodeInstruction getInstructionWithSmallestId() {
         return vertexSet().stream()
                 .min(comparingInt(BytecodeInstruction::getInstructionId))
                 .orElse(null);
     }
 
-    /**
-     * getInstructionWithBiggestId.
-     */
     public BytecodeInstruction getInstructionWithBiggestId() {
         return vertexSet().stream()
                 .max(comparingInt(BytecodeInstruction::getInstructionId))
@@ -440,9 +428,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
 
     // functionality for defUse coverage
 
-    /**
-     * getUsesForDef.
-     */
     public Set<Use> getUsesForDef(Definition def) {
         if (!graph.containsVertex(def)) {
             throw new IllegalArgumentException("unknown Definition");
@@ -482,9 +467,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
         return r;
     }
 
-    /**
-     * hasDefClearPathToMethodExit.
-     */
     public boolean hasDefClearPathToMethodExit(Definition duVertex) {
         if (!graph.containsVertex(duVertex)) {
             throw new IllegalArgumentException("vertex not in graph");
@@ -497,9 +479,6 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
                 new HashSet<>());
     }
 
-    /**
-     * hasDefClearPathFromMethodEntry.
-     */
     public boolean hasDefClearPathFromMethodEntry(Use duVertex) {
         if (!graph.containsVertex(duVertex)) {
             throw new IllegalArgumentException("vertex not in graph");
@@ -703,18 +682,12 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
 
     // CCFG util
 
-    /**
-     * determineMethodCalls.
-     */
     public List<BytecodeInstruction> determineMethodCalls() {
         return graph.vertexSet().stream()
                 .filter(ASMWrapper::isMethodCall)
                 .collect(toList());
     }
 
-    /**
-     * determineMethodCallsToOwnClass.
-     */
     public List<BytecodeInstruction> determineMethodCallsToOwnClass() {
         List<BytecodeInstruction> calls = new ArrayList<>();
         for (BytecodeInstruction ins : determineMethodCalls()) {

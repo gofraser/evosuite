@@ -243,9 +243,6 @@ public abstract class DefUseExecutionTraceAnalyzer {
         return lastDef;
     }
 
-    /**
-     * getCoveredGoals.
-     */
     public static Set<DefUseCoverageTestFitness> getCoveredGoals(
             List<ExecutionResult> results) {
 
@@ -313,9 +310,6 @@ public abstract class DefUseExecutionTraceAnalyzer {
         return r;
     }
 
-    /**
-     * getCoveredGoals.
-     */
     public static Set<DefUseCoverageTestFitness> getCoveredGoals(ExecutionResult result) {
 
         Set<DefUseCoverageTestFitness> r = new HashSet<>();

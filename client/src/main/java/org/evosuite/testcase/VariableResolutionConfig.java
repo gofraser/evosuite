@@ -76,9 +76,6 @@ public final class VariableResolutionConfig {
         private boolean preferConcreteGenerators = false;
         private VariableReference excludeVar = null;
 
-        /**
-         * Default constructor.
-         */
         public Builder() {
         }
 

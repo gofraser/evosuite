@@ -432,31 +432,16 @@ public class BranchPool {
                 || isKnownAsSwitchBranchInstruction(instruction);
     }
 
-    /**
-     * <p>
-     * isKnownAsNormalBranchInstruction.
-     * </p>
-     */
     public boolean isKnownAsNormalBranchInstruction(BytecodeInstruction ins) {
 
         return registeredNormalBranches.containsKey(ins);
     }
 
-    /**
-     * <p>
-     * isKnownAsSwitchBranchInstruction.
-     * </p>
-     */
     public boolean isKnownAsSwitchBranchInstruction(BytecodeInstruction instruction) {
 
         return registeredSwitches.containsKey(instruction);
     }
 
-    /**
-     * <p>
-     * getActualBranchIdForNormalBranchInstruction.
-     * </p>
-     */
     public int getActualBranchIdForNormalBranchInstruction(BytecodeInstruction ins) {
         if (!isKnownAsNormalBranchInstruction(ins)) {
             throw new IllegalArgumentException(
@@ -471,11 +456,6 @@ public class BranchPool {
                 "expect registeredNormalBranches to contain a key for each known normal branch instruction");
     }
 
-    /**
-     * <p>
-     * getCaseBranchesForSwitch.
-     * </p>
-     */
     public List<Branch> getCaseBranchesForSwitch(BytecodeInstruction instruction) {
         if (instruction == null) {
             throw new IllegalArgumentException("null given");
@@ -490,11 +470,6 @@ public class BranchPool {
         return registeredSwitches.get(instruction);
     }
 
-    /**
-     * <p>
-     * getBranchForInstruction.
-     * </p>
-     */
     public Branch getBranchForInstruction(BytecodeInstruction instruction) {
         if (instruction == null) {
             throw new IllegalArgumentException("null given");
@@ -507,11 +482,6 @@ public class BranchPool {
         return getBranch(registeredNormalBranches.get(instruction));
     }
 
-    /**
-     * <p>
-     * getBranchForLabel.
-     * </p>
-     */
     public List<Branch> getBranchForLabel(LabelNode label) {
 
         // TODO see registerSwitchLabel()!
@@ -766,11 +736,6 @@ public class BranchPool {
         return r;
     }
 
-    /**
-     * <p>
-     * getDefaultBranchForSwitch.
-     * </p>
-     */
     public Branch getDefaultBranchForSwitch(BytecodeInstruction v) {
         if (!v.isSwitch()) {
             throw new IllegalArgumentException("switch instruction expected");
@@ -802,21 +767,11 @@ public class BranchPool {
         registeredSwitches.clear();
     }
 
-    /**
-     * <p>
-     * clear.
-     * </p>
-     */
     public void clear(String className) {
         branchMap.remove(className);
         branchlessMethods.remove(className);
     }
 
-    /**
-     * <p>
-     * clear.
-     * </p>
-     */
     public void clear(String className, String methodName) {
         int numBranches = 0;
 

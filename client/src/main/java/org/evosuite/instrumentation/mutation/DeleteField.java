@@ -77,11 +77,6 @@ public class DeleteField implements MutationOperator {
         return mutations;
     }
 
-    /**
-     * <p>
-     * getInfectionDistance.
-     * </p>
-     */
     public InsnList getInfectionDistance(FieldInsnNode original, InsnList mutant) {
         InsnList distance = new InsnList();
 

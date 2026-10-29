@@ -90,9 +90,6 @@ public class MethodCallReplacement {
         this.origOpcode = opcode;
     }
 
-    /**
-     * <p>isTarget.</p>
-     */
     public boolean isTarget(String owner, String name, String desc) {
         return className.equals(owner) && methodName.equals(name)
                 && this.desc.equals(desc);
@@ -191,9 +188,6 @@ public class MethodCallReplacement {
         mv.visitLabel(afterOrigCallLabel);
     }
 
-    /**
-     * <p>insertInvokeSpecialForMockedSuperclass.</p>
-     */
     public void insertInvokeSpecialForMockedSuperclass(MethodCallReplacementMethodAdapter mv) {
         int numArguments = Type.getArgumentTypes(replacementDesc).length;
         mv.push(numArguments);
@@ -222,9 +216,6 @@ public class MethodCallReplacement {
 
     }
 
-    /**
-     * <p>insertConstructorCall.</p>
-     */
     public void insertConstructorCall(MethodCallReplacementMethodAdapter mv,
                                       MethodCallReplacement replacement, boolean isSelf) {
         Label origCallLabel = new Label();
@@ -267,37 +258,22 @@ public class MethodCallReplacement {
         }
     }
 
-    /**
-     * <p>Getter for the field <code>className</code>.</p>
-     */
     public String getClassName() {
         return className;
     }
 
-    /**
-     * <p>Getter for the field <code>methodName</code>.</p>
-     */
     public String getMethodName() {
         return methodName;
     }
 
-    /**
-     * <p>getMethodNameWithDesc.</p>
-     */
     public String getMethodNameWithDesc() {
         return methodName + desc;
     }
 
-    /**
-     * <p>Getter for the field <code>desc</code>.</p>
-     */
     public String getDesc() {
         return desc;
     }
 
-    /**
-     * <p>Getter for the field <code>origOpcode</code>.</p>
-     */
     public int getOrigOpcode() {
         return origOpcode;
     }

@@ -44,11 +44,6 @@ public class NullStatement extends PrimitiveStatement<Void> {
 
     private static final long serialVersionUID = -7141670041216163032L;
 
-    /**
-     * <p>
-     * Constructor for NullStatement.
-     * </p>
-     */
     public NullStatement(TestCase tc, java.lang.reflect.Type type) {
         super(tc, new NullReference(tc, type), null);
     }

@@ -28,9 +28,6 @@ import org.evosuite.testcase.TestFitnessFunction;
 
 import java.util.Comparator;
 
-/**
- * Created by gordon on 22/12/2015.
- */
 public class GoalComparator implements Comparator<TestFitnessFunction> {
 
     // 1. MethodGoal

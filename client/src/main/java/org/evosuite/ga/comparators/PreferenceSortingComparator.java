@@ -56,9 +56,6 @@ public class PreferenceSortingComparator<T extends Chromosome<T>> implements Com
 
     private final FitnessFunction<T> objective;
 
-    /**
-     * Constructor.
-     */
     public PreferenceSortingComparator(FitnessFunction<T> goal) {
         this.objective = goal;
     }

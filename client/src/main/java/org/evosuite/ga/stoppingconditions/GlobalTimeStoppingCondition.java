@@ -116,9 +116,6 @@ public class GlobalTimeStoppingCondition<T extends Chromosome<T>> extends Stoppi
         return Properties.GLOBAL_TIMEOUT;
     }
 
-    /**
-     * <p>forceReset.</p>
-     */
     public static void forceReset() {
         startTime = 0;
     }

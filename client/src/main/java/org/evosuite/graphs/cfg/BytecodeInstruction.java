@@ -160,9 +160,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
         this.className = className;
     }
 
-    /**
-     * setCFGFrame.
-     */
     public void setCFGFrame(CFGFrame frame) {
         this.frame = frame;
     }
@@ -174,9 +171,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
         return instructionId;
     }
 
-    /**
-     * getBytecodeOffset.
-     */
     public int getBytecodeOffset() {
         return bytecodeOffset;
     }
@@ -186,17 +180,11 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
         return methodName;
     }
 
-    /**
-     * Getter for the field <code>className</code>.
-     */
     @Override
     public String getClassName() {
         return className;
     }
 
-    /**
-     * getName.
-     */
     public String getName() {
         return "BytecodeInstruction " + instructionId + " in " + methodName;
     }
@@ -260,9 +248,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
         return lineNumber;
     }
 
-    /**
-     * Setter for the field <code>lineNumber</code>.
-     */
     public void setLineNumber(int lineNumber) {
         if (lineNumber <= 0) {
             throw new IllegalArgumentException(
@@ -490,9 +475,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
         return getBranchExpressionValue(b);
     }
 
-    /**
-     * getBranchExpressionValue.
-     */
     public boolean getBranchExpressionValue(Branch b) {
         if (!isDirectlyControlDependentOn(b)) {
             throw new IllegalArgumentException(
@@ -530,9 +512,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
         return false;
     }
 
-    /**
-     * getControlDependency.
-     */
     public ControlDependency getControlDependency(Branch branch) {
         if (!isDirectlyControlDependentOn(branch)) {
             throw new IllegalArgumentException(
@@ -550,9 +529,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
                         + "isDirectlyControlDependentOn() returns true on");
     }
 
-    /**
-     * getCDGDepth.
-     */
     public int getCDGDepth() {
         int min = Integer.MAX_VALUE;
         Set<ControlDependency> dependencies = getControlDependencies();
@@ -570,9 +546,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 
     // String methods
 
-    /**
-     * explain.
-     */
     public String explain() {
         if (isBranch()) {
             if (BranchPool.getInstance(classLoader).isKnownAsBranch(this)) {
@@ -593,9 +566,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
         return getASMNodeString();
     }
 
-    /**
-     * getASMNodeString.
-     */
     public String getASMNodeString() {
         String type = getType();
         String opcode = getInstructionType();
@@ -669,9 +639,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
         }
     }
 
-    /**
-     * printFrameInformation.
-     */
     public void printFrameInformation() {
         logger.info("Frame STACK:");
         for (int i = 0; i < frame.getStackSize(); i++) {
@@ -739,9 +706,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
         }
     }
 
-    /**
-     * proceedsOwnConstructorInvocation.
-     */
     public boolean proceedsOwnConstructorInvocation() {
 
         RawControlFlowGraph cfg = getRawCFG();
@@ -757,23 +721,14 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
         return false;
     }
 
-    /**
-     * isWithinConstructor.
-     */
     public boolean isWithinConstructor() {
         return getMethodName().startsWith("<init>");
     }
 
-    /**
-     * isLastInstructionInMethod.
-     */
     public boolean isLastInstructionInMethod() {
         return equals(getRawCFG().getInstructionWithBiggestId());
     }
 
-    /**
-     * canBeExitPoint.
-     */
     public boolean canBeExitPoint() {
         return canReturnFromMethod() || isLastInstructionInMethod();
     }
@@ -1008,9 +963,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
         return DefUsePool.isKnownAsUse(this);
     }
 
-    /**
-     * isCallToPublicMethod.
-     */
     public boolean isCallToPublicMethod() {
         if (!isMethodCall()) {
             return false;
@@ -1025,9 +977,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
         return getCalledCFG().isPublicMethod();
     }
 
-    /**
-     * isCallToStaticMethod.
-     */
     public boolean isCallToStaticMethod() {
         if (!isMethodCall()) {
             return false;
@@ -1042,9 +991,6 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
         return getCalledCFG().isStaticMethod();
     }
 
-    /**
-     * canBeInstrumented.
-     */
     public boolean canBeInstrumented() {
         return !isWithinConstructor() || !proceedsOwnConstructorInvocation();
     }

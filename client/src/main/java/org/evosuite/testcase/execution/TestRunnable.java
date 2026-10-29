@@ -120,11 +120,6 @@ public class TestRunnable implements Callable<ExecutionResult> {
 
     private final DmonEphemeralAssist dmonAssist;
 
-    /**
-     * <p>
-     * Constructor for TestRunnable.
-     * </p>
-     */
     public TestRunnable(TestCase tc, Scope scope, Set<ExecutionObserver> observers) {
         test = tc;
         this.scope = scope;

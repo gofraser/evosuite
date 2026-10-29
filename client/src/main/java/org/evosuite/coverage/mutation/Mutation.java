@@ -54,11 +54,6 @@ public class Mutation implements Comparable<Mutation> {
 
     private final int lineNo;
 
-    /**
-     * <p>
-     * Constructor for Mutation.
-     * </p>
-     */
     public Mutation(String className, String methodName, String mutationName, int id,
                     BytecodeInstruction original, AbstractInsnNode mutation, InsnList distance) {
         this.className = className;
@@ -72,11 +67,6 @@ public class Mutation implements Comparable<Mutation> {
         this.lineNo = original.getLineNumber();
     }
 
-    /**
-     * <p>
-     * Constructor for Mutation.
-     * </p>
-     */
     public Mutation(String className, String methodName, String mutationName, int id,
                     BytecodeInstruction original, InsnList mutation, InsnList distance) {
         this.className = className;
@@ -89,29 +79,14 @@ public class Mutation implements Comparable<Mutation> {
         this.lineNo = original.getLineNumber();
     }
 
-    /**
-     * <p>
-     * Getter for the field <code>id</code>.
-     * </p>
-     */
     public int getId() {
         return id;
     }
 
-    /**
-     * <p>
-     * Getter for the field <code>className</code>.
-     * </p>
-     */
     public String getClassName() {
         return className;
     }
 
-    /**
-     * <p>
-     * Getter for the field <code>methodName</code>.
-     * </p>
-     */
     public String getMethodName() {
         return methodName;
     }
@@ -120,11 +95,6 @@ public class Mutation implements Comparable<Mutation> {
         return lineNo;
     }
 
-    /**
-     * <p>
-     * Getter for the field <code>mutationName</code>.
-     * </p>
-     */
     public String getMutationName() {
         return mutationName;
     }
@@ -138,11 +108,6 @@ public class Mutation implements Comparable<Mutation> {
         return mutationName + " (" + id + "): " + ", line " + original.getLineNumber();
     }
 
-    /**
-     * <p>
-     * getControlDependencies.
-     * </p>
-     */
     public Set<BranchCoverageGoal> getControlDependencies() {
         Set<BranchCoverageGoal> goals = new HashSet<>();
         for (ControlDependency cd : original.getControlDependencies()) {
@@ -152,38 +117,18 @@ public class Mutation implements Comparable<Mutation> {
         return goals;
     }
 
-    /**
-     * <p>
-     * getOriginalNode.
-     * </p>
-     */
     public AbstractInsnNode getOriginalNode() {
         return original.getASMNode();
     }
 
-    /**
-     * <p>
-     * Getter for the field <code>mutation</code>.
-     * </p>
-     */
     public InsnList getMutation() {
         return mutation;
     }
 
-    /**
-     * <p>
-     * getInfectionDistance.
-     * </p>
-     */
     public InsnList getInfectionDistance() {
         return infection;
     }
 
-    /**
-     * <p>
-     * getDefaultInfectionDistance.
-     * </p>
-     */
     public static InsnList getDefaultInfectionDistance() {
         InsnList defaultDistance = new InsnList();
         defaultDistance.add(new LdcInsnNode(0.0));

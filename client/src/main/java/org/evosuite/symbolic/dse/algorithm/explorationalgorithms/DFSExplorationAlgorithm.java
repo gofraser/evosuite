@@ -46,9 +46,6 @@ import java.util.Queue;
  */
 public class DFSExplorationAlgorithm extends ExplorationAlgorithm {
 
-    /**
-     * Constructor.
-     */
     public DFSExplorationAlgorithm(DSEStatistics statistics, boolean showProgress) {
         super(statistics, showProgress);
 

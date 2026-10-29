@@ -82,24 +82,12 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
      */
     String getClassName();
 
-    /**
-     * getComponentName.
-     */
     String getComponentName();
 
-    /**
-     * getComponentType.
-     */
     Type getComponentType();
 
-    /**
-     * getGenericClass.
-     */
     GenericClass<?> getGenericClass();
 
-    /**
-     * getTestCase.
-     */
     TestCase getTestCase();
 
     /**
@@ -250,14 +238,8 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
      */
     String getName();
 
-    /**
-     * getAdditionalVariableReference.
-     */
     VariableReference getAdditionalVariableReference();
 
-    /**
-     * setAdditionalVariableReference.
-     */
     void setAdditionalVariableReference(VariableReference var);
 
     /**
@@ -281,36 +263,18 @@ public interface VariableReference extends Comparable<VariableReference>, Serial
         return equals(var1) ? var2 : this;
     }
 
-    /**
-     * loadBytecode.
-     */
     void loadBytecode(GeneratorAdapter mg, Map<Integer, Integer> locals);
 
-    /**
-     * storeBytecode.
-     */
     void storeBytecode(GeneratorAdapter mg, Map<Integer, Integer> locals);
 
-    /**
-     * changeClassLoader.
-     */
     void changeClassLoader(ClassLoader loader);
 
-    /**
-     * getDefaultValue.
-     */
     Object getDefaultValue();
 
-    /**
-     * getDefaultValueString.
-     */
     String getDefaultValueString();
 
     @Override
     int compareTo(VariableReference other);
 
-    /**
-     * same.
-     */
     boolean same(VariableReference r);
 }

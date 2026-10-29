@@ -115,9 +115,6 @@ public class MethodStatement extends EntityWithParametersStatement {
         init(method, callee);
     }
 
-    /**
-     * <p>isCompatibleCalleeType.</p>
-     */
     public static boolean isCompatibleCalleeType(GenericMethod method, java.lang.reflect.Type calleeType) {
         if (method == null || calleeType == null) {
             return false;
@@ -230,30 +227,18 @@ public class MethodStatement extends EntityWithParametersStatement {
         }
     }
 
-    /**
-     * Getter for the field <code>method</code>.
-     */
     public GenericMethod getMethod() {
         return method;
     }
 
-    /**
-     * Setter for the field <code>method</code>.
-     */
     public void setMethod(GenericMethod method) {
         this.method = method;
     }
 
-    /**
-     * Getter for the field <code>callee</code>.
-     */
     public VariableReference getCallee() {
         return callee;
     }
 
-    /**
-     * Setter for the field <code>callee</code>.
-     */
     public void setCallee(VariableReference callee) {
         if (!isStatic()) {
             if (callee != null && !isCompatibleCalleeType(method, callee.getType())) {

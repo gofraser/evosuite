@@ -38,11 +38,6 @@ public final class StringConstant extends AbstractExpression<String> implements
 
     private static final long serialVersionUID = 6785078290753992374L;
 
-    /**
-     * <p>
-     * Constructor for StringConstant.
-     * </p>
-     */
     public StringConstant(String stringValue) {
         super(stringValue, 1, false);
 

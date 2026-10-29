@@ -38,20 +38,10 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
 
     private ExecutionTraceImpl trace;
 
-    /**
-     * <p>
-     * Constructor for ExecutionTraceProxy.
-     * </p>
-     */
     public ExecutionTraceProxy() {
         this.trace = new ExecutionTraceImpl();
     }
 
-    /**
-     * <p>
-     * Constructor for ExecutionTraceProxy.
-     * </p>
-     */
     public ExecutionTraceProxy(ExecutionTraceImpl trace) {
         this.trace = trace;
     }
@@ -96,11 +86,6 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
         }
     }
 
-    /**
-     * <p>
-     * copyOnWrite.
-     * </p>
-     */
     public void copyOnWrite() {
         if (trace.getProxyCount() > 1) {
             trace.removeProxy();

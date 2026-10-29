@@ -55,9 +55,6 @@ public class StandardChemicalReaction<T extends Chromosome<T>> extends GeneticAl
 
     private List<T> elite = new ArrayList<>(Properties.ELITE);
 
-    /**
-     * Constructor.
-     */
     public StandardChemicalReaction(ChromosomeFactory<T> factory) {
         super(factory);
     }

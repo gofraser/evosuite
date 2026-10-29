@@ -98,16 +98,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         disableContext = true;
     }
 
-    /**
-     * <p>disableTraceCalls.</p>
-     */
     public static void disableTraceCalls() {
         traceCalls = false;
     }
 
-    /**
-     * <p>enableTraceCalls.</p>
-     */
     public static void enableTraceCalls() {
         traceCalls = true;
     }
@@ -116,9 +110,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         return traceCalls;
     }
 
-    /**
-     * <p>enableTraceCoverage.</p>
-     */
     public static void enableTraceCoverage() {
         traceCoverage = true;
     }
@@ -248,23 +239,14 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
      */
     private BranchOperandSlot[] branchOperandSlots;
 
-    /**
-     * <p>Constructor for ExecutionTraceImpl.</p>
-     */
     public ExecutionTraceImpl() {
         stack.add(new MethodCall("", "", 0, 0, 0)); // Main method
     }
 
-    /**
-     * <p>addProxy.</p>
-     */
     public void addProxy() {
         proxyCount++;
     }
 
-    /**
-     * <p>removeProxy.</p>
-     */
     public void removeProxy() {
         proxyCount--;
     }
@@ -850,9 +832,6 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         return coveredPredicates;
     }
 
-    /**
-     * <p>Getter for the field <code>proxyCount</code>.</p>
-     */
     public int getProxyCount() {
         return proxyCount;
     }

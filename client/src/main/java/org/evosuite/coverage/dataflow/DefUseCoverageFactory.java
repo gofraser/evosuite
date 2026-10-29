@@ -295,9 +295,6 @@ public class DefUseCoverageFactory extends
         //      LoggingUtils.getEvoLogger().info(goal.toString());
     }
 
-    /**
-     * retrieveGoal.
-     */
     public static DefUseCoverageTestFitness retrieveGoal(int defId, int useId) {
 
         Definition def = DefUsePool.getDefinitionByDefId(defId);
@@ -306,9 +303,6 @@ public class DefUseCoverageFactory extends
         return retrieveGoal(def, use);
     }
 
-    /**
-     * retrieveGoal.
-     */
     public static DefUseCoverageTestFitness retrieveGoal(Definition def, Use use) {
         if (!goalMap.containsKey(def)) {
             return null;
@@ -337,9 +331,6 @@ public class DefUseCoverageFactory extends
         return r;
     }
 
-    /**
-     * getRegisteredDefinitions.
-     */
     public static Set<Definition> getRegisteredDefinitions() {
         if (!called) {
             computeGoals();
@@ -347,9 +338,6 @@ public class DefUseCoverageFactory extends
         return new HashSet<>(goalMap.keySet());
     }
 
-    /**
-     * getRegisteredGoalsForDefinition.
-     */
     public static Map<Use, DefUseCoverageTestFitness> getRegisteredGoalsForDefinition(
             Definition def) {
         if (!called) {
@@ -360,9 +348,6 @@ public class DefUseCoverageFactory extends
 
     // Getter
 
-    /**
-     * getParamGoalsCount.
-     */
     public static int getParamGoalsCount() {
         Integer r = goalCounts.get(DefUsePairType.PARAMETER);
         if (r == null) {
@@ -371,9 +356,6 @@ public class DefUseCoverageFactory extends
         return r;
     }
 
-    /**
-     * getIntraMethodGoalsCount.
-     */
     public static int getIntraMethodGoalsCount() {
         Integer r = goalCounts.get(DefUsePairType.INTRA_METHOD);
         if (r == null) {
@@ -382,9 +364,6 @@ public class DefUseCoverageFactory extends
         return r;
     }
 
-    /**
-     * getInterMethodGoalsCount.
-     */
     public static int getInterMethodGoalsCount() {
         Integer r = goalCounts.get(DefUsePairType.INTER_METHOD);
         if (r == null) {
@@ -393,9 +372,6 @@ public class DefUseCoverageFactory extends
         return r;
     }
 
-    /**
-     * getIntraClassGoalsCount.
-     */
     public static int getIntraClassGoalsCount() {
         Integer r = goalCounts.get(DefUsePairType.INTRA_CLASS);
         if (r == null) {

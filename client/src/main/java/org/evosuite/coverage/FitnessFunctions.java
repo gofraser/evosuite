@@ -239,11 +239,6 @@ public class FitnessFunctions {
         ));
     }
 
-    /**
-     * <p>
-     * getFitnessFunction.
-     * </p>
-     */
     public static TestSuiteFitnessFunction getFitnessFunction(Criterion criterion) {
         FitnessRegistryEntry entry = registry.get(criterion);
         if (entry != null) {
@@ -263,11 +258,6 @@ public class FitnessFunctions {
         return FitnessFunctionsUtils.getFitnessFactories(Properties.CRITERION);
     }
 
-    /**
-     * <p>
-     * getFitnessFactory.
-     * </p>
-     */
     public static TestFitnessFactory<? extends TestFitnessFunction> getFitnessFactory(
             Criterion crit) {
         FitnessRegistryEntry entry = registry.get(crit);

@@ -40,9 +40,6 @@ public class ChainedInspector extends Inspector {
     private transient Class<?> outerClass;
     private final Inspector innerInspector;
 
-    /**
-     * <p>Constructor for ChainedInspector.</p>
-     */
     public ChainedInspector(Class<?> clazz, Method outerMethod, Inspector innerInspector) {
         // Pass the outer class and outer method to the superclass.
         // We override getValue and getMethodCall to implement chaining.

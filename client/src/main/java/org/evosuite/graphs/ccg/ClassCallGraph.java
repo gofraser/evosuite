@@ -105,16 +105,10 @@ public class ClassCallGraph extends EvoSuiteGraph<ClassCallNode, ClassCallEdge> 
         }
     }
 
-    /**
-     * getNodeByMethodName.
-     */
     public ClassCallNode getNodeByMethodName(String methodName) {
         return methodToNodeMap.get(methodName);
     }
 
-    /**
-     * Getter for the field <code>className</code>.
-     */
     public String getClassName() {
         return className;
     }

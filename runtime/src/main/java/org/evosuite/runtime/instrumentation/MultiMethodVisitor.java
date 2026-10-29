@@ -41,9 +41,6 @@ public class MultiMethodVisitor extends MethodVisitor {
 
     private final Map<Label, Label> labelMapping = new HashMap<>();
 
-    /**
-     * <p>Constructor for MultiMethodVisitor.</p>
-     */
     public MultiMethodVisitor(MethodVisitor mv1, MethodVisitor mv2) {
         super(Opcodes.ASM9);
         this.mv1 = mv1;

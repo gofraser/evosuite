@@ -40,20 +40,10 @@ public class SingleContractChecker extends ExecutionObserver {
 
     private boolean valid = true;
 
-    /**
-     * <p>
-     * Constructor for SingleContractChecker.
-     * </p>
-     */
     public SingleContractChecker(Contract contract) {
         this.contract = contract;
     }
 
-    /**
-     * <p>
-     * isValid.
-     * </p>
-     */
     public boolean isValid() {
         return valid;
     }

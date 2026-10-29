@@ -548,9 +548,6 @@ public class DependencyAnalysis {
         }
     }
 
-    /**
-     * logClasspathAnalysisSummary.
-     */
     @SuppressWarnings("deprecation")
     public static void logClasspathAnalysisSummary(List<String> classPath) {
         long classpathEntries = classPath.stream().filter(entry -> entry != null && !entry.isEmpty()).count();

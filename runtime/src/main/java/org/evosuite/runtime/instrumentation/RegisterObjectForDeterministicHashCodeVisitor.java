@@ -32,9 +32,6 @@ import org.objectweb.asm.commons.Method;
  */
 public class RegisterObjectForDeterministicHashCodeVisitor extends AdviceAdapter {
 
-    /**
-     * <p>Constructor for RegisterObjectForDeterministicHashCodeVisitor.</p>
-     */
     protected RegisterObjectForDeterministicHashCodeVisitor(MethodVisitor mv, int access, String name, String desc) {
         super(Opcodes.ASM9, mv, access, name, desc);
     }

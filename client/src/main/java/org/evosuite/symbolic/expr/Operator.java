@@ -166,9 +166,6 @@ public enum Operator {
         this.arity = arity;
     }
 
-    /**
-     * <p>Getter for the field <code>arity</code>.</p>
-     */
     public int getArity() {
         return arity;
     }

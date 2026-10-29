@@ -382,9 +382,6 @@ public interface ExecutionTrace {
      */
     ExecutionTrace withoutMethodCalls();
 
-    /**
-     * <p>getPassedUses.</p>
-     */
     Map<String, HashMap<Integer, HashMap<Integer, Integer>>> getPassedUses();
 
     /**

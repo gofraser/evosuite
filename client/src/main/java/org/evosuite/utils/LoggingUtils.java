@@ -55,26 +55,14 @@ public class LoggingUtils {
         return LoggerFactory.getLogger(LoggingUtils.class);
     }
 
-    /**
-     * Constant <code>DEFAULT_OUT</code>.
-     */
     public static final PrintStream DEFAULT_OUT = System.out;
-    /**
-     * Constant <code>DEFAULT_ERR</code>.
-     */
     public static final PrintStream DEFAULT_ERR = System.err;
 
     public static final String USE_DIFFERENT_LOGGING_XML_PARAMETER = "use_different_logback";
 
     private static final String EVO_LOGGER = "evo_logger";
 
-    /**
-     * Constant <code>latestOut</code>.
-     */
     protected static PrintStream latestOut = null;
-    /**
-     * Constant <code>latestErr</code>.
-     */
     protected static PrintStream latestErr = null;
 
     /**
@@ -94,20 +82,10 @@ public class LoggingUtils {
     private final ExecutorService logHandler = Executors.newCachedThreadPool();
 
 
-    /**
-     * <p>
-     * Constructor for LoggingUtils.
-     * </p>
-     */
     public LoggingUtils() {
     }
 
 
-    /**
-     * <p>
-     * getEvoLogger.
-     * </p>
-     */
     public static Logger getEvoLogger() {
         return LoggerFactory.getLogger(EVO_LOGGER);
     }
@@ -137,11 +115,6 @@ public class LoggingUtils {
         getEvoLogger().error("* " + ClientProcess.getPrettyPrintIdentifier() + format, args);
     }
 
-    /**
-     * <p>
-     * startLogServer.
-     * </p>
-     */
     public boolean startLogServer() {
         try {
             serverSocket = new ServerSocket();
@@ -209,20 +182,10 @@ public class LoggingUtils {
         }
     }
 
-    /**
-     * <p>
-     * isServerClosed.
-     * </p>
-     */
     public boolean isServerClosed() {
         return serverSocket == null || serverSocket.isClosed() || !serverSocket.isBound();
     }
 
-    /**
-     * <p>
-     * getLogServerPort.
-     * </p>
-     */
     public Integer getLogServerPort() {
         if (isServerClosed()) {
             return null;
@@ -230,11 +193,6 @@ public class LoggingUtils {
         return serverSocket.getLocalPort();
     }
 
-    /**
-     * <p>
-     * closeLogServer.
-     * </p>
-     */
     public void closeLogServer() {
         if (serverSocket != null && !serverSocket.isClosed()) {
             try {

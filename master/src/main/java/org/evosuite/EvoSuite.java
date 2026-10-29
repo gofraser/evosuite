@@ -108,11 +108,6 @@ public class EvoSuite {
         return !FileUtils.listFiles(directory, extensions, false).isEmpty();
     }
 
-    /**
-     * <p>
-     * main.
-     * </p>
-     */
     public static void main(String[] args) {
         if (System.getProperty("java.rmi.server.RMIClassLoaderSpi") == null) {
             System.setProperty("java.rmi.server.RMIClassLoaderSpi", EvoSuiteRMIClassLoaderSpi.class.getName());
@@ -185,11 +180,6 @@ public class EvoSuite {
         }
     }
 
-    /**
-     * <p>
-     * parseCommandLine.
-     * </p>
-     */
     public Object parseCommandLine(String[] args) {
         Options options = CommandLineParameters.getCommandLineOptions();
 

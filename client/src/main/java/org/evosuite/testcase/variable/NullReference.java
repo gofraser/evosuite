@@ -32,9 +32,6 @@ public class NullReference extends VariableReferenceImpl {
 
     private static final long serialVersionUID = -6172885297590386463L;
 
-    /**
-     * Constructor for NullReference.
-     */
     public NullReference(TestCase testCase, Type type) {
         super(testCase, type);
     }

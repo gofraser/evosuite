@@ -32,9 +32,6 @@ import java.io.Serializable;
 @FunctionalInterface
 public interface BloatControlFunction<T extends Chromosome<T>> extends Serializable {
 
-    /**
-     * <p>isTooLong.</p>
-     */
     boolean isTooLong(T chromosome);
 
 }

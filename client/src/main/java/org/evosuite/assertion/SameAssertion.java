@@ -38,16 +38,10 @@ public class SameAssertion extends Assertion {
 
     protected VariableReference dest;
 
-    /**
-     * <p>Getter for the field <code>dest</code>.</p>
-     */
     public VariableReference getDest() {
         return dest;
     }
 
-    /**
-     * <p>Setter for the field <code>dest</code>.</p>
-     */
     public void setDest(VariableReference dest) {
         this.dest = dest;
     }

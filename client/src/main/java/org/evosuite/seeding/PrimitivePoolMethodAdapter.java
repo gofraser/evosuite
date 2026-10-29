@@ -37,11 +37,6 @@ public class PrimitivePoolMethodAdapter extends MethodVisitor {
 
     private final String className;
 
-    /**
-     * <p>
-     * Constructor for PrimitivePoolMethodAdapter.
-     * </p>
-     */
     public PrimitivePoolMethodAdapter(MethodVisitor mv, String className) {
         super(Opcodes.ASM9, mv);
         this.className = className;

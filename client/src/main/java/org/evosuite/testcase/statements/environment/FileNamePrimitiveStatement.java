@@ -42,9 +42,6 @@ public class FileNamePrimitiveStatement extends EnvironmentDataStatement<EvoSuit
 
     private static final long serialVersionUID = 4402006999670328128L;
 
-    /**
-     * Constructor.
-     */
     public FileNamePrimitiveStatement(TestCase tc, EvoSuiteFile value) {
         super(tc, EvoSuiteFile.class, value);
     }

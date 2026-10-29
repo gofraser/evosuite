@@ -60,16 +60,10 @@ public abstract class ASMWrapper {
     protected AbstractInsnNode asmNode;
     protected CFGFrame frame;
 
-    /**
-     * getASMNode.
-     */
     public AbstractInsnNode getASMNode() {
         return asmNode;
     }
 
-    /**
-     * getInstructionType.
-     */
     public String getInstructionType() {
 
         if (asmNode.getOpcode() >= 0 && asmNode.getOpcode() < Printer.OPCODES.length) {
@@ -96,9 +90,6 @@ public abstract class ASMWrapper {
         return meth.desc;
     }
 
-    /**
-     * getType.
-     */
     public String getType() {
         // TODO explain
         String type = "";
@@ -109,19 +100,10 @@ public abstract class ASMWrapper {
         return type;
     }
 
-    /**
-     * getInstructionId.
-     */
     public abstract int getInstructionId();
 
-    /**
-     * getMethodName.
-     */
     public abstract String getMethodName();
 
-    /**
-     * getClassName.
-     */
     public abstract String getClassName();
 
     public abstract boolean isMethodCallOfField();
@@ -130,30 +112,18 @@ public abstract class ASMWrapper {
 
     // methods for branch analysis
 
-    /**
-     * isActualBranch.
-     */
     public boolean isActualBranch() {
         return isBranch() || isSwitch();
     }
 
-    /**
-     * isSwitch.
-     */
     public boolean isSwitch() {
         return isLookupSwitch() || isTableSwitch();
     }
 
-    /**
-     * canReturnFromMethod.
-     */
     public boolean canReturnFromMethod() {
         return isReturn() || isThrow();
     }
 
-    /**
-     * isReturn.
-     */
     public boolean isReturn() {
         switch (asmNode.getOpcode()) {
             case Opcodes.RETURN:
@@ -168,39 +138,24 @@ public abstract class ASMWrapper {
         }
     }
 
-    /**
-     * isThrow.
-     */
     public boolean isThrow() {
         // TODO: Need to check if this is a caught exception?
         return asmNode.getOpcode() == Opcodes.ATHROW;
     }
 
-    /**
-     * isTableSwitch.
-     */
     public boolean isTableSwitch() {
         return (asmNode instanceof TableSwitchInsnNode);
     }
 
-    /**
-     * isLookupSwitch.
-     */
     public boolean isLookupSwitch() {
         return (asmNode instanceof LookupSwitchInsnNode);
     }
 
-    /**
-     * isBranchLabel.
-     */
     public boolean isBranchLabel() {
         return asmNode instanceof LabelNode
                 && ((LabelNode) asmNode).getLabel().info instanceof Integer;
     }
 
-    /**
-     * isJump.
-     */
     public boolean isJump() {
         return (asmNode instanceof JumpInsnNode);
     }
@@ -217,9 +172,6 @@ public abstract class ASMWrapper {
         return false;
     }
 
-    /**
-     * isGoto.
-     */
     public boolean isGoto() {
         if (asmNode instanceof JumpInsnNode) {
             return (asmNode.getOpcode() == Opcodes.GOTO);
@@ -227,9 +179,6 @@ public abstract class ASMWrapper {
         return false;
     }
 
-    /**
-     * isBranch.
-     */
     public boolean isBranch() {
         return (isJump() && !isGoto());
     }
@@ -239,9 +188,6 @@ public abstract class ASMWrapper {
     // return line_no;
     // }
 
-    /**
-     * isIfNull.
-     */
     public boolean isIfNull() {
         if (asmNode instanceof JumpInsnNode) {
             return (asmNode.getOpcode() == Opcodes.IFNULL);
@@ -249,16 +195,10 @@ public abstract class ASMWrapper {
         return false;
     }
 
-    /**
-     * isFrame.
-     */
     public boolean isFrame() {
         return asmNode instanceof FrameNode;
     }
 
-    /**
-     * isMethodCall.
-     */
     public boolean isMethodCall() {
         return asmNode instanceof MethodInsnNode;
     }
@@ -330,16 +270,10 @@ public abstract class ASMWrapper {
         return -1;
     }
 
-    /**
-     * isLoadConstant.
-     */
     public boolean isLoadConstant() {
         return asmNode.getOpcode() == Opcodes.LDC;
     }
 
-    /**
-     * isConstant.
-     */
     public boolean isConstant() {
         switch (asmNode.getOpcode()) {
             case Opcodes.LDC:
@@ -367,16 +301,10 @@ public abstract class ASMWrapper {
 
     // methods for defUse analysis
 
-    /**
-     * isDefUse.
-     */
     public boolean isDefUse() {
         return isDefinition() || isUse();
     }
 
-    /**
-     * isFieldDU.
-     */
     public boolean isFieldDU() {
         return isFieldDefinition() || isFieldUse();
     }
@@ -390,23 +318,14 @@ public abstract class ASMWrapper {
         return isFieldNodeDefinition() || isFieldNodeUse();
     }
 
-    /**
-     * isLocalDU.
-     */
     public boolean isLocalDU() {
         return isLocalVariableDefinition() || isLocalVariableUse();
     }
 
-    /**
-     * isDefinition.
-     */
     public boolean isDefinition() {
         return isFieldDefinition() || isLocalVariableDefinition();
     }
 
-    /**
-     * isUse.
-     */
     public boolean isUse() {
         return isFieldUse() || isLocalVariableUse() || isArrayLoadInstruction();
     }
@@ -415,42 +334,27 @@ public abstract class ASMWrapper {
 
     public abstract boolean isFieldMethodCallUse();
 
-    /**
-     * isFieldDefinition.
-     */
     public boolean isFieldDefinition() {
         return asmNode.getOpcode() == Opcodes.PUTFIELD
                 || asmNode.getOpcode() == Opcodes.PUTSTATIC || isFieldArrayDefinition()
                 || isFieldMethodCallDefinition();
     }
 
-    /**
-     * isFieldNodeDefinition.
-     */
     public boolean isFieldNodeDefinition() {
         return asmNode.getOpcode() == Opcodes.PUTFIELD
                 || asmNode.getOpcode() == Opcodes.PUTSTATIC || isFieldArrayDefinition();
     }
 
-    /**
-     * isFieldUse.
-     */
     public boolean isFieldUse() {
         return asmNode.getOpcode() == Opcodes.GETFIELD
                 || asmNode.getOpcode() == Opcodes.GETSTATIC || isFieldMethodCallUse();
     }
 
-    /**
-     * isFieldNodeUse.
-     */
     public boolean isFieldNodeUse() {
         return asmNode.getOpcode() == Opcodes.GETFIELD
                 || asmNode.getOpcode() == Opcodes.GETSTATIC;
     }
 
-    /**
-     * isStaticDefUse.
-     */
     public boolean isStaticDefUse() {
         return asmNode.getOpcode() == Opcodes.PUTSTATIC
                 || asmNode.getOpcode() == Opcodes.GETSTATIC || isStaticArrayUsage();
@@ -458,9 +362,6 @@ public abstract class ASMWrapper {
 
     // retrieving information about variable names from ASM
 
-    /**
-     * getVariableName.
-     */
     public String getVariableName() {
         if (isArrayStoreInstruction()) {
             return getArrayVariableName();
@@ -477,36 +378,24 @@ public abstract class ASMWrapper {
         }
     }
 
-    /**
-     * getFieldSimpleName.
-     */
     protected String getFieldSimpleName() {
         FieldInsnNode fieldNode = (FieldInsnNode) asmNode;
         return fieldNode.name;
         // return fieldNode.name;
     }
 
-    /**
-     * getFieldName.
-     */
     protected String getFieldName() {
         FieldInsnNode fieldNode = (FieldInsnNode) asmNode;
         return fieldNode.owner + "." + fieldNode.name;
         // return fieldNode.name;
     }
 
-    /**
-     * getFieldType.
-     */
     public String getFieldType() {
         FieldInsnNode fieldNode = (FieldInsnNode) asmNode;
         return fieldNode.desc;
         // return fieldNode.name;
     }
 
-    /**
-     * getLocalVariableName.
-     */
     protected String getLocalVariableName() {
         String ret = getMethodName() + "_LV_" + getLocalVariableSlot();
         return ret;
@@ -514,9 +403,6 @@ public abstract class ASMWrapper {
 
     // TODO unsafe
 
-    /**
-     * getLocalVariableSlot.
-     */
     public int getLocalVariableSlot() {
         if (asmNode instanceof VarInsnNode) {
             return ((VarInsnNode) asmNode).var;
@@ -527,9 +413,6 @@ public abstract class ASMWrapper {
         }
     }
 
-    /**
-     * isLocalVariableDefinition.
-     */
     public boolean isLocalVariableDefinition() {
         return asmNode.getOpcode() == Opcodes.ISTORE
                 || asmNode.getOpcode() == Opcodes.LSTORE
@@ -539,9 +422,6 @@ public abstract class ASMWrapper {
                 || asmNode.getOpcode() == Opcodes.IINC || isLocalArrayDefinition();
     }
 
-    /**
-     * isLocalVariableUse.
-     */
     public boolean isLocalVariableUse() {
         return asmNode.getOpcode() == Opcodes.ILOAD
                 || asmNode.getOpcode() == Opcodes.LLOAD
@@ -676,16 +556,10 @@ public abstract class ASMWrapper {
 
     public abstract BytecodeInstruction getSourceOfArrayReference();
 
-    /**
-     * isDefinitionForVariable.
-     */
     public boolean isDefinitionForVariable(String var) {
         return (isDefinition() && getVariableName().equals(var));
     }
 
-    /**
-     * isInvokeSpecial.
-     */
     public boolean isInvokeSpecial() {
         return asmNode.getOpcode() == Opcodes.INVOKESPECIAL;
     }
@@ -735,9 +609,6 @@ public abstract class ASMWrapper {
         return (asmNode instanceof LineNumberNode);
     }
 
-    /**
-     * getLineNumber.
-     */
     public int getLineNumber() {
         if (!isLineNumber()) {
             return -1;
@@ -746,9 +617,6 @@ public abstract class ASMWrapper {
         return ((LineNumberNode) asmNode).line;
     }
 
-    /**
-     * isLabel.
-     */
     public boolean isLabel() {
         return asmNode instanceof LabelNode;
     }

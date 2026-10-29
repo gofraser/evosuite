@@ -42,16 +42,10 @@ public class ContainerTransformation {
 
     private final ClassNode cn;
 
-    /**
-     * <p>Constructor for ContainerTransformation.</p>
-     */
     public ContainerTransformation(ClassNode cn) {
         this.cn = cn;
     }
 
-    /**
-     * <p>transform.</p>
-     */
     @SuppressWarnings("unchecked")
     public ClassNode transform() {
         List<MethodNode> methodNodes = cn.methods;

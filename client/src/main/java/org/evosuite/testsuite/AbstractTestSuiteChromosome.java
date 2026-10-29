@@ -63,20 +63,10 @@ public abstract class AbstractTestSuiteChromosome<T extends AbstractTestSuiteChr
     }
 
 
-    /**
-     * <p>
-     * Constructor for AbstractTestSuiteChromosome.
-     * </p>
-     */
     protected AbstractTestSuiteChromosome(ChromosomeFactory<E> testChromosomeFactory) {
         this.testChromosomeFactory = testChromosomeFactory;
     }
 
-    /**
-     * <p>
-     * Getter for the field <code>testChromosomeFactory</code>.
-     * </p>
-     */
     public ChromosomeFactory<? extends E> getTestChromosomeFactory() {
         return testChromosomeFactory;
     }
@@ -108,11 +98,6 @@ public abstract class AbstractTestSuiteChromosome<T extends AbstractTestSuiteChr
         this.setNumCollisions(source.getNumCollisions());
     }
 
-    /**
-     * <p>
-     * addTest.
-     * </p>
-     */
     public void addTest(E test) {
         tests.add(test);
         this.setChanged(true);
@@ -132,11 +117,6 @@ public abstract class AbstractTestSuiteChromosome<T extends AbstractTestSuiteChr
 
     public abstract E addTest(TestCase testCase);
 
-    /**
-     * <p>
-     * addTests.
-     * </p>
-     */
     public void addTests(Collection<E> tests) {
         this.tests.addAll(tests);
         if (!tests.isEmpty()) {
@@ -150,11 +130,6 @@ public abstract class AbstractTestSuiteChromosome<T extends AbstractTestSuiteChr
         testChromosomes.forEach(this::addTestChromosome);
     }
 
-    /**
-     * <p>
-     * addUnmodifiableTest.
-     * </p>
-     */
     public void addUnmodifiableTest(E test) {
         tests.add(test);
         this.setChanged(true);
@@ -291,20 +266,10 @@ public abstract class AbstractTestSuiteChromosome<T extends AbstractTestSuiteChr
     @Override
     public abstract T clone();
 
-    /**
-     * <p>
-     * getTestChromosome.
-     * </p>
-     */
     public E getTestChromosome(int index) {
         return tests.get(index);
     }
 
-    /**
-     * <p>
-     * getTestChromosomes.
-     * </p>
-     */
     public List<E> getTestChromosomes() {
         return tests;
     }
@@ -340,11 +305,6 @@ public abstract class AbstractTestSuiteChromosome<T extends AbstractTestSuiteChr
                 .collect(toList());
     }
 
-    /**
-     * <p>
-     * setTestChromosome.
-     * </p>
-     */
     public void setTestChromosome(int index, E test) {
         tests.set(index, test);
         this.setChanged(true);

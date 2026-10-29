@@ -23,9 +23,6 @@ import org.evosuite.runtime.mock.OverrideMock;
 import javax.swing.*;
 import java.lang.reflect.Field;
 
-/**
- * Created by gordon on 28/01/2016.
- */
 public class MockDefaultListSelectionModel extends DefaultListSelectionModel implements OverrideMock {
 
     private static final long serialVersionUID = 8871874273079985592L;

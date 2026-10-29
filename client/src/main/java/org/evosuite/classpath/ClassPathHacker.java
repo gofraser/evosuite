@@ -97,24 +97,15 @@ public class ClassPathHacker {
         return junitCheckAvailable;
     }
 
-    /**
-     * <p>addFile.</p>
-     */
     public static void addFile(String s) throws IOException {
         File f = new File(s);
         addFile(f);
     }
 
-    /**
-     * <p>addFile.</p>
-     */
     public static void addFile(File f) throws IOException {
         addURL(f.toURI().toURL());
     }
 
-    /**
-     * <p>addURL.</p>
-     */
     public static void addURL(URL u) throws IOException {
         logger.info("Trying to add URL to class path: {}", u);
         ClassLoader sysloader = ClassLoader.getSystemClassLoader();

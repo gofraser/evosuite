@@ -40,9 +40,6 @@ public abstract class SelectionFunction<T extends Chromosome<T>> implements Seri
 
     private static final long serialVersionUID = -2514933149542277609L;
 
-    /**
-     * Constant <code>logger</code>.
-     */
     protected static final Logger logger = LoggerFactory.getLogger(SelectionFunction.class);
 
     /**

@@ -27,9 +27,6 @@ import java.time.chrono.JapaneseDate;
 import java.time.chrono.JapaneseEra;
 import java.time.temporal.TemporalAccessor;
 
-/**
- * Created by gordon on 24/01/2016.
- */
 public class MockJapaneseDate implements StaticReplacementMock {
 
     @Override

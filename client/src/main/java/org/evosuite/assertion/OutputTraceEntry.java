@@ -28,29 +28,14 @@ import java.util.Set;
  */
 public interface OutputTraceEntry {
 
-    /**
-     * <p>differs.</p>
-     */
     boolean differs(OutputTraceEntry other);
 
-    /**
-     * <p>getAssertions.</p>
-     */
     Set<Assertion> getAssertions(OutputTraceEntry other);
 
-    /**
-     * <p>getAssertions.</p>
-     */
     Set<Assertion> getAssertions();
 
-    /**
-     * <p>isDetectedBy.</p>
-     */
     boolean isDetectedBy(Assertion assertion);
 
-    /**
-     * <p>cloneEntry.</p>
-     */
     OutputTraceEntry cloneEntry();
 
 }

@@ -37,9 +37,6 @@ public class SimpleDateFormat extends java.text.SimpleDateFormat {
 
     static final long serialVersionUID = 4774881970558875024L;
 
-    /**
-     * Default constructor.
-     */
     public SimpleDateFormat() {
         super();
         Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_TEXT_SIMPLEDATEFORMAT, this, "<init>", "()V", new Object[]{});

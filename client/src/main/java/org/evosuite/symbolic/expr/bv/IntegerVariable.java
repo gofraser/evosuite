@@ -37,11 +37,6 @@ public final class IntegerVariable extends AbstractExpression<Long> implements
 
     private final long maxValue;
 
-    /**
-     * <p>
-     * Constructor for IntegerVariable.
-     * </p>
-     */
     public IntegerVariable(String name, long conV, long minValue, long maxValue) {
         super(conV, 1, true);
         this.name = name;
@@ -49,11 +44,6 @@ public final class IntegerVariable extends AbstractExpression<Long> implements
         this.maxValue = maxValue;
     }
 
-    /**
-     * <p>
-     * Setter for the field <code>concreteValue</code>.
-     * </p>
-     */
     public void setConcreteValue(Long con) {
         this.concreteValue = con;
     }

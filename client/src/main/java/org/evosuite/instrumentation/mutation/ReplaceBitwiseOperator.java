@@ -142,9 +142,6 @@ public class ReplaceBitwiseOperator implements MutationOperator {
         throw new RuntimeException("Unknown opcode: " + opcode);
     }
 
-    /**
-     * <p>getInfectionDistance.</p>
-     */
     public InsnList getInfectionDistance(int opcodeOrig, int opcodeNew, int numVariable) {
         InsnList distance = new InsnList();
 
@@ -194,9 +191,6 @@ public class ReplaceBitwiseOperator implements MutationOperator {
         return distance;
     }
 
-    /**
-     * <p>getInfectionDistanceInt.</p>
-     */
     public static double getInfectionDistanceInt(int x, int y, int opcodeOrig,
                                                  int opcodeNew) {
         if (opcodeOrig == Opcodes.ISHR && opcodeNew == Opcodes.IUSHR) {
@@ -216,9 +210,6 @@ public class ReplaceBitwiseOperator implements MutationOperator {
         return origValue == newValue ? 1.0 : 0.0;
     }
 
-    /**
-     * <p>getInfectionDistanceLong.</p>
-     */
     public static double getInfectionDistanceLong(long x, int y, int opcodeOrig,
                                                   int opcodeNew) {
         if (opcodeOrig == Opcodes.LSHR && opcodeNew == Opcodes.LUSHR) {
@@ -237,9 +228,6 @@ public class ReplaceBitwiseOperator implements MutationOperator {
         return origValue == newValue ? 1.0 : 0.0;
     }
 
-    /**
-     * <p>getInfectionDistanceLong.</p>
-     */
     public static double getInfectionDistanceLong(long x, long y, int opcodeOrig,
                                                   int opcodeNew) {
         long origValue = calculate(x, y, opcodeOrig);
@@ -247,9 +235,6 @@ public class ReplaceBitwiseOperator implements MutationOperator {
         return origValue == newValue ? 1.0 : 0.0;
     }
 
-    /**
-     * <p>calculate.</p>
-     */
     public static int calculate(int x, int y, int opcode) {
         switch (opcode) {
             case Opcodes.IAND:
@@ -270,9 +255,6 @@ public class ReplaceBitwiseOperator implements MutationOperator {
         throw new RuntimeException("Unknown integer opcode: " + opcode);
     }
 
-    /**
-     * <p>calculate.</p>
-     */
     public static long calculate(long x, long y, int opcode) {
         switch (opcode) {
             case Opcodes.LAND:

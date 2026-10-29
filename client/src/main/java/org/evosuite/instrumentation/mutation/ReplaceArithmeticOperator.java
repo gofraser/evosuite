@@ -145,9 +145,6 @@ public class ReplaceArithmeticOperator implements MutationOperator {
         return replacement;
     }
 
-    /**
-     * <p>getInfectionDistance.</p>
-     */
     public InsnList getInfectionDistance(int opcodeOrig, int opcodeNew, int localVar) {
         InsnList distance = new InsnList();
 
@@ -224,9 +221,6 @@ public class ReplaceArithmeticOperator implements MutationOperator {
         }
     }
 
-    /**
-     * <p>getInfectionDistanceInt.</p>
-     */
     public static double getInfectionDistanceInt(int x, int y, int opcodeOrig,
                                                  int opcodeNew) {
         if (y == 0) {
@@ -237,9 +231,6 @@ public class ReplaceArithmeticOperator implements MutationOperator {
         return origValue == newValue ? 1.0 : 0.0;
     }
 
-    /**
-     * <p>getInfectionDistanceLong.</p>
-     */
     public static double getInfectionDistanceLong(long x, long y, int opcodeOrig,
                                                   int opcodeNew) {
         if (y == 0L) {
@@ -250,9 +241,6 @@ public class ReplaceArithmeticOperator implements MutationOperator {
         return origValue == newValue ? 1.0 : 0.0;
     }
 
-    /**
-     * <p>getInfectionDistanceFloat.</p>
-     */
     public static double getInfectionDistanceFloat(float x, float y, int opcodeOrig,
                                                    int opcodeNew) {
         if (y == 0.0F) {
@@ -263,9 +251,6 @@ public class ReplaceArithmeticOperator implements MutationOperator {
         return origValue == newValue ? 1.0 : 0.0;
     }
 
-    /**
-     * <p>getInfectionDistanceDouble.</p>
-     */
     public static double getInfectionDistanceDouble(double x, double y, int opcodeOrig,
                                                     int opcodeNew) {
         if (y == 0.0) {
@@ -276,9 +261,6 @@ public class ReplaceArithmeticOperator implements MutationOperator {
         return origValue == newValue ? 1.0 : 0.0;
     }
 
-    /**
-     * <p>calculate.</p>
-     */
     public static int calculate(int x, int y, int opcode) {
         switch (opcode) {
             case Opcodes.IADD:
@@ -297,9 +279,6 @@ public class ReplaceArithmeticOperator implements MutationOperator {
         throw new RuntimeException("Unknown integer opcode: " + opcode);
     }
 
-    /**
-     * <p>calculate.</p>
-     */
     public static long calculate(long x, long y, int opcode) {
         switch (opcode) {
             case Opcodes.LADD:
@@ -318,9 +297,6 @@ public class ReplaceArithmeticOperator implements MutationOperator {
         throw new RuntimeException("Unknown long opcode: " + opcode);
     }
 
-    /**
-     * <p>calculate.</p>
-     */
     public static float calculate(float x, float y, int opcode) {
         switch (opcode) {
             case Opcodes.FADD:
@@ -339,9 +315,6 @@ public class ReplaceArithmeticOperator implements MutationOperator {
         throw new RuntimeException("Unknown float opcode: " + opcode);
     }
 
-    /**
-     * <p>calculate.</p>
-     */
     public static double calculate(double x, double y, int opcode) {
         switch (opcode) {
             case Opcodes.DADD:

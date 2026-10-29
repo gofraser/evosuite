@@ -40,11 +40,6 @@ public class ErrorConditionClassAdapter extends ClassVisitor {
 
     private static final Logger logger = LoggerFactory.getLogger(ErrorConditionClassAdapter.class);
 
-    /**
-     * <p>
-     * Constructor for ErrorConditionClassAdapter.
-     * </p>
-     */
     public ErrorConditionClassAdapter(ClassVisitor cv, String className) {
         super(Opcodes.ASM9, cv);
         this.className = className;

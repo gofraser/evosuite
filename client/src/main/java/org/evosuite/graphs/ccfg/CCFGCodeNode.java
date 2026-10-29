@@ -25,23 +25,14 @@ public class CCFGCodeNode extends CCFGNode {
 
     protected BytecodeInstruction codeInstruction;
 
-    /**
-     * Constructor for CCFGCodeNode.
-     */
     public CCFGCodeNode(BytecodeInstruction code) {
         this.codeInstruction = code;
     }
 
-    /**
-     * getMethod.
-     */
     public String getMethod() {
         return codeInstruction.getMethodName();
     }
 
-    /**
-     * Getter for the field <code>codeInstruction</code>.
-     */
     public BytecodeInstruction getCodeInstruction() {
         return codeInstruction;
     }

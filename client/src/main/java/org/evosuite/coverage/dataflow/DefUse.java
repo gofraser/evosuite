@@ -50,9 +50,6 @@ public class DefUse extends BytecodeInstruction {
 
     protected String varName;
 
-    /**
-     * Constructor for DefUse.
-     */
     protected DefUse(BytecodeInstruction wrap) {
         super(wrap);
         if (!DefUsePool.isKnown(wrap)) {
@@ -135,9 +132,6 @@ public class DefUse extends BytecodeInstruction {
         return varName.equals(du.varName);
     }
 
-    /**
-     * sharesVariableWith.
-     */
     public boolean sharesVariableWith(BytecodeInstruction instruction) {
         if (!instruction.isDefUse()) {
             return false;
@@ -146,9 +140,6 @@ public class DefUse extends BytecodeInstruction {
         return varName.equals(instruction.getVariableName());
     }
 
-    /**
-     * getDUVariableType.
-     */
     public String getDUVariableType() {
         // TODO remember that in a flag
         if (isMethodCallOfField()) {
@@ -175,30 +166,18 @@ public class DefUse extends BytecodeInstruction {
 
     // getter
 
-    /**
-     * getDefUseId.
-     */
     public int getDefUseId() {
         return defuseId;
     }
 
-    /**
-     * Getter for the field <code>useId</code>.
-     */
     public int getUseId() {
         return useId;
     }
 
-    /**
-     * Getter for the field <code>defId</code>.
-     */
     public int getDefId() {
         return defId;
     }
 
-    /**
-     * isParameterUse.
-     */
     public boolean isParameterUse() {
         return isParameterUse;
     }

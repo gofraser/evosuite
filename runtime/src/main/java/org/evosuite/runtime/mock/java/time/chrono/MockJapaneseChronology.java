@@ -25,9 +25,6 @@ import java.time.ZoneId;
 import java.time.chrono.JapaneseChronology;
 import java.time.chrono.JapaneseDate;
 
-/**
- * Created by gordon on 24/01/2016.
- */
 public class MockJapaneseChronology implements StaticReplacementMock {
     @Override
     public String getMockedClassName() {

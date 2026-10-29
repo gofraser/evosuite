@@ -43,27 +43,18 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
     private transient Constructor<?> constructor;
     private transient boolean reflectionAccessible = true;
 
-    /**
-     * Constructor for GenericConstructor.
-     */
     public GenericConstructor(Constructor<?> constructor, Class<?> clazz) {
         super(GenericClassFactory.get(clazz));
         this.constructor = constructor;
         this.reflectionAccessible = makeConstructorAccessible(this.constructor);
     }
 
-    /**
-     * Constructor for GenericConstructor.
-     */
     public GenericConstructor(Constructor<?> constructor, GenericClass<?> owner) {
         super(GenericClassFactory.get(owner));
         this.constructor = constructor;
         this.reflectionAccessible = makeConstructorAccessible(this.constructor);
     }
 
-    /**
-     * Constructor for GenericConstructor.
-     */
     public GenericConstructor(Constructor<?> constructor, Type type) {
         super(GenericClassFactory.get(type));
         this.constructor = constructor;

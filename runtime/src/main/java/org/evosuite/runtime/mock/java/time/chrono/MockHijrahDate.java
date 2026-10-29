@@ -26,9 +26,6 @@ import java.time.ZoneId;
 import java.time.chrono.HijrahDate;
 import java.time.temporal.TemporalAccessor;
 
-/**
- * Created by gordon on 24/01/2016.
- */
 public class MockHijrahDate implements StaticReplacementMock {
     @Override
     public String getMockedClassName() {

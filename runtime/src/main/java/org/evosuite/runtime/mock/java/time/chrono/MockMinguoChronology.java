@@ -25,9 +25,6 @@ import java.time.ZoneId;
 import java.time.chrono.MinguoChronology;
 import java.time.chrono.MinguoDate;
 
-/**
- * Created by gordon on 25/01/2016.
- */
 public class MockMinguoChronology implements StaticReplacementMock {
     @Override
     public String getMockedClassName() {

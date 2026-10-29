@@ -52,11 +52,6 @@ public class ContractChecker extends ExecutionObserver {
 
     private static boolean active = true;
 
-    /**
-     * <p>
-     * Constructor for ContractChecker.
-     * </p>
-     */
     public ContractChecker() {
         // Default from EvoSuite
         contracts.add(new UndeclaredExceptionContract());
@@ -116,11 +111,6 @@ public class ContractChecker extends ExecutionObserver {
 
     }
 
-    /**
-     * <p>
-     * Setter for the field <code>active</code>.
-     * </p>
-     */
     public static void setActive(boolean isActive) {
         active = isActive;
     }

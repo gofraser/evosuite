@@ -45,9 +45,6 @@ public class Scope {
      */
     private final Map<VariableReference, Object> pool;
 
-    /**
-     * Constructor.
-     */
     public Scope() {
         pool = Collections.synchronizedMap(new LinkedHashMap<>());
     }

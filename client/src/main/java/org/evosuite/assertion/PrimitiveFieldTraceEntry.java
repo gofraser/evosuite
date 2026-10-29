@@ -39,9 +39,6 @@ public class PrimitiveFieldTraceEntry implements OutputTraceEntry {
 
     private final VariableReference var;
 
-    /**
-     * <p>Constructor for PrimitiveFieldTraceEntry.</p>
-     */
     public PrimitiveFieldTraceEntry(VariableReference var) {
         this.var = var;
     }

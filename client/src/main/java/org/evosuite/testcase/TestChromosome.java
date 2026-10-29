@@ -987,9 +987,6 @@ public final class TestChromosome extends ExecutableChromosome<TestChromosome> {
         secondaryObjectives.add(objective);
     }
 
-    /**
-     * Getter for the field <code>secondaryObjectives</code>.
-     */
     public static List<SecondaryObjective<TestChromosome>> getSecondaryObjectives() {
         return secondaryObjectives;
     }

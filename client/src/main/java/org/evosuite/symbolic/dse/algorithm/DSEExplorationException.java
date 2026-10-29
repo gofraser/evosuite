@@ -33,16 +33,10 @@ public class DSEExplorationException extends RuntimeException {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DSEExplorationException.class);
 
-    /**
-     * Constructor.
-     */
     public DSEExplorationException(final String msg) {
         super(msg);
     }
 
-    /**
-     * Constructor.
-     */
     public DSEExplorationException(final Throwable e) {
         super(e);
     }

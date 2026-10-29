@@ -35,9 +35,6 @@ public class EvoSuiteFile implements Serializable {
 
     private final String userDir = System.getProperty("user.dir");
 
-    /**
-     * <p>Constructor for EvoSuiteFile.</p>
-     */
     public EvoSuiteFile(String path) {
 
         if (path == null) {
@@ -47,9 +44,6 @@ public class EvoSuiteFile implements Serializable {
         }
     }
 
-    /**
-     * <p>Getter for the field <code>path</code>.</p>
-     */
     public String getPath() {
         return path;
     }

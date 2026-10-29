@@ -29,9 +29,6 @@ public class Date extends java.util.Date {
 
     private static final long serialVersionUID = 1L;
 
-    /**
-     * Default constructor.
-     */
     public Date() {
         super();
         Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_DATE, this, "<init>", "()V", new Object[]{});

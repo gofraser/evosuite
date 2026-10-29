@@ -55,9 +55,6 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
     private final Logger logger = LoggerFactory.getLogger(MonotonicGA.class);
 
-    /**
-     * Constructor.
-     */
     public MonotonicGA(ChromosomeFactory<T> factory) {
         super(factory);
 

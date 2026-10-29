@@ -130,11 +130,6 @@ public class BranchCoverageGoal implements Serializable, Comparable<BranchCovera
         this.lineNumber = lineNumber;
     }
 
-    /**
-     * <p>
-     * Constructor for BranchCoverageGoal.
-     * </p>
-     */
     public BranchCoverageGoal(ControlDependency cd, String className, String methodName) {
         this(cd.getBranch(), cd.getBranchExpressionValue(), className, methodName);
     }
@@ -194,11 +189,6 @@ public class BranchCoverageGoal implements Serializable, Comparable<BranchCovera
         return lineNumber;
     }
 
-    /**
-     * <p>
-     * getDistance.
-     * </p>
-     */
     public ControlFlowDistance getDistance(ExecutionResult result) {
 
         ControlFlowDistance r = ControlFlowDistanceCalculator.getDistance(result, branch, value,

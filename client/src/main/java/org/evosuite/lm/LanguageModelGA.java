@@ -27,9 +27,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
-/**
- * Created by mat on 02/04/2014.
- */
 public class LanguageModelGA extends LanguageModelSearch {
 
     private static final int TOURNAMENT_SIZE = 7;

@@ -33,16 +33,10 @@ public class ComparisonTransformation {
 
     private final ClassNode cn;
 
-    /**
-     * <p>Constructor for ComparisonTransformation.</p>
-     */
     public ComparisonTransformation(ClassNode cn) {
         this.cn = cn;
     }
 
-    /**
-     * <p>transform.</p>
-     */
     public ClassNode transform() {
         for (MethodNode mn : cn.methods) {
             transformMethod(mn);
@@ -50,9 +44,6 @@ public class ComparisonTransformation {
         return cn;
     }
 
-    /**
-     * <p>transformMethod.</p>
-     */
     public void transformMethod(MethodNode mn) {
         AbstractInsnNode node = mn.instructions.getFirst();
         while (node != null) {

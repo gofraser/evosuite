@@ -208,9 +208,6 @@ public class DominatorTree<V> extends EvoSuiteGraph<DominatorNode<V>, DefaultEdg
         return domNode.immediateDominator.node;
     }
 
-    /**
-     * Getter for the field <code>dominatingFrontiers</code>.
-     */
     public Set<V> getDominatingFrontiers(V v) {
         if (v == null) {
             throw new IllegalStateException("null given");

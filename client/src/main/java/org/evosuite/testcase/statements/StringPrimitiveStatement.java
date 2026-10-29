@@ -42,20 +42,10 @@ public class StringPrimitiveStatement extends PrimitiveStatement<String> {
 
     private static final long serialVersionUID = 274445526699835887L;
 
-    /**
-     * <p>
-     * Constructor for StringPrimitiveStatement.
-     * </p>
-     */
     public StringPrimitiveStatement(TestCase tc, String value) {
         super(tc, String.class, value);
     }
 
-    /**
-     * <p>
-     * Constructor for StringPrimitiveStatement.
-     * </p>
-     */
     public StringPrimitiveStatement(TestCase tc) {
         super(tc, String.class, "");
     }
@@ -140,9 +130,6 @@ public class StringPrimitiveStatement extends PrimitiveStatement<String> {
         // logger.info("Mutated string now is: "+value);
     }
 
-    /**
-     * increment.
-     */
     public void increment() {
         String s = value;
         if (s == null) {

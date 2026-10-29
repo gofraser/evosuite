@@ -36,9 +36,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
-/**
- * Created by gordon on 17/03/2016.
- */
 public class ExceptionTransformationMethodAdapter extends GeneratorAdapter {
 
     protected static final Logger logger = LoggerFactory.getLogger(ExceptionTransformationMethodAdapter.class);

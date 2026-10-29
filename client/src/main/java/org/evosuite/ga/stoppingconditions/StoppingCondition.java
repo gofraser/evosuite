@@ -45,9 +45,6 @@ public interface StoppingCondition<T extends Chromosome<T>> extends SearchListen
      */
     long getLimit();
 
-    /**
-     * <p>isFinished.</p>
-     */
     boolean isFinished();
 
     /**

@@ -26,9 +26,6 @@ import java.time.ZoneId;
 import java.time.chrono.MinguoDate;
 import java.time.temporal.TemporalAccessor;
 
-/**
- * Created by gordon on 24/01/2016.
- */
 public class MockMinguoDate implements StaticReplacementMock {
     @Override
     public String getMockedClassName() {

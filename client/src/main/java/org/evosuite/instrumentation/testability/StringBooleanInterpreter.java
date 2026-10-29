@@ -36,9 +36,6 @@ import java.util.List;
  */
 public class StringBooleanInterpreter extends BasicInterpreter {
 
-    /**
-     * Constant <code>STRING_BOOLEAN</code>.
-     */
     public static final BasicValue STRING_BOOLEAN = new BasicValue(null);
 
     public StringBooleanInterpreter() {

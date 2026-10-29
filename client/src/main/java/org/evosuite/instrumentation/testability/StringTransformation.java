@@ -48,20 +48,10 @@ public class StringTransformation {
 
     private final ClassNode cn;
 
-    /**
-     * <p>
-     * Constructor for StringTransformation.
-     * </p>
-     */
     public StringTransformation(ClassNode cn) {
         this.cn = cn;
     }
 
-    /**
-     * <p>
-     * transform.
-     * </p>
-     */
     public ClassNode transform() {
         for (MethodNode mn : cn.methods) {
             if (transformMethod(mn)) {
@@ -176,11 +166,6 @@ public class StringTransformation {
         return false;
     }
 
-    /**
-     * <p>
-     * transformMethod.
-     * </p>
-     */
     public boolean transformMethod(MethodNode mn) {
         boolean changed = transformStrings(mn);
         if (changed) {

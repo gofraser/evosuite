@@ -131,9 +131,6 @@ public final class SymbolicHeap {
      */
     private final Map<FieldKey, Expression<?>> symbStaticFields = new HashMap<>();
 
-    /**
-     * Constructor.
-     */
     public SymbolicHeap() {
         this.symbolicArrays = SymbolicHeapArraySectionFactory
                 .getInstance()

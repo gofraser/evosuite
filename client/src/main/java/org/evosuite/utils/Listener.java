@@ -29,8 +29,5 @@ import java.io.Serializable;
  * @author roessler
  */
 public interface Listener<T> extends Serializable {
-    /**
-     * <p>receiveEvent.</p>
-     */
     void receiveEvent(T event);
 }

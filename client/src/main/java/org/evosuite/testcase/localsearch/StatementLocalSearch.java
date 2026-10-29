@@ -48,15 +48,9 @@ public abstract class StatementLocalSearch {
     }
 
 
-    /**
-     * <p>doSearch.</p>
-     */
     public abstract boolean doSearch(TestChromosome test, int statement,
                                      LocalSearchObjective<TestChromosome> objective);
 
-    /**
-     * <p>doSearch.</p>
-     */
     public boolean doSearch(TestChromosome test, Set<Integer> statements,
                             LocalSearchObjective<TestChromosome> objective) {
         boolean success = false;
@@ -79,9 +73,6 @@ public abstract class StatementLocalSearch {
         return 0;
     }
 
-    /**
-     * <p>getLocalSearchFor.</p>
-     */
     public static StatementLocalSearch getLocalSearchFor(Statement statement) {
 
         StatementLocalSearch search = null;

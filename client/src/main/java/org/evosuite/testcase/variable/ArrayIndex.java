@@ -56,16 +56,10 @@ public class ArrayIndex extends VariableReferenceImpl {
      */
     protected ArrayReference array = null;
 
-    /**
-     * Constructor.
-     */
     public ArrayIndex(TestCase testCase, ArrayReference array, int index) {
         this(testCase, array, Collections.singletonList(index));
     }
 
-    /**
-     * Constructor for ArrayIndex.
-     */
     public ArrayIndex(TestCase testCase, ArrayReference array, List<Integer> indices) {
         super(testCase, GenericClassFactory.get(getReturnType(array, indices.size())));
         this.array = array;
@@ -83,16 +77,10 @@ public class ArrayIndex extends VariableReferenceImpl {
         return result;
     }
 
-    /**
-     * Getter for the field <code>array</code>.
-     */
     public ArrayReference getArray() {
         return array;
     }
 
-    /**
-     * Setter for the field <code>array</code>.
-     */
     public void setArray(ArrayReference r) {
         array = r;
     }
@@ -104,17 +92,11 @@ public class ArrayIndex extends VariableReferenceImpl {
         return true;
     }
 
-    /**
-     * getArrayIndex.
-     */
     public int getArrayIndex() {
         assert indices.size() == 1;
         return indices.get(0);
     }
 
-    /**
-     * setArrayIndex.
-     */
     public void setArrayIndex(int index) {
         assert indices.size() == 1;
         indices.set(0, index);
@@ -500,9 +482,6 @@ public class ArrayIndex extends VariableReferenceImpl {
         return indices.equals(other.indices);
     }
 
-    /**
-     * setArrayIndices.
-     */
     public void setArrayIndices(List<Integer> indices) {
         this.indices = new ArrayList<>();
         for (Integer i : indices) {
@@ -510,9 +489,6 @@ public class ArrayIndex extends VariableReferenceImpl {
         }
     }
 
-    /**
-     * getArrayIndices.
-     */
     public List<Integer> getArrayIndices() {
         return indices;
     }

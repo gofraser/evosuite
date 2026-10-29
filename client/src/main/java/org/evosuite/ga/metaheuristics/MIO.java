@@ -56,9 +56,6 @@ public class MIO extends AbstractMOSA {
 
     private final List<TestChromosome> finalSolutions = new ArrayList<>();
 
-    /**
-     * Constructor.
-     */
     public MIO(ChromosomeFactory<TestChromosome> factory) {
         super(factory);
     }

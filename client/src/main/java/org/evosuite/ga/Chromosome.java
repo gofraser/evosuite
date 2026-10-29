@@ -49,9 +49,6 @@ public abstract class Chromosome<T extends Chromosome<T>>
     public static final int MAX_REACHABLE_COVERAGE = 100;
     public static final int UNCOVERED_GOALS_DEFAULT = -1;
 
-    /**
-     * Constant <code>logger</code>.
-     */
     private static final Logger logger = LoggerFactory.getLogger(Chromosome.class);
 
     /**
@@ -104,9 +101,6 @@ public abstract class Chromosome<T extends Chromosome<T>>
      */
     protected int rank = -1;
 
-    /**
-     * Distance.
-     */
     protected double distance = 0.0;
 
     /**

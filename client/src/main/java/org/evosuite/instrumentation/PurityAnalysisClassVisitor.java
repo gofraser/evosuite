@@ -36,11 +36,6 @@ public class PurityAnalysisClassVisitor extends ClassVisitor {
 
     private final String className;
 
-    /**
-     * <p>
-     * Constructor for StaticInitializationClassAdapter.
-     * </p>
-     */
     public PurityAnalysisClassVisitor(ClassVisitor visitor, String className,
                                       CheapPurityAnalyzer purityAnalyzer) {
         super(Opcodes.ASM9, visitor);

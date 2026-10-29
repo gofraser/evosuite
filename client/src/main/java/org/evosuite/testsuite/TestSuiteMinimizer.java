@@ -60,9 +60,6 @@ import static java.util.Comparator.comparingInt;
  */
 public class TestSuiteMinimizer {
 
-    /**
-     * Logger.
-     */
     private static final Logger logger = LoggerFactory.getLogger(TestSuiteMinimizer.class);
     private final List<TestFitnessFactory<?>> testFitnessFactories = new ArrayList<>();
 
@@ -150,11 +147,6 @@ public class TestSuiteMinimizer {
      */
     private static final double MIN_GOAL_RETENTION_FOR_REPAIR = 0.5;
 
-    /**
-     * <p>
-     * Constructor for TestSuiteMinimizer.
-     * </p>
-     */
     public TestSuiteMinimizer(TestFitnessFactory<?> factory) {
         this(Collections.singletonList(factory), null, null);
     }

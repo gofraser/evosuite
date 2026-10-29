@@ -51,11 +51,6 @@ public class EndOfClassInitializerVisitor extends ClassVisitor {
         private Label startingTryLabel;
         private Label endingTryLabel;
 
-        /**
-         * <p>
-         * Constructor for EndOfClassInitializerMethodVisitor.
-         * </p>
-         */
         public EndOfClassInitializerMethodVisitor(String className, String methodName, MethodVisitor mv) {
             super(Opcodes.ASM9, mv);
             this.className = className;

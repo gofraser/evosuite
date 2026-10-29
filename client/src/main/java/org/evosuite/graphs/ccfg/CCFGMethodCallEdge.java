@@ -29,9 +29,6 @@ public class CCFGMethodCallEdge extends CCFGEdge {
 
     private final boolean isCallingEdge;
 
-    /**
-     * Constructor for CCFGMethodCallEdge.
-     */
     public CCFGMethodCallEdge(BytecodeInstruction callInstruction, boolean isCallingEdge) {
         this.callInstruction = callInstruction;
         this.isCallingEdge = isCallingEdge;
@@ -44,9 +41,6 @@ public class CCFGMethodCallEdge extends CCFGEdge {
         return isCallingEdge;
     }
 
-    /**
-     * Getter for the field <code>callInstruction</code>.
-     */
     public BytecodeInstruction getCallInstruction() {
         return callInstruction;
     }

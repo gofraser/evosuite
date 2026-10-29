@@ -50,11 +50,6 @@ public class ExecutionPathClassAdapter extends ClassVisitor {
      */
     private boolean isAnonymous = false;
 
-    /**
-     * <p>
-     * Constructor for ExecutionPathClassAdapter.
-     * </p>
-     */
     public ExecutionPathClassAdapter(ClassVisitor visitor, String className) {
         super(Opcodes.ASM9, visitor);
         this.className = ResourceList.getClassNameFromResourcePath(className);

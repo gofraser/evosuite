@@ -34,9 +34,6 @@ import static org.evosuite.dse.util.Assertions.check;
 public final class FakeBottomFrame extends Frame {
 
 
-    /**
-     * Constructor.
-     */
     public FakeBottomFrame() {
         super(0);
         super.invokeInstrumentedCode(false);

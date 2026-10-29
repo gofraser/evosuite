@@ -30,9 +30,6 @@ public class IterUtil {
      */
     public static final String DEFAULT_JOIN_SEPARATOR = ", ";
 
-    /**
-     * <p>join.</p>
-     */
     public static String join(Iterable<?> iter, String separator) {
         StringBuilder result = new StringBuilder();
         boolean isFirst = true;
@@ -49,9 +46,6 @@ public class IterUtil {
         return result.toString();
     }
 
-    /**
-     * <p>join.</p>
-     */
     public static String join(Iterable<?> iter) {
         return join(iter, DEFAULT_JOIN_SEPARATOR);
     }

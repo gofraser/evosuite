@@ -52,16 +52,10 @@ public class MethodCallReplacementClassAdapter extends ClassVisitor {
 
     private boolean canChangeSignature = true;
 
-    /**
-     * <p>Constructor for MethodCallReplacementClassAdapter.</p>
-     */
     public MethodCallReplacementClassAdapter(ClassVisitor cv, String className) {
         this(cv, className, true);
     }
 
-    /**
-     * <p>Constructor for MethodCallReplacementClassAdapter.</p>
-     */
     public MethodCallReplacementClassAdapter(ClassVisitor cv, String className, boolean canAddMethods) {
         super(Opcodes.ASM9, cv);
         this.className = className;

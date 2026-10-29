@@ -113,9 +113,6 @@ public class MutationExecutionResult {
         return hasException;
     }
 
-    /**
-     * <p>Setter for the field <code>hasException</code>.</p>
-     */
     public void setHasException(boolean hasException) {
         this.hasException = hasException;
     }

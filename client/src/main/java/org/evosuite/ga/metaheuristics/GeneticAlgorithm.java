@@ -183,9 +183,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         return null;
     }
 
-    /**
-     * Listeners.
-     */
     protected transient Set<SearchListener<T>> listeners = new HashSet<>();
 
     /**
@@ -225,9 +222,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
      **/
     protected RankingFunction<T> rankingFunction = new RankBasedPreferenceSorting<>();
 
-    /**
-     * Constructor.
-     */
     public GeneticAlgorithm(ChromosomeFactory<T> factory) {
         chromosomeFactory = factory;
         addStoppingCondition(new MaxGenerationStoppingCondition<>());
@@ -1026,9 +1020,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         this.sortPopulation();
     }
 
-    /**
-     * getPopulationSize.
-     */
     public int getPopulationSize() {
         return population.size();
     }
@@ -1285,9 +1276,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         return stoppingConditions.stream().anyMatch(StoppingCondition::isFinished);
     }
 
-    /**
-     * addStoppingCondition.
-     */
     public void addStoppingCondition(StoppingCondition<T> condition) {
         final boolean contained = stoppingConditions.stream()
                 .anyMatch(obj -> obj.getClass().equals(condition.getClass()));
@@ -1305,9 +1293,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         return stoppingConditions;
     }
 
-    /**
-     * setStoppingCondition.
-     */
     public void setStoppingCondition(StoppingCondition<T> condition) {
         stoppingConditions.forEach(this::removeListener);
         stoppingConditions.clear();
@@ -1316,9 +1301,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         addListener(condition);
     }
 
-    /**
-     * removeStoppingCondition.
-     */
     public void removeStoppingCondition(StoppingCondition<T> condition) {
         stoppingConditions.removeIf(sc -> {
             if (!sc.getClass().equals(condition.getClass())) {
@@ -1329,16 +1311,10 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         });
     }
 
-    /**
-     * resetStoppingConditions.
-     */
     public void resetStoppingConditions() {
         stoppingConditions.forEach(StoppingCondition::reset);
     }
 
-    /**
-     * setStoppingConditionLimit.
-     */
     public void setStoppingConditionLimit(int value) {
         stoppingConditions.forEach(c -> c.setLimit(value));
     }

@@ -43,9 +43,6 @@ public class TypeBasedVariableNameStrategy extends AbstractVariableNameStrategy 
         return getIndexIncludingFirstAppearance(variableName);
     }
 
-    /**
-     * getPlainNameForVariable.
-     */
     public String getPlainNameForVariable(VariableReference var) {
         String className = var.getSimpleClassName();
         if (className == null || className.isEmpty()) {

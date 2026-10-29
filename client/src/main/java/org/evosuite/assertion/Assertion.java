@@ -68,9 +68,6 @@ public abstract class Assertion implements Serializable {
 
     protected transient Set<Mutation> killedMutants = new LinkedHashSet<>();
 
-    /**
-     * Constant <code>logger</code>.
-     */
     protected static final Logger logger = LoggerFactory.getLogger(Assertion.class);
 
     public boolean hasComment() {

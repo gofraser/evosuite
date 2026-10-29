@@ -37,9 +37,6 @@ public abstract class StoppingConditionImpl<T extends Chromosome<T>> implements 
 
     private static final long serialVersionUID = -8221978873140881671L;
 
-    /**
-     * <p>Constructor for StoppingConditionImpl.</p>
-     */
     public StoppingConditionImpl() {
         reset();
     }
@@ -109,9 +106,6 @@ public abstract class StoppingConditionImpl<T extends Chromosome<T>> implements 
         return r.toString();
     }
 
-    /**
-     * <p>getType.</p>
-     */
     public String getType() {
         String type = getClass().toString();
         try { // just to make sure
@@ -127,9 +121,6 @@ public abstract class StoppingConditionImpl<T extends Chromosome<T>> implements 
         return type;
     }
 
-    /**
-     * <p>getValueString.</p>
-     */
     public String getValueString() {
         String value = NumberFormat.getIntegerInstance().format(getCurrentValue());
         value = StringUtils.leftPad(value, 12);

@@ -77,21 +77,11 @@ public class BranchCoverageSuiteFitness extends TestSuiteFitnessFunction {
     private final Set<Integer> removedBranchesF = new LinkedHashSet<>();
     private final Set<String> removedRootBranches = new LinkedHashSet<>();
 
-    /**
-     * <p>
-     * Constructor for BranchCoverageSuiteFitness.
-     * </p>
-     */
     public BranchCoverageSuiteFitness() {
 
         this(TestGenerationContext.getInstance().getClassLoaderForSUT());
     }
 
-    /**
-     * <p>
-     * Constructor for BranchCoverageSuiteFitness.
-     * </p>
-     */
     public BranchCoverageSuiteFitness(ClassLoader classLoader) {
         String prefix = Properties.TARGET_CLASS_PREFIX;
 

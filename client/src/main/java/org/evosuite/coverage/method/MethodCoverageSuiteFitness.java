@@ -56,11 +56,6 @@ public class MethodCoverageSuiteFitness extends TestSuiteFitnessFunction {
     protected int maxCoveredMethods = 0;
     protected double bestFitness = Double.MAX_VALUE;
 
-    /**
-     * <p>
-     * Constructor for MethodCoverageSuiteFitness.
-     * </p>
-     */
     public MethodCoverageSuiteFitness() {
         determineCoverageGoals();
         totalMethods = methodCoverageMap.size();

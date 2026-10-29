@@ -33,9 +33,6 @@ public abstract class FitnessFunction<T extends Chromosome<T>> implements Serial
 
     private static final long serialVersionUID = -8876797554111396910L;
 
-    /**
-     * Constant <code>logger</code>.
-     */
     protected static final Logger logger = LoggerFactory.getLogger(FitnessFunction.class);
 
     /**

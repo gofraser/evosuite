@@ -36,9 +36,6 @@ public class RemoveFinalMethodAdapter extends MethodVisitor {
 
     private final String className;
 
-    /**
-     * <p>Constructor for RemoveFinalMethodAdapter.</p>
-     */
     public RemoveFinalMethodAdapter(String className, MethodVisitor mv,
                                     List<String> finalFields) {
         super(Opcodes.ASM9, mv);

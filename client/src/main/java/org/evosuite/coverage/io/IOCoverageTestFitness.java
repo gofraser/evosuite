@@ -78,38 +78,18 @@ public abstract class IOCoverageTestFitness<G extends IOGoal<G>> extends TestFit
      */
     protected abstract Collection<Set<G>> getCoveredGoals(ExecutionResult result);
 
-    /**
-     * <p>
-     * getClassName.
-     * </p>
-     */
     public String getClassName() {
         return goal.getClassName();
     }
 
-    /**
-     * <p>
-     * getMethod.
-     * </p>
-     */
     public String getMethod() {
         return goal.getMethodName();
     }
 
-    /**
-     * <p>
-     * getType.
-     * </p>
-     */
     public Type getType() {
         return goal.getType();
     }
 
-    /**
-     * <p>
-     * getValueDescriptor.
-     * </p>
-     */
     public String getValueDescriptor() {
         return goal.getValueDescriptor();
     }

@@ -45,9 +45,6 @@ public class PrimitiveClassAdapter extends ClassVisitor {
      */
     private boolean isEnum = false;
 
-    /**
-     * Constructor for PrimitiveClassAdapter.
-     */
     public PrimitiveClassAdapter(ClassVisitor visitor, String className) {
         super(Opcodes.ASM9, visitor);
         this.className = className.replaceAll("/", ".");

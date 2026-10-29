@@ -27,9 +27,6 @@ public class CCFGCodeEdge extends CCFGEdge {
 
     private final ControlFlowEdge cfgEdge;
 
-    /**
-     * Constructor for CCFGCodeEdge.
-     */
     public CCFGCodeEdge(ControlFlowEdge cfgEdge) {
         this.cfgEdge = cfgEdge;
     }

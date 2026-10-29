@@ -21,9 +21,6 @@ package org.evosuite.junit.naming.methods;
 
 import org.evosuite.testcase.TestCase;
 
-/**
- * Created by gordon on 22/12/2015.
- */
 public interface TestNameGenerationStrategy {
     String getName(TestCase test);
 }

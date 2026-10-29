@@ -33,20 +33,10 @@ public class TestCaseReplacementFunction extends ReplacementFunction<TestChromos
 
     private static final long serialVersionUID = 2894768695219052674L;
 
-    /**
-     * <p>
-     * Constructor for TestCaseReplacementFunction.
-     * </p>
-     */
     public TestCaseReplacementFunction(boolean maximize) {
         super(maximize);
     }
 
-    /**
-     * <p>
-     * Constructor for TestCaseReplacementFunction.
-     * </p>
-     */
     public TestCaseReplacementFunction() {
         super(false);
     }

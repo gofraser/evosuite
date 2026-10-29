@@ -27,16 +27,10 @@ public class ClassCallNode extends CCFGNode {
 
     private final String method;
 
-    /**
-     * Getter for the field <code>method</code>.
-     */
     public String getMethod() {
         return method;
     }
 
-    /**
-     * Constructor for ClassCallNode.
-     */
     public ClassCallNode(String method) {
         this.method = method;
     }

@@ -91,9 +91,6 @@ public abstract class ControlFlowGraph<V> extends
         this.access = access;
     }
 
-    /**
-     * leadsToNode.
-     */
     public boolean leadsToNode(ControlFlowEdge e, V b) {
 
         Set<V> handled = new HashSet<>();
@@ -186,17 +183,11 @@ public abstract class ControlFlowGraph<V> extends
         return numEdges - numNodes + 2;
     }
 
-    /**
-     * computeDiameter.
-     */
     protected void computeDiameter() {
         // The diameter is just an upper bound for the approach level
         diameter = this.edgeCount();
     }
 
-    /**
-     * determineEntryPoint.
-     */
     public V determineEntryPoint() {
         Set<V> candidates = determineEntryPoints();
 
@@ -219,37 +210,22 @@ public abstract class ControlFlowGraph<V> extends
         return null;
     }
 
-    /**
-     * Getter for the field <code>className</code>.
-     */
     public String getClassName() {
         return className;
     }
 
-    /**
-     * Getter for the field <code>methodName</code>.
-     */
     public String getMethodName() {
         return methodName;
     }
 
-    /**
-     * getMethodAccess.
-     */
     public int getMethodAccess() {
         return access;
     }
 
-    /**
-     * isPublicMethod.
-     */
     public boolean isPublicMethod() {
         return (access & Opcodes.ACC_PUBLIC) == Opcodes.ACC_PUBLIC;
     }
 
-    /**
-     * isStaticMethod.
-     */
     public boolean isStaticMethod() {
         return (access & Opcodes.ACC_STATIC) == Opcodes.ACC_STATIC;
     }
@@ -264,8 +240,5 @@ public abstract class ControlFlowGraph<V> extends
         return toFileString(className) + "/" + getCFGType() + "/";
     }
 
-    /**
-     * getCFGType.
-     */
     public abstract String getCFGType();
 }

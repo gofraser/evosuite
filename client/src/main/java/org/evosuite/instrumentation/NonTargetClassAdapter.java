@@ -41,9 +41,6 @@ public class NonTargetClassAdapter extends ClassVisitor {
      */
     private String currentClassName;
 
-    /**
-     * <p>Constructor for NonTargetClassAdapter.</p>
-     */
     public NonTargetClassAdapter(ClassVisitor cv, String className) {
         super(Opcodes.ASM9, cv);
         this.className = className;

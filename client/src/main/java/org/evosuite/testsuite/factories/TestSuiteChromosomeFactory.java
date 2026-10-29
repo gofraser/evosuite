@@ -45,23 +45,14 @@ public class TestSuiteChromosomeFactory implements ChromosomeFactory<TestSuiteCh
      */
     protected ChromosomeFactory<TestChromosome> testChromosomeFactory;
 
-    /**
-     * <p>Constructor for TestSuiteChromosomeFactory.</p>
-     */
     public TestSuiteChromosomeFactory() {
         testChromosomeFactory = new RandomLengthTestFactory();
     }
 
-    /**
-     * <p>Constructor for TestSuiteChromosomeFactory.</p>
-     */
     public TestSuiteChromosomeFactory(ChromosomeFactory<TestChromosome> testFactory) {
         testChromosomeFactory = testFactory;
     }
 
-    /**
-     * <p>setTestFactory.</p>
-     */
     public void setTestFactory(ChromosomeFactory<TestChromosome> factory) {
         testChromosomeFactory = factory;
     }

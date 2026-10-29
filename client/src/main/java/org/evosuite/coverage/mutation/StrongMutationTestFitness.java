@@ -45,27 +45,16 @@ public class StrongMutationTestFitness extends MutationTestFitness {
 
     private static final long serialVersionUID = -262199037689935052L;
 
-    /**
-     * Constant <code>observerClasses</code>.
-     */
     protected static Class<?>[] observerClasses = {PrimitiveTraceEntry.class,
             ComparisonTraceEntry.class, InspectorTraceEntry.class,
             PrimitiveFieldTraceEntry.class, NullTraceEntry.class, ArrayTraceEntry.class,
             ArrayLengthTraceEntry.class};
 
-    /**
-     * Constant <code>observers</code>.
-     */
     protected static AssertionTraceObserver<?>[] observers = {
             new PrimitiveTraceObserver(), new ComparisonTraceObserver(),
             new InspectorTraceObserver(), new PrimitiveFieldTraceObserver(),
             new NullTraceObserver(), new ArrayTraceObserver(), new ArrayLengthObserver()};
 
-    /**
-     * <p>
-     * Constructor for StrongMutationTestFitness.
-     * </p>
-     */
     public StrongMutationTestFitness(Mutation mutation) {
         super(mutation);
         for (AssertionTraceObserver<?> observer : observers) {

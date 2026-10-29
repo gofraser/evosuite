@@ -34,11 +34,6 @@ public final class IntegerConstraint extends Constraint<Long> {
 
     private static final long serialVersionUID = 5345957507046422507L;
 
-    /**
-     * <p>
-     * Constructor for IntegerConstraint.
-     * </p>
-     */
     public IntegerConstraint(Expression<Long> left, Comparator cmp,
                              Expression<Long> right) {
         super();

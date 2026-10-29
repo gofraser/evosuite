@@ -60,9 +60,6 @@ public class FieldStatement extends AbstractStatement {
     protected GenericField field;
     protected VariableReference source;
 
-    /**
-     * Constructor for FieldStatement.
-     */
     public FieldStatement(TestCase tc, GenericField field, VariableReference source) {
         super(tc, new VariableReferenceImpl(tc, field.getFieldType()));
         this.field = field;
@@ -86,9 +83,6 @@ public class FieldStatement extends AbstractStatement {
         this.source = source;
     }
 
-    /**
-     * Getter for the field <code>source</code>.
-     */
     public VariableReference getSource() {
         return source;
     }
@@ -123,9 +117,6 @@ public class FieldStatement extends AbstractStatement {
         return false;
     }
 
-    /**
-     * Setter for the field <code>source</code>.
-     */
     public void setSource(VariableReference source) {
         this.source = source;
     }
@@ -340,16 +331,10 @@ public class FieldStatement extends AbstractStatement {
         return result;
     }
 
-    /**
-     * Getter for the field <code>field</code>.
-     */
     public GenericField getField() {
         return field;
     }
 
-    /**
-     * Setter for the field <code>field</code>.
-     */
     public void setField(GenericField field) {
         // assert (this.field.getType().equals(field.getType()));
         this.field = field;

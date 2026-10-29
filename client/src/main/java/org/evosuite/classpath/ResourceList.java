@@ -178,9 +178,6 @@ public class ResourceList {
 
     private final ClassLoader classLoader;
 
-    /**
-     * Private constructor.
-     */
     private ResourceList(ClassLoader classLoader) {
         this.classLoader = classLoader;
     }

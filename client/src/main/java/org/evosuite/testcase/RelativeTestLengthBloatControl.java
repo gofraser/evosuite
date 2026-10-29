@@ -38,9 +38,6 @@ public class RelativeTestLengthBloatControl<T extends ExecutableChromosome<T>>
     protected int currentMax;
     protected double bestFitness;
 
-    /**
-     * Default constructor.
-     */
     public RelativeTestLengthBloatControl() {
         currentMax = 0;
         bestFitness = Double.MAX_VALUE; // FIXXME: Assuming

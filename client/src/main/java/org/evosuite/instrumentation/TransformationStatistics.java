@@ -66,9 +66,6 @@ public class TransformationStatistics {
         int transformedBitwise = 0;
     }
 
-    /**
-     * <p>reset.</p>
-     */
     public static void reset() {
         stats.remove();
     }
@@ -205,9 +202,6 @@ public class TransformationStatistics {
         stats.get().transformedBitwise++;
     }
 
-    /**
-     * <p>writeStatistics.</p>
-     */
     public static void writeStatistics(String className) {
         String filename = Properties.REPORT_DIR + "/transformation.csv";
         File logfile = new File(filename);

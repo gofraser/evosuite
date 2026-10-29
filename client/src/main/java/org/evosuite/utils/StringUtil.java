@@ -49,9 +49,6 @@ public abstract class StringUtil {
         return sb.toString();
     }
 
-    /**
-     * <p>escapeQuotes.</p>
-     */
     public static String escapeQuotes(String str) {
         return str.replaceAll("['\"\\\\]", "\\\\$0");
     }

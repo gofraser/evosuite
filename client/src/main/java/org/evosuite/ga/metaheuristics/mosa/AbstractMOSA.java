@@ -379,9 +379,6 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      */
     private transient long orphanedOffspringDroppedTotal;
 
-    /**
-     * Constructor.
-     */
     public AbstractMOSA(ChromosomeFactory<TestChromosome> factory) {
         super(factory);
         setLlmInjectionAdapter(new TestChromosomeInjectionAdapter());

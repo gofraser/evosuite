@@ -65,9 +65,6 @@ public class ControlFlowDistance implements Comparable<ControlFlowDistance> {
         return Double.compare(branchDistance, o.branchDistance);
     }
 
-    /**
-     * <p>increaseApproachLevel.</p>
-     */
     public void increaseApproachLevel() {
         approachLevel++;
         if (approachLevel < 0) {
@@ -76,16 +73,10 @@ public class ControlFlowDistance implements Comparable<ControlFlowDistance> {
         }
     }
 
-    /**
-     * <p>Getter for the field <code>approachLevel</code>.</p>
-     */
     public int getApproachLevel() {
         return approachLevel;
     }
 
-    /**
-     * <p>Setter for the field <code>approachLevel</code>.</p>
-     */
     public void setApproachLevel(int approachLevel) {
         if (approachLevel < 0) {
             throw new IllegalArgumentException(
@@ -95,16 +86,10 @@ public class ControlFlowDistance implements Comparable<ControlFlowDistance> {
         this.approachLevel = approachLevel;
     }
 
-    /**
-     * <p>Getter for the field <code>branchDistance</code>.</p>
-     */
     public double getBranchDistance() {
         return branchDistance;
     }
 
-    /**
-     * <p>Setter for the field <code>branchDistance</code>.</p>
-     */
     public void setBranchDistance(double branchDistance) {
         if (branchDistance < 0.0) {
             throw new IllegalArgumentException("expect branchDistance to be positive");
@@ -113,9 +98,6 @@ public class ControlFlowDistance implements Comparable<ControlFlowDistance> {
         this.branchDistance = branchDistance;
     }
 
-    /**
-     * <p>getResultingBranchFitness.</p>
-     */
     public double getResultingBranchFitness() {
         return approachLevel + FitnessFunction.normalize(branchDistance);
     }

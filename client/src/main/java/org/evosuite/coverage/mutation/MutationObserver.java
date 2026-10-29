@@ -31,39 +31,24 @@ public class MutationObserver {
      */
     public static int activeMutation = -1;
 
-    /**
-     * <p>mutationTouched.</p>
-     */
     public static void mutationTouched(int mutationId) {
 
     }
 
-    /**
-     * <p>activateMutation.</p>
-     */
     public static void activateMutation(Mutation mutation) {
         if (mutation != null) {
             activeMutation = mutation.getId();
         }
     }
 
-    /**
-     * <p>activateMutation.</p>
-     */
     public static void activateMutation(int id) {
         activeMutation = id;
     }
 
-    /**
-     * <p>deactivateMutation.</p>
-     */
     public static void deactivateMutation() {
         activeMutation = -1;
     }
 
-    /**
-     * <p>deactivateMutation.</p>
-     */
     public static void deactivateMutation(Mutation mutation) {
         activeMutation = -1;
     }

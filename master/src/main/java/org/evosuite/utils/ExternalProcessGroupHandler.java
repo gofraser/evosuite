@@ -40,9 +40,6 @@ import java.util.concurrent.TimeUnit;
  */
 
 public class ExternalProcessGroupHandler {
-    /**
-     * Constant <code>logger</code>.
-     */
     protected static final Logger logger = LoggerFactory.getLogger(ExternalProcessGroupHandler.class);
 
     protected Process[] processGroup;
@@ -68,11 +65,6 @@ public class ExternalProcessGroupHandler {
         this(1);
     }
 
-    /**
-     * <p>
-     * Constructor for ExternalProcessGroupHandler.
-     * </p>
-     */
     public ExternalProcessGroupHandler(final int nrOfProcesses) {
         this.processGroup = new Process[nrOfProcesses];
 
@@ -128,11 +120,6 @@ public class ExternalProcessGroupHandler {
         this.allowDoneAsFinished = allow;
     }
 
-    /**
-     * <p>
-     * startProcess.
-     * </p>
-     */
     public boolean startProcess(String[] commands) {
         List<String[]> commandsList = new ArrayList<>();
         commandsList.add(commands);
@@ -317,11 +304,6 @@ public class ExternalProcessGroupHandler {
         return true;
     }
 
-    /**
-     * <p>
-     * killProcess.
-     * </p>
-     */
     public void killProcess() {
         this.killProcess(0);
     }
@@ -384,20 +366,10 @@ public class ExternalProcessGroupHandler {
         }
     }
 
-    /**
-     * <p>
-     * getServerPort.
-     * </p>
-     */
     public int getServerPort() {
         return MasterServices.getInstance().getRegistryPort();
     }
 
-    /**
-     * <p>
-     * openServer.
-     * </p>
-     */
     public int openServer() {
         boolean started = MasterServices.getInstance().startRegistry();
         if (!started) {
@@ -415,11 +387,6 @@ public class ExternalProcessGroupHandler {
         return MasterServices.getInstance().getRegistryPort();
     }
 
-    /**
-     * <p>
-     * closeServer.
-     * </p>
-     */
     public void closeServer() {
         MasterServices.getInstance().stopServices();
     }
@@ -583,11 +550,6 @@ public class ExternalProcessGroupHandler {
         }
     }
 
-    /**
-     * <p>
-     * waitForResult.
-     * </p>
-     */
     public void waitForResult(int timeout) {
         clientFailureDetected = false;
         try {

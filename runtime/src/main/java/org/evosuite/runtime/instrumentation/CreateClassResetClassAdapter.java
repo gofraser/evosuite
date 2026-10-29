@@ -388,9 +388,6 @@ public class CreateClassResetClassAdapter extends ClassVisitor {
         super.visitEnd();
     }
 
-    /**
-     * <p>determineSerialisableUID.</p>
-     */
     @Deprecated
     private void determineSerialisableUID() {
         try {
@@ -406,9 +403,6 @@ public class CreateClassResetClassAdapter extends ClassVisitor {
 
     }
 
-    /**
-     * <p>createSerialisableUID.</p>
-     */
     @Deprecated
     // This method is a code clone from MethodCallReplacementClassAdapter
     private void createSerialisableUID() {

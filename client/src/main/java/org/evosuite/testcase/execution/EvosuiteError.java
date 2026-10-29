@@ -32,20 +32,10 @@ package org.evosuite.testcase.execution;
 public class EvosuiteError extends Error {
     private static final long serialVersionUID = 454018150971425158L;
 
-    /**
-     * <p>
-     * Constructor for EvosuiteError.
-     * </p>
-     */
     public EvosuiteError(Throwable cause) {
         super(cause);
     }
 
-    /**
-     * <p>
-     * Constructor for EvosuiteError.
-     * </p>
-     */
     public EvosuiteError(String msg) {
         super(msg);
     }

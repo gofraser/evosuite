@@ -46,11 +46,6 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
 
     private transient Class<T> enumClass;
 
-    /**
-     * <p>
-     * Constructor for EnumPrimitiveStatement.
-     * </p>
-     */
     @SuppressWarnings("unchecked")
     public EnumPrimitiveStatement(TestCase tc, Class<T> clazz) {
         super(tc, clazz, null);
@@ -70,11 +65,6 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
         }
     }
 
-    /**
-     * <p>
-     * Constructor for EnumPrimitiveStatement.
-     * </p>
-     */
     @SuppressWarnings("unchecked")
     public EnumPrimitiveStatement(TestCase tc, T value) {
         super(tc, (Class<T>) retrieveEnumClass(value.getClass()), value);
@@ -100,16 +90,10 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
         }
     }
 
-    /**
-     * getEnumClass.
-     */
     public Class<T> getEnumClass() {
         return enumClass;
     }
 
-    /**
-     * getEnumValues.
-     */
     public List<T> getEnumValues() {
         return Arrays.asList(constants);
     }

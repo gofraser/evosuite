@@ -55,11 +55,6 @@ public abstract class Contract {
         }
     }
 
-    /**
-     * <p>
-     * getAllObjects.
-     * </p>
-     */
     protected Collection<Object> getAllObjects(Scope scope) {
         final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
         if (targetClass == null) {
@@ -76,11 +71,6 @@ public abstract class Contract {
         return new HashSet<>(scope.getElements(targetClass));
     }
 
-    /**
-     * <p>
-     * getAllObjectPairs.
-     * </p>
-     */
     protected Collection<Pair<Object>> getAllObjectPairs(Scope scope) {
         Set<Pair<Object>> pairs = new HashSet<>();
         Class<?> targetClass = Properties.getTargetClassAndDontInitialise();

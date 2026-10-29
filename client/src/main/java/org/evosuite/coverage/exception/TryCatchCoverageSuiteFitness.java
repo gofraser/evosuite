@@ -27,9 +27,6 @@ import org.evosuite.testcase.execution.ExecutionResult;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Created by gordon on 03/04/2016.
- */
 public class TryCatchCoverageSuiteFitness extends BranchCoverageSuiteFitness {
 
     private static final long serialVersionUID = -8849382855802052405L;

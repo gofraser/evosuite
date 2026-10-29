@@ -19,9 +19,6 @@
  */
 package org.evosuite.runtime.testdata;
 
-/**
- * Created by arcuri on 12/15/14.
- */
 public class EvoSuiteRemoteAddress extends EvoSuiteAddress {
 
     private static final long serialVersionUID = -4450692237383407590L;

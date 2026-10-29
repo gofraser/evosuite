@@ -28,9 +28,6 @@ import org.objectweb.asm.tree.*;
  */
 public class MethodNodeTransformer {
 
-    /**
-     * <p>transform.</p>
-     */
     public void transform(MethodNode mn) {
         if (mn.instructions == null || mn.instructions.size() == 0) {
             return;
@@ -68,67 +65,40 @@ public class MethodNodeTransformer {
         }
     }
 
-    /**
-     * <p>transformMethodInsnNode.</p>
-     */
     protected AbstractInsnNode transformMethodInsnNode(MethodNode mn,
                                                        MethodInsnNode methodNode) {
         return methodNode;
     }
 
-    /**
-     * <p>transformVarInsnNode.</p>
-     */
     protected AbstractInsnNode transformVarInsnNode(MethodNode mn, VarInsnNode varNode) {
         return varNode;
     }
 
-    /**
-     * <p>transformFieldInsnNode.</p>
-     */
     protected AbstractInsnNode transformFieldInsnNode(MethodNode mn,
                                                       FieldInsnNode fieldNode) {
         return fieldNode;
     }
 
-    /**
-     * <p>transformInsnNode.</p>
-     */
     protected AbstractInsnNode transformInsnNode(MethodNode mn, InsnNode insnNode) {
         return insnNode;
     }
 
-    /**
-     * <p>transformTypeInsnNode.</p>
-     */
     protected AbstractInsnNode transformTypeInsnNode(MethodNode mn, TypeInsnNode typeNode) {
         return typeNode;
     }
 
-    /**
-     * <p>transformJumpInsnNode.</p>
-     */
     protected AbstractInsnNode transformJumpInsnNode(MethodNode mn, JumpInsnNode jumpNode) {
         return jumpNode;
     }
 
-    /**
-     * <p>transformLabelNode.</p>
-     */
     protected AbstractInsnNode transformLabelNode(MethodNode mn, LabelNode labelNode) {
         return labelNode;
     }
 
-    /**
-     * <p>transformIntInsnNode.</p>
-     */
     protected AbstractInsnNode transformIntInsnNode(MethodNode mn, IntInsnNode intInsnNode) {
         return intInsnNode;
     }
 
-    /**
-     * <p>transformMultiANewArrayInsnNode.</p>
-     */
     protected AbstractInsnNode transformMultiANewArrayInsnNode(MethodNode mn,
                                                                MultiANewArrayInsnNode arrayInsnNode) {
         return arrayInsnNode;

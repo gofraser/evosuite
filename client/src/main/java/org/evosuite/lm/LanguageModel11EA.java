@@ -25,9 +25,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
-/**
- * Created by mat on 07/04/2014.
- */
 public class LanguageModel11EA extends LanguageModelSearch {
     protected static Logger logger = LoggerFactory.getLogger(LanguageModel11EA.class);
 

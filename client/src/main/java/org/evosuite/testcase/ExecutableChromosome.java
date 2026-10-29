@@ -38,38 +38,23 @@ public abstract class ExecutableChromosome<E extends ExecutableChromosome<E>> ex
 
     protected transient Map<Mutation, MutationExecutionResult> lastMutationResult = new HashMap<>();
 
-    /**
-     * <p>Constructor for ExecutableChromosome.</p>
-     */
     public ExecutableChromosome() {
         super();
     }
 
-    /**
-     * <p>Setter for the field <code>lastExecutionResult</code>.</p>
-     */
     public void setLastExecutionResult(ExecutionResult lastExecutionResult) {
         this.lastExecutionResult = lastExecutionResult;
     }
 
-    /**
-     * <p>Getter for the field <code>lastExecutionResult</code>.</p>
-     */
     public ExecutionResult getLastExecutionResult() {
         return lastExecutionResult;
     }
 
-    /**
-     * <p>Setter for the field <code>lastExecutionResult</code>.</p>
-     */
     public void setLastExecutionResult(MutationExecutionResult lastExecutionResult,
                                        Mutation mutation) {
         this.lastMutationResult.put(mutation, lastExecutionResult);
     }
 
-    /**
-     * <p>Getter for the field <code>lastExecutionResult</code>.</p>
-     */
     public MutationExecutionResult getLastExecutionResult(Mutation mutation) {
         return lastMutationResult.get(mutation);
     }

@@ -40,9 +40,6 @@ public class ComparisonTraceEntry implements OutputTraceEntry {
 
     private final Map<Integer, VariableReference> equalityMapIntVar = new HashMap<>();
 
-    /**
-     * <p>Constructor for ComparisonTraceEntry.</p>
-     */
     public ComparisonTraceEntry(VariableReference var) {
         this.var = var;
     }
@@ -76,9 +73,6 @@ public class ComparisonTraceEntry implements OutputTraceEntry {
         }
     }
 
-    /**
-     * <p>addEntry.</p>
-     */
     public void addEntry(VariableReference other, boolean value) {
         equalityMap.put(other, value);
         equalityMapIntVar.put(other.getStPosition(), other);

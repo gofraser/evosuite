@@ -35,18 +35,10 @@ public class EvoClassLoader extends TransformingClassLoader {
     private final RuntimeInstrumentation instrumentation;
     private final Set<String> skipInstrumentationForPrefix = new HashSet<>();
 
-    /**
-     * <p>Constructor for EvoClassLoader.</p>
-     */
     public EvoClassLoader() {
         this(new RuntimeInstrumentation());
     }
 
-    /**
-     * <p>
-     * Constructor for InstrumentingClassLoader.
-     * </p>
-     */
     public EvoClassLoader(RuntimeInstrumentation instrumentation) {
         super(EvoClassLoader.class.getClassLoader(), EvoClassLoader.class.getClassLoader());
         this.instrumentation = instrumentation;

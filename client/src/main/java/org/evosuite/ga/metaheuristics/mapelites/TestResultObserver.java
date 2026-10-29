@@ -43,9 +43,6 @@ public class TestResultObserver extends ExecutionObserver implements Serializabl
 
     private final Class<?> targetClass;
 
-    /**
-     * Constructor.
-     */
     public TestResultObserver() {
         this.targetClass = Properties.getInitializedTargetClass();
 

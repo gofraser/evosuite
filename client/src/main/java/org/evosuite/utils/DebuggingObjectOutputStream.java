@@ -52,9 +52,6 @@ public class DebuggingObjectOutputStream extends ObjectOutputStream {
      */
     boolean broken = false;
 
-    /**
-     * <p>Constructor for DebuggingObjectOutputStream.</p>
-     */
     public DebuggingObjectOutputStream(OutputStream out) throws IOException {
         super(out);
         enableReplaceObject(true);

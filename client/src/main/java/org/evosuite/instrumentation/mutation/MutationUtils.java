@@ -172,11 +172,6 @@ public class MutationUtils {
         return index;
     }
 
-    /**
-     * <p>
-     * copy.
-     * </p>
-     */
     public static InsnList copy(InsnList orig) {
         Iterator<?> it = orig.iterator();
         InsnList copy = new InsnList();
@@ -259,20 +254,10 @@ public class MutationUtils {
         return list;
     }
 
-    /**
-     * <p>
-     * getDistance.
-     * </p>
-     */
     public static double getDistance(double val1, double val2) {
         return val1 == val2 ? 1.0 : 0.0;
     }
 
-    /**
-     * <p>
-     * getDistance.
-     * </p>
-     */
     public static double getDistance(Object obj1, Object obj2) {
         if (obj1 == obj2) {
             return 1.0;
@@ -281,11 +266,6 @@ public class MutationUtils {
         }
     }
 
-    /**
-     * <p>
-     * addPrimitiveDistanceCheck.
-     * </p>
-     */
     public static void addPrimitiveDistanceCheck(InsnList distance, Type type,
                                                  InsnList mutant) {
         distance.add(cast(type, Type.DOUBLE_TYPE));
@@ -296,11 +276,6 @@ public class MutationUtils {
                 "getDistance", "(DD)D", false));
     }
 
-    /**
-     * <p>
-     * addReferenceDistanceCheck.
-     * </p>
-     */
     public static void addReferenceDistanceCheck(InsnList distance, Type type,
                                                  InsnList mutant) {
         distance.add(copy(mutant));

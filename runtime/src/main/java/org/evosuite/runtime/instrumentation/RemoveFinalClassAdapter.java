@@ -48,9 +48,6 @@ public class RemoveFinalClassAdapter extends ClassVisitor {
 
     private String currentClassName;
 
-    /**
-     * <p>Constructor for RemoveFinalClassAdapter.</p>
-     */
     public RemoveFinalClassAdapter(ClassVisitor cv) {
         super(Opcodes.ASM9, cv);
     }
@@ -142,9 +139,6 @@ public class RemoveFinalClassAdapter extends ClassVisitor {
                 Type.getMethodDescriptor(method));
     }
 
-    /**
-     * <p>reset.</p>
-     */
     public static void reset() {
         finalClasses.clear();
         finalMethods.clear();

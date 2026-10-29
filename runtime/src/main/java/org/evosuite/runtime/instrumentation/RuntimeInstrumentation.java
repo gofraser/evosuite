@@ -54,23 +54,14 @@ public class RuntimeInstrumentation {
      */
     private static boolean avoidInstrumentingShadedClasses = false;
 
-    /**
-     * <p>Constructor for RuntimeInstrumentation.</p>
-     */
     public RuntimeInstrumentation() {
         retransformingMode = false;
     }
 
-    /**
-     * <p>Setter for the field <code>retransformingMode</code>.</p>
-     */
     public void setRetransformingMode(boolean on) {
         retransformingMode = on;
     }
 
-    /**
-     * <p>Getter for the field <code>retransformingMode</code>.</p>
-     */
     public boolean isRetransformingMode() {
         return retransformingMode;
     }
@@ -82,16 +73,10 @@ public class RuntimeInstrumentation {
         RuntimeInstrumentation.avoidInstrumentingShadedClasses = avoidInstrumentingShadedClasses;
     }
 
-    /**
-     * <p>Getter for the field <code>avoidInstrumentingShadedClasses</code>.</p>
-     */
     public static boolean getAvoidInstrumentingShadedClasses() {
         return RuntimeInstrumentation.avoidInstrumentingShadedClasses;
     }
 
-    /**
-     * <p>checkIfCanInstrument.</p>
-     */
     public static boolean checkIfCanInstrument(String className) {
         for (String s : ExcludedClasses.getPackagesShouldNotBeInstrumented()) {
             if (className.startsWith(s)) {
@@ -115,9 +100,6 @@ public class RuntimeInstrumentation {
         return !className.contains("__CLR");
     }
 
-    /**
-     * <p>isAlreadyInstrumented.</p>
-     */
     public boolean isAlreadyInstrumented(ClassReader reader) {
         ClassNode classNode = new ClassNode();
 

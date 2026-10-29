@@ -145,9 +145,6 @@ public interface Statement {
     String getComment();
 
 
-    /**
-     * getDeclaredExceptions.
-     */
     Set<Class<?>> getDeclaredExceptions();
 
     /**
@@ -157,9 +154,6 @@ public interface Statement {
      */
     int getNumParameters();
 
-    /**
-     * getPosition.
-     */
     int getPosition();
 
     /**
@@ -190,14 +184,8 @@ public interface Statement {
      */
     TestCase getTestCase();
 
-    /**
-     * getUniqueVariableReferences.
-     */
     List<VariableReference> getUniqueVariableReferences();
 
-    /**
-     * getVariableReferences.
-     */
     Set<VariableReference> getVariableReferences();
 
     /**
@@ -254,9 +242,6 @@ public interface Statement {
      */
     boolean isValid();
 
-    /**
-     * mutate.
-     */
     boolean mutate(TestCase test, TestFactory factory);
 
     /**
@@ -320,9 +305,6 @@ public interface Statement {
      */
     void setAssertions(Set<Assertion> assertions);
 
-    /**
-     * setRetval.
-     */
     void setRetval(VariableReference newRetVal);
 
 }

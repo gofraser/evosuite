@@ -61,11 +61,6 @@ public class CallContext implements Serializable {
         return size() == 0;
     }
 
-    /**
-     * <p>
-     * Constructor for CallContext.
-     * </p>
-     */
     public CallContext(StackTraceElement[] stackTrace) {
         int startPos = stackTrace.length - 1;
         int endPos = 0;
@@ -357,20 +352,10 @@ public class CallContext implements Serializable {
         throw new IllegalStateException("YET TO IMPLEMENT, DEPRECATED");
     }
 
-    /**
-     * <p>
-     * getRootClassName.
-     * </p>
-     */
     public String getRootClassName() {
         return calls().get(0).getClassName();
     }
 
-    /**
-     * <p>
-     * getRootMethodName.
-     * </p>
-     */
     public String getRootMethodName() {
         return calls().get(0).getMethodName();
     }

@@ -104,11 +104,6 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
      */
     private boolean expectingDupAfterNew = false;
 
-    /**
-     * <p>
-     * Constructor for MethodCallReplacementMethodAdapter.
-     * </p>
-     */
     public MethodCallReplacementMethodAdapter(MethodVisitor mv, String className,
                                               String superClassName, String methodName, int access, String desc) {
         this(mv, className, superClassName, methodName, access, desc, true);
@@ -126,9 +121,6 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
         }
     }
 
-    /**
-     * <p>getNextVisitor.</p>
-     */
     public MethodVisitor getNextVisitor() {
         return mv;
     }

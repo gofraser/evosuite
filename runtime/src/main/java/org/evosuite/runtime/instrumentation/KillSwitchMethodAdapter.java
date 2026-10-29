@@ -32,9 +32,6 @@ import org.objectweb.asm.Opcodes;
  */
 public class KillSwitchMethodAdapter extends MethodVisitor {
 
-    /**
-     * <p>Constructor for KillSwitchMethodAdapter.</p>
-     */
     public KillSwitchMethodAdapter(MethodVisitor mv, String methodName, String desc) {
         super(Opcodes.ASM9, mv);
     }

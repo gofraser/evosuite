@@ -26,38 +26,23 @@ public class CCFGMethodCallNode extends CCFGNode {
     private final BytecodeInstruction callInstruction;
     private final CCFGMethodReturnNode returnNode;
 
-    /**
-     * Constructor for CCFGMethodCallNode.
-     */
     public CCFGMethodCallNode(BytecodeInstruction callInstruction, CCFGMethodReturnNode returnNode) {
         this.callInstruction = callInstruction;
         this.returnNode = returnNode;
     }
 
-    /**
-     * getMethod.
-     */
     public String getMethod() {
         return callInstruction.getMethodName();
     }
 
-    /**
-     * getCalledMethod.
-     */
     public String getCalledMethod() {
         return callInstruction.getCalledMethod();
     }
 
-    /**
-     * Getter for the field <code>callInstruction</code>.
-     */
     public BytecodeInstruction getCallInstruction() {
         return callInstruction;
     }
 
-    /**
-     * Getter for the field <code>returnNode</code>.
-     */
     public CCFGMethodReturnNode getReturnNode() {
         return returnNode;
     }

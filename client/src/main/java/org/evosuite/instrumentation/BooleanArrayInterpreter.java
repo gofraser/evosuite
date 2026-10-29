@@ -37,34 +37,16 @@ import java.util.List;
  */
 public class BooleanArrayInterpreter extends BasicInterpreter {
 
-    /**
-     * Constant <code>logger</code>.
-     */
     protected static Logger logger = LoggerFactory.getLogger(BooleanArrayInterpreter.class);
 
-    /**
-     * Constant <code>BYTE</code>.
-     */
     public static final BasicValue BYTE = new BasicValue(null);
 
-    /**
-     * Constant <code>BOOLEAN</code>.
-     */
     public static final BasicValue BOOLEAN = new BasicValue(null);
 
-    /**
-     * Constant <code>BOOLEAN_ARRAY</code>.
-     */
     public static final BasicValue BOOLEAN_ARRAY = new BasicValue(null);
 
-    /**
-     * Constant <code>BYTE_ARRAY</code>.
-     */
     public static final BasicValue BYTE_ARRAY = new BasicValue(null);
 
-    /**
-     * Constant <code>INT_ARRAY</code>.
-     */
     public static final BasicValue INT_ARRAY = new BasicValue(null);
 
     @Override

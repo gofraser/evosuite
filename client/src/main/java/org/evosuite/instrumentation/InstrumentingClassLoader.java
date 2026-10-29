@@ -61,11 +61,6 @@ public class InstrumentingClassLoader extends ClassLoader {
     private final BytecodeInstrumentation instrumentation;
     private final Map<String, Class<?>> classes = new ConcurrentHashMap<>();
 
-    /**
-     * <p>
-     * Constructor for InstrumentingClassLoader.
-     * </p>
-     */
     public InstrumentingClassLoader() {
         this(new BytecodeInstrumentation(), getDefaultParentClassLoader());
         setClassAssertionStatus(Properties.TARGET_CLASS, true);
@@ -83,11 +78,6 @@ public class InstrumentingClassLoader extends ClassLoader {
         logger.debug("STANDARD classloader running now");
     }
 
-    /**
-     * <p>
-     * Constructor for InstrumentingClassLoader.
-     * </p>
-     */
     public InstrumentingClassLoader(BytecodeInstrumentation instrumentation) {
         this(instrumentation, getDefaultParentClassLoader());
     }

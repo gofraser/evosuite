@@ -59,32 +59,20 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
     private transient Method method;
     private transient boolean reflectionAccessible = true;
 
-    /**
-     * <p>Constructor for GenericMethod.</p>
-     */
     public GenericMethod(Method method, GenericClass<?> clazz) {
         super(clazz);
         this.method = method;
         this.reflectionAccessible = makeMethodAccessible(this.method);
     }
 
-    /**
-     * <p>Constructor for GenericMethod.</p>
-     */
     public GenericMethod(Method method, Class<?> clazz) {
         this(method, GenericClassFactory.get(clazz));
     }
 
-    /**
-     * <p>Constructor for GenericMethod.</p>
-     */
     public GenericMethod(Method method, Type type) {
         this(method, GenericClassFactory.get(type));
     }
 
-    /**
-     * <p>Getter for the field <code>method</code>.</p>
-     */
     public Method getMethod() {
         return method;
     }

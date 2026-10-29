@@ -55,9 +55,6 @@ public class ArrayAllocationLimitMethodAdapter extends ArrayAllocationMethodAdap
      */
     private final boolean sizeGuardEnabled;
 
-    /**
-     * <p>Constructor for ArrayAllocationLimitMethodAdapter.</p>
-     */
     public ArrayAllocationLimitMethodAdapter(MethodVisitor mv, String className,
                                              String methodName, int access, String desc) {
         super(mv, access, methodName, desc);

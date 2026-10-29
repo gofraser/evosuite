@@ -24,9 +24,6 @@ import java.time.*;
 import java.time.temporal.*;
 import java.util.Objects;
 
-/**
- * Created by gordon on 23/01/2016.
- */
 public class MockInstant implements StaticReplacementMock {
     @Override
     public String getMockedClassName() {

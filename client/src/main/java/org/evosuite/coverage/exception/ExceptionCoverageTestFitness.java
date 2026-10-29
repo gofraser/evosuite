@@ -91,9 +91,6 @@ public class ExceptionCoverageTestFitness extends TestFitnessFunction {
         return className + "_" + methodIdentifier + "_" + exceptionClass.getClassName() + "_" + type;
     }
 
-    /**
-     * getMethod.
-     */
     public String getMethod() {
         return methodIdentifier;
     }

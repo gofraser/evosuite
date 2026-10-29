@@ -39,11 +39,6 @@ public class ExplicitExceptionHandler extends AbstractEvoMethodAdapter {
 
     private boolean inErrorBranch = false;
 
-    /**
-     * <p>
-     * Constructor for ExplicitExceptionHandler.
-     * </p>
-     */
     public ExplicitExceptionHandler(MethodVisitor mv, int access, String className,
                                     String methodName, String desc) {
         super(mv, access, className, methodName, desc);

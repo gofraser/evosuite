@@ -31,11 +31,6 @@ public final class IntegerConstant extends AbstractExpression<Long> implements
 
     private static final long serialVersionUID = 3770747666367222441L;
 
-    /**
-     * <p>
-     * Constructor for IntegerConstant.
-     * </p>
-     */
     public IntegerConstant(long longValue) {
         super(longValue, 1, false);
     }

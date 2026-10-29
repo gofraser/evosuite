@@ -23,9 +23,6 @@ public class EntryBlock extends BasicBlock {
 
     private static final long serialVersionUID = -4279595207017734232L;
 
-    /**
-     * <p>Constructor for EntryBlock.</p>
-     */
     public EntryBlock(String className, String methodName) {
         super(className, methodName, -1);
     }

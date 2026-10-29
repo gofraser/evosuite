@@ -133,9 +133,6 @@ public class MutationPool {
         return r;
     }
 
-    /**
-     * <p>getMutants.</p>
-     */
     public synchronized List<Mutation> getMutants() {
         return new ArrayList<>(mutationIdMap.values());
     }

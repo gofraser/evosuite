@@ -36,29 +36,14 @@ public class ErrorConditionChecker {
 
     private static final Logger logger = LoggerFactory.getLogger(ErrorConditionChecker.class);
 
-    /**
-     * <p>
-     * scale.
-     * </p>
-     */
     public static int scale(float value) {
         return (int) (Math.ceil((Integer.MAX_VALUE - 2) * (value / (value + 1.0F))));
     }
 
-    /**
-     * <p>
-     * scale.
-     * </p>
-     */
     public static int scale(double value) {
         return (int) (Math.ceil((Integer.MAX_VALUE - 2) * (value / (value + 1.0))));
     }
 
-    /**
-     * <p>
-     * scale.
-     * </p>
-     */
     public static int scale(long value) {
         return (int) (Math.ceil((Integer.MAX_VALUE - 2) * (value / (value + 1.0))));
     }
@@ -77,11 +62,6 @@ public class ErrorConditionChecker {
         return (int) (Math.ceil(max * (1.0 * value / (value + 1.0))));
     }
 
-    /**
-     * <p>
-     * overflowDistance.
-     * </p>
-     */
     public static int overflowDistance(int op1, int op2, int opcode) {
         switch (opcode) {
 

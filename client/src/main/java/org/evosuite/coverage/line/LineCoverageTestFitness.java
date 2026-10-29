@@ -71,29 +71,14 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
         setupDependencies();
     }
 
-    /**
-     * <p>
-     * getClassName.
-     * </p>
-     */
     public String getClassName() {
         return className;
     }
 
-    /**
-     * <p>
-     * getMethod.
-     * </p>
-     */
     public String getMethod() {
         return methodName;
     }
 
-    /**
-     * <p>
-     * getLine.
-     * </p>
-     */
     public Integer getLine() {
         return line;
     }

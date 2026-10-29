@@ -50,11 +50,6 @@ public abstract class AbstractExpression<T> implements Expression<T> {
         return size;
     }
 
-    /**
-     * <p>
-     * Getter for the field <code>parent</code>.
-     * </p>
-     */
     @Override
     public final Expression<?> getParent() {
         return this.parent;

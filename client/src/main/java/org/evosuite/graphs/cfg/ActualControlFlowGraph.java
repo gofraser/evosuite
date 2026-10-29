@@ -79,9 +79,6 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
     private Set<BytecodeInstruction> joins;
     private Set<BytecodeInstruction> joinSources;
 
-    /**
-     * Constructor for ActualControlFlowGraph.
-     */
     public ActualControlFlowGraph(RawControlFlowGraph rawGraph) {
         super(rawGraph.getClassName(), rawGraph.getMethodName(),
                 rawGraph.getMethodAccess());
@@ -94,17 +91,11 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
 
     // "revert" constructor ... for now ... TODO
 
-    /**
-     * Constructor for ActualControlFlowGraph.
-     */
     protected ActualControlFlowGraph(ActualControlFlowGraph toRevert) {
         super(toRevert.className, toRevert.methodName, toRevert.access,
                 toRevert.computeReverseJGraph());
     }
 
-    /**
-     * computeReverseCFG.
-     */
     public ActualControlFlowGraph computeReverseCFG() {
         // TODO: this must be possible to "pre implement" in EvoSuiteGraph for
         // all sub class of EvoSuiteGraph
@@ -323,9 +314,6 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
 
     // internal graph handling
 
-    /**
-     * addBlock.
-     */
     protected void addBlock(BasicBlock nodeBlock) {
         if (nodeBlock == null) {
             throw new IllegalArgumentException("null given");
@@ -350,9 +338,6 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
         logger.debug(".. succeeded. nodeCount: " + vertexCount());
     }
 
-    /**
-     * addRawEdge.
-     */
     protected void addRawEdge(BytecodeInstruction src, BasicBlock target,
                               ControlFlowEdge origEdge) {
         BasicBlock srcBlock = src.getBasicBlock();
@@ -364,9 +349,6 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
         addRawEdge(srcBlock, target, origEdge);
     }
 
-    /**
-     * addRawEdge.
-     */
     protected void addRawEdge(BasicBlock src, BytecodeInstruction target,
                               ControlFlowEdge origEdge) {
         BasicBlock targetBlock = target.getBasicBlock();
@@ -378,9 +360,6 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
         addRawEdge(src, targetBlock, origEdge);
     }
 
-    /**
-     * addRawEdge.
-     */
     protected void addRawEdge(BasicBlock src, BasicBlock target, ControlFlowEdge origEdge) {
         if (src == null || target == null) {
             throw new IllegalArgumentException("null given");
@@ -429,9 +408,6 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
 
     // convenience methods to switch between BytecodeInstructons and BasicBlocks
 
-    /**
-     * getBlockOf.
-     */
     public BasicBlock getBlockOf(BytecodeInstruction instruction) {
         if (instruction == null) {
             throw new IllegalArgumentException("null given");
@@ -452,9 +428,6 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
         return null;
     }
 
-    /**
-     * knowsInstruction.
-     */
     public boolean knowsInstruction(BytecodeInstruction instruction) {
         if (instruction == null) {
             throw new IllegalArgumentException("null given");
@@ -473,9 +446,6 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
         return false;
     }
 
-    /**
-     * getDistance.
-     */
     public int getDistance(BytecodeInstruction v1, BytecodeInstruction v2) {
         if (v1 == null || v2 == null) {
             throw new IllegalArgumentException("null given");
@@ -495,9 +465,6 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
         return getDistance(b1, b2);
     }
 
-    /**
-     * isDirectSuccessor.
-     */
     public boolean isDirectSuccessor(BytecodeInstruction v1, BytecodeInstruction v2) {
         if (v1 == null || v2 == null) {
             throw new IllegalArgumentException("null given");
@@ -519,9 +486,6 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
 
     // retrieve information about the CFG
 
-    /**
-     * isEntryPoint.
-     */
     public boolean isEntryPoint(BasicBlock block) {
         if (block == null) {
             throw new IllegalArgumentException("null given");
@@ -537,9 +501,6 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
         return block.containsInstruction(entryPoint);
     }
 
-    /**
-     * isExitPoint.
-     */
     public boolean isExitPoint(BasicBlock block) {
         if (block == null) {
             throw new IllegalArgumentException("null given");
@@ -554,9 +515,6 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
         return false;
     }
 
-    /**
-     * belongsToMethod.
-     */
     public boolean belongsToMethod(BytecodeInstruction instruction) {
         if (instruction == null) {
             throw new IllegalArgumentException("null given");
@@ -570,9 +528,6 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
 
     // sanity checks
 
-    /**
-     * checkSanity.
-     */
     public void checkSanity() {
 
         logger.debug("checking sanity of CFG for " + methodName);
@@ -718,16 +673,10 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
         return null;
     }
 
-    /**
-     * Getter for the field <code>exitPoints</code>.
-     */
     public Set<BytecodeInstruction> getExitPoints() {
         return new HashSet<>(exitPoints);
     }
 
-    /**
-     * Getter for the field <code>branches</code>.
-     */
     public Set<BytecodeInstruction> getBranches() {
         return new HashSet<>(branches);
     }

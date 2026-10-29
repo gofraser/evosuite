@@ -31,9 +31,6 @@ import org.objectweb.asm.tree.MethodNode;
  */
 public class AnnotatedMethodNode extends MethodNode {
 
-    /**
-     * Constructor for AnnotatedMethodNode.
-     */
     public AnnotatedMethodNode(int access, String name, String desc, String signature,
                                String[] exceptions) {
         super(Opcodes.ASM9, access, name, desc, signature, exceptions);

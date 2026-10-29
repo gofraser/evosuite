@@ -53,9 +53,6 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
     private final TestFitnessFunction goalDefinitionFitness;
     private transient Map<Use, DefUseCoverageTestFitness> uses;
 
-    /**
-     * Constructor for AllDefsCoverageTestFitness.
-     */
     public AllDefsCoverageTestFitness(Definition def,
                                       Map<Use, DefUseCoverageTestFitness> uses) {
         this.targetDef = def;

@@ -38,61 +38,37 @@ public class AnnotatedLabel extends Label {
 
     private LabelNode parent = null;
 
-    /**
-     * <p>Constructor for AnnotatedLabel.</p>
-     */
     public AnnotatedLabel(boolean ignore, boolean start) {
         this.ignore = ignore;
         this.isStart = start;
     }
 
-    /**
-     * <p>Constructor for AnnotatedLabel.</p>
-     */
     public AnnotatedLabel(boolean ignore, boolean start, LabelNode parent) {
         this.ignore = ignore;
         this.isStart = start;
         this.parent = parent;
     }
 
-    /**
-     * <p>isStartTag.</p>
-     */
     public boolean isStartTag() {
         return isStart;
     }
 
-    /**
-     * <p>shouldIgnore.</p>
-     */
     public boolean shouldIgnore() {
         return ignore;
     }
 
-    /**
-     * <p>setIgnoreFalse.</p>
-     */
     public void setIgnoreFalse(boolean value) {
         ignoreFalse = value;
     }
 
-    /**
-     * <p>shouldIgnoreFalse.</p>
-     */
     public boolean shouldIgnoreFalse() {
         return ignoreFalse;
     }
 
-    /**
-     * <p>getParent.</p>
-     */
     public LabelNode getParent() {
         return parent;
     }
 
-    /**
-     * <p>setParent.</p>
-     */
     public void setParent(LabelNode parent) {
         this.parent = parent;
     }

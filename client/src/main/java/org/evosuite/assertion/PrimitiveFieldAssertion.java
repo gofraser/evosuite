@@ -35,11 +35,6 @@ public class PrimitiveFieldAssertion extends Assertion {
 
     protected transient Field field;
 
-    /**
-     * <p>
-     * Getter for the field <code>field</code>.
-     * </p>
-     */
     public Field getField() {
         return field;
     }

@@ -42,9 +42,6 @@ public abstract class TestSuiteFitnessFunction extends FitnessFunction<TestSuite
 
     private static final long serialVersionUID = 7243635497292960457L;
 
-    /**
-     * Constant <code>logger</code>.
-     */
     protected static final Logger logger = LoggerFactory.getLogger(TestSuiteFitnessFunction.class);
 
 
@@ -67,11 +64,6 @@ public abstract class TestSuiteFitnessFunction extends FitnessFunction<TestSuite
         return result;
     }
 
-    /**
-     * <p>
-     * runTestSuite.
-     * </p>
-     */
     protected List<ExecutionResult> runTestSuite(TestSuiteChromosome suite) {
         List<ExecutionResult> results = new ArrayList<>();
 

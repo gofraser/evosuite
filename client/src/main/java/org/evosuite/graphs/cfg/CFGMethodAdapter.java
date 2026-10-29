@@ -95,9 +95,6 @@ public class CFGMethodAdapter extends MethodVisitor {
      */
     private boolean excludeMethod = false;
 
-    /**
-     * Constructor for CFGMethodAdapter.
-     */
     public CFGMethodAdapter(ClassLoader classLoader, String className, int access,
                             String name, String desc, String signature, String[] exceptions,
                             MethodVisitor mv) {

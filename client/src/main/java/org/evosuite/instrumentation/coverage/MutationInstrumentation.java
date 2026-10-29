@@ -58,11 +58,6 @@ public class MutationInstrumentation implements MethodInstrumentation {
 
     private Frame[] frames = new Frame[0];
 
-    /**
-     * <p>
-     * Constructor for MutationInstrumentation.
-     * </p>
-     */
     public MutationInstrumentation() {
         mutationOperators = new ArrayList<>();
 
@@ -214,11 +209,6 @@ public class MutationInstrumentation implements MethodInstrumentation {
         logger.info("Done.");
     }
 
-    /**
-     * <p>
-     * addInstrumentation.
-     * </p>
-     */
     protected void addInstrumentation(MethodNode mn, AbstractInsnNode original,
                                       List<Mutation> mutations) {
 

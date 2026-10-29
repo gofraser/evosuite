@@ -34,11 +34,6 @@ public class WeakMutationTestFitness extends MutationTestFitness {
 
     private static final long serialVersionUID = 7468742584904580204L;
 
-    /**
-     * <p>
-     * Constructor for WeakMutationTestFitness.
-     * </p>
-     */
     public WeakMutationTestFitness(Mutation mutation) {
         super(mutation);
     }

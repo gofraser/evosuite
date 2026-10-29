@@ -34,11 +34,6 @@ public final class RealConstraint extends Constraint<Double> {
 
     private static final long serialVersionUID = 6021027178547577289L;
 
-    /**
-     * <p>
-     * Constructor for RealConstraint.
-     * </p>
-     */
     public RealConstraint(Expression<Double> left, Comparator cmp,
                           Expression<Double> right) {
         super();

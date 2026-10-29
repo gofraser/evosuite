@@ -67,9 +67,6 @@ public class VariableReferenceImpl implements VariableReference {
         testCase.addListener(changeListener);
     }
 
-    /**
-     * Constructor for VariableReferenceImpl.
-     */
     public VariableReferenceImpl(TestCase testCase, Type type) {
         this(testCase, GenericClassFactory.get(type));
     }

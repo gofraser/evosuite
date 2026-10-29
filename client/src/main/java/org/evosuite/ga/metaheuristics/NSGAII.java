@@ -66,9 +66,6 @@ public class NSGAII<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
     private final CrowdingDistance<T> crowdingDistance;
 
-    /**
-     * Constructor.
-     */
     public NSGAII(ChromosomeFactory<T> factory) {
         super(factory);
         this.crowdingDistance = new CrowdingDistance<>();

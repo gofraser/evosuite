@@ -232,11 +232,6 @@ public class MasterNodeImpl implements MasterNodeRemote, MasterNodeLocal {
         listeners.remove(listener);
     }
 
-    /**
-     * <p>
-     * fireEvent.
-     * </p>
-     */
     public void fireEvent(ClientStateInformation event) {
         for (Listener<ClientStateInformation> listener : listeners) {
             listener.receiveEvent(event);

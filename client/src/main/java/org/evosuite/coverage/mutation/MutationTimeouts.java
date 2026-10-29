@@ -43,9 +43,6 @@ public final class MutationTimeouts {
     private MutationTimeouts() {
     }
 
-    /**
-     * <p>isDisabled.</p>
-     */
     public static boolean isDisabled(Mutation mutation) {
         return disabled.contains(mutation);
     }

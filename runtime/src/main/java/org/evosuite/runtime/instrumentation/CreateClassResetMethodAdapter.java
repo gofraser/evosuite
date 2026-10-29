@@ -39,9 +39,6 @@ public class CreateClassResetMethodAdapter extends MethodVisitor {
 
     private final List<String> finalFields;
 
-    /**
-     * <p>Constructor for CreateClassResetMethodAdapter.</p>
-     */
     public CreateClassResetMethodAdapter(MethodVisitor mv, String className,
                                          List<StaticField> staticFields, List<String> finalFields) {
         super(Opcodes.ASM9, mv);

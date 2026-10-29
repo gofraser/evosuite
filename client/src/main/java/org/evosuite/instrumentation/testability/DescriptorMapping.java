@@ -53,9 +53,6 @@ public class DescriptorMapping {
 
     }
 
-    /**
-     * <p>Getter for the field <code>instance</code>.</p>
-     */
     public static DescriptorMapping getInstance() {
         if (instance == null) {
             instance = new DescriptorMapping();
@@ -70,9 +67,6 @@ public class DescriptorMapping {
 
     private final Map<String, String> nameMapping = new HashMap<>();
 
-    /**
-     * <p>shouldTransform.</p>
-     */
     public static boolean shouldTransform(String classNameUnknown) {
         String className = classNameUnknown.replace('/', '.');
         switch (Properties.TT_SCOPE) {
@@ -96,9 +90,6 @@ public class DescriptorMapping {
 
     }
 
-    /**
-     * <p>isTransformedMethod.</p>
-     */
     public boolean isTransformedMethod(String className, String methodName, String desc) {
         logger.info("Initiating transformation of " + methodName);
         getMethodDesc(className, methodName, desc);
@@ -106,18 +97,12 @@ public class DescriptorMapping {
                 + methodName + desc);
     }
 
-    /**
-     * <p>isTransformedField.</p>
-     */
     public boolean isTransformedField(String className, String fieldName, String desc) {
         getFieldDesc(className, fieldName, desc);
         return descriptorMapping.containsKey(className.replace('.', '/') + "/"
                 + fieldName + desc);
     }
 
-    /**
-     * <p>isTransformedOrBooleanMethod.</p>
-     */
     public boolean isTransformedOrBooleanMethod(String className, String methodName,
                                                 String desc) {
         logger.info("Checking method: " + className + "." + methodName + desc);
@@ -130,9 +115,6 @@ public class DescriptorMapping {
         return originalDesc.containsKey(name) || isBooleanMethod(desc);
     }
 
-    /**
-     * <p>isTransformedOrBooleanReturnMethod.</p>
-     */
     public boolean isTransformedOrBooleanReturnMethod(String className,
                                                       String methodName, String desc) {
         logger.info("Checking method: " + className + "." + methodName + desc);
@@ -146,9 +128,6 @@ public class DescriptorMapping {
         }
     }
 
-    /**
-     * <p>isTransformedOrBooleanField.</p>
-     */
     public boolean isTransformedOrBooleanField(String className, String fieldName,
                                                String desc) {
         logger.info("Checking field: " + className + "." + fieldName + desc);
@@ -161,9 +140,6 @@ public class DescriptorMapping {
         return originalDesc.containsKey(name) || isBooleanField(desc);
     }
 
-    /**
-     * <p>isBooleanMethod.</p>
-     */
     public boolean isBooleanMethod(String desc) {
         Type[] types = Type.getArgumentTypes(desc);
         for (Type type : types) {
@@ -182,9 +158,6 @@ public class DescriptorMapping {
         }
     }
 
-    /**
-     * <p>hasBooleanParameters.</p>
-     */
     public boolean hasBooleanParameters(String desc) {
         for (Type t : Type.getArgumentTypes(desc)) {
             if (t.equals(Type.BOOLEAN_TYPE)) {
@@ -446,9 +419,6 @@ public class DescriptorMapping {
         }
     }
 
-    /**
-     * <p>getMethodName.</p>
-     */
     public String getMethodName(String className, String methodName, String desc) {
         if (!shouldTransform(className)) {
             return methodName;
@@ -468,9 +438,6 @@ public class DescriptorMapping {
         }
     }
 
-    /**
-     * <p>getMethodDesc.</p>
-     */
     public String getMethodDesc(String className, String methodName, String desc) {
         if (!shouldTransform(className)) {
             return desc;
@@ -515,9 +482,6 @@ public class DescriptorMapping {
         }
     }
 
-    /**
-     * <p>getFieldDesc.</p>
-     */
     public String getFieldDesc(String className, String fieldName, String desc) {
         if (!shouldTransform(className)) {
             return desc;
@@ -540,9 +504,6 @@ public class DescriptorMapping {
         }
     }
 
-    /**
-     * <p>Getter for the field <code>originalName</code>.</p>
-     */
     public String getOriginalName(String className, String methodName, String desc) {
         String key = className.replace('.', '/') + "/" + methodName + desc;
         if (originalName.containsKey(key)) {

@@ -69,11 +69,6 @@ public class BooleanTestabilityTransformation {
 
     public ClassLoader classLoader;
 
-    /**
-     * <p>
-     * Constructor for BooleanTestabilityTransformation.
-     * </p>
-     */
     public BooleanTestabilityTransformation(ClassNode cn, ClassLoader classLoader) {
         this.cn = cn;
         this.className = cn.name.replace('/', '.');
@@ -159,11 +154,6 @@ public class BooleanTestabilityTransformation {
         }
     }
 
-    /**
-     * <p>
-     * getOriginalNameDesc.
-     * </p>
-     */
     public static String getOriginalNameDesc(String className, String methodName,
                                              String desc) {
         String key = className.replace('.', '/') + "/" + methodName + desc;
@@ -178,11 +168,6 @@ public class BooleanTestabilityTransformation {
         }
     }
 
-    /**
-     * <p>
-     * getOriginalDesc.
-     * </p>
-     */
     public static String getOriginalDesc(String className, String methodName, String desc) {
         String key = className.replace('.', '/') + "/" + methodName + desc;
         if (DescriptorMapping.getInstance().originalDesc.containsKey(key)) {
@@ -194,11 +179,6 @@ public class BooleanTestabilityTransformation {
         }
     }
 
-    /**
-     * <p>
-     * hasTransformedParameters.
-     * </p>
-     */
     public static boolean hasTransformedParameters(String className, String methodName,
                                                    String desc) {
         String key = className.replace('.', '/') + "/" + methodName + desc;
@@ -213,11 +193,6 @@ public class BooleanTestabilityTransformation {
         return false;
     }
 
-    /**
-     * <p>
-     * isTransformedField.
-     * </p>
-     */
     public static boolean isTransformedField(String className, String fieldName,
                                              String desc) {
         return DescriptorMapping.getInstance().isTransformedField(className, fieldName,

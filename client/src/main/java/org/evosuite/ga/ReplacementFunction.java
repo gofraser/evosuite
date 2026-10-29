@@ -32,18 +32,10 @@ public abstract class ReplacementFunction<T extends Chromosome<T>> implements Se
 
     protected boolean maximize = false;
 
-    /**
-     * <p>
-     * Constructor for ReplacementFunction.
-     * </p>
-     */
     public ReplacementFunction(boolean maximize) {
         this.maximize = maximize;
     }
 
-    /**
-     * isBetter.
-     */
     protected boolean isBetter(T chromosome1, T chromosome2) {
         if (maximize) {
             return chromosome1.compareTo(chromosome2) > 0;
@@ -52,9 +44,6 @@ public abstract class ReplacementFunction<T extends Chromosome<T>> implements Se
         }
     }
 
-    /**
-     * isBetterOrEqual.
-     */
     protected boolean isBetterOrEqual(T chromosome1, T chromosome2) {
         if (maximize) {
             return chromosome1.compareTo(chromosome2.self()) >= 0;
@@ -63,9 +52,6 @@ public abstract class ReplacementFunction<T extends Chromosome<T>> implements Se
         }
     }
 
-    /**
-     * getBest.
-     */
     protected T getBest(T chromosome1, T chromosome2) {
         if (isBetter(chromosome1, chromosome2)) {
             return chromosome1;

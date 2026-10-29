@@ -178,11 +178,6 @@ public class ExecutionResult implements Cloneable {
     }
 
 
-    /**
-     * <p>
-     * getFirstPositionOfThrownException.
-     * </p>
-     */
     public Integer getFirstPositionOfThrownException() {
         normalizeExceptionPositions();
         return exceptions.keySet().stream()
@@ -190,11 +185,6 @@ public class ExecutionResult implements Cloneable {
                 .orElse(null);
     }
 
-    /**
-     * <p>
-     * reportNewThrownException.
-     * </p>
-     */
     public void reportNewThrownException(Integer position, Throwable t) {
         Integer normalizedPosition = normalizeExceptionPosition(position, t);
         if (normalizedPosition == null) {
@@ -203,58 +193,28 @@ public class ExecutionResult implements Cloneable {
         exceptions.put(normalizedPosition, t);
     }
 
-    /**
-     * <p>
-     * getPositionsWhereExceptionsWereThrown.
-     * </p>
-     */
     public Set<Integer> getPositionsWhereExceptionsWereThrown() {
         normalizeExceptionPositions();
         return exceptions.keySet();
     }
 
-    /**
-     * <p>
-     * getAllThrownExceptions.
-     * </p>
-     */
     public Collection<Throwable> getAllThrownExceptions() {
         return exceptions.values();
     }
 
-    /**
-     * <p>
-     * isThereAnExceptionAtPosition.
-     * </p>
-     */
     public boolean isThereAnExceptionAtPosition(Integer position) {
         return exceptions.containsKey(position);
     }
 
-    /**
-     * <p>
-     * noThrownExceptions.
-     * </p>
-     */
     public boolean noThrownExceptions() {
         return exceptions.isEmpty();
     }
 
-    /**
-     * <p>
-     * getExceptionThrownAtPosition.
-     * </p>
-     */
     public Throwable getExceptionThrownAtPosition(Integer position) {
         normalizeExceptionPositions();
         return exceptions.get(position);
     }
 
-    /**
-     * <p>
-     * getNumberOfThrownExceptions.
-     * </p>
-     */
     public int getNumberOfThrownExceptions() {
         return exceptions.size();
     }

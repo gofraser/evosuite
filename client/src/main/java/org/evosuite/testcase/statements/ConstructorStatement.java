@@ -60,11 +60,6 @@ public class ConstructorStatement extends EntityWithParametersStatement {
             "float", "double",
             "byte");
 
-    /**
-     * <p>
-     * Constructor for ConstructorStatement.
-     * </p>
-     */
     public ConstructorStatement(TestCase tc, GenericConstructor constructor,
                                 List<VariableReference> parameters) {
         super(tc, new VariableReferenceImpl(tc, constructor.getOwnerClass()), parameters,
@@ -86,11 +81,6 @@ public class ConstructorStatement extends EntityWithParametersStatement {
         this.constructor = constructor;
     }
 
-    /**
-     * <p>
-     * Constructor for ConstructorStatement.
-     * </p>
-     */
     protected ConstructorStatement(TestCase tc, GenericConstructor constructor,
                                    VariableReference retvar, List<VariableReference> parameters, boolean check) {
         super(tc, retvar, parameters,
@@ -99,24 +89,15 @@ public class ConstructorStatement extends EntityWithParametersStatement {
         this.constructor = constructor;
     }
 
-    /**
-     * Getter for the field <code>constructor</code>.
-     */
     public GenericConstructor getConstructor() {
         return constructor;
     }
 
-    /**
-     * Setter for the field <code>constructor</code>.
-     */
     public void setConstructor(GenericConstructor constructor) {
         this.constructor = constructor;
         retval.setType(constructor.getReturnType());
     }
 
-    /**
-     * getReturnType.
-     */
     public static String getReturnType(Class<?> clazz) {
         String retVal = ClassUtils.getShortClassName(clazz);
         if (primitiveClasses.contains(retVal)) {
@@ -489,9 +470,6 @@ public class ConstructorStatement extends EntityWithParametersStatement {
     }
 
 
-    /**
-     * getParameterReferences.
-     */
     public List<VariableReference> getParameterReferences() {
         return parameters;
     }

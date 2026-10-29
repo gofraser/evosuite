@@ -36,9 +36,6 @@ import org.evosuite.utils.LoggingUtils;
 
 import java.util.Arrays;
 
-/**
- * Created by sina on 06/04/2017.
- */
 public class TestSuiteGeneratorHelper {
 
     static void printTestCriterion(Criterion criterion) {

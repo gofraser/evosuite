@@ -76,9 +76,6 @@ public class IBranchSuiteFitness extends TestSuiteFitnessFunction {
      */
     private final Set<IBranchTestFitness> removedRootBranches = new LinkedHashSet<>();
 
-    /**
-     * Constructor for IBranchSuiteFitness.
-     */
     public IBranchSuiteFitness() {
         goalsMap = new LinkedHashMap<>();
         methodsMap = new LinkedHashMap<>();

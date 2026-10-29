@@ -68,19 +68,11 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
      */
     private boolean objectRuleSlot = false;
 
-    /**
-     * <p>
-     * Constructor for PrimitiveStatement.
-     * </p>
-     */
     public PrimitiveStatement(TestCase tc, VariableReference varRef, T value) {
         super(tc, varRef);
         this.value = value;
     }
 
-    /**
-     * Constructor.
-     */
     public PrimitiveStatement(TestCase tc, Type type, T value) {
         super(tc, new VariableReferenceImpl(tc, type));
         this.value = value;

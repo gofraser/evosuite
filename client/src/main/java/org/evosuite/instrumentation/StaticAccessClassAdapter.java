@@ -33,11 +33,6 @@ public class StaticAccessClassAdapter extends ClassVisitor {
 
     private final String className;
 
-    /**
-     * <p>
-     * Constructor for StaticInitializationClassAdapter.
-     * </p>
-     */
     public StaticAccessClassAdapter(ClassVisitor visitor, String className) {
         super(Opcodes.ASM9, visitor);
         this.className = className;

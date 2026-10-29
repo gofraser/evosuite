@@ -49,13 +49,7 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
 
     List<DefUseCoverageTestFitness> goals = DefUseCoverageFactory.getDUGoals();
 
-    /**
-     * Constant <code>totalGoals</code>.
-     */
     public Map<DefUsePairType, Integer> totalGoals = initTotalGoals();
-    /**
-     * Constant <code>mostCoveredGoals</code>.
-     */
     public static final Map<DefUsePairType, Integer> mostCoveredGoals = new HashMap<>();
 
     public Map<DefUsePairType, Integer> coveredGoals = new HashMap<>();
@@ -405,9 +399,6 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
         return countGoalsIn(coveredGoals);
     }
 
-    /**
-     * countMostCoveredGoals.
-     */
     public static int countMostCoveredGoals() {
         return countGoalsIn(mostCoveredGoals);
     }
@@ -463,9 +454,6 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
         }
     }
 
-    /**
-     * printCoverage.
-     */
     public static void printCoverage() {
 
         LoggingUtils.getEvoLogger().info("* Time spent optimizing covered goals analysis: "

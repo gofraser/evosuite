@@ -109,9 +109,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
 
     private static final long serialVersionUID = 8993506743384548704L;
 
-    /**
-     * Constant <code>logger</code>.
-     */
     protected static final Logger logger = LoggerFactory.getLogger(AbstractStatement.class);
 
     /**
@@ -147,9 +144,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
         target.setParsedFromLlm(source.parsedFromLlm);
     }
 
-    /**
-     * Constructor for AbstractStatement.
-     */
     protected AbstractStatement(TestCase tc, VariableReference retval) throws IllegalArgumentException {
         if (tc == null) {
             throw new IllegalArgumentException("tc cannot be null");
@@ -161,9 +155,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
         this.tc = tc;
     }
 
-    /**
-     * Constructor for AbstractStatement.
-     */
     protected AbstractStatement(TestCase tc, Type type) throws IllegalArgumentException {
         if (tc == null) {
             throw new IllegalArgumentException("tc cannot be null");
@@ -236,9 +227,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
         return getVariableReferences().contains(var);
     }
 
-    /**
-     * getAssertionReferences.
-     */
     protected Set<VariableReference> getAssertionReferences() {
         Set<VariableReference> variables = new LinkedHashSet<>();
         for (Assertion assertion : assertions) {
@@ -377,9 +365,6 @@ public abstract class AbstractStatement implements Statement, Serializable {
         return new HashSet<>();
     }
 
-    /**
-     * getExceptionClass.
-     */
     public static Class<?> getExceptionClass(Throwable t) {
         Class<?> clazz = t.getClass();
         while (!Modifier.isPublic(clazz.getModifiers())) {

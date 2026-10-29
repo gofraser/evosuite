@@ -44,9 +44,6 @@ import java.util.Set;
 public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
         ExecutionObserver {
 
-    /**
-     * Constant <code>logger</code>.
-     */
     protected static final Logger logger = LoggerFactory.getLogger(AssertionTraceObserver.class);
 
     protected OutputTrace<T> trace = new OutputTrace<>();
@@ -55,11 +52,6 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
         return ExecutionTracer.isThreadNeqCurrentThread();
     }
 
-    /**
-     * <p>
-     * visitDependencies.
-     * </p>
-     */
     protected void visitDependencies(Statement statement, Scope scope) {
         visitDependencies(statement, scope, (VariableReference[]) null);
     }
@@ -119,11 +111,6 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
         return currentTest.getStatement(pos);
     }
 
-    /**
-     * <p>
-     * visitReturnValue.
-     * </p>
-     */
     protected void visitReturnValue(Statement statement, Scope scope) {
         if (statement.getReturnClass().equals(void.class)) {
             return;
@@ -142,11 +129,6 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
 
     }
 
-    /**
-     * <p>
-     * visit.
-     * </p>
-     */
     protected abstract void visit(Statement statement, Scope scope,
                                   VariableReference var) throws CodeUnderTestException;
 
@@ -199,11 +181,6 @@ public abstract class AssertionTraceObserver<T extends OutputTraceEntry> extends
         trace.clear();
     }
 
-    /**
-     * <p>
-     * Getter for the field <code>trace</code>.
-     * </p>
-     */
     public synchronized OutputTrace<T> getTrace() {
         return trace.clone();
     }

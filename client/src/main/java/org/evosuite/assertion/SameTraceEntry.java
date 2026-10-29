@@ -40,16 +40,10 @@ public class SameTraceEntry implements OutputTraceEntry {
     private final Map<VariableReference, Boolean> equalityMap = new HashMap<>();
     private final Map<Integer, VariableReference> equalityMapIntVar = new HashMap<>();
 
-    /**
-     * <p>Constructor for SameTraceEntry.</p>
-     */
     public SameTraceEntry(VariableReference var) {
         this.var = var;
     }
 
-    /**
-     * <p>addEntry.</p>
-     */
     public void addEntry(VariableReference other, boolean value) {
         equalityMap.put(other, value);
         equalityMapIntVar.put(other.getStPosition(), other);

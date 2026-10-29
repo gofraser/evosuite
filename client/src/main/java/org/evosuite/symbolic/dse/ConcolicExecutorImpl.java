@@ -57,9 +57,6 @@ public class ConcolicExecutorImpl implements ConcolicExecutor {
      */
     private final ConcolicInstrumentingClassLoader instrumentingClassLoader;
 
-    /**
-     * Constructor.
-     */
     public ConcolicExecutorImpl() {
         this.instrumentingClassLoader = new ConcolicInstrumentingClassLoader(new ConcolicBytecodeInstrumentation());
 
