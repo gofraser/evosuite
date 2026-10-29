@@ -47,7 +47,7 @@ import java.util.Map;
  * by the most central member of its species (minimum mean intra-species distance),
  * preventing the leader from drifting out of the cluster as it evolves.
  */
-public class StableSpeciesAssigner implements SpeciesAssigner, SpeciesBirthRegistry {
+public class StableSpeciesAssigner implements SpeciesAssigner {
 
     private static final Logger logger = LoggerFactory.getLogger(StableSpeciesAssigner.class);
 
@@ -169,7 +169,6 @@ public class StableSpeciesAssigner implements SpeciesAssigner, SpeciesBirthRegis
         return id;
     }
 
-    @Override
     public Map<Integer, Integer> getSpeciesBirthGenerations() {
         Map<Integer, Integer> out = new LinkedHashMap<>();
         for (Map.Entry<Integer, SpeciesEntry> e : registry.entrySet()) {

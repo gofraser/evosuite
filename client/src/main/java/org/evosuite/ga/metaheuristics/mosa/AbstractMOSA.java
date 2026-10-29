@@ -33,7 +33,6 @@ import org.evosuite.ga.archive.Archive;
 import org.evosuite.ga.comparators.DominanceComparator;
 import org.evosuite.ga.comparators.OnlyCrowdingComparator;
 import org.evosuite.ga.diversity.DefaultSpeciesAssigner;
-import org.evosuite.ga.diversity.DefaultSpeciesPolicy;
 import org.evosuite.ga.diversity.FitnessSpaceSnapshotRecorder;
 import org.evosuite.ga.diversity.JaccardSpeciesDistance;
 import org.evosuite.ga.diversity.ObjectiveCoverageRecorder;
@@ -41,7 +40,6 @@ import org.evosuite.ga.diversity.PopulationDiversityComputation;
 import org.evosuite.ga.diversity.PopulationShapeRecorder;
 import org.evosuite.ga.diversity.PopulationSpeciesRecorder;
 import org.evosuite.ga.diversity.SpeciesAssigner;
-import org.evosuite.ga.diversity.SpeciesBirthRegistry;
 import org.evosuite.ga.diversity.SpeciesPolicy;
 import org.evosuite.ga.diversity.SpeciesProtectionStats;
 import org.evosuite.ga.diversity.StableSpeciesAssigner;
@@ -424,7 +422,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             this.speciesAssigner = useStableIds
                     ? new StableSpeciesAssigner()
                     : new DefaultSpeciesAssigner();
-            this.speciesPolicy = new DefaultSpeciesPolicy();
+            this.speciesPolicy = new SpeciesPolicy();
             this.trackSpeciesWhenSpeciationDisabled = false;
             this.speciesTrackingAssigner = this.speciesAssigner;
         } else {
@@ -1355,8 +1353,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     private Map<Integer, Integer> resolveSpeciesBirthGeneration() {
-        if (speciesAssigner instanceof SpeciesBirthRegistry) {
-            return ((SpeciesBirthRegistry) speciesAssigner).getSpeciesBirthGenerations();
+        if (speciesAssigner instanceof StableSpeciesAssigner) {
+            return ((StableSpeciesAssigner) speciesAssigner).getSpeciesBirthGenerations();
         }
         return Collections.emptyMap();
     }

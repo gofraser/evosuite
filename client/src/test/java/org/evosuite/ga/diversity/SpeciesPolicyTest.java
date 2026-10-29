@@ -30,15 +30,15 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests for DefaultSpeciesPolicy survival caps and parent balancing.
+ * Tests for SpeciesPolicy survival caps and parent balancing.
  */
-class DefaultSpeciesPolicyTest {
+class SpeciesPolicyTest {
 
-    private DefaultSpeciesPolicy policy;
+    private SpeciesPolicy policy;
 
     @BeforeEach
     void setUp() {
-        policy = new DefaultSpeciesPolicy();
+        policy = new SpeciesPolicy();
     }
 
     /** Protected survival with no quota and no newborn protection: per-species caps only. */
