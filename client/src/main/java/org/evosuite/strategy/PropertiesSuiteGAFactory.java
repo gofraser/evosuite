@@ -167,6 +167,7 @@ public class PropertiesSuiteGAFactory
                 return new OnePlusLambdaLambdaGA<>(factory, Properties.LAMBDA);
             case MIO:
                 logger.info("Chosen search algorithm: MIO");
+                Properties.ARCHIVE_TYPE = Properties.ArchiveType.MIO;
                 return new MIOTestSuiteAdapter(new MIO(testFactoryOf(factory, true)));
             case STANDARD_CHEMICAL_REACTION:
                 logger.info("Chosen search algorithm: Standard Chemical Reaction Optimization");

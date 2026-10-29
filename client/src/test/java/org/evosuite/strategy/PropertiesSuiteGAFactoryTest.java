@@ -187,6 +187,16 @@ class PropertiesSuiteGAFactoryTest {
         assertInstanceOf(JUnitTestParsedChromosomeFactory.class, factoryOf(algorithm));
     }
 
+    @Test
+    void mioSelectsTheMioArchive() {
+        Properties.STRATEGY = Properties.Strategy.MOSUITE;
+        Properties.ALGORITHM = Properties.Algorithm.MIO;
+
+        buildAlgorithm();
+
+        assertEquals(Properties.ArchiveType.MIO, Properties.ARCHIVE_TYPE);
+    }
+
     @ParameterizedTest
     @EnumSource(value = Properties.Algorithm.class, names = {"STANDARD_GA", "MONOTONIC_GA"})
     void wholeSuiteGaInjectsLlmTestsAsSuites(Properties.Algorithm algorithm) {

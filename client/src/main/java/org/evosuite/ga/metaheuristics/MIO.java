@@ -63,7 +63,6 @@ public class MIO extends AbstractMOSA {
      */
     public MIO(ChromosomeFactory<TestChromosome> factory) {
         super(factory);
-        Properties.ARCHIVE_TYPE = Properties.ArchiveType.MIO;
     }
 
     /**
