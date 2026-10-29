@@ -181,7 +181,7 @@ final class LlmTestSalvager {
             if (!normalized.isEmpty()) {
                 return Integer.toHexString(normalized.hashCode());
             }
-        } catch (Throwable ignored) {
+        } catch (RuntimeException ignored) {
             // Fall through to identity-based key if rendering fails.
         }
         return "id_" + System.identityHashCode(testCase);

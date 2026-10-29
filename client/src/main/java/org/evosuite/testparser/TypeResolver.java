@@ -332,7 +332,7 @@ public class TypeResolver {
                 }
                 dot = nested.lastIndexOf('.', dot - 1);
             }
-        } catch (Throwable ignored) {
+        } catch (RuntimeException ignored) {
             // ResourceList may be unavailable in some test-only environments.
         }
         return null;
@@ -352,7 +352,7 @@ public class TypeResolver {
         try {
             ResourceList resources = ResourceList.getInstance(classLoader);
             return findProjectClassCandidate(fqn) == null && !resources.hasClass(fqn);
-        } catch (Throwable ignored) {
+        } catch (RuntimeException ignored) {
             return false;
         }
     }

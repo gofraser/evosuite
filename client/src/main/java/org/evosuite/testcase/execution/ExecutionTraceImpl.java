@@ -44,7 +44,7 @@ import java.util.Map.Entry;
  */
 public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
-    private static final Logger logger = LoggerFactory.getLogger(ExecutionTrace.class);
+    private static final Logger logger = LoggerFactory.getLogger(ExecutionTraceImpl.class);
 
     /**
      * Constant <code>traceCalls=false</code>.

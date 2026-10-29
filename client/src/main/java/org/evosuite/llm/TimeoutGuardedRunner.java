@@ -191,7 +191,7 @@ final class TimeoutGuardedRunner implements AutoCloseable {
         }
         try {
             stuck.shutdownNow();
-        } catch (Throwable ignored) {
+        } catch (RuntimeException ignored) {
             // Best effort — even if shutdown throws, we still want a fresh executor below.
         }
         this.executorService = executorFactory.get();

@@ -600,7 +600,7 @@ class ObjectRuleTemplateSynthesizer {
             } else {
                 logger.debug(message, failure);
             }
-        } catch (Throwable ignored) {
+        } catch (RuntimeException ignored) {
             // Diagnostics must never turn a usable first-shot template into a synthesis failure.
         }
     }

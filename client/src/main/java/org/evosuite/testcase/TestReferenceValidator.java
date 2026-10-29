@@ -117,7 +117,7 @@ public final class TestReferenceValidator {
                     if (testCase.getStatement(i).references(ref)) {
                         return true;
                     }
-                } catch (Throwable ignored) {
+                } catch (RuntimeException ignored) {
                     // Fall through; treat as not-here.
                 }
             }
@@ -129,7 +129,7 @@ public final class TestReferenceValidator {
             VariableReference rv;
             try {
                 rv = testCase.getStatement(i).getReturnValue();
-            } catch (Throwable ignored) {
+            } catch (RuntimeException ignored) {
                 continue;
             }
             if (rv != null && rv.equals(ref)) {
@@ -236,7 +236,7 @@ public final class TestReferenceValidator {
             VariableReference rv;
             try {
                 rv = testCase.getStatement(i).getReturnValue();
-            } catch (Throwable ignored) {
+            } catch (RuntimeException ignored) {
                 continue;
             }
             if (rv != null && rv.equals(ref)) {

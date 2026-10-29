@@ -157,7 +157,7 @@ final class ExecutionFailureFormatter {
             if (testCode != null && !testCode.trim().isEmpty()) {
                 return truncate(testCode.trim(), MAX_TEST_CODE_EXCERPT_CHARS);
             }
-        } catch (Throwable ignored) {
+        } catch (RuntimeException ignored) {
             // best-effort diagnostic enrichment only
         }
         return null;
@@ -756,7 +756,7 @@ final class ExecutionFailureFormatter {
             org.evosuite.testcase.TestCodeVisitor visitor = new org.evosuite.testcase.TestCodeVisitor();
             cloned.accept(visitor);
             return visitor.getCode();
-        } catch (Throwable ignored) {
+        } catch (RuntimeException ignored) {
             return "";
         }
     }
@@ -764,7 +764,7 @@ final class ExecutionFailureFormatter {
     private String renderStatementRangeFallback(ParseResult parseResult, int index) {
         try {
             return parseResult.getTestCase().getStatement(index).getCode();
-        } catch (Throwable ignored) {
+        } catch (RuntimeException ignored) {
             return "";
         }
     }
@@ -808,7 +808,7 @@ final class ExecutionFailureFormatter {
             }
             String receiverName = ((NameExpr) methodCallExpr.getScope().get()).getNameAsString();
             return isLikelyTypeReferenceName(receiverName) ? null : receiverName;
-        } catch (Throwable ignored) {
+        } catch (RuntimeException ignored) {
             return null;
         }
     }
@@ -847,7 +847,7 @@ final class ExecutionFailureFormatter {
                 if (statementCode != null && !statementCode.trim().isEmpty()) {
                     return statementCode.trim();
                 }
-            } catch (Throwable ignored) {
+            } catch (RuntimeException ignored) {
                 // best-effort diagnostic enrichment only
             }
         }
@@ -865,7 +865,7 @@ final class ExecutionFailureFormatter {
                 if (code != null && code.contains("assertThrows(")) {
                     return i;
                 }
-            } catch (Throwable ignored) {
+            } catch (RuntimeException ignored) {
                 // best-effort diagnostic enrichment only
             }
         }
@@ -1018,7 +1018,7 @@ final class ExecutionFailureFormatter {
                 return methodCallExpr.getNameAsString();
             }
             return methodCallExpr.getScope().get().toString() + "." + methodCallExpr.getNameAsString();
-        } catch (Throwable ignored) {
+        } catch (RuntimeException ignored) {
             return null;
         }
     }

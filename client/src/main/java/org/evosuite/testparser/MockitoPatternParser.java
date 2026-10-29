@@ -510,7 +510,7 @@ class MockitoPatternParser {
         Expression innerExpression;
         try {
             innerExpression = StaticJavaParser.parseExpression(whenExprText);
-        } catch (Throwable ignored) {
+        } catch (RuntimeException ignored) {
             return null;
         }
         if (!(innerExpression instanceof MethodCallExpr)) {
@@ -1116,7 +1116,7 @@ class MockitoPatternParser {
         Class<?> mockClass;
         try {
             mockClass = MockList.getMockClass(canonicalName);
-        } catch (Throwable ignored) {
+        } catch (RuntimeException ignored) {
             return null;
         }
         if (mockClass == null) {

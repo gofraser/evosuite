@@ -426,7 +426,7 @@ public class LlmResponseParser {
                 return extraction.withInvalidSource(new IllegalArgumentException(
                         "Recovered source is still not valid Java: " + parseProblem.getMessage(),
                         parseProblem));
-            } catch (Throwable ignored) {
+            } catch (RuntimeException ignored) {
                 // Best-effort normalization only; keep the original source if parsing fails.
                 return extraction;
             }
@@ -502,7 +502,7 @@ public class LlmResponseParser {
             try {
                 rewrittenThrowStmt = StaticJavaParser.parseStatement(rewrittenThrow);
                 rewrittenCauseAssertStmt = StaticJavaParser.parseStatement(rewrittenCauseAssert);
-            } catch (Throwable ignored) {
+            } catch (RuntimeException ignored) {
                 continue;
             }
 

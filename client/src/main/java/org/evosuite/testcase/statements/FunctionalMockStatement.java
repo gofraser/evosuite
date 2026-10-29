@@ -495,7 +495,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                 if (rv != null) {
                     present.add(rv);
                 }
-            } catch (Throwable ignored) {
+            } catch (RuntimeException ignored) {
                 // Defensive: keep scanning.
             }
         }
