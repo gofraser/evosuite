@@ -1353,39 +1353,7 @@ public final class ArithmeticVM implements IVM {
      */
     @Override
     public void FCMPL() {
-        RealValue right = env.topFrame().operandStack.popFp32();
-        RealValue left = env.topFrame().operandStack.popFp32();
-
-        float leftConcVal = left.getConcreteValue()
-                .floatValue();
-        float rightConcVal = right.getConcreteValue()
-                .floatValue();
-
-        if (!left.containsSymbolicVariable()) {
-            left = ExpressionFactory.buildNewRealConstant(leftConcVal);
-        }
-        if (!right.containsSymbolicVariable()) {
-            right = ExpressionFactory
-                    .buildNewRealConstant(rightConcVal);
-        }
-
-        int concVal;
-        if (new Double(leftConcVal).isNaN()
-                || new Double(rightConcVal).isNaN()) {
-            concVal = 1;
-        } else if (leftConcVal == rightConcVal) {
-            concVal = 0;
-        } else if (leftConcVal > rightConcVal) {
-            concVal = 1;
-        } else {
-            assert leftConcVal < rightConcVal;
-            concVal = -1;
-        }
-
-        RealComparison ret = new RealComparison(left, right,
-                (long) concVal);
-
-        env.topFrame().operandStack.pushBv32(ret);
+        compareFp32(-1);
     }
 
     /**
@@ -1394,7 +1362,7 @@ public final class ArithmeticVM implements IVM {
      */
     @Override
     public void FCMPG() {
-        FCMPL(); // TODO: NaN treatment differs
+        compareFp32(1);
     }
 
     /**
@@ -1403,37 +1371,7 @@ public final class ArithmeticVM implements IVM {
      */
     @Override
     public void DCMPL() {
-        RealValue right = env.topFrame().operandStack.popFp64();
-        RealValue left = env.topFrame().operandStack.popFp64();
-
-        double leftConcVal = left.getConcreteValue();
-        double rightConcVal = right.getConcreteValue();
-
-        if (!left.containsSymbolicVariable()) {
-            left = ExpressionFactory.buildNewRealConstant(leftConcVal);
-        }
-        if (!right.containsSymbolicVariable()) {
-            right = ExpressionFactory
-                    .buildNewRealConstant(rightConcVal);
-        }
-
-        int concVal;
-        if (new Double(leftConcVal).isNaN()
-                || new Double(rightConcVal).isNaN()) {
-            concVal = 1;
-        } else if (leftConcVal == rightConcVal) {
-            concVal = 0;
-        } else if (leftConcVal > rightConcVal) {
-            concVal = 1;
-        } else {
-            assert leftConcVal < rightConcVal;
-            concVal = -1;
-        }
-
-        RealComparison ret = new RealComparison(left, right,
-                (long) concVal);
-
-        env.topFrame().operandStack.pushBv32(ret);
+        compareFp64(-1);
     }
 
     /**
@@ -1442,7 +1380,46 @@ public final class ArithmeticVM implements IVM {
      */
     @Override
     public void DCMPG() {
-        DCMPL(); // FIXME: NaN treatment differs
+        compareFp64(1);
+    }
+
+    private void compareFp32(int nanResult) {
+        RealValue right = env.topFrame().operandStack.popFp32();
+        RealValue left = env.topFrame().operandStack.popFp32();
+        pushRealComparison(left, right,
+                left.getConcreteValue().floatValue(),
+                right.getConcreteValue().floatValue(), nanResult);
+    }
+
+    private void compareFp64(int nanResult) {
+        RealValue right = env.topFrame().operandStack.popFp64();
+        RealValue left = env.topFrame().operandStack.popFp64();
+        pushRealComparison(left, right, left.getConcreteValue(),
+                right.getConcreteValue(), nanResult);
+    }
+
+    private void pushRealComparison(RealValue left, RealValue right,
+                                    double leftConcVal, double rightConcVal, int nanResult) {
+        if (!left.containsSymbolicVariable()) {
+            left = ExpressionFactory.buildNewRealConstant(leftConcVal);
+        }
+        if (!right.containsSymbolicVariable()) {
+            right = ExpressionFactory.buildNewRealConstant(rightConcVal);
+        }
+
+        int concVal;
+        if (Double.isNaN(leftConcVal) || Double.isNaN(rightConcVal)) {
+            concVal = nanResult;
+        } else if (leftConcVal == rightConcVal) {
+            concVal = 0;
+        } else if (leftConcVal > rightConcVal) {
+            concVal = 1;
+        } else {
+            concVal = -1;
+        }
+
+        env.topFrame().operandStack.pushBv32(
+                new RealComparison(left, right, (long) concVal));
     }
 
     /**
