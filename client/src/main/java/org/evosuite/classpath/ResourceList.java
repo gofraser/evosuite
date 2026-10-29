@@ -28,6 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
+import java.net.URL;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
@@ -102,6 +103,45 @@ public class ResourceList {
             }
         }
 
+        /**
+         * Key -> the path of a jar file.
+         *
+         * <p>Value -> the names of all its entries, in archive order, not only the classes</p>
+         */
+        final Map<String, Set<String>> jarEntryNames = new HashMap<>();
+
+        Set<String> getEntryNames(String entry) {
+            Set<String> names = jarEntryNames.get(entry);
+            if (names == null) {
+                names = new LinkedHashSet<>();
+                JarFile jar = getJar(entry);
+                if (jar != null) {
+                    Enumeration<JarEntry> entries = jar.entries();
+                    while (entries.hasMoreElements()) {
+                        names.add(entries.nextElement().getName());
+                    }
+                }
+                jarEntryNames.put(entry, names);
+            }
+            return names;
+        }
+
+        /**
+         * The classpath the entries of {@link #resourceEntries} were derived from. The target
+         * classpath can grow during a run, so a change rebuilds the entries.
+         */
+        String resourceClasspath;
+        List<ResourceEntry> resourceEntries = Collections.emptyList();
+
+        /**
+         * Key -> a resource name.
+         *
+         * <p>Value -> where the first classpath entry holding it found it; resolving one resource would
+         * otherwise stat every entry anew, and frame computation asks for hundreds while instrumenting
+         * a single class</p>
+         */
+        final Map<String, List<URL>> firstResource = new HashMap<>();
+
         void close() {
             for (JarFile jar : openedJars.values()) {
                 try {
@@ -113,6 +153,17 @@ public class ResourceList {
         }
     }
 
+
+    /** A classpath entry that can hold resources: a directory, or a jar/war archive. */
+    private static final class ResourceEntry {
+        final File file;
+        final boolean directory;
+
+        ResourceEntry(File file, boolean directory) {
+            this.file = file;
+            this.directory = directory;
+        }
+    }
 
     /**
      * Current cache. Do not access directly, but rather use getCache(), as it can be null.
@@ -184,6 +235,34 @@ public class ResourceList {
      */
     public synchronized boolean hasClass(String className) {
         return getCache().mapClassToCP.containsKey(className);
+    }
+
+    /**
+     * Finds a resource, such as a class file, on the target classpath.
+     *
+     * @param name the resource name, with '/' separators and no leading slash
+     * @return the URL of the first classpath entry holding the resource, or null if there is none
+     */
+    public synchronized URL findResource(String name) {
+        Cache c = getCache();
+        List<ResourceEntry> entries = resourceEntries(c);
+        List<URL> cached = c.firstResource.get(name);
+        if (cached == null) {
+            cached = collectResources(c, entries, name, true);
+            c.firstResource.put(name, cached);
+        }
+        return cached.isEmpty() ? null : cached.get(0);
+    }
+
+    /**
+     * Finds all occurrences of a resource on the target classpath.
+     *
+     * @param name the resource name, with '/' separators and no leading slash
+     * @return the URLs of all classpath entries holding the resource, in classpath order
+     */
+    public synchronized List<URL> findResources(String name) {
+        Cache c = getCache();
+        return collectResources(c, resourceEntries(c), name, false);
     }
 
     /**
@@ -533,6 +612,57 @@ public class ResourceList {
         return className.substring(0, index);
     }
 
+    private List<ResourceEntry> resourceEntries(Cache c) {
+        String targetClasspath = ClassPathHandler.getInstance().getTargetProjectClasspath();
+        if (targetClasspath == null) {
+            targetClasspath = "";
+        }
+        if (!targetClasspath.equals(c.resourceClasspath)) {
+            List<ResourceEntry> fresh = new ArrayList<>();
+            for (String entry : targetClasspath.split(File.pathSeparator)) {
+                if (entry.isEmpty()) {
+                    continue;
+                }
+                File cpEntry = new File(entry);
+                if (cpEntry.isDirectory()) {
+                    fresh.add(new ResourceEntry(cpEntry, true));
+                } else if (cpEntry.exists()) {
+                    String lower = cpEntry.getName().toLowerCase(Locale.ROOT);
+                    if (lower.endsWith(".jar") || lower.endsWith(".war")) {
+                        fresh.add(new ResourceEntry(cpEntry, false));
+                    }
+                }
+            }
+            c.resourceEntries = fresh;
+            c.resourceClasspath = targetClasspath;
+            c.firstResource.clear();
+        }
+        return c.resourceEntries;
+    }
+
+    private static List<URL> collectResources(Cache c, List<ResourceEntry> entries, String name,
+                                              boolean firstMatchOnly) {
+        LinkedHashSet<URL> resources = new LinkedHashSet<>();
+        for (ResourceEntry entry : entries) {
+            try {
+                if (entry.directory) {
+                    File resourceFile = new File(entry.file, name);
+                    if (resourceFile.isFile()) {
+                        resources.add(resourceFile.toURI().toURL());
+                    }
+                } else if (c.getEntryNames(entry.file.getAbsolutePath()).contains(name)) {
+                    resources.add(new URL("jar:" + entry.file.toURI().toURL() + "!/" + name));
+                }
+            } catch (Exception ignored) {
+                // Best-effort: an entry that cannot produce a URL contributes no resource.
+            }
+            if (firstMatchOnly && !resources.isEmpty()) {
+                break;
+            }
+        }
+        return new ArrayList<>(resources);
+    }
+
     /**
      * Init the cache if null.
      *
@@ -553,7 +683,11 @@ public class ResourceList {
         String cp = ClassPathHandler.getInstance().getTargetProjectClasspath();
 
         for (String entry : cp.split(File.pathSeparator)) {
-            addEntry(entry);
+            try {
+                addEntry(entry);
+            } catch (IllegalArgumentException e) {
+                logger.warn("Ignoring classpath entry {}: {}", entry, e.getMessage());
+            }
         }
     }
 
@@ -645,16 +779,7 @@ public class ResourceList {
     }
 
     private void scanJar(String jarEntry) {
-        JarFile zf = getCache().getJar(jarEntry);
-        if (zf == null) {
-            return;
-        }
-
-        Enumeration<?> e = zf.entries();
-        while (e.hasMoreElements()) {
-            JarEntry ze = (JarEntry) e.nextElement();
-            String entryName = ze.getName();
-
+        for (String entryName : getCache().getEntryNames(jarEntry)) {
             if (!entryName.endsWith(".class")) {
                 continue;
             }

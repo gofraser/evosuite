@@ -30,8 +30,10 @@ import org.junit.jupiter.api.Test;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 
 public class ResourceListTest {
 
@@ -80,6 +82,28 @@ public class ResourceListTest {
         InputStream stream = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getClassAsStream(className);
         Assertions.assertNotNull(stream);
         stream.close();
+    }
+
+    @Test
+    public void testFindResourceInFolderAndJar() {
+        File localFolder = new File("local_test_data" + File.separator + "aCpEntry");
+        File localJar = new File("local_test_data" + File.separator + "water-simulator.jar");
+        ClassPathHandler.getInstance().addElementToTargetProjectClassPath(localFolder.getAbsolutePath());
+        ResourceList list = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT());
+
+        URL fromFolder = list.findResource("foo/ExternalClass.class");
+        Assertions.assertNotNull(fromFolder);
+        Assertions.assertEquals("file", fromFolder.getProtocol());
+        Assertions.assertNull(list.findResource("simulator/DAWN.class"));
+
+        // The classpath grows after the lookups above; the new jar is found, a miss is not remembered.
+        ClassPathHandler.getInstance().addElementToTargetProjectClassPath(localJar.getAbsolutePath());
+        URL fromJar = list.findResource("simulator/DAWN.class");
+        Assertions.assertNotNull(fromJar);
+        Assertions.assertEquals("jar", fromJar.getProtocol());
+        Assertions.assertTrue(fromJar.toString().endsWith("water-simulator.jar!/simulator/DAWN.class"));
+        Assertions.assertEquals(Collections.singletonList(fromJar), list.findResources("simulator/DAWN.class"));
+        Assertions.assertTrue(list.findResources("no/such/Resource.txt").isEmpty());
     }
 
     @Test

@@ -21,7 +21,6 @@ package org.evosuite.instrumentation;
 
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
-import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.runtime.LoopCounter;
 import org.evosuite.runtime.instrumentation.RuntimeInstrumentation;
@@ -42,8 +41,6 @@ import java.security.ProtectionDomain;
 import java.security.cert.Certificate;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
 import java.util.regex.Pattern;
 
 
@@ -409,140 +406,24 @@ public class InstrumentingClassLoader extends ClassLoader {
         return false;
     }
 
-    /**
-     * Entry names of each classpath jar, keyed by jar path, built once on first use.
-     *
-     * <p>Without this, every resource lookup would reopen and reparse the central directory of
-     * every jar on the target classpath. A reflection-heavy static initializer issues hundreds of
-     * lookups in a row, which can push a &lt;clinit&gt; past the executor's grace period, at which
-     * point the class is abandoned mid-initialization and stays erroneous for the rest of the JVM.
-     * The cost is in finding the classes, not in the classes themselves.
-     *
-     * <p>Keyed by path rather than held as open {@link JarFile} handles so that the file
-     * descriptors are released immediately; a name set costs memory but no fd, and the target
-     * classpath does not change during a run.
-     */
-    private static final Map<String, Set<String>> JAR_ENTRY_NAMES = new ConcurrentHashMap<>();
-
-    private static Set<String> entryNamesOf(File jar) {
-        return JAR_ENTRY_NAMES.computeIfAbsent(jar.getAbsolutePath(), path -> {
-            Set<String> names = new HashSet<>();
-            try (JarFile jarFile = new JarFile(path)) {
-                Enumeration<JarEntry> entries = jarFile.entries();
-                while (entries.hasMoreElements()) {
-                    names.add(entries.nextElement().getName());
-                }
-            } catch (Exception ignored) {
-                // Best-effort fallback: an unreadable jar simply contributes no resources.
-            }
-            return names;
-        });
-    }
-
     private URL getResourceFromTargetClasspath(String name) {
-        List<URL> resources = collectResourcesFromTargetClasspath(name, true);
-        return resources.isEmpty() ? null : resources.get(0);
+        try {
+            return targetClasspath().findResource(name);
+        } catch (Throwable ignored) {
+            return null;
+        }
     }
 
     private List<URL> getResourcesFromTargetClasspath(String name) {
-        return collectResourcesFromTargetClasspath(name, false);
-    }
-
-    /**
-     * Resolving one resource would otherwise stat every classpath entry anew, and frame computation
-     * asks for hundreds of classes while instrumenting a single one. Remember which entries exist
-     * and what kind they are, keyed by
-     * the classpath string so a change still takes effect, and remember the answers.
-     */
-    private volatile String cachedClasspath;
-    private volatile List<ClasspathEntry> cachedClasspathEntries = Collections.emptyList();
-    private final Map<String, List<URL>> firstResourceCache = new ConcurrentHashMap<>();
-
-    /** A classpath entry that can hold resources: a directory, or a jar/war archive. */
-    private static final class ClasspathEntry {
-        final File file;
-        final boolean directory;
-
-        ClasspathEntry(File file, boolean directory) {
-            this.file = file;
-            this.directory = directory;
-        }
-    }
-
-    private List<ClasspathEntry> targetClasspathEntries(String targetClasspath) {
-        List<ClasspathEntry> entries = cachedClasspathEntries;
-        if (targetClasspath.equals(cachedClasspath)) {
-            return entries;
-        }
-        List<ClasspathEntry> fresh = new ArrayList<>();
-        for (String entry : targetClasspath.split(File.pathSeparator)) {
-            if (entry == null || entry.isEmpty()) {
-                continue;
-            }
-            File cpEntry = new File(entry);
-            if (cpEntry.isDirectory()) {
-                fresh.add(new ClasspathEntry(cpEntry, true));
-            } else if (cpEntry.exists()) {
-                String lower = cpEntry.getName().toLowerCase(Locale.ROOT);
-                if (lower.endsWith(".jar") || lower.endsWith(".war")) {
-                    fresh.add(new ClasspathEntry(cpEntry, false));
-                }
-            }
-        }
-        cachedClasspathEntries = fresh;
-        cachedClasspath = targetClasspath;
-        firstResourceCache.clear();
-        return fresh;
-    }
-
-    private List<URL> collectResourcesFromTargetClasspath(String name, boolean firstMatchOnly) {
-        String targetClasspath;
         try {
-            targetClasspath = ClassPathHandler.getInstance().getTargetProjectClasspath();
+            return targetClasspath().findResources(name);
         } catch (Throwable ignored) {
             return Collections.emptyList();
         }
+    }
 
-        if (targetClasspath == null || targetClasspath.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        List<ClasspathEntry> entries = targetClasspathEntries(targetClasspath);
-        if (firstMatchOnly) {
-            List<URL> cached = firstResourceCache.get(name);
-            if (cached != null) {
-                return cached;
-            }
-        }
-
-        LinkedHashSet<URL> resources = new LinkedHashSet<>();
-        for (ClasspathEntry entry : entries) {
-            File cpEntry = entry.file;
-            if (entry.directory) {
-                File resourceFile = new File(cpEntry, name);
-                if (resourceFile.isFile()) {
-                    try {
-                        resources.add(resourceFile.toURI().toURL());
-                    } catch (Exception ignored) {
-                        // Best-effort fallback.
-                    }
-                }
-            } else if (entryNamesOf(cpEntry).contains(name)) {
-                try {
-                    resources.add(new URL("jar:" + cpEntry.toURI().toURL() + "!/" + name));
-                } catch (Exception ignored) {
-                    // Best-effort fallback.
-                }
-            }
-            if (firstMatchOnly && !resources.isEmpty()) {
-                break;
-            }
-        }
-        List<URL> result = new ArrayList<>(resources);
-        if (firstMatchOnly) {
-            firstResourceCache.put(name, result);
-        }
-        return result;
+    private static ResourceList targetClasspath() {
+        return ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT());
     }
 
     private static void addEnumeration(Set<URL> sink, Enumeration<URL> enumeration) {
