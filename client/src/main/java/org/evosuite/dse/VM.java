@@ -4218,7 +4218,7 @@ public final class VM {
                 lambda.accept(ivm);
             }
         } catch (Throwable t) {
-            t.printStackTrace();
+            handleException(t);
         } finally {
             enableCallBacks();
         }
