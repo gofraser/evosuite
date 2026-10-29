@@ -62,30 +62,43 @@ public final class LlmWaitBudget {
     }
 
     /**
-     * Worst-case wall-clock wait in milliseconds, unclamped.
+     * Worst-case wall-clock wait in milliseconds, unclamped, for the LLM settings in
+     * {@link Properties}.
      */
     public static long repairAwareWaitMillis() {
+        // Only the timing settings matter here; a snapshot of the others could reject values
+        // that have nothing to do with how long to wait.
+        return repairAwareWaitMillisFor(LlmConfiguration.builder()
+                .timeoutSeconds(Math.max(1, Properties.LLM_TIMEOUT_SECONDS))
+                .retryMaxAttempts(Math.max(0, Properties.LLM_RETRY_MAX_ATTEMPTS))
+                .retryBaseDelayMs(Math.max(1, Properties.LLM_RETRY_BASE_DELAY_MS))
+                .build());
+    }
+
+    /**
+     * Worst-case wall-clock wait in milliseconds, unclamped, for the given configuration.
+     */
+    public static long repairAwareWaitMillisFor(LlmConfiguration configuration) {
         long attempts = Math.max(0L, Properties.LLM_REPAIR_ATTEMPTS);
-        long perCall = saturatingMultiply(worstCaseCallMillis(), attempts + 1L);
+        long perCall = saturatingMultiply(worstCaseCallMillis(configuration), attempts + 1L);
         return Math.max(1000L, perCall);
     }
 
     /**
      * Worst case for one {@code LlmService} call: every try runs into the
-     * timeout, and every retry is preceded by its (jittered, capped) backoff.
+     * timeout, and every retry is preceded by its longest backoff.
      */
-    private static long worstCaseCallMillis() {
-        long timeoutMillis = saturatingMultiply(Math.max(1L, Properties.LLM_TIMEOUT_SECONDS), 1000L);
-        long retries = Math.max(0L, Properties.LLM_RETRY_MAX_ATTEMPTS);
+    private static long worstCaseCallMillis(LlmConfiguration configuration) {
+        long timeoutMillis = saturatingMultiply(configuration.getTimeoutSeconds(), 1000L);
+        long retries = configuration.getRetryMaxAttempts();
         long total = saturatingAdd(timeoutMillis, saturatingMultiply(timeoutMillis, retries));
-        long baseDelay = Math.max(1L, Properties.LLM_RETRY_BASE_DELAY_MS);
-        for (long retry = 1; retry <= retries && total < Long.MAX_VALUE; retry++) {
-            // Mirrors LlmService.sleepBackoff: base * 2^(retry-1), up to +20% jitter, 60 s cap.
-            long exponent = Math.min(retry - 1L, 20L);
-            long delay = Math.min(60_000L, baseDelay * (1L << exponent) * 6L / 5L);
+        for (int retry = 1; retry <= retries && total < Long.MAX_VALUE; retry++) {
+            long delay = configuration.backoffMillis(retry, 1.0);
             total = saturatingAdd(total, delay);
-            if (delay == 60_000L) {
-                total = saturatingAdd(total, saturatingMultiply(60_000L, retries - retry));
+            if (delay == LlmConfiguration.MAX_BACKOFF_MILLIS) {
+                // Every later retry waits the cap as well.
+                total = saturatingAdd(total,
+                        saturatingMultiply(LlmConfiguration.MAX_BACKOFF_MILLIS, retries - retry));
                 break;
             }
         }

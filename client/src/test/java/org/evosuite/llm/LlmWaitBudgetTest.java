@@ -25,6 +25,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LlmWaitBudgetTest {
 
@@ -61,6 +62,29 @@ class LlmWaitBudgetTest {
         // rounded up to whole seconds.
         assertEquals(181L, LlmWaitBudget.repairAwareWaitSeconds());
         assertEquals(180_900L, LlmWaitBudget.repairAwareWaitMillis());
+    }
+
+    @Test
+    void anExplicitConfigurationReplacesTheLiveProperties() {
+        Properties.LLM_TIMEOUT_SECONDS = 999;
+        Properties.LLM_REPAIR_ATTEMPTS = 0;
+        LlmConfiguration configuration = LlmConfiguration.builder()
+                .timeoutSeconds(60).retryMaxAttempts(2).retryBaseDelayMs(250).build();
+
+        assertEquals(180_900L, LlmWaitBudget.repairAwareWaitMillisFor(configuration));
+    }
+
+    @Test
+    void theWorstCaseCoversTheLongestBackoffTheServiceCanDraw() {
+        LlmConfiguration configuration = LlmConfiguration.builder()
+                .timeoutSeconds(1).retryMaxAttempts(25).retryBaseDelayMs(750).build();
+        Properties.LLM_REPAIR_ATTEMPTS = 0;
+
+        long longest = 26_000L;
+        for (int attempt = 1; attempt <= 25; attempt++) {
+            longest += configuration.backoffMillis(attempt, Math.nextDown(1.0));
+        }
+        assertTrue(LlmWaitBudget.repairAwareWaitMillisFor(configuration) >= longest);
     }
 
     @Test

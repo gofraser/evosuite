@@ -290,6 +290,22 @@ public class LlmConfiguration {
         return retryBaseDelayMs;
     }
 
+    /** The longest pause before a retry, whatever the attempt number. */
+    static final long MAX_BACKOFF_MILLIS = 60_000L;
+
+    /**
+     * The pause before the retry that follows the given failed attempt (1 for the first): the
+     * base delay doubled per attempt, scaled by a jitter factor between 0.8 and 1.2, and capped
+     * at {@link #MAX_BACKOFF_MILLIS}.
+     *
+     * @param jitter a value in [0, 1) that picks the jitter factor; 1 gives the longest pause
+     */
+    long backoffMillis(int attempt, double jitter) {
+        int exponent = Math.min(Math.max(0, attempt - 1), 20);
+        long base = (long) retryBaseDelayMs * (1L << exponent);
+        return Math.min((long) (base * (0.8 + 0.4 * jitter)), MAX_BACKOFF_MILLIS);
+    }
+
     public boolean isTraceEnabled() {
         return traceEnabled;
     }
