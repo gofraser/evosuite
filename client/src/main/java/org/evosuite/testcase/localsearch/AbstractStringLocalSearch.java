@@ -61,14 +61,14 @@ public abstract class AbstractStringLocalSearch extends StatementLocalSearch {
             }
             String newString = oldValue.substring(0, i) + oldValue.substring(i + 1);
             p.setValue(newString);
-            logger.info(" " + i + " " + oldValue + "/" + oldValue.length() + " -> "
-                    + newString + "/" + newString.length());
+            logger.debug(" {} {}/{} -> {}/{}", i, oldValue, oldValue.length(), newString,
+                    newString.length());
             if (objective.hasImproved(test)) {
-                logger.info("Has improved");
+                logger.debug("Has improved");
                 backup(test, p);
                 improvement = true;
             } else {
-                logger.info("Has not improved");
+                logger.debug("Has not improved");
                 restore(test, p);
             }
         }

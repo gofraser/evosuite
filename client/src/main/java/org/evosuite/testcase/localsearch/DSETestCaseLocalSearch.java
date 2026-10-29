@@ -165,7 +165,9 @@ public class DSETestCaseLocalSearch extends TestCaseLocalSearch<TestChromosome> 
      */
     @Override
     public boolean doSearch(TestChromosome test, LocalSearchObjective<TestChromosome> objective) {
-        logger.info("Test before local search: " + test.getTestCase().toCode());
+        if (logger.isDebugEnabled()) {
+            logger.debug("Test before local search: {}", test.getTestCase().toCode());
+        }
 
         // gather covered branches true/false branch indexes
 
@@ -202,7 +204,7 @@ public class DSETestCaseLocalSearch extends TestCaseLocalSearch<TestChromosome> 
             // Therefore, no improvement on objective.
             fitnessHasImproved = false;
         } else {
-            logger.info("Yes, now applying the search at positions {}!", targetStatementIndexes);
+            logger.debug("Yes, now applying the search at positions {}!", targetStatementIndexes);
             DSETestGenerator dseTestGenerator;
             if (suite != null) {
                 dseTestGenerator = new DSETestGenerator(suite);

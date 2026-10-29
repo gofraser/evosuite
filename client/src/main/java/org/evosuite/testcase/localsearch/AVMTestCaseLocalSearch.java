@@ -38,7 +38,9 @@ public class AVMTestCaseLocalSearch extends TestCaseLocalSearch<TestChromosome> 
     @Override
     public boolean doSearch(TestChromosome individual, LocalSearchObjective<TestChromosome> objective) {
 
-        logger.info("Test before local search: " + individual.getTestCase().toCode());
+        if (logger.isDebugEnabled()) {
+            logger.debug("Test before local search: {}", individual.getTestCase().toCode());
+        }
 
         boolean improved = false;
 
@@ -70,8 +72,8 @@ public class AVMTestCaseLocalSearch extends TestCaseLocalSearch<TestChromosome> 
 
             StatementLocalSearch search = StatementLocalSearch.getLocalSearchFor(statement);
             if (search != null) {
-                logger.info("Applying local search of type " + search.getClass() + " to statement " + statement + " / "
-                        + individual.getTestCase().getStatement(i));
+                logger.debug("Applying local search of type {} to statement {} / {}", search.getClass(), statement,
+                        individual.getTestCase().getStatement(i));
                 if (search.doSearch(individual, i, objective)) {
                     improved = true;
                 }

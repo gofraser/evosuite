@@ -54,7 +54,7 @@ public abstract class NumericalLocalSearch<T> extends StatementLocalSearch {
 
         NumericalPrimitiveStatement<T> p = (NumericalPrimitiveStatement<T>) test.getTestCase().getStatement(statement);
 
-        logger.info("Applying search to: " + p.getCode());
+        logger.debug("Applying search to: {}", p.getCode());
 
         boolean improved = executeSearch(test, statement, objective, p);
 
@@ -65,7 +65,7 @@ public abstract class NumericalLocalSearch<T> extends StatementLocalSearch {
         test.setChanged(true);
         test.setTestCase(oldTest);
 
-        logger.info("Finished local search with result " + p.getCode());
+        logger.debug("Finished local search with result {}", p.getCode());
         return improved;
     }
 
@@ -90,7 +90,7 @@ public abstract class NumericalLocalSearch<T> extends StatementLocalSearch {
 
             // Try +delta
             p.increment(initialDelta);
-            logger.info("Trying increment of " + p.getCode());
+            logger.debug("Trying increment of {}", p.getCode());
 
             if (objective.hasImproved(test)) {
                 done = false;
@@ -105,7 +105,7 @@ public abstract class NumericalLocalSearch<T> extends StatementLocalSearch {
                 test.setChanged(false);
 
                 p.increment(-initialDelta);
-                logger.info("Trying decrement of " + p.getCode());
+                logger.debug("Trying decrement of {}", p.getCode());
 
                 if (objective.hasImproved(test)) {
                     done = false;
@@ -131,7 +131,7 @@ public abstract class NumericalLocalSearch<T> extends StatementLocalSearch {
         ExecutionResult oldResult = test.getLastExecutionResult();
 
         p.increment(delta);
-        logger.info("Trying increment " + delta + " of " + p.getCode());
+        logger.debug("Trying increment {} of {}", delta, p.getCode());
         while (objective.hasImproved(test)) {
             if (LocalSearchBudget.getInstance().isFinished()) {
                 break;
@@ -141,7 +141,7 @@ public abstract class NumericalLocalSearch<T> extends StatementLocalSearch {
             improvement = true;
             delta = factor * delta;
             p.increment(delta);
-            logger.info("Trying increment " + delta + " of " + p.getCode());
+            logger.debug("Trying increment {} of {}", delta, p.getCode());
         }
         // logger.info("No improvement on " + p.getCode());
 

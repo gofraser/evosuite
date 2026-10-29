@@ -119,8 +119,8 @@ public class StringAVMLocalSearch extends AbstractStringLocalSearch {
                 characters[i] = replacement;
                 String newString = new String(characters);
                 p.setValue(newString);
-                logger.info(" " + i + " " + oldValue + "/" + oldValue.length() + " -> "
-                        + newString + "/" + newString.length());
+                logger.debug(" {} {}/{} -> {}/{}", i, oldValue, oldValue.length(), newString,
+                        newString.length());
 
                 if (objective.hasImproved(test)) {
                     improvement = true;

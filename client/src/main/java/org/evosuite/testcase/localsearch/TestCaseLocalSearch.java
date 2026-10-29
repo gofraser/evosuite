@@ -103,8 +103,8 @@ public abstract class TestCaseLocalSearch<T extends Chromosome<T>> implements Lo
         final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
         final Statement statement = test.getStatement(position);
         if (!test.hasReferences(statement.getReturnValue()) && !statement.getReturnClass().equals(targetClass)) {
-            logger.info("Return value of statement " + position
-                    + " is not referenced and not SUT, not doing local search");
+            logger.debug("Return value of statement {} is not referenced and not SUT, not doing local search",
+                    position);
             return false;
         }
         return true;

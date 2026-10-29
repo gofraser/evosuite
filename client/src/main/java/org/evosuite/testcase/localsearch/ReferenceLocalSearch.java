@@ -79,7 +79,7 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
 
         while (currentProbe < Properties.LOCAL_SEARCH_PROBES
                 && !LocalSearchBudget.getInstance().isFinished()) {
-            logger.info("Current probe on statement " + statement + ": " + currentProbe);
+            logger.debug("Current probe on statement {}: {}", statement, currentProbe);
 
             List<Mutations> mutations = new ArrayList<>();
             mutations.add(Mutations.REPLACE);
@@ -116,10 +116,10 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
             }
 
             if (test.isChanged()) {
-                logger.info("Is changed");
+                logger.debug("Is changed");
                 // logger.info("Test after mutation: " + test.getTestCase().toCode());
                 if (objective.hasImproved(test)) {
-                    logger.info("Fitness has improved, keeping");
+                    logger.debug("Fitness has improved, keeping");
 
                     currentProbe = 0;
                     hasImproved = true;
@@ -128,13 +128,13 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
                     positionDelta += delta;
                     oldLength = test.size();
                 } else {
-                    logger.info("Fitness has not improved, reverting");
+                    logger.debug("Fitness has not improved, reverting");
 
                     currentProbe++;
                     restore(test);
                 }
             } else {
-                logger.info("Is not changed");
+                logger.debug("Is not changed");
                 currentProbe++;
             }
 

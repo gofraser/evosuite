@@ -51,11 +51,11 @@ public class FloatLocalSearch<T extends Number> extends NumericalLocalSearch<T> 
         boolean improved = performAVM(test, statement, objective, 1.0, 2.0, p);
 
         if (!improved) {
-            logger.info("Stopping search as variable doesn't influence fitness");
+            logger.debug("Stopping search as variable doesn't influence fitness");
             return false;
         }
 
-        logger.info("Checking after the comma: " + p.getCode());
+        logger.debug("Checking after the comma: {}", p.getCode());
 
         int maxPrecision = p.getValue().getClass().equals(Float.class) ? 7 : 15;
         for (int precision = 1; precision <= maxPrecision; precision++) {
@@ -97,13 +97,12 @@ public class FloatLocalSearch<T extends Number> extends NumericalLocalSearch<T> 
             p.setValue((T) Double.valueOf(newValue));
         }
 
-        logger.info("Trying to chop precision " + precision + ": " + value + " -> "
-                + newValue);
+        logger.debug("Trying to chop precision {}: {} -> {}", precision, value, newValue);
 
         if (objective.hasNotWorsened(test)) {
             return true;
         } else {
-            logger.info("Restoring old value: " + value);
+            logger.debug("Restoring old value: {}", value);
             p.setValue(oldValue);
             test.setLastExecutionResult(oldResult);
             test.setChanged(false);
