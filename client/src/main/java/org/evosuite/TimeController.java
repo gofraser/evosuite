@@ -392,32 +392,7 @@ public class TimeController {
      * @return true if there is still at least ms left, false otherwise
      */
     public synchronized boolean isThereStillTimeInThisPhase(long ms) {
-
-        if (state.equals(ClientState.NOT_STARTED)) {
-            return true;
-        }
-
-        //all time values are in milliseconds
-        int[] budgets = plannedBudgetsInSeconds();
-        long left = getLeftTimeBeforeEnd(budgets);
-
-        if (ms > left) {
-            return false;
-        }
-
-        /*
-         * OK, there is enough time, but have we spent too long
-         * in the current phase?
-         */
-        if (currentPhaseHasTimeout()) {
-            long timeoutInMs = getCurrentPhaseTimeout();
-            long timeSincePhaseStarted = System.currentTimeMillis() - currentPhaseStartTime;
-            long phaseLeft = timeoutInMs - timeSincePhaseStarted + timeLeftFromPreviousPhases;
-            logger.debug("Time left for current phase {}: {}", state, phaseLeft);
-            return ms <= phaseLeft;
-        }
-
-        return ms <= getLeftTimeBeforeEndOfUntimedPhase(left, budgets);
+        return ms <= getRemainingTimeInPhaseMs();
     }
 
     /**
