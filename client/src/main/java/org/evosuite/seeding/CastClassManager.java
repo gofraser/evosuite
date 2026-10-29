@@ -254,7 +254,7 @@ public class CastClassManager {
         // If we have an abstract class, try to find concrete subclasses we can use instead.
         if (clazz.isAbstract()) {
             final ConcreteClassAnalyzer analyzer = ConcreteClassAnalyzer.getInstance();
-            final InheritanceTree tree = TestCluster.getInheritanceTree();
+            final InheritanceTree tree = DependencyAnalysis.getInheritanceTree();
             final Set<Class<?>> concreteClasses = analyzer.getConcreteClasses(rawClass, tree);
 
             for (final Class<?> concreteClass : concreteClasses) {

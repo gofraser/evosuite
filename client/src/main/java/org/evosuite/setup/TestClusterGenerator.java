@@ -99,8 +99,6 @@ public class TestClusterGenerator {
      */
     public void generateCluster(CallGraph callGraph) throws RuntimeException, ClassNotFoundException {
 
-        TestCluster.setInheritanceTree(inheritanceTree);
-
         if (Properties.INSTRUMENT_CONTEXT
                 || ArrayUtil.contains(Properties.CRITERION, Criterion.DEFUSE)
                 || ArrayUtil.contains(Properties.CRITERION, Criterion.ALLDEFS)

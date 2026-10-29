@@ -26,7 +26,6 @@ import org.evosuite.TimeController;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.ga.archive.Archive;
 import org.evosuite.ga.operators.selection.RankSelection;
-import org.evosuite.runtime.mock.MockList;
 import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.runtime.util.Inputs;
 import org.evosuite.seeding.CastClassManager;
@@ -64,12 +63,12 @@ public class TestCluster {
      * Set of all classes already analyzed.
      */
     @Deprecated
-    private static final Set<Class<?>> analyzedClasses = new LinkedHashSet<>();
+    private final Set<Class<?>> analyzedClasses = new LinkedHashSet<>();
 
     /**
      * UUT methods we want to cover when testing.
      */
-    private static final Set<GenericAccessibleObject<?>> testMethods = new LinkedHashSet<>();
+    private final Set<GenericAccessibleObject<?>> testMethods = new LinkedHashSet<>();
 
     /**
      * Baseline set of discovered target calls before runtime pruning.
@@ -78,13 +77,13 @@ public class TestCluster {
      * #testMethods}. Keeping this baseline allows mutation to recover and continue exploring
      * instead of dead-ending.
      */
-    private static final Set<GenericAccessibleObject<?>> allDiscoveredTestMethods =
+    private final Set<GenericAccessibleObject<?>> allDiscoveredTestMethods =
             new LinkedHashSet<>();
 
     /**
      * Guard to avoid repeating the same fallback warning every generation.
      */
-    private static boolean warnedAboutExhaustedActiveCalls = false;
+    private boolean warnedAboutExhaustedActiveCalls = false;
 
     /**
      * Methods used to modify and set the environment of the UUT.
@@ -94,12 +93,12 @@ public class TestCluster {
     /**
      * Static information about how to generate types.
      */
-    private static final Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generators = new LinkedHashMap<>();
+    private final Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generators = new LinkedHashMap<>();
 
     /**
      * Cached information about how to generate types.
      */
-    private static final Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generatorCache = new LinkedHashMap<>();
+    private final Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generatorCache = new LinkedHashMap<>();
 
     /**
      * Guards concurrent access to {@link #generators} and {@link #generatorCache}. The LLM async
@@ -110,14 +109,12 @@ public class TestCluster {
      * keySet()} just yielded. The monitor is reentrant, so the setup-time call chains that re-enter
      * {@code cacheGenerators} remain safe.
      */
-    private static final Object generatorsLock = new Object();
+    private final Object generatorsLock = new Object();
 
     /**
      * Static information about how to modify types.
      */
-    private static final Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> modifiers = new LinkedHashMap<>();
-
-    private static InheritanceTree inheritanceTree = null;
+    private final Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> modifiers = new LinkedHashMap<>();
 
     private final EnvironmentTestClusterAugmenter environmentAugmenter;
 
@@ -144,18 +141,9 @@ public class TestCluster {
     }
 
     /**
-     * Reset the test cluster.
+     * Reset the test cluster: the next {@link #getInstance()} starts from an empty one.
      */
-    public static void reset() {
-        analyzedClasses.clear();
-        testMethods.clear();
-        allDiscoveredTestMethods.clear();
-        warnedAboutExhaustedActiveCalls = false;
-        generators.clear();
-        generatorCache.clear();
-        modifiers.clear();
-        CastClassManager.getInstance().clear();
-
+    public static synchronized void reset() {
         instance = null;
     }
 
@@ -331,24 +319,6 @@ public class TestCluster {
 
     public void handleRuntimeAccesses(TestCase test) {
         environmentAugmenter.handleRuntimeAccesses(test);
-    }
-
-    /**
-     * Get the inheritance tree.
-     *
-     * @return the inheritancetree
-     */
-    public static InheritanceTree getInheritanceTree() {
-        return inheritanceTree;
-    }
-
-    /**
-     * Set the inheritance tree.
-     *
-     * @param inheritancetree the inheritance tree to set
-     */
-    protected static void setInheritanceTree(InheritanceTree inheritancetree) {
-        inheritanceTree = inheritancetree;
     }
 
     private static boolean isNotCallableFromSource(GenericAccessibleObject<?> call) {
@@ -1179,7 +1149,7 @@ public class TestCluster {
         for (GenericAccessibleObject<?> candidate : generators) {
             // A random cast class is satisfied by a real Swing component on purpose: nothing
             // typed as that component competes with a mock here, unlike for a parameter.
-            if (isHeadlessIncompatibleGenerator(candidate, Properties.HEADLESS_FILTER_JDK_GUI_CAST_GENERATORS)) {
+            if (HeadlessGeneratorFilter.isIncompatible(candidate, Properties.HEADLESS_FILTER_JDK_GUI_CAST_GENERATORS)) {
                 continue;
             }
             GenericAccessibleObject<?> instantiated = instantiateGenerator(candidate, clazz);
@@ -1256,7 +1226,7 @@ public class TestCluster {
                 return null;
             }
 
-            baseCandidates.removeIf(this::isHeadlessIncompatibleGenerator);
+            baseCandidates.removeIf(HeadlessGeneratorFilter::isIncompatible);
             if (baseCandidates.isEmpty()) {
                 logger.debug("All candidate generators for {} were filtered out by headless mode", clazz);
                 return null;
@@ -1433,149 +1403,6 @@ public class TestCluster {
         return ranked.get(index);
     }
 
-    private boolean isHeadlessIncompatibleGenerator(GenericAccessibleObject<?> generator) {
-        return isHeadlessIncompatibleGenerator(generator, Properties.HEADLESS_FILTER_JDK_GUI_GENERATORS);
-    }
-
-    private boolean isHeadlessIncompatibleGenerator(GenericAccessibleObject<?> generator,
-                                                    boolean filterJdkGuiComponents) {
-        if (!Properties.HEADLESS_MODE) {
-            return false;
-        }
-
-        // Filter any generator declared on a JDK Swing/AWT Component subclass
-        // (eg JPopupMenu.Separator, JSeparator, JPanel).  Even when their
-        // constructors do not declare HeadlessException, constructing such a
-        // component can transitively load the platform Look-and-Feel (Aqua on
-        // macOS) or touch the real GraphicsEnvironment.  On macOS that calls
-        // into AppKit, which aborts the JVM (SIGABRT / signal 6) when touched
-        // off the main thread.  Mock classes (org.evosuite.runtime.mock.*)
-        // live outside java./javax. so are not affected.
-        Class<?> declaringClass = generator.getDeclaringClass();
-        if (filterJdkGuiComponents && isJdkGuiComponent(declaringClass)
-                && !(Properties.HEADLESS_ALLOW_JDK_GUI_WRAPPING_CONSTRUCTORS
-                && isComponentWrappingConstructor(generator))) {
-            return true;
-        }
-
-        // Filter constructors that declare HeadlessException — these call
-        // GraphicsEnvironment.checkHeadless() and will always fail in headless
-        // mode.  This covers Window/Frame/Dialog as well as heavyweight AWT
-        // components like ScrollPane, Button, Label, etc.
-        if (generator.isConstructor()) {
-            GenericConstructor gc = (GenericConstructor) generator;
-            boolean declaresHeadless = false;
-            for (Class<?> ex : gc.getConstructor().getExceptionTypes()) {
-                if (ex == java.awt.HeadlessException.class) {
-                    declaresHeadless = true;
-                    break;
-                }
-            }
-            if (declaresHeadless) {
-                String declaringName = declaringClass.getCanonicalName();
-                // If this IS a JDK class that we mock (e.g. JFrame itself),
-                // keep filtering — reflection bypasses the mock.
-                if (declaringName != null && MockList.shouldBeMocked(declaringName)) {
-                    return true;
-                }
-                // If the declaring class has a mocked ancestor (e.g. CUT extends
-                // JFrame), the mock handles headless via bytecode instrumentation
-                // — don't filter.
-                if (hasMockedAncestor(declaringClass)) {
-                    return false;
-                }
-                // Keep filtering JDK classes and Window hierarchy constructors,
-                // which are known to invoke GraphicsEnvironment.checkHeadless().
-                if (isJdkType(declaringClass)
-                        || isAssignableToTypeName(declaringClass, "java.awt.Window")) {
-                    return true;
-                }
-                // For non-JDK CUT classes, a declared HeadlessException alone is
-                // too coarse as a filter and can hide testable code paths.
-                return false;
-            }
-        }
-
-        // Filter methods/fields that return abstract AWT types which have no concrete
-        // implementation in a headless environment (e.g., GraphicsConfiguration,
-        // GraphicsDevice).  Without this filter, EvoSuite picks generators like
-        // Component.getGraphicsConfiguration() which return null in headless mode,
-        // producing broken test chains instead of falling back to mocking.
-        if (generator.isMethod() || generator.isField()) {
-            Class<?> returnType = generator.getGeneratedClass().getRawClass();
-            if (returnType != null
-                    && java.lang.reflect.Modifier.isAbstract(returnType.getModifiers())
-                    && isHeadlessOnlyType(returnType)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Returns true for abstract AWT/Swing types that have no concrete implementation available in a
-     * headless environment. These types can only be obtained via mocking when running headless.
-     */
-    private static boolean isHeadlessOnlyType(Class<?> type) {
-        String name = type.getName();
-        return name.equals("java.awt.GraphicsConfiguration")
-                || name.equals("java.awt.GraphicsDevice")
-                || name.equals("java.awt.GraphicsEnvironment");
-    }
-
-    /**
-     * Returns true for a constructor that takes an existing {@link java.awt.Component}, such as
-     * {@code JScrollPane(Component)}: it wraps an object (often the class under test, which then
-     * gets a real parent) rather than standing in for a typed parameter with a default component.
-     */
-    private static boolean isComponentWrappingConstructor(GenericAccessibleObject<?> generator) {
-        if (!generator.isConstructor()) {
-            return false;
-        }
-        for (Class<?> parameterType : ((GenericConstructor) generator).getConstructor().getParameterTypes()) {
-            if (java.awt.Component.class.isAssignableFrom(parameterType)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Returns true if the given class is a JDK Swing/AWT {@link java.awt.Component} subclass, ie
-     * declared in {@code java.awt.*} or {@code javax.swing.*} (including nested classes like {@code
-     * javax.swing.JPopupMenu$Separator}). EvoSuite's own mock classes live in {@code
-     * org.evosuite.runtime.mock.*} and are not matched.
-     */
-    private static boolean isJdkGuiComponent(Class<?> clazz) {
-        if (clazz == null) {
-            return false;
-        }
-        try {
-            if (!java.awt.Component.class.isAssignableFrom(clazz)) {
-                return false;
-            }
-        } catch (Throwable t) {
-            return false;
-        }
-        return ClassOrigin.isJdkGuiName(clazz.getName());
-    }
-
-    /**
-     * Returns {@code true} if any class in {@code clazz}'s superclass chain has a registered
-     * OverrideMock. This means bytecode instrumentation will replace the superclass reference,
-     * allowing the mock to handle headless construction.
-     */
-    private static boolean hasMockedAncestor(Class<?> clazz) {
-        for (Class<?> c = clazz.getSuperclass(); c != null; c = c.getSuperclass()) {
-            String name = c.getCanonicalName();
-            if (name != null && MockList.shouldBeMocked(name)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     /**
      * Returns {@code true} if the given type has generators registered but all of them are filtered
      * out by headless mode. This is used to decide whether to fall back to functional mocking for
@@ -1594,7 +1421,7 @@ public class TestCluster {
         if (generators == null || generators.isEmpty()) {
             return false;
         }
-        return generators.stream().allMatch(this::isHeadlessIncompatibleGenerator);
+        return generators.stream().allMatch(HeadlessGeneratorFilter::isIncompatible);
     }
 
     private boolean shouldFilterHeadlessIncompatibleTestCall(GenericAccessibleObject<?> call) {
@@ -1602,12 +1429,12 @@ public class TestCluster {
             return false;
         }
         // Explicit opt-in: filter the call itself if it declares HeadlessException
-        if (Properties.HEADLESS_FILTER_CUT_CALLS && isHeadlessIncompatibleGenerator(call)) {
+        if (Properties.HEADLESS_FILTER_CUT_CALLS && HeadlessGeneratorFilter.isIncompatible(call)) {
             return true;
         }
         // Auto-filter constructors that declare HeadlessException — they will
         // always fail in headless mode regardless of HEADLESS_FILTER_CUT_CALLS.
-        if (call.isConstructor() && isHeadlessIncompatibleGenerator(call)) {
+        if (call.isConstructor() && HeadlessGeneratorFilter.isIncompatible(call)) {
             return true;
         }
         // Auto-filter instance methods/fields whose owner class has no usable
@@ -1620,19 +1447,6 @@ public class TestCluster {
             }
         }
         return false;
-    }
-
-    private boolean isAssignableToTypeName(Class<?> type, String superTypeName) {
-        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
-            if (superTypeName.equals(current.getName())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean isJdkType(Class<?> type) {
-        return ClassOrigin.isJavaApiName(type.getName());
     }
 
     /**
@@ -2170,3 +1984,4 @@ public class TestCluster {
     }
 
 }
+

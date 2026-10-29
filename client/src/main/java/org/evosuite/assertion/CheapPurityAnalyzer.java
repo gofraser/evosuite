@@ -23,7 +23,7 @@ import org.evosuite.instrumentation.BytecodeInstrumentation;
 import org.evosuite.runtime.classhandling.ClassResetter;
 import org.evosuite.runtime.mock.MockList;
 import org.evosuite.setup.InheritanceTree;
-import org.evosuite.setup.TestCluster;
+import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.utils.JdkPureMethodsList;
 import org.objectweb.asm.Type;
 import org.slf4j.Logger;
@@ -208,7 +208,7 @@ public class CheapPurityAnalyzer {
     }
 
     private boolean isPureSuperclass(MethodEntry entry, Deque<MethodEntry> callStack) {
-        InheritanceTree inheritanceTree = TestCluster.getInheritanceTree();
+        InheritanceTree inheritanceTree = DependencyAnalysis.getInheritanceTree();
         for (String superClassName : inheritanceTree
                 .getOrderedSuperclasses(entry.className)) {
             if (superClassName.equals(entry.className)) {
@@ -269,7 +269,7 @@ public class CheapPurityAnalyzer {
 
     private boolean checkAnyOverridingMethodImpure(MethodEntry entry,
                                                    Deque<MethodEntry> callStack) {
-        InheritanceTree inheritanceTree = TestCluster.getInheritanceTree();
+        InheritanceTree inheritanceTree = DependencyAnalysis.getInheritanceTree();
 
         String className = "" + entry.className;
         // while (className.contains("[L")) {

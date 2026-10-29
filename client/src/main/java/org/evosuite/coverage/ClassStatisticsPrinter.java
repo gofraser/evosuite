@@ -32,7 +32,6 @@ import org.evosuite.instrumentation.LinePool;
 import org.evosuite.runtime.classhandling.ClassResetter;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.setup.DependencyAnalysis;
-import org.evosuite.setup.TestCluster;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionTracer;
@@ -136,9 +135,9 @@ public class ClassStatisticsPrinter {
         }
 
         LoggingUtils.getEvoLogger().info("* Subclasses: "
-                + (TestCluster.getInheritanceTree().getSubclasses(Properties.TARGET_CLASS).size() - 1));
+                + (DependencyAnalysis.getInheritanceTree().getSubclasses(Properties.TARGET_CLASS).size() - 1));
         LoggingUtils.getEvoLogger().info("* Superclasses/interfaces: "
-                + (TestCluster.getInheritanceTree().getSuperclasses(Properties.TARGET_CLASS).size() - 1));
+                + (DependencyAnalysis.getInheritanceTree().getSuperclasses(Properties.TARGET_CLASS).size() - 1));
         LoggingUtils.getEvoLogger().info("* Lines of code: " + LinePool.getNumLines());
         LoggingUtils.getEvoLogger().info("* Methods without branches: "
                 + BranchPool.getInstance(TestGenerationContext.getInstance()
