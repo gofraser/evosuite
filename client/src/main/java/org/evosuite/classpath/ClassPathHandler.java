@@ -296,13 +296,23 @@ public class ClassPathHandler {
             targetClassPath = element;
         } else {
 
-            if (targetClassPath.contains(element)) {
+            if (containsEntry(targetClassPath, element)) {
                 return; //already there, nothing to add
             }
 
             targetClassPath += File.pathSeparator + element;
             Properties.CP = targetClassPath;
         }
+    }
+
+    private static boolean containsEntry(String classPath, String element) {
+        Path wanted = new File(element).toPath().toAbsolutePath().normalize();
+        for (String entry : classPath.split(File.pathSeparator)) {
+            if (!entry.isEmpty() && new File(entry).toPath().toAbsolutePath().normalize().equals(wanted)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void checkIfValidClasspathEntry(String element) throws IllegalArgumentException {
