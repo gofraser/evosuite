@@ -162,7 +162,12 @@ class RepairHintTextGoldenTest {
         for (int i = 0; i < pairs.length; i += 3) {
             ParseResult pr = (ParseResult) pairs[i];
             Throwable thrown = (Throwable) pairs[i + 2];
-            map.put(pr, new ExecutionFailureContext((String) pairs[i + 1], pinStackTraces(thrown), null));
+            String errorMessage = (String) pairs[i + 1];
+            java.util.regex.Matcher excerpt = java.util.regex.Pattern
+                    .compile("Parsed test code excerpt:\\n```java\\n(.*?)\\n```", java.util.regex.Pattern.DOTALL)
+                    .matcher(errorMessage);
+            map.put(pr, new ExecutionFailureContext(errorMessage, pinStackTraces(thrown), null,
+                    excerpt.find() ? excerpt.group(1) : null));
         }
         return map;
     }
@@ -328,7 +333,8 @@ class RepairHintTextGoldenTest {
                 + "(String)\" because \"elem\" is null\nParsed test code excerpt:\n```java\n"
                 + "Element elem = null;\nsut.read(elem);\n```";
         cases.add(new Case("npe direct test variable",
-                npeDirect, "Element elem = null;", none, 2, 1, false));
+                npeDirect, "Element elem = null;",
+                failures(parseResult("testNpe"), npeDirect, new NullPointerException("npe")), 2, 1, false));
         String npeInside = "java.lang.NullPointerException: Cannot invoke \"com.example.Shape.area()\" "
                 + "because \"shape\" is null";
         cases.add(new Case("npe inside sut",
@@ -340,7 +346,8 @@ class RepairHintTextGoldenTest {
         String npeField = "java.lang.NullPointerException: Cannot read field \"size\" because \"box\" is null"
                 + "\nParsed test code excerpt:\n```java\nBox box = null;\nsut.fill(box);\n```";
         cases.add(new Case("npe field read on test variable",
-                npeField, "Box box = null;", none, 2, 1, false));
+                npeField, "Box box = null;",
+                failures(parseResult("testNpe"), npeField, new NullPointerException("npe")), 2, 1, false));
         cases.add(new Case("npe synthetic local",
                 "java.lang.NullPointerException: because \"<local1>\" is null",
                 null, none, 2, 1, false));

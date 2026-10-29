@@ -73,8 +73,6 @@ final class RepairHintComposer {
     private static final Pattern NEW_DECLARATION_PATTERN = Pattern.compile(
             "\\b([A-Za-z_][A-Za-z0-9_$.<>]*)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*=\\s*new"
                     + "\\s+([A-Za-z_][A-Za-z0-9_$.]*)\\s*\\(");
-    private static final Pattern PARSED_TEST_CODE_EXCERPT_PATTERN = Pattern.compile(
-            "Parsed test code excerpt:\\n```java\\n(.*?)\\n```", Pattern.DOTALL);
     private static final Pattern ANONYMOUS_TYPE_CREATION_PATTERN = Pattern.compile(
             "\\bnew\\s+([A-Za-z_][A-Za-z0-9_$.]*)\\s*\\([^)]*\\)\\s*\\{");
     private static final Pattern MISSING_SYMBOL_CLASS_PATTERN = Pattern.compile(
@@ -322,7 +320,7 @@ final class RepairHintComposer {
         String nullVariable = extractNullVariableName(error);
         NpeDereferenceInfo dereferenceInfo = extractNpeDereferenceInfo(error);
         boolean syntheticLocal = isSyntheticLocalVariable(nullVariable);
-        boolean directTestVariable = appearsInParsedTestCodeExcerpt(error, nullVariable);
+        boolean directTestVariable = appearsInCodeExcerpt(scopes.codeExcerpt, nullVariable);
         repairMessage.append("\n\nNPE precondition hint:");
         appendFailureScopeQualifier(repairMessage, scopes, scopes.npeFailingTests,
                 "These NPE-precondition hints apply ONLY to the test(s) above; do not "
@@ -412,6 +410,8 @@ final class RepairHintComposer {
      */
     private static final class FailureScopes {
         final boolean executionFailuresAvailable;
+        /** The parsed-test excerpt of the first failure that has one. */
+        String codeExcerpt;
         final List<String> npeFailingTests = new ArrayList<>();
         final List<String> shadedMockFailingTests = new ArrayList<>();
         final List<String> expectationMismatchFailingTests = new ArrayList<>();
@@ -438,6 +438,9 @@ final class RepairHintComposer {
             }
             String name = safeMethodName(pr);
             Throwable thrown = ctx.throwable;
+            if (scopes.codeExcerpt == null) {
+                scopes.codeExcerpt = ctx.codeExcerpt;
+            }
             if (thrown instanceof NullPointerException
                     || (ctx.errorMessage != null
                             && (ctx.errorMessage.contains("NullPointerException")
@@ -1091,16 +1094,8 @@ final class RepairHintComposer {
         return withoutArgs.substring(0, lastDot);
     }
 
-    private boolean appearsInParsedTestCodeExcerpt(String error, String variableName) {
-        if (error == null || error.isEmpty() || variableName == null || variableName.isEmpty()) {
-            return false;
-        }
-        java.util.regex.Matcher matcher = PARSED_TEST_CODE_EXCERPT_PATTERN.matcher(error);
-        if (!matcher.find()) {
-            return false;
-        }
-        String excerpt = matcher.group(1);
-        if (excerpt == null || excerpt.isEmpty()) {
+    private boolean appearsInCodeExcerpt(String excerpt, String variableName) {
+        if (excerpt == null || excerpt.isEmpty() || variableName == null || variableName.isEmpty()) {
             return false;
         }
         return Pattern.compile("\\b" + Pattern.quote(variableName) + "\\b").matcher(excerpt).find();

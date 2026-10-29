@@ -188,9 +188,27 @@ final class ExecutionFailureFormatter {
         return null;
     }
 
+    /**
+     * Renders the parsed test as an indexed, size-limited excerpt for repair feedback.
+     *
+     * @return the excerpt, or null when the test is empty or cannot be rendered
+     */
+    String renderCodeExcerpt(ParseResult parseResult) {
+        try {
+            String testCode = renderIndexedTestCaseExcerpt(parseResult);
+            if (testCode != null && !testCode.trim().isEmpty()) {
+                return truncate(testCode.trim(), MAX_TEST_CODE_EXCERPT_CHARS);
+            }
+        } catch (Throwable ignored) {
+            // best-effort diagnostic enrichment only
+        }
+        return null;
+    }
+
     String buildExecutionContext(ParseResult parseResult,
                                          Integer failingPosition,
-                                         Throwable thrown) {
+                                         Throwable thrown,
+                                         String codeExcerpt) {
         if (parseResult == null || parseResult.getTestCase() == null) {
             return "";
         }
@@ -223,15 +241,10 @@ final class ExecutionFailureFormatter {
             context.append(fallbackResolutionNote);
         }
 
-        try {
-            String testCode = renderIndexedTestCaseExcerpt(parseResult);
-            if (testCode != null && !testCode.trim().isEmpty()) {
-                context.append("\nParsed test code excerpt:\n```java\n")
-                        .append(truncate(testCode.trim(), MAX_TEST_CODE_EXCERPT_CHARS))
-                        .append("\n```");
-            }
-        } catch (Throwable ignored) {
-            // best-effort diagnostic enrichment only
+        if (codeExcerpt != null) {
+            context.append("\nParsed test code excerpt:\n```java\n")
+                    .append(codeExcerpt)
+                    .append("\n```");
         }
         return context.toString();
     }

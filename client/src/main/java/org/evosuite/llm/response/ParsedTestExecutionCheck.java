@@ -75,18 +75,16 @@ final class ParsedTestExecutionCheck {
                     }
                     Integer diagnosticPosition =
                             failureFormatter.resolveDiagnosticStatementPosition(parseResult, position, thrown);
-                    String message = "Execution error in test '" + parseResult.getOriginalMethodName()
-                            + "': "
-                            + failureFormatter.formatThrowableWithStackExcerpt(thrown, parseResult, diagnosticPosition)
-                            + failureFormatter.buildExecutionContext(parseResult, diagnosticPosition, thrown);
-                    return new ExecutionFailureContext(message, thrown, diagnosticPosition);
+                    return failure(parseResult, "Execution error in test '"
+                            + parseResult.getOriginalMethodName() + "': "
+                            + failureFormatter.formatThrowableWithStackExcerpt(thrown, parseResult, diagnosticPosition),
+                            thrown, diagnosticPosition);
                 }
             }
         } catch (Throwable executionFailure) {
-            String message = "Execution failure in test '" + parseResult.getOriginalMethodName()
-                    + "': " + failureFormatter.formatThrowableWithStackExcerpt(executionFailure, parseResult, null)
-                    + failureFormatter.buildExecutionContext(parseResult, null, executionFailure);
-            return new ExecutionFailureContext(message, executionFailure, null);
+            return failure(parseResult, "Execution failure in test '" + parseResult.getOriginalMethodName()
+                    + "': " + failureFormatter.formatThrowableWithStackExcerpt(executionFailure, parseResult, null),
+                    executionFailure, null);
         }
         if (repairOnAssertionFailures) {
             ExecutionFailureContext assertionError = checkAssertions(parseResult, executionResult);
@@ -129,18 +127,15 @@ final class ParsedTestExecutionCheck {
                 try {
                     holds = assertion.evaluate(finalScope);
                 } catch (Throwable assertionFailure) {
-                    String message = "Execution error in test '" + parseResult.getOriginalMethodName()
+                    return failure(parseResult, "Execution error in test '" + parseResult.getOriginalMethodName()
                             + "': Assertion evaluation error at statement " + i + " - "
-                            + failureFormatter.formatThrowableWithStackExcerpt(assertionFailure, parseResult, i)
-                            + failureFormatter.buildExecutionContext(parseResult, i, assertionFailure);
-                    return new ExecutionFailureContext(message, assertionFailure, i);
+                            + failureFormatter.formatThrowableWithStackExcerpt(assertionFailure, parseResult, i),
+                            assertionFailure, i);
                 }
                 if (!holds) {
-                    String message = "Execution error in test '" + parseResult.getOriginalMethodName()
-                            + "': Assertion failed at statement " + i + " - "
-                            + assertion.getCode()
-                            + failureFormatter.buildExecutionContext(parseResult, i, null);
-                    return new ExecutionFailureContext(message, null, i);
+                    return failure(parseResult, "Execution error in test '" + parseResult.getOriginalMethodName()
+                            + "': Assertion failed at statement " + i + " - " + assertion.getCode(),
+                            null, i);
                 }
             }
         }
@@ -191,13 +186,21 @@ final class ParsedTestExecutionCheck {
                 || isRaisedByEvoSuiteRuntime(thrown)) {
             return null;
         }
-        String message = "Execution error in test '" + parseResult.getOriginalMethodName()
+        return failure(parseResult, "Execution error in test '" + parseResult.getOriginalMethodName()
                 + "': statement " + exceptionPosition + " threw "
                 + failureFormatter.formatThrowableWithStackExcerpt(thrown, parseResult, exceptionPosition)
                 + "\nThe assertions at statement(s) " + skipped
-                + " were never reached because of this exception."
-                + failureFormatter.buildExecutionContext(parseResult, exceptionPosition, thrown);
-        return new ExecutionFailureContext(message, thrown, exceptionPosition);
+                + " were never reached because of this exception.",
+                thrown, exceptionPosition);
+    }
+
+    /** The failure with its feedback: the headline followed by the statement and test-code context. */
+    private ExecutionFailureContext failure(ParseResult parseResult, String headline,
+                                            Throwable thrown, Integer position) {
+        String codeExcerpt = failureFormatter.renderCodeExcerpt(parseResult);
+        return new ExecutionFailureContext(
+                headline + failureFormatter.buildExecutionContext(parseResult, position, thrown, codeExcerpt),
+                thrown, position, codeExcerpt);
     }
 
     private boolean isUndeclaredException(TestCase testCase, String expectedExceptionClass,

@@ -21,18 +21,22 @@ package org.evosuite.llm.response;
 
 /**
  * Per-test execution failure: the formatted error string, the originating
- * throwable (used for dependency-code lookup), and the failing statement
- * position when known.
+ * throwable (used for dependency-code lookup), the failing statement
+ * position when known, and the excerpt of the parsed test that the error
+ * string quotes (null when it could not be rendered).
  */
 final class ExecutionFailureContext {
 
     final String errorMessage;
     final Throwable throwable;
     final Integer failingPosition;
+    final String codeExcerpt;
 
-    ExecutionFailureContext(String errorMessage, Throwable throwable, Integer failingPosition) {
+    ExecutionFailureContext(String errorMessage, Throwable throwable, Integer failingPosition,
+                            String codeExcerpt) {
         this.errorMessage = errorMessage;
         this.throwable = throwable;
         this.failingPosition = failingPosition;
+        this.codeExcerpt = codeExcerpt;
     }
 }
