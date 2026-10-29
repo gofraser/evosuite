@@ -40,6 +40,7 @@ import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.factories.JUnitTestCarvedChromosomeFactory;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.symbolic.TestCaseBuilder;
+import org.evosuite.utils.PerClassLoader;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Assertions;
@@ -57,7 +58,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
@@ -507,9 +507,9 @@ public class JUnitAnalyzerTest {
     }
 
     private static int poolCount(Class<?> pool) throws Exception {
-        java.lang.reflect.Field field = pool.getDeclaredField("instanceMap");
+        java.lang.reflect.Field field = pool.getDeclaredField("pools");
         field.setAccessible(true);
-        return ((Map<?, ?>) field.get(null)).size();
+        return ((PerClassLoader<?>) field.get(null)).values().size();
     }
 
     @Test
