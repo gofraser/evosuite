@@ -26,10 +26,11 @@ final class LlmPostProcessingPhase {
     private final LlmTestPostProcessor testProcessor;
 
     LlmPostProcessingPhase(LlmPostProcessor processor,
-                           LlmPostProcessingPhaseContext phaseContext) {
+                           LlmPostProcessingPhaseContext phaseContext,
+                           LlmTestPostProcessor testProcessor) {
         this.processor = processor;
         this.phaseContext = phaseContext;
-        this.testProcessor = new LlmTestPostProcessor(processor, phaseContext);
+        this.testProcessor = testProcessor;
     }
 
     LlmPostProcessor.PostProcessingMetrics run(TestSuiteChromosome suite,
@@ -77,7 +78,7 @@ final class LlmPostProcessingPhase {
                 continue;
             }
             TestCase test = chromosome.getTestCase();
-            if (processor.isLowMemory(phaseContext)) {
+            if (phaseContext.isLowMemory()) {
                 logger.info("Unified LLM post-processing stopped before test {}: low memory", testIndex);
                 stopReason = StopReason.LOW_MEMORY;
                 skipRemaining(metrics, workItems, workIndex);

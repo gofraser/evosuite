@@ -21,6 +21,7 @@ public final class LlmPostProcessingPhaseContext {
     private final PostProcessingOptions options;
     private final PostProcessingSession session;
     private final LlmPostProcessor.PhaseClock phaseClock;
+    private final LlmPostProcessor.ResourceGuard resourceGuard;
     private final long startMillis;
     private volatile String terminalReason = "";
     private final Set<TestCase> attemptedTests =
@@ -30,13 +31,15 @@ public final class LlmPostProcessingPhaseContext {
 
     LlmPostProcessingPhaseContext(PostProcessingOptions options,
                                   PostProcessingSession session,
-                                  LlmPostProcessor.PhaseClock phaseClock) {
+                                  LlmPostProcessor.PhaseClock phaseClock,
+                                  LlmPostProcessor.ResourceGuard resourceGuard) {
         if (options == null) {
             throw new IllegalArgumentException("Post-processing options must not be null");
         }
         this.options = options;
         this.session = session == null ? new PostProcessingSession() : session;
         this.phaseClock = phaseClock;
+        this.resourceGuard = resourceGuard;
         this.startMillis = phaseClock.currentTimeMillis();
     }
 
@@ -54,6 +57,10 @@ public final class LlmPostProcessingPhaseContext {
 
     long startMillis() {
         return startMillis;
+    }
+
+    boolean isLowMemory() {
+        return resourceGuard.isLowMemory(options.minimumFreeMemoryBytes());
     }
 
     boolean isPhaseTimedOut() {
