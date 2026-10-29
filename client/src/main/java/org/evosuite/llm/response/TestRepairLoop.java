@@ -75,7 +75,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-import static org.evosuite.llm.response.ExecutionFailureFormatter.EXPLICIT_REPAIR_ACTION_MARKER;
 import static org.evosuite.llm.response.ExecutionFailureFormatter.MAX_TEST_CODE_EXCERPT_CHARS;
 import static org.evosuite.llm.response.ExecutionFailureFormatter.formatThrowable;
 import static org.evosuite.llm.response.RepairText.getSutPackage;
@@ -1039,8 +1038,7 @@ public class TestRepairLoop {
             return true;
         }
         return diagnostic.getSeverity() == ParseDiagnostic.Severity.WARNING
-                && diagnostic.getMessage() != null
-                && diagnostic.getMessage().contains(EXPLICIT_REPAIR_ACTION_MARKER);
+                && diagnostic.getRepairAction() != null;
     }
 
     /**

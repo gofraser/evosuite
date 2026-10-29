@@ -70,7 +70,6 @@ class DiagnosticKindTaggingTest {
         assertNotNull(diagnostic, "Expected the downgrade diagnostic: " + result.getDiagnostics());
         assertEquals(ParseDiagnostic.Severity.WARNING, diagnostic.getSeverity());
         assertEquals(DiagnosticKind.UNRESOLVED_TYPE, diagnostic.getKind());
-        assertEquals("UNRESOLVED_TYPE", diagnostic.getKindName());
     }
 
     @Test
@@ -108,6 +107,37 @@ class DiagnosticKindTaggingTest {
         ParseDiagnostic diagnostic = new ParseDiagnostic(ParseDiagnostic.Severity.ERROR, "free form", 1, "x");
 
         assertNull(diagnostic.getKind());
-        assertNull(diagnostic.getKindName());
+        assertNull(diagnostic.getRepairAction());
+    }
+
+    @Test
+    void lambdaWithoutTargetTypeKeepsItsTextAndGainsTheKindAction() {
+        ParseResult result = parse("Object o = () -> { };", true);
+
+        ParseDiagnostic diagnostic = result.getDiagnostics().stream()
+                .filter(d -> d.getKind() == DiagnosticKind.LAMBDA_TARGET_TYPE_REQUIRED)
+                .findFirst().orElse(null);
+        assertNotNull(diagnostic, "Expected a lambda diagnostic: " + result.getDiagnostics());
+        assertEquals("Lambda expression requires a functional interface target type"
+                        + " \u2014 replaced with compilable fallback LLM_REPAIR_ACTION_REQUIRED: "
+                        + "assign the lambda to a real functional interface type or pass it directly to a "
+                        + "compatible API.",
+                diagnostic.getMessage());
+        assertEquals("assign the lambda to a real functional interface type or pass it directly to a "
+                + "compatible API.", diagnostic.getRepairAction());
+    }
+
+    @Test
+    void unknownFieldStaysUnclassifiedAndWithoutRepairAction() {
+        ParseResult result = parse("String s = \"a\";\nint n = s.noSuchField;", true);
+
+        ParseDiagnostic diagnostic = result.getDiagnostics().stream()
+                .filter(d -> d.getMessage().startsWith("Unknown field"))
+                .findFirst().orElse(null);
+        assertNotNull(diagnostic, "Expected an unknown-field diagnostic: " + result.getDiagnostics());
+        assertNull(diagnostic.getKind());
+        assertNull(diagnostic.getRepairAction());
+        assertEquals("Unknown field noSuchField in String \u2014 using typed fallback value",
+                diagnostic.getMessage());
     }
 }

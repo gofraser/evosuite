@@ -35,7 +35,6 @@ import java.util.Set;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
-import static org.evosuite.llm.response.ExecutionFailureFormatter.EXPLICIT_REPAIR_ACTION_MARKER;
 import static org.evosuite.llm.response.MockRuntimeExceptions.MOCK_RUNTIME_PACKAGE_PREFIX;
 import static org.evosuite.llm.response.MockRuntimeExceptions.errorMentionsMockRuntimeException;
 import static org.evosuite.llm.response.MockRuntimeExceptions.isRaisedByEvoSuiteRuntime;
@@ -1691,13 +1690,9 @@ final class RepairHintComposer {
                     continue;
                 }
                 String message = diagnostic.getMessage();
-                int explicitActionIdx = message.indexOf(EXPLICIT_REPAIR_ACTION_MARKER);
-                if (explicitActionIdx >= 0) {
-                    String explicit = message.substring(
-                            explicitActionIdx + EXPLICIT_REPAIR_ACTION_MARKER.length()).trim();
-                    if (!explicit.isEmpty() && !printedWithAction) {
-                        hints.add(explicit);
-                    }
+                String explicit = diagnostic.getRepairAction();
+                if (explicit != null && !explicit.isEmpty() && !printedWithAction) {
+                    hints.add(explicit);
                 }
 
                 // The action text of the diagnostic's kind replaces the generic hint for that kind.
@@ -1733,7 +1728,7 @@ final class RepairHintComposer {
                 } else if (isUnresolvedTypeDiagnostic(diagnostic)) {
                     generic = "Replace invented/unknown types with existing SUT or JDK types.";
                 }
-                if (generic != null && explicitActionIdx < 0) {
+                if (generic != null && explicit == null) {
                     hints.add(generic);
                 }
             }

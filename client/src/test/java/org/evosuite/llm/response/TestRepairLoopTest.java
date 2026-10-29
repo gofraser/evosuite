@@ -56,6 +56,7 @@ import org.evosuite.testcase.variable.ArrayIndex;
 import org.evosuite.testcase.variable.ArrayReference;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testcase.variable.VariableReferenceImpl;
+import org.evosuite.testparser.DiagnosticKind;
 import org.evosuite.testparser.ParseDiagnostic;
 import org.evosuite.testparser.ParseResult;
 import org.evosuite.testparser.TestParser;
@@ -4249,7 +4250,7 @@ class TestRepairLoopTest {
                     "SUT-typed-null fallback should produce ERROR severity, got: " + demoted.getDiagnostics());
             boolean hasFallbackError = demoted.getDiagnostics().stream()
                     .anyMatch(d -> d.getSeverity() == ParseDiagnostic.Severity.ERROR
-                            && "ANONYMOUS_ABSTRACT_TYPED_NULL_FALLBACK".equals(d.getKindName()));
+                            && d.getKind() == DiagnosticKind.ANONYMOUS_ABSTRACT_TYPED_NULL_FALLBACK);
             assertTrue(hasFallbackError,
                     "Expected an ERROR with kind ANONYMOUS_ABSTRACT_TYPED_NULL_FALLBACK; got: "
                             + demoted.getDiagnostics());

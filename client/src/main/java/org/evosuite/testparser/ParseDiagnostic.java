@@ -79,8 +79,17 @@ public class ParseDiagnostic {
         return kind;
     }
 
-    public String getKindName() {
-        return kind == null ? null : kind.name();
+    /**
+     * Returns the action the LLM is asked to take to fix this diagnostic, or null if the message
+     * carries none.
+     *
+     * @return the action text, or null.
+     */
+    public String getRepairAction() {
+        int marker = message == null ? -1 : message.indexOf(DiagnosticKind.ACTION_REQUIRED_PREFIX);
+        return marker < 0
+                ? null
+                : message.substring(marker + DiagnosticKind.ACTION_REQUIRED_PREFIX.length()).trim();
     }
 
     public int getLineNumber() {

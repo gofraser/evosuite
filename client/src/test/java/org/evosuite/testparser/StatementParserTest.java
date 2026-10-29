@@ -868,7 +868,7 @@ class StatementParserTest {
                     List.of("import java.lang.Object;"));
 
             assertFalse(r.hasErrors(), "LLM best-effort should avoid hard parse errors: " + r.getDiagnostics());
-            assertTrue(r.getDiagnostics().stream().anyMatch(d -> "UNRESOLVED_TYPE".equals(d.getKindName())),
+            assertTrue(r.getDiagnostics().stream().anyMatch(d -> d.getKind() == DiagnosticKind.UNRESOLVED_TYPE),
                     "Expected unresolved helper diagnostic kind to be preserved: " + r.getDiagnostics());
             assertTrue(r.getDiagnostics().stream().anyMatch(d ->
                             (d.getMessage().toLowerCase().contains("cannot resolve class")

@@ -20,6 +20,7 @@
 package org.evosuite.llm.response;
 
 import org.evosuite.Properties;
+import org.evosuite.testparser.DiagnosticKind;
 import org.evosuite.testparser.ParseDiagnostic;
 import org.evosuite.testparser.ParseResult;
 
@@ -187,7 +188,7 @@ final class RepairText {
         if (diagnostic == null) {
             return false;
         }
-        if ("UNRESOLVED_TYPE".equals(diagnostic.getKindName())) {
+        if (diagnostic.getKind() == DiagnosticKind.UNRESOLVED_TYPE) {
             return true;
         }
         String message = diagnostic.getMessage();

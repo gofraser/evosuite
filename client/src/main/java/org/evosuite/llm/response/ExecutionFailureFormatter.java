@@ -71,9 +71,6 @@ final class ExecutionFailureFormatter {
     private static final String EXCERPT_INDEX_MARKER_PREFIX = "__EVOSUITE_REPAIR_INDEX__";
     private static final Pattern EXCERPT_INDEX_MARKER_PATTERN = Pattern.compile(
             "^\\s*//\\s*" + Pattern.quote(EXCERPT_INDEX_MARKER_PREFIX) + "(\\d+)\\s*$");
-    static final String EXPLICIT_REPAIR_ACTION_MARKER = "LLM_REPAIR_ACTION_REQUIRED:";
-    private static final Pattern EXPLICIT_REPAIR_ACTION_PATTERN = Pattern.compile(
-            EXPLICIT_REPAIR_ACTION_MARKER + "\\s*(.*)$");
     private static final Pattern METHOD_SIGNATURE_PATTERN = Pattern.compile(
             "\\b([A-Za-z_][A-Za-z0-9_$]*)\\s*\\(([^\\)]*)\\)");
     private static final Pattern INVENTED_UNKNOWN_TYPE_PATTERN = Pattern.compile(
@@ -334,7 +331,7 @@ final class ExecutionFailureFormatter {
             if (lower.contains("method")) {
                 methodDiagnostic = true;
             }
-            String explicitRepairAction = extractExplicitRepairAction(message);
+            String explicitRepairAction = diagnostic.getRepairAction();
             if (explicitRepairAction != null && !explicitRepairAction.isEmpty()) {
                 explicitRepairActions.add(explicitRepairAction);
             }
@@ -496,21 +493,6 @@ final class ExecutionFailureFormatter {
             tokens.add(current.toString().toLowerCase());
         }
         return tokens;
-    }
-
-    private String extractExplicitRepairAction(String diagnosticMessage) {
-        if (diagnosticMessage == null || diagnosticMessage.isEmpty()) {
-            return null;
-        }
-        java.util.regex.Matcher matcher = EXPLICIT_REPAIR_ACTION_PATTERN.matcher(diagnosticMessage);
-        if (!matcher.find()) {
-            return null;
-        }
-        String action = matcher.group(1);
-        if (action == null) {
-            return null;
-        }
-        return action.trim();
     }
 
     private String extractInventedHelperTypeForFallback(ParseDiagnostic diagnostic, String fallbackType) {
