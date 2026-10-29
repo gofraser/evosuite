@@ -318,6 +318,25 @@ public abstract class AssertionGenerator {
     }
 
     /**
+     * Removes the assertions of a freshly collected pool that add nothing: non-null checks that a
+     * value check implies, chained and size/emptiness inspector calls, and volatile GUI values.
+     *
+     * @param test                the test whose assertions are filtered
+     * @param inspectorDuplication whether inspector calls that repeat a primitive assertion are removed too
+     */
+    protected void filterRedundantAssertions(TestCase test, boolean inspectorDuplication) {
+        filterRedundantNonnullAssertions(test);
+        filterRedundantChainedInspectorAssertions(test);
+        filterRedundantIsEmptySizeAssertions(test);
+        for (int i = 0; i < test.size(); i++) {
+            if (inspectorDuplication) {
+                filterInspectorPrimitiveDuplication(test.getStatement(i));
+            }
+            filterVolatileGuiPrimitiveAssertions(test.getStatement(i));
+        }
+    }
+
+    /**
      * Remove NullAssertions that are redundant because more specific assertions
      * exist on the same return value, or the object is used as a callee later.
      *

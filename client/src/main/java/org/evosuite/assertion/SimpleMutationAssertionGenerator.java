@@ -20,30 +20,306 @@
 package org.evosuite.assertion;
 
 import org.evosuite.Properties;
+import org.evosuite.Properties.Criterion;
+import org.evosuite.TestGenerationContext;
 import org.evosuite.TimeController;
 import org.evosuite.coverage.mutation.Mutation;
+import org.evosuite.coverage.mutation.MutationObserver;
+import org.evosuite.coverage.mutation.MutationPool;
 import org.evosuite.coverage.mutation.MutationTimeouts;
+import org.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientState;
 import org.evosuite.rmi.service.ClientStateInformation;
+import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.execution.TestCaseExecutor;
+import org.evosuite.testcase.execution.reset.ClassReInitializer;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testsuite.TestSuiteChromosome;
+import org.evosuite.utils.ArrayUtil;
+import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Method;
+import java.text.NumberFormat;
 import java.util.*;
 import java.util.Map.Entry;
 
-public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator {
+/**
+ * Executes a test case on the unit and on the mutants it touches and keeps the assertions that
+ * kill mutants, minimised per test.
+ *
+ * @author Gordon Fraser
+ */
+public class SimpleMutationAssertionGenerator extends AssertionGenerator {
 
     private static final Logger logger = LoggerFactory.getLogger(SimpleMutationAssertionGenerator.class);
+
+    protected final Map<Integer, Mutation> mutants = new HashMap<>();
+
+    protected static final Map<Mutation, Integer> timedOutMutations = new HashMap<>();
+
+    protected static final Map<Mutation, Integer> exceptionMutations = new HashMap<>();
+
+    /**
+     * Default constructor.
+     */
+    public SimpleMutationAssertionGenerator() {
+        for (Mutation m : MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .getMutants()) {
+            mutants.put(m.getId(), m);
+        }
+        TestCaseExecutor.getInstance().newObservers();
+        registerObservers();
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Execute a test case on the original unit.</p>
+     */
+    @Override
+    protected ExecutionResult runTest(TestCase test) {
+        reportUnexpectedActiveMutation("before");
+        try {
+            return runTest(test, null);
+        } finally {
+            reportUnexpectedActiveMutation("after");
+        }
+    }
+
+    /**
+     * Report mutation state leaking into an execution of the original SUT.
+     *
+     * <p>This is deliberately diagnostic rather than an assertion that throws:
+     * a timed-out worker can outlive the caller, and the assertion-generation
+     * run should still finish so that we can collect a complete census.</p>
+     *
+     * @param phase whether this check is before or after the original run
+     */
+    private void reportUnexpectedActiveMutation(String phase) {
+        int activeMutation = MutationObserver.activeMutation;
+        if (activeMutation != -1) {
+            logger.error("Mutation assertion detector: unexpected active mutation {} {} original "
+                    + "runTest on thread {}", activeMutation, phase,
+                    Thread.currentThread().getName());
+        }
+    }
+
+    /**
+     * Execute a test case on a mutant.
+     *
+     * @param test   The test case that should be executed
+     * @param mutant The mutant on which the test case shall be executed
+     */
+    protected ExecutionResult runTest(TestCase test, Mutation mutant) {
+        ExecutionResult result = new ExecutionResult(test, mutant);
+        // resetObservers();
+        clearObservers();
+        try {
+            logger.debug("Executing test");
+            if (mutant == null) {
+                MutationObserver.deactivateMutation();
+            } else {
+                MutationObserver.activateMutation(mutant);
+            }
+            result = TestCaseExecutor.getInstance().execute(test);
+            MutationObserver.deactivateMutation(mutant);
+
+            int num = test.size();
+            MaxStatementsStoppingCondition.statementsExecuted(num);
+
+            collectTraces(result);
+
+        } catch (Exception e) {
+            throw new Error(e);
+        }
+
+        return result;
+    }
+
+    protected Criterion[] oldCriterion = Properties.CRITERION;
+
+    /**
+     * If we are not doing mutation testing anyway, then we need to reinstrument
+     * the code to get the mutants now.
+     *
+     * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
+     */
+    @Override
+    public void setupClassLoader(TestSuiteChromosome suite) {
+        oldCriterion = Arrays.copyOf(Properties.CRITERION, Properties.CRITERION.length);
+        if (!ArrayUtil.contains(oldCriterion, Criterion.MUTATION)
+                && !ArrayUtil.contains(oldCriterion, Criterion.WEAKMUTATION)
+                && !ArrayUtil.contains(oldCriterion, Criterion.ONLYMUTATION)
+                && !ArrayUtil.contains(oldCriterion, Criterion.STRONGMUTATION)) {
+            Properties.CRITERION = new Criterion[]{Criterion.MUTATION};
+        }
+        if (Properties.RESET_STATIC_FIELDS) {
+            final boolean resetAllClasses = Properties.RESET_ALL_CLASSES_DURING_ASSERTION_GENERATION;
+            ClassReInitializer.getInstance().setReInitializeAllClasses(resetAllClasses);
+        }
+        changeClassLoader(suite);
+        for (Mutation m : MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .getMutants()) {
+            mutants.put(m.getId(), m);
+        }
+    }
+
+    /**
+     * Set the criterion to whatever it was before.
+     *
+     * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
+     */
+    protected void restoreCriterion(TestSuiteChromosome suite) {
+        Properties.CRITERION = oldCriterion;
+    }
+
+    /**
+     * We send status about the mutation score when we're done, because we know
+     * it.
+     *
+     * @param tkilled a {@link java.util.Set} object.
+     */
+    protected void calculateMutationScore(Set<Integer> tkilled) {
+        if (MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .getMutantCounter() == 0) {
+            Properties.CRITERION = oldCriterion;
+            // SearchStatistics.getInstance().mutationScore(1.0);
+            LoggingUtils.getEvoLogger()
+                    .info("* Resulting test suite's mutation score: " + NumberFormat.getPercentInstance().format(1.0));
+            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.MutationScore, 1.0);
+
+        } else {
+            double score = (double) tkilled.size() / (double) MutationPool.getInstance(
+                    TestGenerationContext.getInstance().getClassLoaderForSUT()).getMutantCounter();
+            // SearchStatistics.getInstance().mutationScore(score);
+            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.MutationScore, score);
+            LoggingUtils.getEvoLogger().info(
+                    "* Resulting test suite's mutation score: " + NumberFormat.getPercentInstance().format(score));
+        }
+    }
+
+    /**
+     * Returns the number of killed mutants.
+     *
+     * @param test            the test case
+     * @param mutationTraces  the mutation traces
+     * @param executedMutants the executed mutants
+     * @return the number of killed mutants
+     */
+    protected int getNumKilledMutants(TestCase test, Map<Mutation, List<OutputTrace<?>>> mutationTraces,
+                                      List<Mutation> executedMutants) {
+        List<Assertion> assertions;
+        Set<Integer> killed = new HashSet<>();
+        assertions = test.getAssertions();
+        for (Assertion assertion : assertions) {
+            for (Mutation m : executedMutants) {
+
+                boolean isKilled = false;
+                if (mutationTraces.containsKey(m)) {
+                    int i = 0;
+                    for (OutputTrace<?> trace : mutationTraces.get(m)) {
+                        isKilled = trace.isDetectedBy(assertion);
+                        if (isKilled) {
+                            logger.debug("Mutation killed: " + m.getId() + " by trace " + i++);
+                            killed.add(m.getId());
+                            break;
+                        }
+                        i++;
+                    }
+                } else {
+                    // Mutant not in traces means it was not covered, not killed
+                }
+            }
+        }
+        logger.debug("Killed mutants: " + killed);
+        return killed.size();
+    }
+
+    /**
+     * Returns true if the statement has nothing but null assertions.
+     *
+     * @param statement the statement
+     * @return true if the statement has nothing but null assertions
+     */
+    protected boolean justNullAssertion(Statement statement) {
+        Set<Assertion> assertions = statement.getAssertions();
+        if (assertions.isEmpty()) {
+            return false;
+        } else {
+            Iterator<Assertion> iterator = assertions.iterator();
+            VariableReference ret = statement.getReturnValue();
+            VariableReference callee = null;
+            if (statement instanceof MethodStatement) {
+                callee = ((MethodStatement) statement).getCallee();
+            }
+            boolean just = true;
+            while (iterator.hasNext()) {
+                Assertion ass = iterator.next();
+                if (!(ass instanceof NullAssertion)) {
+                    if (ass.getReferencedVariables().contains(ret) || ass.getReferencedVariables().contains(callee)) {
+                        just = false;
+                        break;
+                    }
+                }
+            }
+
+            return just;
+        }
+    }
+
+    /**
+     * Returns true if the statement has a non-void return value but no meaningful
+     * assertion (i.e., only NullAssertions or no assertions) on that return value.
+     * Covers primitives, Strings, wrappers, and complex objects.
+     *
+     * @param statement the statement to check
+     * @return true if the return value lacks a meaningful assertion
+     */
+    protected boolean returnValueWithoutAssertion(Statement statement) {
+        VariableReference ret = statement.getReturnValue();
+        if (ret.isVoid()) {
+            return false;
+        }
+
+        Set<Assertion> assertions = statement.getAssertions();
+        if (assertions.isEmpty()) {
+            return true;
+        }
+
+        for (Assertion ass : assertions) {
+            if (!(ass instanceof NullAssertion) && ass.getReferencedVariables().contains(ret)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /*
+     * (non-Javadoc)
+     *
+     * @see
+     * org.evosuite.assertion.AssertionGenerator#addAssertions(org.evosuite.
+     * testcase.TestCase)
+     */
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void addAssertions(TestCase test) {
+        // TODO Auto-generated method stub
+
+    }
 
     /**
      * The phase to report assertion progress in. The standard-assertion fallback after LLM
@@ -129,12 +405,7 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
      */
     private void addAssertions(TestCase test, Set<Integer> killed) {
         addAssertions(test, killed, mutants);
-        filterRedundantNonnullAssertions(test);
-        filterRedundantChainedInspectorAssertions(test);
-        filterRedundantIsEmptySizeAssertions(test);
-        for (int i = 0; i < test.size(); i++) {
-            filterVolatileGuiPrimitiveAssertions(test.getStatement(i));
-        }
+        filterRedundantAssertions(test, false);
     }
 
     /**

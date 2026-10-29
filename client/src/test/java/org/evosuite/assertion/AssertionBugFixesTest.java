@@ -456,7 +456,7 @@ public class AssertionBugFixesTest {
     // returnValueWithoutAssertion (Part 2)
     // -----------------------------------------------------------------------
 
-    private static class TestableMutationGenerator extends MutationAssertionGenerator {
+    private static class TestableMutationGenerator extends SimpleMutationAssertionGenerator {
         TestableMutationGenerator() {
         }
 
