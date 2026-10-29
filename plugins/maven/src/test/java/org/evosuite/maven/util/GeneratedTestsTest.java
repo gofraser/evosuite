@@ -95,6 +95,28 @@ public class GeneratedTestsTest {
     }
 
     @Test
+    public void agentIsAddedWhenTheJarOnlyAppearsInAnotherOption() {
+        File jar = new File("/repo/runtime.jar");
+        String other = "-Dcp=" + jar.getAbsolutePath() + " -javaagent:/repo/runtime.jar.bak";
+
+        assertEquals(other + " -javaagent:" + jar.getAbsolutePath(), GeneratedTests.appendAgent(other, jar));
+    }
+
+    @Test
+    public void agentWithOptionsOrQuotesIsRecognised() {
+        File jar = new File("/my repo/runtime.jar");
+        String path = jar.getAbsolutePath();
+        for (String argLine : new String[] {
+            "-Xmx1g \"-javaagent:" + path + "=opt=1\"","\"-javaagent:" + path + "\"",
+            "-javaagent:\"" + path + "\" -Xmx1g"}) {
+            assertEquals(argLine, GeneratedTests.appendAgent(argLine, jar));
+        }
+        File plain = new File("/repo/runtime.jar");
+        String withOptions = "-javaagent:" + plain.getAbsolutePath() + "=x";
+        assertEquals(withOptions, GeneratedTests.appendAgent(withOptions, plain));
+    }
+
+    @Test
     public void agentPathWithSpacesIsQuoted() {
         File jar = new File("/my repo/runtime.jar");
         assertEquals("\"-javaagent:" + jar.getAbsolutePath() + "\"", GeneratedTests.appendAgent("", jar));
