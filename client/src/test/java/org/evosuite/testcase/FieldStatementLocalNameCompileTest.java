@@ -80,6 +80,7 @@ public class FieldStatementLocalNameCompileTest {
         }
         String className = "FieldLocalProbe" + System.nanoTime();
         source.append("public class ").append(className).append(" {\n")
+                .append("    static void fail(String message) {}\n")
                 .append("    public static void run() throws Throwable {\n");
         for (String line : code.split("\\R")) {
             source.append("        ").append(line).append("\n");

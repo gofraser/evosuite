@@ -2038,41 +2038,17 @@ public class TestCodeVisitor extends TestVisitor {
                     (Class<?>) ((ParameterizedType) retval.getType()).getRawType());
         }
 
+        String assignment = localName + " = "
+                + getFieldAccess(field.getField(), field.isStatic() ? null : statement.getSource(),
+                        castTypeName, needsCast) + ";";
         if (exception != null) {
-            builder.append(declarationTypeName(retval, statement));
-            builder.append(" ");
-            builder.append(localName);
             // A primitive field (boolean flag = PropsValues.FLAG) cannot be pre-declared as null.
-            builder.append(" = ").append(retval.isPrimitive() ? retval.getDefaultValueString() : "null")
-                    .append(";");
-            builder.append(NEWLINE);
-            builder.append("try {");
-            builder.append(NEWLINE);
-            builder.append("    ");
+            builder.append(declarationTypeName(retval, statement)).append(" ").append(localName)
+                    .append(" = ").append(retval.isPrimitive() ? retval.getDefaultValueString() : "null")
+                    .append(";").append(NEWLINE);
+            builder.append(wrapThrowing(statement, exception, assignment));
         } else {
-            builder.append(declarationTypeName(retval, statement));
-            builder.append(" ");
-        }
-        if (!field.isStatic()) {
-            VariableReference source = statement.getSource();
-            builder.append(localName);
-            builder.append(" = ");
-            builder.append(getFieldAccess(field.getField(), source, castTypeName, needsCast));
-        } else {
-            builder.append(localName);
-            builder.append(" = ");
-            builder.append(getFieldAccess(field.getField(), null, castTypeName, needsCast));
-        }
-        builder.append(";");
-        if (exception != null) {
-            Class<?> ex = exception.getClass();
-            while (!Modifier.isPublic(ex.getModifiers())) {
-                ex = ex.getSuperclass();
-            }
-            builder.append(NEWLINE);
-            builder.append("} catch(");
-            builder.append(getClassName(ex));
-            builder.append(" ").append(chooseFreshCatchVariableName()).append(") {}");
+            builder.append(declarationTypeName(retval, statement)).append(" ").append(assignment);
         }
         builder.append(NEWLINE);
 

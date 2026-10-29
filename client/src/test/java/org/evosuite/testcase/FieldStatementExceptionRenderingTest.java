@@ -92,11 +92,17 @@ public class FieldStatementExceptionRenderingTest {
     }
 
     @Test
-    public void aThrowingReadIsCaughtWithAnEmptyCatchBlock() throws Exception {
+    public void aThrowingReadIsCaughtWithTheFailAssertionAndTheMessage() throws Exception {
         assertEquals("String string0 = null;\n"
                 + "try {\n"
                 + "    string0 = FieldStatementExceptionRenderingTest.Holder.value;\n"
-                + "} catch(IllegalStateException e) {}\n",
+                + "    fail(\"Expecting exception: IllegalStateException\");\n"
+                + "\n"
+                + "} catch(IllegalStateException e) {\n"
+                + "    //\n"
+                + "    // boom\n"
+                + "    //\n"
+                + "}\n\n",
                 render("value", withoutTrace(new IllegalStateException("boom")), false));
     }
 
@@ -105,7 +111,13 @@ public class FieldStatementExceptionRenderingTest {
         assertEquals("int int0 = 0;\n"
                 + "try {\n"
                 + "    int0 = FieldStatementExceptionRenderingTest.Holder.count;\n"
-                + "} catch(IllegalStateException e) {}\n",
+                + "    fail(\"Expecting exception: IllegalStateException\");\n"
+                + "\n"
+                + "} catch(IllegalStateException e) {\n"
+                + "    //\n"
+                + "    // boom\n"
+                + "    //\n"
+                + "}\n\n",
                 render("count", withoutTrace(new IllegalStateException("boom")), false));
     }
 
@@ -114,35 +126,35 @@ public class FieldStatementExceptionRenderingTest {
         assertEquals("String string0 = null;\n"
                 + "try {\n"
                 + "    string0 = FieldStatementExceptionRenderingTest.Holder.value;\n"
-                + "} catch(IllegalStateException e) {}\n",
+                + "    fail(\"Expecting exception: IllegalStateException\");\n"
+                + "\n"
+                + "} catch(IllegalStateException e) {\n"
+                + "    //\n"
+                + "    // no message in exception (getMessage() returned null)\n"
+                + "    //\n"
+                + "}\n\n",
                 render("value", withoutTrace(new HiddenException()), false));
     }
 
     @Test
-    public void aClassInitializerFailureIsCaught() throws Exception {
+    public void aClassInitializerFailureIsNotEncodedAsExpectedBehaviour() throws Exception {
         assertEquals("String string0 = null;\n"
-                + "try {\n"
-                + "    string0 = FieldStatementExceptionRenderingTest.Holder.value;\n"
-                + "} catch(ExceptionInInitializerError e) {}\n",
+                + "string0 = FieldStatementExceptionRenderingTest.Holder.value;\n",
                 render("value", withoutTrace(new ExceptionInInitializerError("boom")), false));
     }
 
     @Test
-    public void aFailingTestCatchesTheException() throws Exception {
+    public void aFailingTestDoesNotCatchTheException() throws Exception {
         assertEquals("String string0 = null;\n"
-                + "try {\n"
-                + "    string0 = FieldStatementExceptionRenderingTest.Holder.value;\n"
-                + "} catch(IllegalStateException e) {}\n",
+                + "string0 = FieldStatementExceptionRenderingTest.Holder.value;\n",
                 render("value", withoutTrace(new IllegalStateException("boom")), true));
     }
 
     @Test
-    public void undeclaredExceptionsAreCaughtEvenWhenTheyAreNotToBe() throws Exception {
+    public void undeclaredExceptionsAreNotCaughtWhenTheyAreNotToBe() throws Exception {
         Properties.CATCH_UNDECLARED_EXCEPTIONS = false;
         assertEquals("String string0 = null;\n"
-                + "try {\n"
-                + "    string0 = FieldStatementExceptionRenderingTest.Holder.value;\n"
-                + "} catch(IllegalStateException e) {}\n",
+                + "string0 = FieldStatementExceptionRenderingTest.Holder.value;\n",
                 render("value", withoutTrace(new IllegalStateException("boom")), false));
     }
 
