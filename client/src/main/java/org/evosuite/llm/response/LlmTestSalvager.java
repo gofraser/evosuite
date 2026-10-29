@@ -113,7 +113,7 @@ final class LlmTestSalvager {
                                                          pr.getOriginalMethodName(),
                                                          pr.getDiagnostics());
             if (!keepAssertions && compileRejects.test(salvagedResult)) {
-                logger.warn("Discarded salvaged test {} as it does not compile.", safeMethodName(pr));
+                logger.debug("Discarded salvaged test {} as it does not compile.", safeMethodName(pr));
                 continue;
             }
             List<ParseResult> accepted = mergeSalvagedTests(salvagedExecutableTests,
@@ -274,7 +274,7 @@ final class LlmTestSalvager {
             }
             salvaged.chop(failIndex);
         }
-        logger.warn("Failed to salvage test case: {}", original.getID());
+        logger.debug("Failed to salvage test case: {}", original.getID());
         return Optional.empty();
     }
 
@@ -282,13 +282,13 @@ final class LlmTestSalvager {
                                                                 TestCase original,
                                                                 String how) {
         if (!isMeaningful(salvaged)) {
-            logger.warn("Discarded salvaged test {} as it is not meaningful.", original.getID());
+            logger.debug("Discarded salvaged test {} as it is not meaningful.", original.getID());
             return Optional.empty();
         }
         if (hasUnsafelyCopyableStatements(salvaged, "salvaged test " + original.getID())) {
             return Optional.empty();
         }
-        logger.warn("Salvaged test {} with assertions preserved ({}).", original.getID(), how);
+        logger.debug("Salvaged test {} with assertions preserved ({}).", original.getID(), how);
         return Optional.of(salvaged);
     }
 
@@ -344,7 +344,7 @@ final class LlmTestSalvager {
     }
 
     Optional<TestCase> performBruteForceSalvage(TestCase failedTestCase) {
-        logger.warn("Attempting brute-force salvage for test case: {}", failedTestCase.getID());
+        logger.debug("Attempting brute-force salvage for test case: {}", failedTestCase.getID());
         if (hasOrphanedVariableReferences(failedTestCase,
                 "salvage candidate test " + failedTestCase.getID())) {
             return Optional.empty();
@@ -367,10 +367,10 @@ final class LlmTestSalvager {
                         "salvaged-no-assertions test " + failedTestCase.getID())) {
                     return Optional.empty();
                 }
-                logger.warn("Successfully salvaged test {} by removing assertions.", failedTestCase.getID());
+                logger.debug("Successfully salvaged test {} by removing assertions.", failedTestCase.getID());
                 return Optional.of(salvaged);
             }
-            logger.warn("Discarded salvaged test {} as it is not meaningful.", failedTestCase.getID());
+            logger.debug("Discarded salvaged test {} as it is not meaningful.", failedTestCase.getID());
             return Optional.empty();
         }
 
@@ -407,17 +407,17 @@ final class LlmTestSalvager {
                                     + " (chop@" + failIndex + ")")) {
                         return Optional.empty();
                     }
-                    logger.warn("Successfully salvaged test {} by truncation at index {}.",
+                    logger.debug("Successfully salvaged test {} by truncation at index {}.",
                             failedTestCase.getID(), failIndex);
                     return Optional.of(salvaged);
                 }
-                logger.warn("Discarded salvaged test {} after truncation as it is not meaningful.",
+                logger.debug("Discarded salvaged test {} after truncation as it is not meaningful.",
                         failedTestCase.getID());
                 return Optional.empty();
             }
         }
 
-        logger.warn("Failed to salvage test case: {}", failedTestCase.getID());
+        logger.debug("Failed to salvage test case: {}", failedTestCase.getID());
         return Optional.empty();
     }
 
@@ -469,7 +469,7 @@ final class LlmTestSalvager {
         }
         Throwable thrown = exceptionMapping.get(failIndex);
         String thrownName = thrown == null ? "<unknown>" : thrown.getClass().getName();
-        logger.warn("Salvaged test {} as covering-throw at SUT call (index {}, exception {}).",
+        logger.debug("Salvaged test {} as covering-throw at SUT call (index {}, exception {}).",
                 failedTestCase.getID(), failIndex, thrownName);
         return Optional.of(salvaged);
     }
@@ -563,7 +563,7 @@ final class LlmTestSalvager {
         if (issues.isEmpty()) {
             return false;
         }
-        logger.warn("Dropping {} due to {} {}; details: {}",
+        logger.debug("Dropping {} due to {} {}; details: {}",
                 context, issues.size(), issueName, issues);
         return true;
     }
