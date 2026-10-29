@@ -56,7 +56,7 @@ public class CarvingClassLoader extends TransformingClassLoader {
     @Override
     protected InputStream openClass(String name) {
         return ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
-                .getClassAsStream(name.replace('.', '/'));
+                .getClassAsStream(name);
     }
 
     @Override
