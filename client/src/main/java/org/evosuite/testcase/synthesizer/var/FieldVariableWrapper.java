@@ -2,7 +2,7 @@ package org.evosuite.testcase.synthesizer.var;
 
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.branch.Branch;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.BytecodeInstructionPool;
 import org.evosuite.graphs.interprocedural.var.DepVariable;

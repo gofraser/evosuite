@@ -20,7 +20,7 @@
 package org.evosuite.utils.generic;
 
 import com.googlecode.gentyref.GenericTypeReflector;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

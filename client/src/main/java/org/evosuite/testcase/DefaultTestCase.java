@@ -24,7 +24,7 @@ import org.evosuite.assertion.Assertion;
 import org.evosuite.assertion.InspectorAssertion;
 import org.evosuite.assertion.PrimitiveFieldAssertion;
 import org.evosuite.contracts.ContractViolation;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 // Presentation metadata is stored natively on the test case.
 import org.evosuite.runtime.util.Inputs;
 import org.evosuite.setup.TestClusterUtils;

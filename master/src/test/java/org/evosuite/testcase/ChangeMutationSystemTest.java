@@ -30,7 +30,7 @@ import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.branch.BranchCoverageSuiteFitness;
 import org.evosuite.coverage.line.LineCoverageSuiteFitness;
 import org.evosuite.coverage.mutation.WeakMutationSuiteFitness;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.testcase.variable.VariableReference;

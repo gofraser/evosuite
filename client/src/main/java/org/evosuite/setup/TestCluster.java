@@ -23,7 +23,7 @@ import org.evosuite.runtime.Reflection;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.TimeController;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.ga.archive.Archive;
 import org.evosuite.ga.operators.selection.RankSelection;
 import org.evosuite.runtime.util.AtMostOnceLogger;

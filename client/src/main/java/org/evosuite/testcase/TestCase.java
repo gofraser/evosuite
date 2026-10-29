@@ -21,7 +21,7 @@ package org.evosuite.testcase;
 
 import org.evosuite.assertion.Assertion;
 import org.evosuite.contracts.ContractViolation;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.statements.environment.AccessedEnvironment;
@@ -224,7 +224,7 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
      * @param type     a {@link java.lang.reflect.Type} object.
      * @param position Upper bound in test case up to which objects are considered
      * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
-     * @throws org.evosuite.ga.ConstructionFailedException if no such object exists
+     * @throws org.evosuite.utils.ConstructionFailedException if no such object exists
      */
     VariableReference getRandomNonNullObject(Type type, int position)
             throws ConstructionFailedException;
@@ -235,7 +235,7 @@ public interface TestCase extends Iterable<Statement>, Cloneable, Listenable<Voi
      * @param type     a {@link java.lang.reflect.Type} object.
      * @param position Upper bound in test case up to which objects are considered
      * @return a {@link org.evosuite.testcase.variable.VariableReference} object.
-     * @throws org.evosuite.ga.ConstructionFailedException if no such object exists
+     * @throws org.evosuite.utils.ConstructionFailedException if no such object exists
      */
     VariableReference getRandomObject(Type type, int position)
             throws ConstructionFailedException;

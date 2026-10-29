@@ -38,7 +38,7 @@ import org.evosuite.assertion.Inspector;
 import org.evosuite.assertion.InspectorAssertion;
 import org.evosuite.assertion.PrimitiveFieldAssertion;
 import org.evosuite.assertion.TemplateCodeAssertion;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.llm.postprocess.LlmPostProcessingResponse;
 import org.evosuite.testcase.fm.MethodDescriptor;
 import org.evosuite.testcase.statements.ArrayStatement;

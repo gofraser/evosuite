@@ -97,7 +97,7 @@ public class TestClusterHeadlessModeTest {
         Properties.HEADLESS_FILTER_JDK_GUI_GENERATORS = true;
 
         Properties.HEADLESS_FILTER_JDK_GUI_CAST_GENERATORS = true;
-        Assertions.assertThrows(org.evosuite.ga.ConstructionFailedException.class,
+        Assertions.assertThrows(org.evosuite.utils.ConstructionFailedException.class,
                 () -> cluster.getRandomGenerator(comboType));
 
         Properties.HEADLESS_FILTER_JDK_GUI_CAST_GENERATORS = false;

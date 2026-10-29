@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.TestGenerationContext;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.numeric.CharPrimitiveStatement;

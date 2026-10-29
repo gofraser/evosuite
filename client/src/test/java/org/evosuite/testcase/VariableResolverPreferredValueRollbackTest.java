@@ -20,7 +20,7 @@
 package org.evosuite.testcase;
 
 import com.examples.with.different.packagename.SimpleInteger;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.statements.StringPrimitiveStatement;

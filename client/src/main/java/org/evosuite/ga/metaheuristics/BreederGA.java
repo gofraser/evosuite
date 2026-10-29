@@ -22,7 +22,7 @@ package org.evosuite.ga.metaheuristics;
 import org.evosuite.Properties;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.ChromosomeFactory;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;

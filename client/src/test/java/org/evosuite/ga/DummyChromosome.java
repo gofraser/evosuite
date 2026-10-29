@@ -19,6 +19,7 @@
  */
 package org.evosuite.ga;
 
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.ga.localsearch.LocalSearchObjective;
 import org.evosuite.utils.Randomness;
 

@@ -21,7 +21,7 @@ package org.evosuite.ga.metaheuristics.mosa;
 
 import org.evosuite.Properties;
 import org.evosuite.coverage.method.MethodCoverageTestFitness;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.ga.archive.Archive;
 import org.evosuite.ga.metaheuristics.mosa.structural.MultiCriteriaManager;
 import org.evosuite.ga.operators.crossover.CrossOverFunction;

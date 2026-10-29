@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
 
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.statements.ConstructorStatement;

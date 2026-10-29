@@ -19,6 +19,7 @@
  */
 package org.evosuite.ga;
 
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.Properties;
 import org.evosuite.ga.localsearch.LocalSearchObjective;
 import org.evosuite.utils.PublicCloneable;
@@ -330,7 +331,7 @@ public abstract class Chromosome<T extends Chromosome<T>>
      *
      * @param other    a {@link org.evosuite.ga.Chromosome} object.
      * @param position a int.
-     * @throws org.evosuite.ga.ConstructionFailedException if any.
+     * @throws org.evosuite.utils.ConstructionFailedException if any.
      */
     public void crossOver(T other, int position) throws ConstructionFailedException {
         crossOver(other, position, position);
@@ -342,7 +343,7 @@ public abstract class Chromosome<T extends Chromosome<T>>
      * @param other     a {@link org.evosuite.ga.Chromosome} object.
      * @param position1 a int.
      * @param position2 a int.
-     * @throws org.evosuite.ga.ConstructionFailedException if any.
+     * @throws org.evosuite.utils.ConstructionFailedException if any.
      */
     public abstract void crossOver(T other, int position1, int position2)
             throws ConstructionFailedException;

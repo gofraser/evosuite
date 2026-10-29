@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Arrays;
 
 import org.evosuite.ga.Chromosome;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.ga.localsearch.LocalSearchObjective;
 import org.evosuite.ga.variables.DoubleVariable;
 import org.evosuite.ga.variables.Variable;

@@ -19,7 +19,7 @@
  */
 package org.evosuite.testcase.statements.reflection;
 
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.runtime.PrivateAccess;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;

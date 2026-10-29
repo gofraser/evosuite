@@ -22,7 +22,7 @@ package org.evosuite.testcase;
 import com.examples.with.different.packagename.generic.GenericConstructorTwoConsistentParameters;
 import com.googlecode.gentyref.TypeToken;
 import org.evosuite.Properties;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericConstructor;

@@ -20,7 +20,7 @@
 package org.evosuite.ga.operators.crossover;
 
 import org.evosuite.ga.Chromosome;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.utils.Randomness;
 
 /**

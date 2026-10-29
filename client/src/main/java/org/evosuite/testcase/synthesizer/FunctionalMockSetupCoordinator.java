@@ -7,7 +7,7 @@
 package org.evosuite.testcase.synthesizer;
 
 import org.evosuite.Properties;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.testcase.GenerationContext;
 import org.evosuite.testcase.StatementCheckpoint;
 import org.evosuite.testcase.TestCase;

@@ -20,7 +20,7 @@
 package org.evosuite.ga.operators.crossover;
 
 import org.evosuite.ga.Chromosome;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,7 +45,7 @@ public abstract class CrossOverFunction<T extends Chromosome<T>> implements Seri
      *
      * @param parent1 a {@link Chromosome} object.
      * @param parent2 a {@link Chromosome} object.
-     * @throws org.evosuite.ga.ConstructionFailedException if any.
+     * @throws org.evosuite.utils.ConstructionFailedException if any.
      */
     public abstract void crossOver(T parent1, T parent2)
             throws ConstructionFailedException;

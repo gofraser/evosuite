@@ -21,7 +21,7 @@ package org.evosuite.utils.generic;
 
 import com.googlecode.gentyref.GenericTypeReflector;
 import org.evosuite.Properties;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 
 import java.io.Serializable;
 import java.lang.reflect.Type;

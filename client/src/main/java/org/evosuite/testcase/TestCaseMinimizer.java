@@ -21,7 +21,7 @@ package org.evosuite.testcase;
 
 import org.evosuite.Properties;
 import org.evosuite.TimeController;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.SecondaryObjective;
 import org.evosuite.testcase.statements.FunctionalMockStatement;

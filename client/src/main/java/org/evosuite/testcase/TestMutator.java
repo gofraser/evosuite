@@ -21,7 +21,7 @@ package org.evosuite.testcase;
 
 import org.evosuite.Properties;
 import org.evosuite.TimeController;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.mutation.RandomInsertion;

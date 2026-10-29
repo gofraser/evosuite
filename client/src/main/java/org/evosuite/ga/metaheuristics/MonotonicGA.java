@@ -31,6 +31,7 @@ import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.factories.ObjectRuleSession;
 import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
 import org.evosuite.testsuite.TestSuiteChromosome;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -26,7 +26,7 @@ import org.evosuite.Properties.Criterion;
 import org.evosuite.assertion.Assertion;
 import org.evosuite.assertion.Inspector;
 import org.evosuite.assertion.InspectorAssertion;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.statements.ConstructorStatement;

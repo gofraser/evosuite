@@ -22,7 +22,7 @@ package org.evosuite.ga.metaheuristics.mapelites;
 import org.evosuite.Properties;
 import org.evosuite.assertion.Inspector;
 import org.evosuite.ga.ChromosomeFactory;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.operators.crossover.CrossOverFunction;
 import org.evosuite.ga.operators.crossover.SinglePointCrossOver;

@@ -22,7 +22,7 @@ package org.evosuite.utils.generic;
 import com.googlecode.gentyref.GenericTypeReflector;
 import org.apache.commons.lang3.ArrayUtils;
 import org.evosuite.TestGenerationContext;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.setup.TestClusterGenerator;
 import org.evosuite.setup.TestUsageChecker;

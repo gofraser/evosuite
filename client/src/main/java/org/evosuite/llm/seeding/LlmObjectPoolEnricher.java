@@ -20,7 +20,7 @@
 package org.evosuite.llm.seeding;
 
 import org.evosuite.Properties;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmRequest;
 import org.evosuite.llm.LlmService;

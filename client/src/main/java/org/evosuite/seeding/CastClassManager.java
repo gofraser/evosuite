@@ -25,7 +25,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.TimeController;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.setup.*;
 import org.evosuite.testcase.statements.FunctionalMockFailover;
 import org.evosuite.utils.Randomness;

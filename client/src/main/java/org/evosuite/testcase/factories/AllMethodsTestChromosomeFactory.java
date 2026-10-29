@@ -21,7 +21,7 @@ package org.evosuite.testcase.factories;
 
 import org.evosuite.Properties;
 import org.evosuite.ga.ChromosomeFactory;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;

@@ -24,7 +24,7 @@ import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.TimeController;
 import org.evosuite.classpath.ClassPathHandler;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.runtime.mock.MockList;
 import org.evosuite.seeding.CastClassManager;

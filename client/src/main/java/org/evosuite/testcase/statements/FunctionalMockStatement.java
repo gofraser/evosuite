@@ -24,7 +24,7 @@ import org.evosuite.PackageInfo;
 import org.evosuite.Properties;
 import org.evosuite.assertion.Assertion;
 import org.evosuite.coverage.mutation.MutationObserver;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.runtime.LenientMockAnswer;
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.UnmockableTypes;

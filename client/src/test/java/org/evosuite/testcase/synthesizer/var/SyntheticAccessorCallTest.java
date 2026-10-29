@@ -19,7 +19,7 @@
  */
 package org.evosuite.testcase.synthesizer.var;
 
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.SyntheticAccessorFixture;
 import org.evosuite.testcase.TestFactory;

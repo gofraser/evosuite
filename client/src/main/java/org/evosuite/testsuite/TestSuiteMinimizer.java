@@ -27,7 +27,7 @@ import org.evosuite.TimeController;
 import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.coverage.TestFitnessFactory;
 import org.evosuite.coverage.exception.ExceptionCoverageTestFitness;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.junit.CoverageAnalysis;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientState;

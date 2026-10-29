@@ -25,7 +25,7 @@ import com.googlecode.gentyref.GenericTypeReflector;
 import com.googlecode.gentyref.TypeToken;
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.Properties;
-import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.seeding.CastClassManager;
 import org.evosuite.utils.generic.GenericClass;
