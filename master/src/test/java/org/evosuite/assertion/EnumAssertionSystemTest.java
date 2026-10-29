@@ -19,11 +19,11 @@
  */
 package org.evosuite.assertion;
 
+import org.evosuite.coverage.FitnessFunctions;
 import com.examples.with.different.packagename.assertion.ExampleReturningEnum;
 import org.evosuite.EvoSuite;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
-import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.jupiter.api.Assertions;
@@ -62,7 +62,7 @@ public class EnumAssertionSystemTest extends SystemTestBase {
             Assertions.assertTrue(hasEnumAssertion,
                     "Test has no enum assertions: " + test.toCode());
         }
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size();
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size();
         Assertions.assertEquals(3, goals, "Wrong number of goals: ");
         Assertions.assertEquals(1d, suite.getCoverage(), 0.05, "Non-optimal coverage: ");
     }
@@ -96,7 +96,7 @@ public class EnumAssertionSystemTest extends SystemTestBase {
             Assertions.assertTrue(hasEnumAssertion,
                     "Test has no enum assertions: " + test.toCode());
         }
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size();
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size();
         Assertions.assertEquals(3, goals, "Wrong number of goals: ");
         Assertions.assertEquals(1d, suite.getCoverage(), 0.05, "Non-optimal coverage: ");
     }

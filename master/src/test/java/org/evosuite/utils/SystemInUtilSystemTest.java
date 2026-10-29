@@ -19,11 +19,11 @@
  */
 package org.evosuite.utils;
 
+import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
-import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -75,7 +75,7 @@ public class SystemInUtilSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         Assertions.assertEquals(3, goals);
         double coverage = best.getCoverage();
         Assertions.assertTrue(coverage > 0.99d, "Not good enough coverage: " + coverage);

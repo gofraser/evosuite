@@ -19,6 +19,7 @@
  */
 package org.evosuite.coverage.output;
 
+import org.evosuite.coverage.FitnessFunctions;
 import com.examples.with.different.packagename.coverage.*;
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
@@ -26,7 +27,6 @@ import org.evosuite.Properties.Criterion;
 import org.evosuite.SystemTestBase;
 import org.evosuite.coverage.TestFitnessFactory;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
-import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -76,7 +76,7 @@ public class OutputCoverageFitnessFunctionSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
 
         int goals = 0;
-        for (TestFitnessFactory<?> ff : TestGenerationStrategy.getFitnessFactories())
+        for (TestFitnessFactory<?> ff : FitnessFunctions.getFitnessFactories())
             goals += ff.getCoverageGoals().size();
         Assertions.assertEquals(24, goals, "Unexpected number of goals");
         Assertions.assertEquals(0.0, best.getFitness(), 0.001, "Non-optimal fitness: ");
@@ -96,7 +96,7 @@ public class OutputCoverageFitnessFunctionSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
 
         int goals = 0;
-        for (TestFitnessFactory ff : TestGenerationStrategy.getFitnessFactories())
+        for (TestFitnessFactory ff : FitnessFunctions.getFitnessFactories())
             goals += ff.getCoverageGoals().size();
         Assertions.assertEquals(29, goals, "Unexpected number of goals");
         Assertions.assertEquals(2.5, best.getFitness(), 0.001, "Non-optimal fitness: ");
@@ -115,7 +115,7 @@ public class OutputCoverageFitnessFunctionSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
         int goals = 0;
-        for (TestFitnessFactory ff : TestGenerationStrategy.getFitnessFactories())
+        for (TestFitnessFactory ff : FitnessFunctions.getFitnessFactories())
             goals += ff.getCoverageGoals().size();
         Assertions.assertEquals(12, goals, "Unexpected number of goals");
         Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Unexpected coverage: ");
@@ -133,7 +133,7 @@ public class OutputCoverageFitnessFunctionSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
         int goals = 0;
-        for (TestFitnessFactory ff : TestGenerationStrategy.getFitnessFactories())
+        for (TestFitnessFactory ff : FitnessFunctions.getFitnessFactories())
             goals += ff.getCoverageGoals().size();
         Assertions.assertEquals(15, goals, "Unexpected number of goals");
         Assertions.assertEquals(0.0, best.getFitness(), 0.001, "Non-optimal fitness: ");
@@ -152,7 +152,7 @@ public class OutputCoverageFitnessFunctionSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
         int goals = 0;
-        for (TestFitnessFactory ff : TestGenerationStrategy.getFitnessFactories())
+        for (TestFitnessFactory ff : FitnessFunctions.getFitnessFactories())
             goals += ff.getCoverageGoals().size();
         Assertions.assertEquals(2, goals, "Unexpected number of goals");
         Assertions.assertEquals(0.0, best.getFitness(), 0.001, "Non-optimal fitness: ");

@@ -19,13 +19,13 @@
  */
 package org.evosuite.runtime.sandbox;
 
+import org.evosuite.coverage.FitnessFunctions;
 import java.io.File;
 
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
-import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -78,7 +78,7 @@ public class GeneratedFilesEvenWithSandboxSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
 
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         Assertions.assertEquals(3, goals, "Wrong number of goals: ");
         Assertions.assertTrue(best.getCoverage() < 1, "Should not achieve optimal coverage ");
 
@@ -106,7 +106,7 @@ public class GeneratedFilesEvenWithSandboxSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
 
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         Assertions.assertEquals(5, goals, "Wrong number of goals: ");
         Assertions.assertEquals(0.8d, best.getCoverage(), 0.001, ""); //one branch is infeasible
 
@@ -137,7 +137,7 @@ public class GeneratedFilesEvenWithSandboxSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
 
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         Assertions.assertEquals(3, goals, "Wrong number of goals: ");
         Assertions.assertTrue(best.getCoverage() < 1, "Should not achive optimala coverage ");
 

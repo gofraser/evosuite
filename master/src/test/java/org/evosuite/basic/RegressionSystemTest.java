@@ -19,11 +19,11 @@
  */
 package org.evosuite.basic;
 
+import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
-import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
@@ -76,7 +76,7 @@ public class RegressionSystemTest extends SystemTestBase {
         TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
         System.out.println(best.toString());
         // TODO: Need to fix the check, some reset is not working
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         Assertions.assertEquals(numGoals, goals, "Wrong number of target goals");
         Assertions.assertEquals(numGoals, best.getNumOfCoveredGoals(),
                 "Wrong number of covered goals");

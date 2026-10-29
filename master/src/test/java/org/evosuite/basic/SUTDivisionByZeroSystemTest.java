@@ -19,11 +19,11 @@
  */
 package org.evosuite.basic;
 
+import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
-import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -71,8 +71,8 @@ public class SUTDivisionByZeroSystemTest extends SystemTestBase {
          * 2: extra branch for division by 0
          * 2: for underflow
          */
-        Assertions.assertEquals(2, TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size());
-        Assertions.assertEquals(4, TestGenerationStrategy.getFitnessFactories().get(1).getCoverageGoals().size());
+        Assertions.assertEquals(2, FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size());
+        Assertions.assertEquals(4, FitnessFunctions.getFitnessFactories().get(1).getCoverageGoals().size());
 
         double coverage = best.getCoverage();
         //one of the underflow branches is difficult to get without DSE/LS

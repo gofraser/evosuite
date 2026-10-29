@@ -19,6 +19,7 @@
  */
 package org.evosuite.coverage.exception;
 
+import org.evosuite.coverage.FitnessFunctions;
 import com.examples.with.different.packagename.exception.*;
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
@@ -27,7 +28,6 @@ import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.statistics.OutputVariable;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.statistics.backend.DebugStatisticsBackend;
-import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -69,8 +69,8 @@ public class ExceptionInstrumentationSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        Assertions.assertEquals(branchGoals, TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size());
-        Assertions.assertEquals(exceptionGoals, TestGenerationStrategy.getFitnessFactories().get(1).getCoverageGoals().size());
+        Assertions.assertEquals(branchGoals, FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size());
+        Assertions.assertEquals(exceptionGoals, FitnessFunctions.getFitnessFactories().get(1).getCoverageGoals().size());
 
         Map<String, OutputVariable<?>> map = DebugStatisticsBackend.getLatestWritten();
         Assertions.assertNotNull(map);

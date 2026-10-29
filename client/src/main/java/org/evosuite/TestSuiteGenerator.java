@@ -296,7 +296,7 @@ public class TestSuiteGenerator {
 
         // Check if there are ANY goals across all criteria
         int totalGoals = 0;
-        for (TestFitnessFactory<? extends TestFitnessFunction> factory : TestGenerationStrategy.getFitnessFactories()) {
+        for (TestFitnessFactory<? extends TestFitnessFunction> factory : FitnessFunctions.getFitnessFactories()) {
             totalGoals += factory.getCoverageGoals().size();
         }
         if (totalGoals == 0 && !ArrayUtil.contains(Properties.CRITERION, Criterion.EXCEPTION)) {
@@ -687,7 +687,7 @@ public class TestSuiteGenerator {
         // suite.getCoveredGoals().size() and suite.getNumCoveredGoals()
         // but it is not clear how to update numcoveredgoals
         List<TestFitnessFunction> goals = new ArrayList<>();
-        for (TestFitnessFactory<?> ff : TestGenerationStrategy.getFitnessFactories()) {
+        for (TestFitnessFactory<?> ff : FitnessFunctions.getFitnessFactories()) {
             goals.addAll(ff.getCoverageGoals());
         }
         for (TestFitnessFunction f : testSuite.getCoveredGoals()) {
@@ -727,7 +727,7 @@ public class TestSuiteGenerator {
                 publishUnminimizedSuite(testSuite, minimizationResult);
             } else {
                 double before = testSuite.getFitness();
-                TestSuiteMinimizer minimizer = new TestSuiteMinimizer(TestGenerationStrategy.getFitnessFactories());
+                TestSuiteMinimizer minimizer = new TestSuiteMinimizer(FitnessFunctions.getFitnessFactories());
                 int testsBeforeMinimization = testSuite.size();
                 int lengthBeforeMinimization = testSuite.totalLengthOfTestCases();
 

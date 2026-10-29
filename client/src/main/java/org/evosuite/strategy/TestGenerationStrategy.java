@@ -129,15 +129,6 @@ public abstract class TestGenerationStrategy {
     }
 
     /**
-     * Convert criterion names to factories for test case fitness functions.
-     *
-     * @return list of fitness factories
-     */
-    public static List<TestFitnessFactory<? extends TestFitnessFunction>> getFitnessFactories() {
-        return FitnessFunctionsUtils.getFitnessFactories(Properties.CRITERION);
-    }
-
-    /**
      * Check if the budget has been used up. The GA will do this check
      * on its own, but other strategies (e.g. random) may depend on this function.
      *

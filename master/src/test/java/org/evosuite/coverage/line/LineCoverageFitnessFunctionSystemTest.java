@@ -19,6 +19,7 @@
  */
 package org.evosuite.coverage.line;
 
+import org.evosuite.coverage.FitnessFunctions;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
@@ -33,7 +34,6 @@ import org.evosuite.Properties.StoppingCondition;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.stoppingconditions.GlobalTimeStoppingCondition;
-import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -122,7 +122,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         Properties.TEST_ARCHIVE = archive;
 
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         logCase(targetClass, best, goals, Properties.TEST_ARCHIVE);
         Assertions.assertEquals(2, goals);
         Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
@@ -143,7 +143,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         Properties.TEST_ARCHIVE = archive;
 
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         logCase(targetClass, best, goals, Properties.TEST_ARCHIVE);
         Assertions.assertEquals(2, goals);
         Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
@@ -164,7 +164,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         Properties.TEST_ARCHIVE = archive;
 
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         logCase(targetClass, best, goals, Properties.TEST_ARCHIVE);
         Assertions.assertEquals(2, goals);
         Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
@@ -187,7 +187,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         Properties.TEST_ARCHIVE = archive;
 
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         logCase(targetClass, best, goals, Properties.TEST_ARCHIVE);
         Assertions.assertEquals(5, goals);
         Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
@@ -210,7 +210,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         Properties.TEST_ARCHIVE = archive;
 
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         logCase(targetClass, best, goals, Properties.TEST_ARCHIVE);
         Assertions.assertEquals(5, goals);
         Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
@@ -237,7 +237,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         Properties.TEST_ARCHIVE = archive;
 
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         logCase(targetClass, best, goals, Properties.TEST_ARCHIVE);
         Assertions.assertEquals(6, goals);
         Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
@@ -264,7 +264,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         Properties.TEST_ARCHIVE = archive;
 
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         logCase(targetClass, best, goals, Properties.TEST_ARCHIVE);
         Assertions.assertEquals(6, goals);
         Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
@@ -292,7 +292,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         Properties.TEST_ARCHIVE = archive;
 
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         logCase(targetClass, best, goals, Properties.TEST_ARCHIVE);
         Assertions.assertEquals(6, goals);
         Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
@@ -320,7 +320,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         Properties.TEST_ARCHIVE = archive;
 
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         logCase(targetClass, best, goals, Properties.TEST_ARCHIVE);
         Assertions.assertEquals(6, goals);
         Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
@@ -347,7 +347,7 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         Properties.TEST_ARCHIVE = archive;
 
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         logCase(targetClass, best, goals, Properties.TEST_ARCHIVE);
         Assertions.assertEquals(6, goals);
         Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
@@ -443,9 +443,9 @@ public class LineCoverageFitnessFunctionSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
 
         // lines: 22, 24, 27, 30, 31, 32, 33, 35, 38
-        logCase(targetClass, best, TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(),
+        logCase(targetClass, best, FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(),
                 Properties.TEST_ARCHIVE);
-        Assertions.assertEquals(11, TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size());
+        Assertions.assertEquals(11, FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size());
         Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
 

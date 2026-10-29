@@ -23,7 +23,6 @@ import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
-import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,7 +57,7 @@ public class InnerClassGoalsSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
 
         System.out.println(best);
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         Assertions.assertEquals(6, goals);
         Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
@@ -80,7 +79,7 @@ public class InnerClassGoalsSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
 
         System.out.println(best);
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
 
         // lines of 'ClassWithInnerClass': 22, 25, 26, 27, 29
         // lines of 'ClassWithInnerClass$AnInnerClass': 31, 33, 34, 36
@@ -109,7 +108,7 @@ public class InnerClassGoalsSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
 
         System.out.println(best);
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         // If reflection is active, then the private constructor will be tested
         if (Properties.P_REFLECTION_ON_PRIVATE > 0.0)
             Assertions.assertEquals(6, goals);
@@ -138,7 +137,7 @@ public class InnerClassGoalsSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
 
         System.out.println(best);
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
 
         // lines of 'ClassWithPrivateInnerClass': 22, 24, 25, 26, 28
         // lines of 'ClassWithPrivateInnerClass$AnInnerClass': 30, 32, 33, 35
@@ -168,7 +167,7 @@ public class InnerClassGoalsSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
 
         System.out.println(best);
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
 
         // If reflection is active, then the private constructor will be tested
         if (Properties.P_REFLECTION_ON_PRIVATE > 0.0)
@@ -199,7 +198,7 @@ public class InnerClassGoalsSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
 
         System.out.println(best);
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
 
         // lines of 'ClassWithPrivateNonStaticInnerClass': 22, 25, 26, 27, 29
         // lines of 'ClassWithPrivateNonStaticInnerClass$AnInnerClass': 31, 33, 34, 36

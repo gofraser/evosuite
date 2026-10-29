@@ -19,11 +19,11 @@
  */
 package org.evosuite.mock.java.io;
 
+import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
-import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -64,7 +64,7 @@ public class MockFileSystemTest extends SystemTestBase {
         TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         Assertions.assertEquals(3, goals, "Wrong number of goals: ");
         Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
@@ -88,7 +88,7 @@ public class MockFileSystemTest extends SystemTestBase {
         TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         Assertions.assertEquals(3, goals, "Wrong number of goals: ");
         Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
@@ -112,7 +112,7 @@ public class MockFileSystemTest extends SystemTestBase {
         TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         Assertions.assertEquals(3, goals, "Wrong number of goals: ");
         Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
@@ -138,7 +138,7 @@ public class MockFileSystemTest extends SystemTestBase {
         TestSuiteChromosome best = (TestSuiteChromosome) ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         Assertions.assertEquals(5, goals, "Wrong number of goals: ");
 
 

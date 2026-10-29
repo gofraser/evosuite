@@ -19,6 +19,7 @@
  */
 package org.evosuite.instrumentation.error;
 
+import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
@@ -26,7 +27,6 @@ import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.statistics.OutputVariable;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.statistics.backend.DebugStatisticsBackend;
-import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.jupiter.api.Assertions;
 
@@ -114,8 +114,8 @@ public class AbstractErrorBranchTest extends SystemTestBase {
     protected void checkErrorBranches(Class<?> targetClass, int realBranches, int instrumentedBranches, int coveredRealBranches, int coveredInstrumentedBranches) {
         TestSuiteChromosome best = runEvoSuite(targetClass);
         assertBranchStats(realBranches, instrumentedBranches, coveredRealBranches, coveredInstrumentedBranches);
-        Assertions.assertEquals(realBranches, TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size());
-        Assertions.assertEquals(instrumentedBranches, TestGenerationStrategy.getFitnessFactories().get(1).getCoverageGoals().size());
+        Assertions.assertEquals(realBranches, FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size());
+        Assertions.assertEquals(instrumentedBranches, FitnessFunctions.getFitnessFactories().get(1).getCoverageGoals().size());
         double meanCoverage = 0.0;
         if (instrumentedBranches > 0) {
             meanCoverage += (double) coveredInstrumentedBranches / instrumentedBranches;

@@ -65,7 +65,7 @@ public class FixedNumRandomTestStrategy extends TestGenerationStrategy {
             return suite;
         }
 
-        List<TestFitnessFactory<? extends TestFitnessFunction>> goalFactories = getFitnessFactories();
+        List<TestFitnessFactory<? extends TestFitnessFunction>> goalFactories = FitnessFunctions.getFitnessFactories();
         List<TestFitnessFunction> goals = new ArrayList<>();
         LoggingUtils.getEvoLogger().info("* Total number of test goals: ");
         for (int i = 0; i < goalFactories.size(); i++) {

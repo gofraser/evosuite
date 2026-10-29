@@ -19,12 +19,12 @@
  */
 package org.evosuite.coverage.statement;
 
+import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
-import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -46,7 +46,7 @@ public class StatementCoverageFitnessFunctionSystemTest extends SystemTestBase {
 
         System.out.println("CoveredGoals:\n" + best.getCoveredGoals());
         System.out.println("EvolvedTestSuite:\n" + best);
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size();
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size();
         Assertions.assertEquals(20, goals);
         Assertions.assertEquals(goals, best.getNumOfCoveredGoals());
         Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");

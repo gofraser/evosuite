@@ -19,11 +19,11 @@
  */
 package org.evosuite.basic;
 
+import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
-import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -70,7 +70,7 @@ public class TargetMethodPrefixSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
 
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
 
         assertEquals(13, goals, "Wrong number of goals:");
         assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
@@ -95,7 +95,7 @@ public class TargetMethodPrefixSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
 
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
 
         assertEquals(4, goals, "Wrong number of goals: ");
         assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
@@ -121,7 +121,7 @@ public class TargetMethodPrefixSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
 
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
 
         assertEquals(4, goals, "Wrong number of goals: ");
         assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
@@ -147,7 +147,7 @@ public class TargetMethodPrefixSystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
 
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
 
         assertEquals(8, goals, "Wrong number of goals: ");
         assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");

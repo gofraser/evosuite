@@ -61,7 +61,7 @@ public class MOSuiteStrategy extends TestGenerationStrategy {
      * Returns the configured goal factories.
      */
     protected List<TestFitnessFactory<? extends TestFitnessFunction>> getConfiguredGoalFactories() {
-        return getFitnessFactories();
+        return FitnessFunctions.getFitnessFactories();
     }
 
     @Override

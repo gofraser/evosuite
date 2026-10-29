@@ -19,11 +19,11 @@
  */
 package org.evosuite.coverage.cbranch;
 
+import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
-import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.SystemTestBase;
 import org.junit.jupiter.api.AfterEach;
@@ -74,7 +74,7 @@ public class CBranchSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
 
         System.out.println("EvolvedTestSuite:\n" + best);
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         Assertions.assertEquals(7, goals);
         Assertions.assertEquals(5, best.size());
         Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");

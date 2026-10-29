@@ -19,6 +19,7 @@
  */
 package org.evosuite.strategy;
 
+import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.Properties;
 import org.evosuite.TimeController;
 import org.evosuite.coverage.TestFitnessFactory;
@@ -919,7 +920,7 @@ public class LlmStrategy extends TestGenerationStrategy {
     }
 
     protected List<TestFitnessFactory<? extends TestFitnessFunction>> getConfiguredGoalFactories() {
-        return getFitnessFactories();
+        return FitnessFunctions.getFitnessFactories();
     }
 
     protected LlmSeededPopulationFactory createSeededFactory() {

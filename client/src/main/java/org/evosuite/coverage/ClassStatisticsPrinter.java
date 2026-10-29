@@ -31,7 +31,6 @@ import org.evosuite.instrumentation.LinePool;
 import org.evosuite.runtime.classhandling.ClassResetter;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.setup.DependencyAnalysis;
-import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.utils.FileIOUtils;
@@ -166,7 +165,7 @@ public class ClassStatisticsPrinter {
         StringBuilder allGoals = new StringBuilder();
 
         List<TestFitnessFactory<? extends TestFitnessFunction>> factories =
-                TestGenerationStrategy.getFitnessFactories();
+                FitnessFunctions.getFitnessFactories();
 
         int numCriterion = 0;
         String lineSeparator = System.lineSeparator();

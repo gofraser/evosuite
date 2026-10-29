@@ -19,6 +19,7 @@
  */
 package org.evosuite.setup;
 
+import org.evosuite.coverage.FitnessFunctions;
 import com.examples.with.different.packagename.interfaces.InterfaceWithDefaultMethods;
 import com.examples.with.different.packagename.interfaces.InterfaceWithStaticMethods;
 import com.examples.with.different.packagename.interfaces.InterfaceWithoutSubclasses;
@@ -29,7 +30,6 @@ import org.evosuite.SystemTestBase;
 import org.evosuite.coverage.TestFitnessFactory;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.result.TestGenerationResult;
-import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.jupiter.api.Assertions;
@@ -51,7 +51,7 @@ public class InterfaceSystemTest extends SystemTestBase {
         Object result = evosuite.parseCommandLine(command);
         assertZeroGoalResultOrZeroFitness(result);
 
-        for (TestFitnessFactory<? extends TestFitnessFunction> ff : TestGenerationStrategy.getFitnessFactories()) {
+        for (TestFitnessFactory<? extends TestFitnessFunction> ff : FitnessFunctions.getFitnessFactories()) {
             Assertions.assertEquals(0, ff.getCoverageGoals().size());
         }
     }
@@ -68,7 +68,7 @@ public class InterfaceSystemTest extends SystemTestBase {
         Object result = evosuite.parseCommandLine(command);
         assertZeroGoalResultOrZeroFitness(result);
 
-        for (TestFitnessFactory<? extends TestFitnessFunction> ff : TestGenerationStrategy.getFitnessFactories()) {
+        for (TestFitnessFactory<? extends TestFitnessFunction> ff : FitnessFunctions.getFitnessFactories()) {
             Assertions.assertEquals(0, ff.getCoverageGoals().size());
         }
     }
@@ -89,7 +89,7 @@ public class InterfaceSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         Assertions.assertEquals(0.0, best.getFitness(), 0.0);
 
-        for (TestFitnessFactory<? extends TestFitnessFunction> ff : TestGenerationStrategy.getFitnessFactories()) {
+        for (TestFitnessFactory<? extends TestFitnessFunction> ff : FitnessFunctions.getFitnessFactories()) {
             Assertions.assertEquals(1, ff.getCoverageGoals().size());
         }
     }
@@ -132,7 +132,7 @@ public class InterfaceSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         Assertions.assertEquals(0.0, best.getFitness(), 0.0);
 
-        for (TestFitnessFactory<? extends TestFitnessFunction> ff : TestGenerationStrategy.getFitnessFactories()) {
+        for (TestFitnessFactory<? extends TestFitnessFunction> ff : FitnessFunctions.getFitnessFactories()) {
             Assertions.assertEquals(1, ff.getCoverageGoals().size());
         }
     }

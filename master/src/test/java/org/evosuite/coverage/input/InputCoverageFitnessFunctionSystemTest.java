@@ -30,7 +30,6 @@ import org.evosuite.SystemTestBase;
 import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
-import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.statements.AssignmentStatement;
 import org.evosuite.testcase.statements.ConstructorStatement;
@@ -86,7 +85,7 @@ public class InputCoverageFitnessFunctionSystemTest extends SystemTestBase {
         Object result = evosuite.parseCommandLine(command);
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
-        List<?> goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals();
+        List<?> goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals();
         assertEquals(12, goals.size());
         assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
@@ -101,7 +100,7 @@ public class InputCoverageFitnessFunctionSystemTest extends SystemTestBase {
         Object result = evosuite.parseCommandLine(command);
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
-        List<?> goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals();
+        List<?> goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals();
         assertEquals(23, goals.size());
         assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
@@ -117,7 +116,7 @@ public class InputCoverageFitnessFunctionSystemTest extends SystemTestBase {
         Object result = evosuite.parseCommandLine(command);
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
         TestSuiteChromosome best = ga.getBestIndividual();
-        List<?> goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals();
+        List<?> goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals();
         assertEquals(31, goals.size());
         assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }

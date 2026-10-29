@@ -19,13 +19,13 @@
  */
 package org.evosuite.mock.java.net;
 
+import org.evosuite.coverage.FitnessFunctions;
 import com.examples.with.different.packagename.mock.java.net.ReceiveUdp;
 
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
-import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -62,7 +62,7 @@ public class MockUdpSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         Assertions.assertEquals(3, goals, "Wrong number of goals: ");
         Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }

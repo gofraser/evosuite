@@ -19,6 +19,7 @@
  */
 package org.evosuite.coverage;
 
+import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.coverage.branch.*;
@@ -52,6 +53,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
@@ -253,6 +255,15 @@ public class FitnessFunctions {
         logger.warn("No TestSuiteFitnessFunction defined for {}; using default one "
                 + "(BranchCoverageSuiteFitness)", criterion);
         return new BranchCoverageSuiteFitness();
+    }
+
+    /**
+     * Convert criterion names to factories for test case fitness functions.
+     *
+     * @return list of fitness factories for the configured criteria
+     */
+    public static List<TestFitnessFactory<? extends TestFitnessFunction>> getFitnessFactories() {
+        return FitnessFunctionsUtils.getFitnessFactories(Properties.CRITERION);
     }
 
     /**

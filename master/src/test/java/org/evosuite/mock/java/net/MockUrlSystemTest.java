@@ -19,6 +19,7 @@
  */
 package org.evosuite.mock.java.net;
 
+import org.evosuite.coverage.FitnessFunctions;
 import com.examples.with.different.packagename.mock.java.net.ReadFromInputURL;
 import com.examples.with.different.packagename.mock.java.net.ReadFromURL;
 
@@ -31,7 +32,6 @@ import org.evosuite.runtime.instrumentation.EvoClassLoader;
 import org.evosuite.runtime.instrumentation.MethodCallReplacementCache;
 import org.evosuite.runtime.testdata.EvoSuiteURL;
 import org.evosuite.runtime.testdata.NetworkHandling;
-import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -90,7 +90,7 @@ public class MockUrlSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         Assertions.assertEquals(3, goals, "Wrong number of goals: ");
         Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
@@ -114,7 +114,7 @@ public class MockUrlSystemTest extends SystemTestBase {
         TestSuiteChromosome best = ga.getBestIndividual();
         System.out.println("EvolvedTestSuite:\n" + best);
 
-        int goals = TestGenerationStrategy.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
+        int goals = FitnessFunctions.getFitnessFactories().get(0).getCoverageGoals().size(); // assuming single fitness function
         Assertions.assertEquals(5, goals, "Wrong number of goals: ");
         Assertions.assertEquals(1d, best.getCoverage(), 0.001, "Non-optimal coverage: ");
     }
