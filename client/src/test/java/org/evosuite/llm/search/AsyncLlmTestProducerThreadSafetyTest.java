@@ -47,7 +47,12 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class AsyncLlmTestProducerThreadSafetyTest {
@@ -162,6 +167,50 @@ class AsyncLlmTestProducerThreadSafetyTest {
             assertTrue(requestReturned.await(1, TimeUnit.SECONDS));
             assertTrue(producer.drainAvailable().isEmpty(),
                     "A candidate returned after stop() must not be published");
+        } finally {
+            releaseRequest.countDown();
+            producer.stop();
+        }
+    }
+
+    @Test
+    void stopReleasesTheAttemptOfAResponseItRetracts() throws Exception {
+        LlmService service = mock(LlmService.class);
+        when(service.isAvailable()).thenReturn(true);
+        when(service.hasBudget(any(LlmFeature.class))).thenReturn(true);
+        RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
+        CountDownLatch requestEntered = new CountDownLatch(1);
+        CountDownLatch releaseRequest = new CountDownLatch(1);
+        AsyncLlmTestProducer producer = new AsyncLlmTestProducer(
+                () -> Collections.singleton(new FixedFitnessGoal("example.Target", "method()V", 1.0)),
+                null, service, 1, 1, 0, memory) {
+            @Override
+            protected List<TestChromosome> requestCandidates(PromptResult prompt, TestRepairLoop repairLoop) {
+                requestEntered.countDown();
+                boolean interrupted = false;
+                while (true) {
+                    try {
+                        releaseRequest.await();
+                        break;
+                    } catch (InterruptedException ignored) {
+                        interrupted = true;
+                    }
+                }
+                if (interrupted) {
+                    Thread.currentThread().interrupt();
+                }
+                return Collections.singletonList(new TestChromosome());
+            }
+        };
+
+        try {
+            producer.start();
+            assertTrue(requestEntered.await(1, TimeUnit.SECONDS));
+            producer.stop();
+            releaseRequest.countDown();
+            verify(memory, timeout(2000)).releaseUndeliveredAttempt(anyString());
+            verify(memory, never()).recordAttemptOutcome(anyString(), org.mockito.ArgumentMatchers.anyInt());
+            assertTrue(producer.drainAvailable().isEmpty());
         } finally {
             releaseRequest.countDown();
             producer.stop();

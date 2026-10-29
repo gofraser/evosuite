@@ -267,7 +267,9 @@ public class AsyncLlmTestProducer {
                                     ? Collections.<ProblemCardType>emptyList()
                                     : new ArrayList<>(cardTypes),
                             attemptTargetGoals))) {
-                        // Publishing only fails once stop() has been requested.
+                        // Publishing only fails once stop() has been requested; the response was
+                        // retracted unseen, so the attempt is released rather than left in flight.
+                        ticket.release();
                         return;
                     }
                     if (!cardTypes.isEmpty()) {
