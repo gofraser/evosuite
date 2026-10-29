@@ -808,7 +808,7 @@ final class RepairHintComposer {
             return false;
         }
         String sourceText = error != null && !error.isEmpty() ? error : previousResponse;
-        if (extractAnonymousConstructedTypeStatic(sourceText) == null) {
+        if (extractAnonymousConstructedType(sourceText) == null) {
             return false;
         }
         String lower = error == null ? "" : error.toLowerCase();
@@ -936,10 +936,6 @@ final class RepairHintComposer {
     }
 
     private static String extractAnonymousConstructedType(String sourceText) {
-        return extractAnonymousConstructedTypeStatic(sourceText);
-    }
-
-    private static String extractAnonymousConstructedTypeStatic(String sourceText) {
         if (sourceText == null || sourceText.isEmpty()) {
             return null;
         }

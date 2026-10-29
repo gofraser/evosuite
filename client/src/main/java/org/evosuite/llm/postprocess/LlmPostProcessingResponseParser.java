@@ -147,10 +147,6 @@ public final class LlmPostProcessingResponseParser {
         return node == null || node.isNull() || !node.isTextual() ? null : node.asText();
     }
 
-    static String normalizeJsonResponse(String response) {
-        return PostProcessingResponseDecoder.normalizeJsonResponse(response);
-    }
-
     public static final class ParseContext {
         private final Set<String> statementIds;
         private final Set<String> variableIds;

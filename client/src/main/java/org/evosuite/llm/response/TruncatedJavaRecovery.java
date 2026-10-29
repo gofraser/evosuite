@@ -133,58 +133,9 @@ public final class TruncatedJavaRecovery {
             char c = source.charAt(i);
             char next = i + 1 < source.length() ? source.charAt(i + 1) : '\0';
 
-            if (state.lineComment) {
-                if (c == '\n' || c == '\r') {
-                    state.lineComment = false;
-                }
-                continue;
-            }
-            if (state.blockComment) {
-                if (c == '*' && next == '/') {
-                    state.blockComment = false;
-                    i++;
-                }
-                continue;
-            }
-            if (state.stringLiteral) {
-                if (state.escape) {
-                    state.escape = false;
-                } else if (c == '\\') {
-                    state.escape = true;
-                } else if (c == '"') {
-                    state.stringLiteral = false;
-                }
-                continue;
-            }
-            if (state.charLiteral) {
-                if (state.escape) {
-                    state.escape = false;
-                } else if (c == '\\') {
-                    state.escape = true;
-                } else if (c == '\'') {
-                    state.charLiteral = false;
-                }
-                continue;
-            }
-
-            if (c == '/' && next == '/') {
-                state.lineComment = true;
-                i++;
-                continue;
-            }
-            if (c == '/' && next == '*') {
-                state.blockComment = true;
-                i++;
-                continue;
-            }
-            if (c == '"') {
-                state.stringLiteral = true;
-                state.escape = false;
-                continue;
-            }
-            if (c == '\'') {
-                state.charLiteral = true;
-                state.escape = false;
+            int consumed = lexNonCode(state, c, next);
+            if (consumed >= 0) {
+                i += consumed;
                 continue;
             }
 
@@ -228,6 +179,66 @@ public final class TruncatedJavaRecovery {
         return boundaries;
     }
 
+    /**
+     * Advances the lexical state over comments and string or character literals.
+     *
+     * @return the number of extra characters consumed after {@code c}, or -1 if {@code c} is code
+     */
+    private static int lexNonCode(LexState state, char c, char next) {
+        if (state.lineComment) {
+            if (c == '\n' || c == '\r') {
+                state.lineComment = false;
+            }
+            return 0;
+        }
+        if (state.blockComment) {
+            if (c == '*' && next == '/') {
+                state.blockComment = false;
+                return 1;
+            }
+            return 0;
+        }
+        if (state.stringLiteral) {
+            if (state.escape) {
+                state.escape = false;
+            } else if (c == '\\') {
+                state.escape = true;
+            } else if (c == '"') {
+                state.stringLiteral = false;
+            }
+            return 0;
+        }
+        if (state.charLiteral) {
+            if (state.escape) {
+                state.escape = false;
+            } else if (c == '\\') {
+                state.escape = true;
+            } else if (c == '\'') {
+                state.charLiteral = false;
+            }
+            return 0;
+        }
+        if (c == '/' && next == '/') {
+            state.lineComment = true;
+            return 1;
+        }
+        if (c == '/' && next == '*') {
+            state.blockComment = true;
+            return 1;
+        }
+        if (c == '"') {
+            state.stringLiteral = true;
+            state.escape = false;
+            return 0;
+        }
+        if (c == '\'') {
+            state.charLiteral = true;
+            state.escape = false;
+            return 0;
+        }
+        return -1;
+    }
+
     private String closeOutstandingBraces(String source) {
         LexState state = new LexState();
         int curlyDepth = 0;
@@ -236,58 +247,9 @@ public final class TruncatedJavaRecovery {
             char c = source.charAt(i);
             char next = i + 1 < source.length() ? source.charAt(i + 1) : '\0';
 
-            if (state.lineComment) {
-                if (c == '\n' || c == '\r') {
-                    state.lineComment = false;
-                }
-                continue;
-            }
-            if (state.blockComment) {
-                if (c == '*' && next == '/') {
-                    state.blockComment = false;
-                    i++;
-                }
-                continue;
-            }
-            if (state.stringLiteral) {
-                if (state.escape) {
-                    state.escape = false;
-                } else if (c == '\\') {
-                    state.escape = true;
-                } else if (c == '"') {
-                    state.stringLiteral = false;
-                }
-                continue;
-            }
-            if (state.charLiteral) {
-                if (state.escape) {
-                    state.escape = false;
-                } else if (c == '\\') {
-                    state.escape = true;
-                } else if (c == '\'') {
-                    state.charLiteral = false;
-                }
-                continue;
-            }
-
-            if (c == '/' && next == '/') {
-                state.lineComment = true;
-                i++;
-                continue;
-            }
-            if (c == '/' && next == '*') {
-                state.blockComment = true;
-                i++;
-                continue;
-            }
-            if (c == '"') {
-                state.stringLiteral = true;
-                state.escape = false;
-                continue;
-            }
-            if (c == '\'') {
-                state.charLiteral = true;
-                state.escape = false;
+            int consumed = lexNonCode(state, c, next);
+            if (consumed >= 0) {
+                i += consumed;
                 continue;
             }
 

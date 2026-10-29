@@ -153,7 +153,6 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
      * Drains seeds from the pending future and waits up to {@code timeoutMs} milliseconds.
      */
     public List<TestChromosome> awaitAndDrainSeeds(long timeoutMs) {
-        long waitMillis = Math.max(1L, timeoutMs);
         mergePendingSeeds(true, timeoutMs);
         List<TestChromosome> drained = new ArrayList<>();
         TestChromosome current;

@@ -506,7 +506,15 @@ final class LlmTestSalvager {
     }
 
     private boolean isMeaningful(TestCase testCase) {
-        return TestInteractionChecker.invokesTarget(testCase, Properties.TARGET_CLASS);
+        if (testCase == null) {
+            return false;
+        }
+        for (org.evosuite.testcase.statements.Statement statement : testCase) {
+            if (isSutCallStatement(statement)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -517,23 +525,9 @@ final class LlmTestSalvager {
      * drop the test. Returns false (silently) on a well-formed test case.
      */
     private boolean hasOrphanedVariableReferences(TestCase testCase, String context) {
-        if (testCase == null) {
-            return false;
-        }
-        List<String> orphans;
-        try {
-            orphans = TestReferenceValidator.findOrphanedVariableReferences(testCase);
-        } catch (Throwable t) {
-            logger.warn("Orphan-reference validation crashed for {}; dropping test ({})",
-                    context, t.toString());
-            return true;
-        }
-        if (orphans.isEmpty()) {
-            return false;
-        }
-        logger.warn("Dropping {} due to {} orphaned variable reference(s); details: {}",
-                context, orphans.size(), orphans);
-        return true;
+        return hasValidationIssues(testCase, context,
+                TestReferenceValidator::findOrphanedVariableReferences,
+                "Orphan-reference", "orphaned variable reference(s)");
     }
 
     /**
@@ -547,22 +541,30 @@ final class LlmTestSalvager {
      * search alive.
      */
     private boolean hasUnsafelyCopyableStatements(TestCase testCase, String context) {
+        return hasValidationIssues(testCase, context,
+                TestReferenceValidator::findUnsafelyCopyableStatements,
+                "Copy-safety", "unsafe-to-copy statement(s)");
+    }
+
+    private boolean hasValidationIssues(TestCase testCase, String context,
+                                        java.util.function.Function<TestCase, List<String>> validator,
+                                        String validationName, String issueName) {
         if (testCase == null) {
             return false;
         }
         List<String> issues;
         try {
-            issues = TestReferenceValidator.findUnsafelyCopyableStatements(testCase);
+            issues = validator.apply(testCase);
         } catch (Throwable t) {
-            logger.warn("Copy-safety validation crashed for {}; dropping test ({})",
-                    context, t.toString());
+            logger.warn("{} validation crashed for {}; dropping test ({})",
+                    validationName, context, t.toString());
             return true;
         }
         if (issues.isEmpty()) {
             return false;
         }
-        logger.warn("Dropping {} due to {} unsafe-to-copy statement(s); details: {}",
-                context, issues.size(), issues);
+        logger.warn("Dropping {} due to {} {}; details: {}",
+                context, issues.size(), issueName, issues);
         return true;
     }
 }

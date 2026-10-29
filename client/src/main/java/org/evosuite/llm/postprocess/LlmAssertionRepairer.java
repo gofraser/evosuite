@@ -194,7 +194,7 @@ final class LlmAssertionRepairer {
         if (rawResponse == null) {
             return "";
         }
-        String trimmed = LlmPostProcessingResponseParser.normalizeJsonResponse(rawResponse).trim();
+        String trimmed = PostProcessingResponseDecoder.normalizeJsonResponse(rawResponse).trim();
         if (trimmed.startsWith("[")) {
             return "{\"schemaVersion\":" + LlmPostProcessingProtocol.responseSchemaVersion()
                     + ",\"assertions\":" + trimmed + "}";

@@ -22,10 +22,7 @@ package org.evosuite.llm.factory;
 import org.evosuite.Properties;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.ChromosomeFactory;
-import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.metaheuristics.SearchListener;
-import org.evosuite.llm.LlmBudgetExceededException;
-import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmWaitBudget;
@@ -159,22 +156,6 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
                     ledger.evaluated(individual, generationSupplier.getAsLong());
                 }
             }
-
-            @Override
-            public void searchStarted(GeneticAlgorithm<T> algorithm) {
-            }
-
-            @Override
-            public void iteration(GeneticAlgorithm<T> algorithm) {
-            }
-
-            @Override
-            public void searchFinished(GeneticAlgorithm<T> algorithm) {
-            }
-
-            @Override
-            public void modification(T individual) {
-            }
         };
     }
 
@@ -188,10 +169,6 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
             if (llmChromosome != null) {
                 return llmChromosome;
             }
-        } catch (LlmBudgetExceededException e) {
-            logger.debug("LLM test factory budget exhausted: {}", e.getMessage());
-        } catch (LlmCallFailedException e) {
-            logger.debug("LLM test factory call failed: {}", e.getMessage());
         } catch (RuntimeException e) {
             logger.debug("LLM test factory failed: {}", e.getMessage());
         }
