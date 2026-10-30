@@ -60,6 +60,11 @@ public class AsyncLlmTestProducer {
     private static final Logger logger = LoggerFactory.getLogger(AsyncLlmTestProducer.class);
 
     private final BlockingQueue<AttributedCandidate> testQueue;
+    /**
+     * Back-pressure threshold, not a bound on {@link #testQueue}: a response is queued as a whole
+     * while fewer than this many tests wait, so the queue can hold up to this many tests minus
+     * one plus the size of one response.
+     */
     private final int queueCapacity;
     private final Thread producerThread;
     private final Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier;
@@ -101,7 +106,9 @@ public class AsyncLlmTestProducer {
      * @param uncoveredGoalsSupplier supplies the currently uncovered goals, may be null
      * @param populationSupplier supplies the current population
      * @param llmService the service used to query the model
-     * @param queueSize capacity of the queue of produced tests
+     * @param queueSize back-pressure threshold: a response is accepted only while fewer than this many tests
+     *     wait to be drained, and the producer pauses once that many wait; it does not bound the number of
+     *     queued tests, since all tests of one response (one attempt) are queued together
      * @param refreshInterval number of tests generated before the prompt context is refreshed
      * @param delayMs delay between generations in milliseconds
      * @param repeatedInjectionMemory memory of earlier attempts, may be null

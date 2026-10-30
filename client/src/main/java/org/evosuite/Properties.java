@@ -2033,7 +2033,10 @@ public class Properties {
     public static boolean LLM_ASYNC_PRODUCER = false;
 
     @Parameter(key = "llm_async_producer_queue_size", group = "LLM",
-            description = "Maximum number of buffered tests in async LLM producer")
+            description = "Back-pressure threshold of the async LLM producer: it requests more tests "
+                    + "from the model only while fewer than this many tests wait to be consumed. "
+                    + "It does not bound the number of buffered tests, because all tests of one "
+                    + "model response are queued together")
     @IntValue(min = 1)
     public static int LLM_ASYNC_PRODUCER_QUEUE_SIZE = 2;
 
