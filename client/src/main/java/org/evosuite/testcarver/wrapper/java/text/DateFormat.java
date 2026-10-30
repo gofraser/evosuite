@@ -39,34 +39,37 @@ public abstract class DateFormat extends java.text.DateFormat {
     private static final long serialVersionUID = -5974612860032396630L;
 
     /**
-     * Shadow of format method.
+     * Static wrapper for the final format method. The instrumentation redirects calls on any formatter
+     * here, including the formatters returned by the static factories, which are not wrapper instances.
      *
+     * @param format the formatter the call is made on
      * @param obj the object to format
      * @param toAppendTo the string buffer to append to
      * @param fieldPosition the field position
      * @return the formatted string buffer
      */
-    public final StringBuffer format_final(Object obj, StringBuffer toAppendTo,
-                                           FieldPosition fieldPosition) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_TEXT_DATEFORMAT, this, "format",
+    public static StringBuffer format(java.text.DateFormat format, Object obj, StringBuffer toAppendTo,
+                                      FieldPosition fieldPosition) {
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_TEXT_DATEFORMAT, format, "format",
                 "(Ljava/lang/Object;Ljava/lang/StringBuffer;Ljava/text/FieldPosition;)Ljava/lang/StringBuffer;",
                 new Object[]{obj, toAppendTo, fieldPosition});
-        StringBuffer ret = super.format(obj, toAppendTo, fieldPosition);
-        Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_TEXT_DATEFORMAT, this, ret);
+        StringBuffer ret = format.format(obj, toAppendTo, fieldPosition);
+        Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_TEXT_DATEFORMAT, format, ret);
         return ret;
     }
 
     /**
-     * Shadow of format method.
+     * Static wrapper for the final format method.
      *
+     * @param format the formatter the call is made on
      * @param date the date to format
      * @return the formatted string
      */
-    public final String format_final(java.util.Date date) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_TEXT_DATEFORMAT, this, "format",
+    public static String format(java.text.DateFormat format, java.util.Date date) {
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_TEXT_DATEFORMAT, format, "format",
                 "(Ljava/util/Date;)Ljava/lang/String;", new Object[]{date});
-        String ret = super.format(date);
-        Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_TEXT_DATEFORMAT, this, ret);
+        String ret = format.format(date);
+        Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_TEXT_DATEFORMAT, format, ret);
         return ret;
     }
 
