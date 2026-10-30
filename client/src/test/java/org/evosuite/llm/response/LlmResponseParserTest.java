@@ -280,6 +280,76 @@ class LlmResponseParserTest {
                 result.getSource());
     }
 
+    private static final String REFLECTIVE_RESPONSE = "```java\n"
+            + "import static org.junit.Assert.*;\n"
+            + "import java.lang.reflect.Method;\n"
+            + "public class ReflectiveTest {\n"
+            + "  @org.junit.Test\n"
+            + "  public void test0() {\n"
+            + "    Method method0 = Object.class.getDeclaredMethod(\"toString\");\n"
+            + "    assertThrows(IllegalStateException.class, () -> method0.invoke(null));\n"
+            + "  }\n"
+            + "}\n"
+            + "```";
+
+    private static java.io.File jarOf(Class<?> type) throws Exception {
+        return new java.io.File(type.getProtectionDomain().getCodeSource().getLocation().toURI());
+    }
+
+    private static boolean compiles(String source, String classpath) throws Exception {
+        java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("reflective");
+        java.nio.file.Path file = dir.resolve("Ignored.java");
+        java.nio.file.Files.write(file, source.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        javax.tools.JavaCompiler compiler = javax.tools.ToolProvider.getSystemJavaCompiler();
+        java.io.ByteArrayOutputStream err = new java.io.ByteArrayOutputStream();
+        int status = compiler.run(null, null, err, "-proc:none", "-d", dir.toString(),
+                "-classpath", classpath, file.toString());
+        if (status != 0) {
+            System.err.println(err);
+        }
+        return status == 0;
+    }
+
+    @Test
+    void reflectiveAssertThrowsUsesTryFailCatchUnderJunit4() throws Exception {
+        Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT4;
+
+        String source = parser.extractAllTestClassesWithMetadata(REFLECTIVE_RESPONSE, "Ignored", null)
+                .get(0).getSource();
+
+        assertFalse(source.contains("jupiter"), source);
+        assertFalse(source.contains("assertThrows"), source);
+        assertTrue(source.contains("org.junit.Assert.fail(\"Expecting exception: "
+                + "java.lang.reflect.InvocationTargetException\")"), source);
+        assertTrue(source.contains("(IllegalStateException) invocationTargetException0.getCause()"), source);
+        assertTrue(source.contains("throws Throwable"), source);
+        // Only JUnit 4 (and its Hamcrest) on the compile classpath: no Jupiter.
+        String junit4Only = jarOf(org.junit.Assert.class) + java.io.File.pathSeparator
+                + jarOf(org.hamcrest.Matcher.class);
+        assertTrue(compiles(source, junit4Only), source);
+    }
+
+    @Test
+    void reflectiveAssertThrowsUsesTryFailCatchUnderJunit3() throws Exception {
+        Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT3;
+
+        String source = parser.extractAllTestClassesWithMetadata(REFLECTIVE_RESPONSE, "Ignored", null)
+                .get(0).getSource();
+
+        assertTrue(source.contains("junit.framework.Assert.fail("), source);
+        assertFalse(source.contains("jupiter"), source);
+    }
+
+    @Test
+    void reflectiveAssertThrowsKeepsJupiterUnderJunit5() {
+        Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT5;
+
+        String source = parser.extractAllTestClassesWithMetadata(REFLECTIVE_RESPONSE, "Ignored", null)
+                .get(0).getSource();
+
+        assertTrue(source.contains("org.junit.jupiter.api.Assertions.assertThrows("), source);
+    }
+
     @Test
     void recoveredSourceIsNormalizedWithoutRewrites() {
         String response = "```java\n"

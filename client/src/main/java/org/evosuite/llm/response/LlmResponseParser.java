@@ -35,6 +35,8 @@ import com.github.javaparser.ast.expr.VariableDeclarationExpr;
 import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.ast.stmt.Statement;
+import com.github.javaparser.ast.type.ClassOrInterfaceType;
+import com.github.javaparser.ast.type.ReferenceType;
 import org.evosuite.Properties;
 import org.evosuite.testparser.TestMethodParser;
 
@@ -490,24 +492,43 @@ public class LlmResponseParser {
 
             String variableName = "invocationTargetException" + rewrites;
             String causeVariableName = "expectedCause" + rewrites;
-            String rewrittenThrow = "java.lang.reflect.InvocationTargetException " + variableName
-                    + " = org.junit.jupiter.api.Assertions.assertThrows("
-                    + "java.lang.reflect.InvocationTargetException.class, "
-                    + lambdaExpr.toString() + ");";
             String rewrittenCauseAssert = expectedType + " " + causeVariableName
                     + " = (" + expectedType + ") " + variableName + ".getCause();";
 
-            Statement rewrittenThrowStmt;
-            Statement rewrittenCauseAssertStmt;
+            List<Statement> rewritten = new ArrayList<>();
             try {
-                rewrittenThrowStmt = StaticJavaParser.parseStatement(rewrittenThrow);
-                rewrittenCauseAssertStmt = StaticJavaParser.parseStatement(rewrittenCauseAssert);
+                if (Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT5) {
+                    rewritten.add(StaticJavaParser.parseStatement(
+                            "java.lang.reflect.InvocationTargetException " + variableName
+                                    + " = org.junit.jupiter.api.Assertions.assertThrows("
+                                    + "java.lang.reflect.InvocationTargetException.class, "
+                                    + lambdaExpr.toString() + ");"));
+                } else {
+                    // JUnit 3 and 4 have no assertThrows: capture the exception the way the
+                    // generated tests do, with try, fail and catch.
+                    String failCall = Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT3
+                            ? "junit.framework.Assert.fail" : "org.junit.Assert.fail";
+                    rewritten.add(StaticJavaParser.parseStatement(
+                            "java.lang.reflect.InvocationTargetException " + variableName + " = null;"));
+                    rewritten.add(StaticJavaParser.parseStatement(
+                            "try { " + lambdaBodyStatements(lambdaExpr) + " " + failCall
+                                    + "(\"Expecting exception: java.lang.reflect.InvocationTargetException\"); }"
+                                    + " catch (java.lang.reflect.InvocationTargetException caught" + rewrites
+                                    + ") { " + variableName + " = caught" + rewrites + "; }"));
+                }
+                rewritten.add(StaticJavaParser.parseStatement(rewrittenCauseAssert));
             } catch (RuntimeException | StackOverflowError ignored) {
                 continue;
             }
 
-            blockStmt.getStatements().set(statementIndex, rewrittenThrowStmt);
-            blockStmt.addStatement(statementIndex + 1, rewrittenCauseAssertStmt);
+            // The lambda could throw anything; the try block needs the method to declare it.
+            if (Properties.TEST_FORMAT != Properties.OutputFormat.JUNIT5) {
+                declareThrowable(expressionStmt);
+            }
+            blockStmt.getStatements().remove(statementIndex);
+            for (int i = 0; i < rewritten.size(); i++) {
+                blockStmt.addStatement(statementIndex + i, rewritten.get(i));
+            }
             rewrites++;
         }
 
@@ -515,6 +536,30 @@ public class LlmResponseParser {
             return extraction;
         }
         return extraction.withSource(compilationUnit.toString(), rewrites);
+    }
+
+    private static String lambdaBodyStatements(LambdaExpr lambdaExpr) {
+        if (lambdaExpr.getBody() instanceof BlockStmt) {
+            StringBuilder body = new StringBuilder();
+            for (Statement statement : ((BlockStmt) lambdaExpr.getBody()).getStatements()) {
+                body.append(statement).append(' ');
+            }
+            return body.toString();
+        }
+        return lambdaExpr.getBody().toString();
+    }
+
+    private static void declareThrowable(Node statement) {
+        statement.findAncestor(MethodDeclaration.class).ifPresent(method -> {
+            for (ReferenceType thrown : method.getThrownExceptions()) {
+                String name = thrown.toString();
+                if ("Throwable".equals(name) || "Exception".equals(name)
+                        || "java.lang.Throwable".equals(name) || "java.lang.Exception".equals(name)) {
+                    return;
+                }
+            }
+            method.addThrownException(new ClassOrInterfaceType(null, "Throwable"));
+        });
     }
 
     private static MethodCallExpr extractSingleReflectiveInvokeCall(LambdaExpr lambdaExpr) {
