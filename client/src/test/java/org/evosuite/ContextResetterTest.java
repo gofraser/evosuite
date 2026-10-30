@@ -21,9 +21,12 @@ package org.evosuite;
 
 import org.evosuite.graphs.GraphPool;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
+import org.evosuite.setup.DependencyAnalysis;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 public class ContextResetterTest {
@@ -40,5 +43,21 @@ public class ContextResetterTest {
         assertNotSame(before, after);
         assertSame(after, TestGenerationContext.getClassLoader());
         assertNotSame(oldPool, GraphPool.getInstance(after));
+    }
+
+    @Test
+    public void clearLeavesTheTargetUnanalysedWhereResetAnalysesIt() {
+        String oldTarget = Properties.TARGET_CLASS;
+        try {
+            Properties.TARGET_CLASS = ContextResetterTest.class.getName();
+            ContextResetter.clear();
+            assertNull(DependencyAnalysis.getCallGraph(Properties.TARGET_CLASS));
+
+            ContextResetter.reset();
+            assertNotNull(DependencyAnalysis.getCallGraph(Properties.TARGET_CLASS));
+        } finally {
+            Properties.TARGET_CLASS = oldTarget;
+            ContextResetter.reset();
+        }
     }
 }

@@ -208,7 +208,8 @@ public class TestSuiteGenerator {
                                 && !t.equals(Properties.Criterion.MUTATION))
                         .toArray(Properties.Criterion[]::new);
                 if (newCriteria.length < Properties.CRITERION.length) {
-                    ContextResetter.reset();
+                    // initializeTargetClass() below analyses the target again.
+                    ContextResetter.clear();
                     LoggingUtils.clientInfo("Attempting re-instrumentation without mutation");
                     Properties.CRITERION = newCriteria;
                     if (Properties.NEW_STATISTICS) {

@@ -82,6 +82,20 @@ public final class ContextResetter {
      * needed.
      */
     public static void reset() {
+        resetContext(true);
+    }
+
+    /**
+     * Resets the test generation context like {@link #reset()}, but without analysing the target
+     * class afterwards: the test cluster and call graph stay empty until the caller runs the
+     * dependency analysis itself. For callers that analyse the target right after, with
+     * different settings, so that the analysis does not run twice.
+     */
+    public static void clear() {
+        resetContext(false);
+    }
+
+    private static void resetContext(boolean analyseTarget) {
         final TestGenerationContext context = TestGenerationContext.getInstance();
         logger.info("*** Resetting context");
 
@@ -141,7 +155,7 @@ public final class ContextResetter {
         CarvingManager.getInstance().clear();
 
         // TODO: Why are we doing this?
-        if (Properties.INSTRUMENT_CONTEXT || !Properties.TARGET_CLASS.isEmpty()) {
+        if (analyseTarget && (Properties.INSTRUMENT_CONTEXT || !Properties.TARGET_CLASS.isEmpty())) {
             try {
                 // 1. Initialize the callGraph before using
                 String cp = ClassPathHandler.getInstance().getTargetProjectClasspath();
