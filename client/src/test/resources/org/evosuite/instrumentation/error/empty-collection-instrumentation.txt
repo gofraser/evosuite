@@ -1,0 +1,1427 @@
+=== java/util/Queue.remove()Ljava/lang/Object; itf
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEINTERFACE java/util/Queue.isEmpty ()Z (itf)
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEINTERFACE java/util/Queue.remove ()Ljava/lang/Object; (itf)
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/Queue.element()Ljava/lang/Object; itf
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEINTERFACE java/util/Queue.isEmpty ()Z (itf)
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEINTERFACE java/util/Queue.element ()Ljava/lang/Object; (itf)
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/Queue.poll()Ljava/lang/Object; itf
+    ALOAD 0
+    INVOKEINTERFACE java/util/Queue.poll ()Ljava/lang/Object; (itf)
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/Queue.remove(Ljava/lang/Object;)Z itf
+    ALOAD 0
+    ACONST_NULL
+    ASTORE 1
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEINTERFACE java/util/Queue.isEmpty ()Z (itf)
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    ALOAD 1
+    INVOKEINTERFACE java/util/Queue.remove (Ljava/lang/Object;)Z (itf)
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 2
+=== java/util/PriorityQueue.remove()Ljava/lang/Object;
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/PriorityQueue.isEmpty ()Z
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEVIRTUAL java/util/PriorityQueue.remove ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/PriorityQueue.element()Ljava/lang/Object;
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/PriorityQueue.isEmpty ()Z
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEVIRTUAL java/util/PriorityQueue.element ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/PriorityQueue.poll()Ljava/lang/Object;
+    ALOAD 0
+    INVOKEVIRTUAL java/util/PriorityQueue.poll ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/PriorityQueue.remove(Ljava/lang/Object;)Z
+    ALOAD 0
+    ACONST_NULL
+    ASTORE 1
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/PriorityQueue.isEmpty ()Z
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    ALOAD 1
+    INVOKEVIRTUAL java/util/PriorityQueue.remove (Ljava/lang/Object;)Z
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 2
+=== java/util/Deque.remove()Ljava/lang/Object; itf
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEINTERFACE java/util/Deque.isEmpty ()Z (itf)
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEINTERFACE java/util/Deque.remove ()Ljava/lang/Object; (itf)
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/Deque.element()Ljava/lang/Object; itf
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEINTERFACE java/util/Deque.isEmpty ()Z (itf)
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEINTERFACE java/util/Deque.element ()Ljava/lang/Object; (itf)
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/Deque.poll()Ljava/lang/Object; itf
+    ALOAD 0
+    INVOKEINTERFACE java/util/Deque.poll ()Ljava/lang/Object; (itf)
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/Deque.remove(Ljava/lang/Object;)Z itf
+    ALOAD 0
+    ACONST_NULL
+    ASTORE 1
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEINTERFACE java/util/Deque.isEmpty ()Z (itf)
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    ALOAD 1
+    INVOKEINTERFACE java/util/Deque.remove (Ljava/lang/Object;)Z (itf)
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 2
+=== java/util/concurrent/LinkedBlockingDeque.remove()Ljava/lang/Object;
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/concurrent/LinkedBlockingDeque.isEmpty ()Z
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEVIRTUAL java/util/concurrent/LinkedBlockingDeque.remove ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/concurrent/LinkedBlockingDeque.element()Ljava/lang/Object;
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/concurrent/LinkedBlockingDeque.isEmpty ()Z
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEVIRTUAL java/util/concurrent/LinkedBlockingDeque.element ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/concurrent/LinkedBlockingDeque.poll()Ljava/lang/Object;
+    ALOAD 0
+    INVOKEVIRTUAL java/util/concurrent/LinkedBlockingDeque.poll ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/concurrent/LinkedBlockingDeque.remove(Ljava/lang/Object;)Z
+    ALOAD 0
+    ACONST_NULL
+    ASTORE 1
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/concurrent/LinkedBlockingDeque.isEmpty ()Z
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    ALOAD 1
+    INVOKEVIRTUAL java/util/concurrent/LinkedBlockingDeque.remove (Ljava/lang/Object;)Z
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 2
+=== java/util/concurrent/BlockingDeque.remove()Ljava/lang/Object; itf
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEINTERFACE java/util/concurrent/BlockingDeque.isEmpty ()Z (itf)
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEINTERFACE java/util/concurrent/BlockingDeque.remove ()Ljava/lang/Object; (itf)
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/concurrent/BlockingDeque.element()Ljava/lang/Object; itf
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEINTERFACE java/util/concurrent/BlockingDeque.isEmpty ()Z (itf)
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEINTERFACE java/util/concurrent/BlockingDeque.element ()Ljava/lang/Object; (itf)
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/concurrent/BlockingDeque.poll()Ljava/lang/Object; itf
+    ALOAD 0
+    INVOKEINTERFACE java/util/concurrent/BlockingDeque.poll ()Ljava/lang/Object; (itf)
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/concurrent/BlockingDeque.remove(Ljava/lang/Object;)Z itf
+    ALOAD 0
+    ACONST_NULL
+    ASTORE 1
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEINTERFACE java/util/concurrent/BlockingDeque.isEmpty ()Z (itf)
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    ALOAD 1
+    INVOKEINTERFACE java/util/concurrent/BlockingDeque.remove (Ljava/lang/Object;)Z (itf)
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 2
+=== java/util/ArrayDeque.remove()Ljava/lang/Object;
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/ArrayDeque.isEmpty ()Z
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEVIRTUAL java/util/ArrayDeque.remove ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/ArrayDeque.element()Ljava/lang/Object;
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/ArrayDeque.isEmpty ()Z
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEVIRTUAL java/util/ArrayDeque.element ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/ArrayDeque.poll()Ljava/lang/Object;
+    ALOAD 0
+    INVOKEVIRTUAL java/util/ArrayDeque.poll ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/ArrayDeque.remove(Ljava/lang/Object;)Z
+    ALOAD 0
+    ACONST_NULL
+    ASTORE 1
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/ArrayDeque.isEmpty ()Z
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    ALOAD 1
+    INVOKEVIRTUAL java/util/ArrayDeque.remove (Ljava/lang/Object;)Z
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 2
+=== java/util/Deque.getFirst()Ljava/lang/Object; itf
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEINTERFACE java/util/Deque.isEmpty ()Z (itf)
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEINTERFACE java/util/Deque.getFirst ()Ljava/lang/Object; (itf)
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/Deque.getLast()Ljava/lang/Object; itf
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEINTERFACE java/util/Deque.isEmpty ()Z (itf)
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEINTERFACE java/util/Deque.getLast ()Ljava/lang/Object; (itf)
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/Deque.removeFirst()Ljava/lang/Object; itf
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEINTERFACE java/util/Deque.isEmpty ()Z (itf)
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEINTERFACE java/util/Deque.removeFirst ()Ljava/lang/Object; (itf)
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/Deque.removeLast()Ljava/lang/Object; itf
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEINTERFACE java/util/Deque.isEmpty ()Z (itf)
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEINTERFACE java/util/Deque.removeLast ()Ljava/lang/Object; (itf)
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/Deque.pop()Ljava/lang/Object; itf
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEINTERFACE java/util/Deque.isEmpty ()Z (itf)
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEINTERFACE java/util/Deque.pop ()Ljava/lang/Object; (itf)
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/Deque.peek()Ljava/lang/Object; itf
+    ALOAD 0
+    INVOKEINTERFACE java/util/Deque.peek ()Ljava/lang/Object; (itf)
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/concurrent/LinkedBlockingDeque.getFirst()Ljava/lang/Object;
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/concurrent/LinkedBlockingDeque.isEmpty ()Z
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEVIRTUAL java/util/concurrent/LinkedBlockingDeque.getFirst ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/concurrent/LinkedBlockingDeque.getLast()Ljava/lang/Object;
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/concurrent/LinkedBlockingDeque.isEmpty ()Z
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEVIRTUAL java/util/concurrent/LinkedBlockingDeque.getLast ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/concurrent/LinkedBlockingDeque.removeFirst()Ljava/lang/Object;
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/concurrent/LinkedBlockingDeque.isEmpty ()Z
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEVIRTUAL java/util/concurrent/LinkedBlockingDeque.removeFirst ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/concurrent/LinkedBlockingDeque.removeLast()Ljava/lang/Object;
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/concurrent/LinkedBlockingDeque.isEmpty ()Z
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEVIRTUAL java/util/concurrent/LinkedBlockingDeque.removeLast ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/concurrent/LinkedBlockingDeque.pop()Ljava/lang/Object;
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/concurrent/LinkedBlockingDeque.isEmpty ()Z
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEVIRTUAL java/util/concurrent/LinkedBlockingDeque.pop ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/concurrent/LinkedBlockingDeque.peek()Ljava/lang/Object;
+    ALOAD 0
+    INVOKEVIRTUAL java/util/concurrent/LinkedBlockingDeque.peek ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/concurrent/BlockingDeque.getFirst()Ljava/lang/Object; itf
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEINTERFACE java/util/concurrent/BlockingDeque.isEmpty ()Z (itf)
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEINTERFACE java/util/concurrent/BlockingDeque.getFirst ()Ljava/lang/Object; (itf)
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/concurrent/BlockingDeque.getLast()Ljava/lang/Object; itf
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEINTERFACE java/util/concurrent/BlockingDeque.isEmpty ()Z (itf)
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEINTERFACE java/util/concurrent/BlockingDeque.getLast ()Ljava/lang/Object; (itf)
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/concurrent/BlockingDeque.removeFirst()Ljava/lang/Object; itf
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEINTERFACE java/util/concurrent/BlockingDeque.isEmpty ()Z (itf)
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEINTERFACE java/util/concurrent/BlockingDeque.removeFirst ()Ljava/lang/Object; (itf)
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/concurrent/BlockingDeque.removeLast()Ljava/lang/Object; itf
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEINTERFACE java/util/concurrent/BlockingDeque.isEmpty ()Z (itf)
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEINTERFACE java/util/concurrent/BlockingDeque.removeLast ()Ljava/lang/Object; (itf)
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/concurrent/BlockingDeque.pop()Ljava/lang/Object; itf
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEINTERFACE java/util/concurrent/BlockingDeque.isEmpty ()Z (itf)
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEINTERFACE java/util/concurrent/BlockingDeque.pop ()Ljava/lang/Object; (itf)
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/concurrent/BlockingDeque.peek()Ljava/lang/Object; itf
+    ALOAD 0
+    INVOKEINTERFACE java/util/concurrent/BlockingDeque.peek ()Ljava/lang/Object; (itf)
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/ArrayDeque.getFirst()Ljava/lang/Object;
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/ArrayDeque.isEmpty ()Z
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEVIRTUAL java/util/ArrayDeque.getFirst ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/ArrayDeque.getLast()Ljava/lang/Object;
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/ArrayDeque.isEmpty ()Z
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEVIRTUAL java/util/ArrayDeque.getLast ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/ArrayDeque.removeFirst()Ljava/lang/Object;
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/ArrayDeque.isEmpty ()Z
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEVIRTUAL java/util/ArrayDeque.removeFirst ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/ArrayDeque.removeLast()Ljava/lang/Object;
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/ArrayDeque.isEmpty ()Z
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEVIRTUAL java/util/ArrayDeque.removeLast ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/ArrayDeque.pop()Ljava/lang/Object;
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/ArrayDeque.isEmpty ()Z
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEVIRTUAL java/util/ArrayDeque.pop ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/ArrayDeque.peek()Ljava/lang/Object;
+    ALOAD 0
+    INVOKEVIRTUAL java/util/ArrayDeque.peek ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/Stack.pop()Ljava/lang/Object;
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/Stack.empty ()Z
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/EmptyStackException
+    DUP
+    INVOKESPECIAL java/util/EmptyStackException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEVIRTUAL java/util/Stack.pop ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/Stack.peek()Ljava/lang/Object;
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/Stack.empty ()Z
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/EmptyStackException
+    DUP
+    INVOKESPECIAL java/util/EmptyStackException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEVIRTUAL java/util/Stack.peek ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/Stack.push(Ljava/lang/Object;)Ljava/lang/Object;
+    ALOAD 0
+    ACONST_NULL
+    INVOKEVIRTUAL java/util/Stack.push (Ljava/lang/Object;)Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/Vector.firstElement()Ljava/lang/Object;
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/Vector.isEmpty ()Z
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEVIRTUAL java/util/Vector.firstElement ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/Vector.lastElement()Ljava/lang/Object;
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/Vector.isEmpty ()Z
+   L1
+    LDC "TAG start ignore=false"
+    IFLE L2
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+   L4
+    LDC "TAG end ignore=false"
+    INVOKEVIRTUAL java/util/Vector.lastElement ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/Vector.elementAt(I)Ljava/lang/Object;
+    ALOAD 0
+    ICONST_1
+    ISTORE 1
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/Vector.size ()I
+    ILOAD 1
+   L1
+    LDC "TAG start ignore=false"
+    IF_ICMPGT L2
+    NEW java/lang/IndexOutOfBoundsException
+    DUP
+    INVOKESPECIAL java/lang/IndexOutOfBoundsException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+    ILOAD 1
+   L4
+    LDC "TAG start ignore=false"
+    IFGE L5
+    NEW java/lang/IndexOutOfBoundsException
+    DUP
+    INVOKESPECIAL java/lang/IndexOutOfBoundsException.<init> ()V
+    ATHROW
+   L5
+   L6
+    LDC "TAG end ignore=false"
+   L7
+    LDC "TAG end ignore=false"
+    ILOAD 1
+    INVOKEVIRTUAL java/util/Vector.elementAt (I)Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 2
+=== java/util/Vector.removeElementAt(I)V
+    ALOAD 0
+    ICONST_1
+    ISTORE 1
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/Vector.size ()I
+    ILOAD 1
+   L1
+    LDC "TAG start ignore=false"
+    IF_ICMPGT L2
+    NEW java/lang/IndexOutOfBoundsException
+    DUP
+    INVOKESPECIAL java/lang/IndexOutOfBoundsException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+    ILOAD 1
+   L4
+    LDC "TAG start ignore=false"
+    IFGE L5
+    NEW java/lang/IndexOutOfBoundsException
+    DUP
+    INVOKESPECIAL java/lang/IndexOutOfBoundsException.<init> ()V
+    ATHROW
+   L5
+   L6
+    LDC "TAG end ignore=false"
+   L7
+    LDC "TAG end ignore=false"
+    ILOAD 1
+    INVOKEVIRTUAL java/util/Vector.removeElementAt (I)V
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 2
+=== java/util/Vector.elementAt(Ljava/lang/Object;)Ljava/lang/Object;
+    ALOAD 0
+    ACONST_NULL
+    INVOKEVIRTUAL java/util/Vector.elementAt (Ljava/lang/Object;)Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/LinkedList.getFirst()Ljava/lang/Object;
+    ALOAD 0
+    DUP
+    INVOKEVIRTUAL java/util/LinkedList.isEmpty ()Z
+   L0
+    LDC "TAG start ignore=false"
+    IFLE L1
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L1
+   L2
+    LDC "TAG end ignore=false"
+    INVOKEVIRTUAL java/util/LinkedList.getFirst ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/LinkedList.getLast()Ljava/lang/Object;
+    ALOAD 0
+    DUP
+    INVOKEVIRTUAL java/util/LinkedList.isEmpty ()Z
+   L0
+    LDC "TAG start ignore=false"
+    IFLE L1
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L1
+   L2
+    LDC "TAG end ignore=false"
+    INVOKEVIRTUAL java/util/LinkedList.getLast ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/LinkedList.removeFirst()Ljava/lang/Object;
+    ALOAD 0
+    DUP
+    INVOKEVIRTUAL java/util/LinkedList.isEmpty ()Z
+   L0
+    LDC "TAG start ignore=false"
+    IFLE L1
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L1
+   L2
+    LDC "TAG end ignore=false"
+    INVOKEVIRTUAL java/util/LinkedList.removeFirst ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/LinkedList.removeLast()Ljava/lang/Object;
+    ALOAD 0
+    DUP
+    INVOKEVIRTUAL java/util/LinkedList.isEmpty ()Z
+   L0
+    LDC "TAG start ignore=false"
+    IFLE L1
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L1
+   L2
+    LDC "TAG end ignore=false"
+    INVOKEVIRTUAL java/util/LinkedList.removeLast ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/LinkedList.element()Ljava/lang/Object;
+    ALOAD 0
+    DUP
+    INVOKEVIRTUAL java/util/LinkedList.isEmpty ()Z
+   L0
+    LDC "TAG start ignore=false"
+    IFLE L1
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L1
+   L2
+    LDC "TAG end ignore=false"
+    INVOKEVIRTUAL java/util/LinkedList.element ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/LinkedList.pop()Ljava/lang/Object;
+    ALOAD 0
+    DUP
+    INVOKEVIRTUAL java/util/LinkedList.isEmpty ()Z
+   L0
+    LDC "TAG start ignore=false"
+    IFLE L1
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L1
+   L2
+    LDC "TAG end ignore=false"
+    INVOKEVIRTUAL java/util/LinkedList.pop ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/LinkedList.peek()Ljava/lang/Object;
+    ALOAD 0
+    INVOKEVIRTUAL java/util/LinkedList.peek ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/LinkedList.get(I)Ljava/lang/Object;
+    ALOAD 0
+    ICONST_1
+    ISTORE 1
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/LinkedList.size ()I
+    ILOAD 1
+   L1
+    LDC "TAG start ignore=false"
+    IF_ICMPGT L2
+    NEW java/lang/IndexOutOfBoundsException
+    DUP
+    INVOKESPECIAL java/lang/IndexOutOfBoundsException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+    ILOAD 1
+   L4
+    LDC "TAG start ignore=false"
+    IFGE L5
+    NEW java/lang/IndexOutOfBoundsException
+    DUP
+    INVOKESPECIAL java/lang/IndexOutOfBoundsException.<init> ()V
+    ATHROW
+   L5
+   L6
+    LDC "TAG end ignore=false"
+   L7
+    LDC "TAG end ignore=false"
+    ILOAD 1
+    INVOKEVIRTUAL java/util/LinkedList.get (I)Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 2
+=== java/util/LinkedList.add(ILjava/lang/Object;)V
+    ALOAD 0
+    ICONST_1
+    ACONST_NULL
+    ASTORE 1
+    ISTORE 2
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/LinkedList.size ()I
+    ILOAD 2
+   L1
+    LDC "TAG start ignore=false"
+    IF_ICMPGE L2
+    NEW java/lang/IndexOutOfBoundsException
+    DUP
+    INVOKESPECIAL java/lang/IndexOutOfBoundsException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+    ILOAD 2
+   L4
+    LDC "TAG start ignore=false"
+    IFGE L5
+    NEW java/lang/IndexOutOfBoundsException
+    DUP
+    INVOKESPECIAL java/lang/IndexOutOfBoundsException.<init> ()V
+    ATHROW
+   L5
+   L6
+    LDC "TAG end ignore=false"
+   L7
+    LDC "TAG end ignore=false"
+    ILOAD 2
+    ALOAD 1
+    INVOKEVIRTUAL java/util/LinkedList.add (ILjava/lang/Object;)V
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 3
+=== java/util/List.get(I)Ljava/lang/Object; itf
+    ALOAD 0
+    ICONST_1
+    ISTORE 1
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEINTERFACE java/util/List.size ()I (itf)
+    ILOAD 1
+   L1
+    LDC "TAG start ignore=false"
+    IF_ICMPGT L2
+    NEW java/lang/IndexOutOfBoundsException
+    DUP
+    INVOKESPECIAL java/lang/IndexOutOfBoundsException.<init> ()V
+    ATHROW
+   L2
+   L3
+    LDC "TAG end ignore=false"
+    ILOAD 1
+   L4
+    LDC "TAG start ignore=false"
+    IFGE L5
+    NEW java/lang/IndexOutOfBoundsException
+    DUP
+    INVOKESPECIAL java/lang/IndexOutOfBoundsException.<init> ()V
+    ATHROW
+   L5
+   L6
+    LDC "TAG end ignore=false"
+   L7
+    LDC "TAG end ignore=false"
+    ILOAD 1
+    INVOKEINTERFACE java/util/List.get (I)Ljava/lang/Object; (itf)
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 2
+=== java/util/LinkedHashSet.first()Ljava/lang/Object;
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/LinkedHashSet.isEmpty ()Z
+    IFLE L1
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L1
+   L2
+    LDC "TAG end ignore=false"
+    INVOKEVIRTUAL java/util/LinkedHashSet.first ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/LinkedHashSet.last()Ljava/lang/Object;
+    ALOAD 0
+    DUP
+   L0
+    LDC "TAG start ignore=false"
+    INVOKEVIRTUAL java/util/LinkedHashSet.isEmpty ()Z
+    IFLE L1
+    NEW java/util/NoSuchElementException
+    DUP
+    INVOKESPECIAL java/util/NoSuchElementException.<init> ()V
+    ATHROW
+   L1
+   L2
+    LDC "TAG end ignore=false"
+    INVOKEVIRTUAL java/util/LinkedHashSet.last ()Ljava/lang/Object;
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
+=== java/util/LinkedHashSet.size()I
+    ALOAD 0
+    INVOKEVIRTUAL java/util/LinkedHashSet.size ()I
+    POP
+    RETURN
+    MAXSTACK = 4
+    MAXLOCALS = 1
