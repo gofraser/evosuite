@@ -52,6 +52,7 @@ public class PromptBuilder {
     private final CoverageGoalFormatter coverageGoalFormatter;
     private final TestCaseFormatter testCaseFormatter;
     private final SutContextProviderFactory sutContextProviderFactory;
+    private final PromptSettings settings;
 
     private String systemPrompt;
     private final List<String> userSections = new ArrayList<>();
@@ -60,7 +61,7 @@ public class PromptBuilder {
     /** True once the dependency catalogue itself (not just a growth delta) is part of the prompt. */
     private boolean dependencyCatalogueIncluded;
 
-    // Populated only when Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT is true: the
+    // Populated only when the settings enable prompt caching of static context: the
     // memoised SUT/dependency sections are placed here instead of in userSections,
     // and buildWithMetadata() appends them (SUT first, dependencies second,
     // regardless of call order) to the system message.
@@ -69,13 +70,21 @@ public class PromptBuilder {
 
     private List<String> fewShotSnippets;
 
-    /** Creates a builder with default provider implementations. */
+    /**
+     * Creates a builder with default provider implementations and a snapshot of the current
+     * prompt settings, which it uses for every prompt section it renders.
+     */
     public PromptBuilder() {
+        this(PromptSettings.fromProperties());
+    }
+
+    private PromptBuilder(PromptSettings settings) {
         this(new SystemPromptProvider(),
-                new TestClusterSummarizer(),
+                new TestClusterSummarizer(settings),
                 new CoverageGoalFormatter(),
                 new TestCaseFormatter(),
-                SutContextProviderFactory.getInstance());
+                SutContextProviderFactory.getInstance(),
+                settings);
     }
 
     /**
@@ -89,6 +98,18 @@ public class PromptBuilder {
                          CoverageGoalFormatter coverageGoalFormatter,
                          TestCaseFormatter testCaseFormatter,
                          SutContextProviderFactory sutContextProviderFactory) {
+        this(systemPromptProvider, testClusterSummarizer, coverageGoalFormatter, testCaseFormatter,
+                sutContextProviderFactory, PromptSettings.fromProperties());
+    }
+
+    /** Creates a builder with all providers, the factory and the prompt settings explicitly specified. */
+    public PromptBuilder(SystemPromptProvider systemPromptProvider,
+                         TestClusterSummarizer testClusterSummarizer,
+                         CoverageGoalFormatter coverageGoalFormatter,
+                         TestCaseFormatter testCaseFormatter,
+                         SutContextProviderFactory sutContextProviderFactory,
+                         PromptSettings settings) {
+        this.settings = settings;
         this.systemPromptProvider = systemPromptProvider;
         this.testClusterSummarizer = testClusterSummarizer;
         this.coverageGoalFormatter = coverageGoalFormatter;
@@ -160,7 +181,7 @@ public class PromptBuilder {
     public PromptBuilder withSutContext(String className, TestCluster cluster,
                                         boolean includeTestGenerationReminders,
                                         boolean includeDependencyContext) {
-        SutContextProviderFactory.ContextResult result = sutContextProviderFactory.getContext(className, cluster);
+        SutContextProviderFactory.ContextResult result = sutContextProviderFactory.getContext(className, cluster, settings);
         this.contextInfo = contextInfo.withSutContextOf(result.getInfo());
         String text = result.getText();
         if (text != null && !text.trim().isEmpty()) {
@@ -171,7 +192,7 @@ public class PromptBuilder {
                 parts.add(REMINDER_GENERIC_TYPES);
                 parts.add(REMINDER_VISIBILITY);
             }
-            if (Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT) {
+            if (settings.promptCacheStaticContext()) {
                 this.staticSutSectionText = String.join("\n\n", parts);
             } else {
                 userSections.addAll(parts);
@@ -192,9 +213,9 @@ public class PromptBuilder {
         }
         String targetClassName = className == null ? "" : className;
 
-        boolean cached = Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT;
+        boolean cached = settings.promptCacheStaticContext();
         StaticPromptContext.DependencyEntry entry = cached
-                ? StaticPromptContext.dependencyEntry(targetClassName,
+                ? StaticPromptContext.dependencyEntry(settings, targetClassName,
                         () -> renderDependencyEntry(targetClassName, cluster))
                 : renderDependencyEntry(targetClassName, cluster);
         this.contextInfo = contextInfo.withDependencySummaryOf(entry.getInfo());
@@ -211,7 +232,7 @@ public class PromptBuilder {
         if (cached) {
             Set<String> addedClassNames = new TreeSet<>(StaticPromptContext.clusterClassNames(cluster));
             addedClassNames.removeAll(entry.getClusterClassNamesAtRender());
-            growthDelta = ClusterGrowthDelta.render(testClusterSummarizer, cluster, targetClassName, addedClassNames);
+            growthDelta = ClusterGrowthDelta.render(testClusterSummarizer, cluster, targetClassName, addedClassNames, settings);
         }
 
         if (entry.getSectionText() == null) {
@@ -241,7 +262,7 @@ public class PromptBuilder {
      * {@code className} per run.
      */
     private StaticPromptContext.DependencyEntry renderDependencyEntry(String targetClassName, TestCluster cluster) {
-        BudgetDecision budgetDecision = resolveDependencySummaryBudget();
+        PromptSettings.BudgetDecision budgetDecision = settings.dependencySummaryBudget();
         TestClusterSummarizer.DependencySummaryResult result =
                 testClusterSummarizer.summarizeDependencies(cluster, targetClassName, budgetDecision.budgetChars);
         TestClusterSummarizer.DependencySummaryStats stats = result.getStats();
@@ -249,7 +270,7 @@ public class PromptBuilder {
                 budgetDecision.budgetChars,
                 result.getPerClassSoftCapUsed(),
                 result.isPerClassSoftCapAuto(),
-                Properties.LLM_CLUSTER_SUMMARY_COMPACT_SIGNATURES,
+                settings.clusterSummaryCompactSignatures(),
                 budgetDecision.mode,
                 result.getCandidateClasses(),
                 stats.getEmittedClasses(),
@@ -268,40 +289,6 @@ public class PromptBuilder {
                 PromptContextInfo.ofDependencySummary(result.isTruncated(),
                         result.getTotalCharsBeforeTruncation(), metadata),
                 StaticPromptContext.clusterClassNames(cluster));
-    }
-
-    /** Package-private (not private) so {@link ClusterGrowthDelta} can size its own budget off the same logic. */
-    static BudgetDecision resolveDependencySummaryBudget() {
-        if (!Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_SCALING) {
-            return new BudgetDecision(Properties.LLM_CLUSTER_SUMMARY_MAX_CHARS, "legacy_static");
-        }
-
-        int contextMaxChars = Properties.LLM_CONTEXT_MAX_CHARS;
-        int dynamicMax = Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_MAX_CHARS;
-        if (contextMaxChars <= 0) {
-            // Context is unlimited/unknown: use conservative dynamic guardrail if configured.
-            if (dynamicMax > 0) {
-                return new BudgetDecision(dynamicMax, "dynamic_max_for_unbounded_context");
-            }
-            return new BudgetDecision(Properties.LLM_CLUSTER_SUMMARY_MAX_CHARS, "legacy_static_for_unbounded_context");
-        }
-
-        int scaled = (int) Math.round(contextMaxChars * Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_RATIO);
-        int bounded = Math.max(scaled, Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_MIN_CHARS);
-        if (dynamicMax > 0) {
-            bounded = Math.min(bounded, dynamicMax);
-        }
-        return new BudgetDecision(bounded, "dynamic_scaled");
-    }
-
-    static class BudgetDecision {
-        final int budgetChars;
-        final String mode;
-
-        BudgetDecision(int budgetChars, String mode) {
-            this.budgetChars = budgetChars;
-            this.mode = mode;
-        }
     }
 
     /** Adds the given uncovered coverage goals as a section in the user prompt. */
@@ -337,11 +324,11 @@ public class PromptBuilder {
         if (tests == null || tests.isEmpty()) {
             return this;
         }
-        int maxTotal = Properties.LLM_EXISTING_TESTS_MAX_CHARS_TOTAL;
-        int maxPerTest = Properties.LLM_EXISTING_TESTS_MAX_CHARS_PER_TEST;
+        int maxTotal = settings.existingTestsMaxCharsTotal();
+        int maxPerTest = settings.existingTestsMaxCharsPerTest();
         int remainingTotal = maxTotal;
         int remainingTests = tests.size();
-        boolean annotate = Properties.LLM_ANNOTATE_EXISTING_TESTS;
+        boolean annotate = settings.annotateExistingTests();
         StringBuilder builder = new StringBuilder("Existing tests:\n");
 
         int testIndex = 1;

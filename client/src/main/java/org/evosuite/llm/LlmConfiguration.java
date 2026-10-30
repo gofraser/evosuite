@@ -50,6 +50,7 @@ public class LlmConfiguration {
     private final String runId;
     private final List<String> postProcessingCapabilities;
     private final String postProcessingRepairPolicy;
+    private final boolean promptCacheStaticContext;
 
     /** Constructs an immutable LLM configuration snapshot with all fields. */
     public LlmConfiguration(Properties.LlmProvider provider,
@@ -125,6 +126,7 @@ public class LlmConfiguration {
         this.runId = runId.trim();
         this.postProcessingCapabilities = snapshotPostProcessingCapabilities();
         this.postProcessingRepairPolicy = snapshotPostProcessingRepairPolicy();
+        this.promptCacheStaticContext = Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT;
     }
 
     /** Returns a new builder for constructing LlmConfiguration instances. */
@@ -326,6 +328,14 @@ public class LlmConfiguration {
     /** Returns the post-processing repair policy captured for this run. */
     public String getPostProcessingRepairPolicy() {
         return postProcessingRepairPolicy;
+    }
+
+    /**
+     * Returns whether the provider marks the static part of the system message for prompt
+     * caching, as configured when this run was set up.
+     */
+    public boolean isPromptCacheStaticContext() {
+        return promptCacheStaticContext;
     }
 
     /**

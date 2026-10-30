@@ -22,6 +22,7 @@ package org.evosuite.llm.prompt;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.utils.generic.GenericClass;
 
+import java.util.AbstractMap;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
@@ -49,17 +50,21 @@ public final class StaticPromptContext {
     public static final String DEPENDENCY_SECTION_HEADER =
             "Available dependency types (standard Java library classes may also be used freely):";
 
-    private static final ConcurrentMap<String, DependencyEntry> DEPENDENCY_ENTRIES = new ConcurrentHashMap<>();
+    private static final ConcurrentMap<Map.Entry<PromptSettings, String>, DependencyEntry> DEPENDENCY_ENTRIES = new ConcurrentHashMap<>();
 
     private StaticPromptContext() {
     }
 
     /**
-     * Returns the memoised dependency-summary entry for {@code className},
-     * rendering it via {@code supplier} on first use.
+     * Returns the memoised dependency-summary entry for {@code className} rendered under
+     * {@code settings}, rendering it via {@code supplier} on first use. The settings are part of
+     * the key: every input of the rendered text except the cluster is in the snapshot, and
+     * cluster growth is covered by {@link DependencyEntry#getClusterClassNamesAtRender()}.
      */
-    public static DependencyEntry dependencyEntry(String className, Supplier<DependencyEntry> supplier) {
-        String key = className == null ? "" : className;
+    public static DependencyEntry dependencyEntry(PromptSettings settings, String className,
+                                                  Supplier<DependencyEntry> supplier) {
+        Map.Entry<PromptSettings, String> key =
+                new AbstractMap.SimpleImmutableEntry<>(settings, className == null ? "" : className);
         return DEPENDENCY_ENTRIES.computeIfAbsent(key, k -> supplier.get());
     }
 

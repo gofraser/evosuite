@@ -95,7 +95,7 @@ final class ProviderModelFactory {
         String checkedModelName = requireNonBlank(modelName, "LLM model must be configured for ANTHROPIC");
         String apiKey = requireNonBlank(config.getApiKey(), "LLM API key must be configured for ANTHROPIC");
         return new AnthropicChatModel(checkedModelName, apiKey, config.getBaseUrl(), config.getTemperature(),
-                config.getMaxTokens(), config.getTimeoutSeconds());
+                config.getMaxTokens(), config.getTimeoutSeconds(), config.isPromptCacheStaticContext());
     }
 
     private static String requireNonBlank(String value, String message) {

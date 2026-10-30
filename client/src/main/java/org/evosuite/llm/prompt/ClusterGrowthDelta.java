@@ -63,13 +63,15 @@ public final class ClusterGrowthDelta {
      * Falls back to the header plus a sorted, comma-separated list of the class
      * names when the summarizer has nothing to say about them (e.g. all JDK
      * types or nothing source-accessible) so the model still learns they exist.
+     *
+     * @param settings the settings that size the full dependency summary, from whose budget the delta budget is derived
      */
     public static String render(TestClusterSummarizer summarizer, TestCluster cluster,
-                                String targetClassName, Set<String> addedClassNames) {
+                                String targetClassName, Set<String> addedClassNames, PromptSettings settings) {
         if (addedClassNames == null || addedClassNames.isEmpty()) {
             return null;
         }
-        int deltaBudget = resolveDeltaBudget(PromptBuilder.resolveDependencySummaryBudget().budgetChars);
+        int deltaBudget = resolveDeltaBudget(settings.dependencySummaryBudget().budgetChars);
 
         String text = null;
         if (summarizer != null && cluster != null) {

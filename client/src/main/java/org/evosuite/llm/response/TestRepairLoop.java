@@ -33,6 +33,7 @@ import org.evosuite.llm.LlmService;
 import org.evosuite.llm.PhaseDeadline;
 import org.evosuite.llm.prompt.ClusterGrowthDelta;
 import org.evosuite.llm.prompt.PromptResult;
+import org.evosuite.llm.prompt.PromptSettings;
 import org.evosuite.llm.prompt.SystemPromptProvider;
 import org.evosuite.llm.prompt.TestClusterSummarizer;
 import org.evosuite.runtime.GuiSupport;
@@ -118,7 +119,8 @@ public class TestRepairLoop {
     private final LlmTestSalvager salvager;
     private final RepairHintComposer hintComposer;
     /** Signature summarizer for the cluster-growth delta of a repair conversation. */
-    private final TestClusterSummarizer dependencyGrowthSummarizer = new TestClusterSummarizer();
+    private final PromptSettings promptSettings = PromptSettings.fromProperties();
+    private final TestClusterSummarizer dependencyGrowthSummarizer = new TestClusterSummarizer(promptSettings);
     /**
      * Test-only seam: overrides the {@code TestCluster.getInstance()} used to render
      * the cluster-growth signature delta, since the real test cluster is a global
@@ -861,11 +863,12 @@ public class TestRepairLoop {
             // new classes (no constructors/methods). When the dependency
             // catalogue lives in the cached system message, render a bounded
             // signature delta here instead — once per class per conversation.
-            if (Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT) {
+            if (promptSettings.promptCacheStaticContext()) {
                 Set<String> newlyDescribed = state.takeUndescribedDependencyClasses(expandedClasses);
                 if (!newlyDescribed.isEmpty()) {
                     String growthDelta = ClusterGrowthDelta.render(dependencyGrowthSummarizer,
-                            testClusterSupplier.get(), Properties.TARGET_CLASS, newlyDescribed);
+                            testClusterSupplier.get(), Properties.TARGET_CLASS, newlyDescribed,
+                            promptSettings);
                     if (growthDelta != null) {
                         repairMessage.append(growthDelta).append("\n\n");
                     }

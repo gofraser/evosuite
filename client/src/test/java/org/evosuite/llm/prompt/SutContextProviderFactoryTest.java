@@ -93,7 +93,7 @@ class SutContextProviderFactoryTest {
         SutContextProviderFactory factory = new SutContextProviderFactory(
                 signatureProvider, failingProvider, failingProvider, failingProvider);
 
-        SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Foo", null);
+        SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Foo", null, PromptSettings.fromProperties());
         assertEquals(LlmSutContextMode.SIGNATURE_ONLY, result.getInfo().getSutContextMode());
         assertEquals("signature output", result.getText());
         assertFalse(result.getInfo().isContextUnavailable());
@@ -109,7 +109,7 @@ class SutContextProviderFactoryTest {
         SutContextProviderFactory factory = new SutContextProviderFactory(
                 failingProvider, failingProvider, failingProvider, failingProvider);
 
-        SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Foo", null);
+        SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Foo", null, PromptSettings.fromProperties());
         assertEquals(LlmSutContextMode.SOURCE_CODE, result.getInfo().getSutContextMode());
         assertTrue(result.getInfo().isContextUnavailable());
         assertEquals("", result.getText());
@@ -127,7 +127,7 @@ class SutContextProviderFactoryTest {
         SutContextProviderFactory factory = new SutContextProviderFactory(
                 stubProvider, stubProvider, stubProvider, stubProvider);
 
-        SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Foo", null);
+        SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Foo", null, PromptSettings.fromProperties());
         assertTrue(result.getText().startsWith("abcdefghij"));
         assertTrue(result.getText().contains("(truncated)"));
         assertEquals(10 + "\n... (truncated)".length(), result.getText().length());
@@ -143,7 +143,7 @@ class SutContextProviderFactoryTest {
         SutContextProviderFactory factory = new SutContextProviderFactory(
                 stubProvider, stubProvider, stubProvider, stubProvider);
 
-        SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Foo", null);
+        SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Foo", null, PromptSettings.fromProperties());
         assertEquals("short", result.getText());
     }
 
@@ -155,9 +155,9 @@ class SutContextProviderFactoryTest {
                 stubProvider, stubProvider, stubProvider, stubProvider);
 
         Properties.LLM_CONTEXT_MAX_CHARS = 3;
-        String first = factory.getContext("com.example.Foo", null).getText();
+        String first = factory.getContext("com.example.Foo", null, PromptSettings.fromProperties()).getText();
         Properties.LLM_CONTEXT_MAX_CHARS = 8;
-        String second = factory.getContext("com.example.Foo", null).getText();
+        String second = factory.getContext("com.example.Foo", null, PromptSettings.fromProperties()).getText();
 
         assertTrue(first.startsWith("abc\n"));
         assertTrue(second.startsWith("abcdefgh\n"));
@@ -186,7 +186,7 @@ class SutContextProviderFactoryTest {
         SutContextProviderFactory factory = new SutContextProviderFactory(
                 stubSignature, stubSignature, stubDecompiled, stubSignature);
 
-        SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Foo", null);
+        SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Foo", null, PromptSettings.fromProperties());
         assertEquals(LlmSutContextMode.DECOMPILED_SOURCE, result.getInfo().getSutContextMode());
         assertEquals("decompiled output", result.getText());
         assertFalse(result.getInfo().isContextUnavailable());
@@ -203,7 +203,7 @@ class SutContextProviderFactoryTest {
         SutContextProviderFactory factory = new SutContextProviderFactory(
                 stubSignature, throwingProvider, throwingProvider, throwingProvider);
 
-        SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Foo", null);
+        SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Foo", null, PromptSettings.fromProperties());
         assertEquals(LlmSutContextMode.SIGNATURE_ONLY, result.getInfo().getSutContextMode());
         assertEquals("fallback", result.getText());
     }
@@ -217,7 +217,7 @@ class SutContextProviderFactoryTest {
         SutContextProviderFactory factory = new SutContextProviderFactory(
                 failingProvider, failingProvider, failingProvider, failingProvider);
 
-        SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Foo", null);
+        SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Foo", null, PromptSettings.fromProperties());
         assertEquals(LlmSutContextMode.SIGNATURE_ONLY, result.getInfo().getSutContextMode());
         assertEquals("", result.getText());
         assertFalse(result.getInfo().isContextUnavailable());
@@ -232,7 +232,7 @@ class SutContextProviderFactoryTest {
         SutContextProviderFactory factory = new SutContextProviderFactory(
                 failingProvider, failingProvider, failingProvider, failingProvider);
 
-        SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Foo", null);
+        SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Foo", null, PromptSettings.fromProperties());
         assertTrue(result.getInfo().isContextUnavailable());
     }
 
@@ -245,9 +245,9 @@ class SutContextProviderFactoryTest {
         SutContextProviderFactory factory = new SutContextProviderFactory(
                 countingProvider, countingProvider, countingProvider, countingProvider);
 
-        factory.getContext("com.example.Foo", null);
-        factory.getContext("com.example.Foo", null);
-        factory.getContext("com.example.Foo", null);
+        factory.getContext("com.example.Foo", null, PromptSettings.fromProperties());
+        factory.getContext("com.example.Foo", null, PromptSettings.fromProperties());
+        factory.getContext("com.example.Foo", null, PromptSettings.fromProperties());
 
         assertEquals(1, countingProvider.callCount, "Provider should only be called once due to caching");
     }
@@ -261,9 +261,9 @@ class SutContextProviderFactoryTest {
         SutContextProviderFactory factory = new SutContextProviderFactory(
                 countingProvider, countingProvider, countingProvider, countingProvider);
 
-        factory.getContext("com.example.Foo", null);
+        factory.getContext("com.example.Foo", null, PromptSettings.fromProperties());
         factory.clearCache();
-        factory.getContext("com.example.Foo", null);
+        factory.getContext("com.example.Foo", null, PromptSettings.fromProperties());
 
         assertEquals(2, countingProvider.callCount, "Provider should be called again after cache clear");
     }
@@ -290,7 +290,7 @@ class SutContextProviderFactoryTest {
         SutContextProviderFactory factory = new SutContextProviderFactory(
                 stubProvider, stubProvider, stubProvider, stubProvider);
 
-        SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Big", null);
+        SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Big", null, PromptSettings.fromProperties());
         assertTrue(result.getInfo().isContextSelectivelyTruncated(), "Should report selective truncation");
         assertFalse(result.getInfo().isContextTruncated(), "Should NOT hard-truncate");
         assertTrue(result.getText().contains("getX"), "Should preserve public method");
@@ -318,7 +318,7 @@ class SutContextProviderFactoryTest {
         SutContextProviderFactory factory = new SutContextProviderFactory(
                 stubProvider, stubProvider, stubProvider, stubProvider);
 
-        SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Propagate", null);
+        SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Propagate", null, PromptSettings.fromProperties());
         assertTrue(result.getInfo().isContextSelectivelyTruncated());
         assertFalse(result.getInfo().isContextTruncated());
     }

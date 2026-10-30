@@ -23,7 +23,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.evosuite.Properties;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.LlmResponse;
@@ -59,15 +58,18 @@ public class AnthropicChatModel implements LlmService.ChatLanguageModel {
     private final double temperature;
     private final int maxTokens;
     private final int timeoutSeconds;
+    private final boolean cacheStaticContext;
     private final JsonHttpClient httpClient;
 
     public AnthropicChatModel(String modelName, String apiKey, String baseUrl,
-                              double temperature, int maxTokens, int timeoutSeconds) {
+                              double temperature, int maxTokens, int timeoutSeconds,
+                              boolean cacheStaticContext) {
         this.modelName = modelName;
         this.apiKey = apiKey == null ? "" : apiKey.trim();
         this.temperature = temperature;
         this.maxTokens = maxTokens;
         this.timeoutSeconds = timeoutSeconds;
+        this.cacheStaticContext = cacheStaticContext;
         this.endpoint = resolveEndpoint(baseUrl);
         this.httpClient = new JsonHttpClient();
     }
@@ -134,7 +136,7 @@ public class AnthropicChatModel implements LlmService.ChatLanguageModel {
 
         String systemText = concatenateSystemMessages(messages);
         if (!systemText.isEmpty()) {
-            if (Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT) {
+            if (cacheStaticContext) {
                 ArrayNode systemArray = root.putArray("system");
                 ObjectNode systemBlock = systemArray.addObject();
                 systemBlock.put("type", "text");

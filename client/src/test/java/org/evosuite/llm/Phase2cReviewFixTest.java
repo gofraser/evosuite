@@ -23,6 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.Properties.LlmSutContextMode;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
+import org.evosuite.llm.prompt.PromptSettings;
 import org.evosuite.llm.prompt.SutContextProvider;
 import org.evosuite.llm.prompt.SutContextProviderFactory;
 import org.evosuite.llm.prompt.SystemPromptProvider;
@@ -101,7 +102,7 @@ class Phase2cReviewFixTest {
         SutContextProviderFactory factory = new SutContextProviderFactory(
                 failing, failing, failing, failing);
 
-        SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Foo", null);
+        SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Foo", null, PromptSettings.fromProperties());
         assertEquals(LlmSutContextMode.SIGNATURE_ONLY, result.getInfo().getSutContextMode());
         assertTrue(result.getInfo().isContextUnavailable(),
                 "When primary and fallback both fail, context should be marked unavailable");
@@ -118,7 +119,7 @@ class Phase2cReviewFixTest {
         SutContextProviderFactory factory = new SutContextProviderFactory(
                 sig, failing, failing, failing);
 
-        SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Foo", null);
+        SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Foo", null, PromptSettings.fromProperties());
         assertEquals(LlmSutContextMode.SIGNATURE_ONLY, result.getInfo().getSutContextMode());
         assertFalse(result.getInfo().isContextUnavailable());
         assertEquals("sig output", result.getText());
@@ -274,8 +275,8 @@ class Phase2cReviewFixTest {
         SutContextProviderFactory factory = new SutContextProviderFactory(
                 counting, counting, counting, counting);
 
-        factory.getContext("com.example.Foo", null);
-        factory.getContext("com.example.Foo", null);
+        factory.getContext("com.example.Foo", null, PromptSettings.fromProperties());
+        factory.getContext("com.example.Foo", null, PromptSettings.fromProperties());
 
         assertEquals(2, counting.callCount,
                 "SIGNATURE_ONLY should not be cached since TestCluster may change after expansion");
@@ -292,10 +293,10 @@ class Phase2cReviewFixTest {
         SutContextProviderFactory factory = new SutContextProviderFactory(
                 sigProvider, failingBytecode, failingBytecode, failingBytecode);
 
-        SutContextProviderFactory.ContextResult r1 = factory.getContext("com.example.Foo", null);
+        SutContextProviderFactory.ContextResult r1 = factory.getContext("com.example.Foo", null, PromptSettings.fromProperties());
         assertEquals(LlmSutContextMode.SIGNATURE_ONLY, r1.getInfo().getSutContextMode());
 
-        SutContextProviderFactory.ContextResult r2 = factory.getContext("com.example.Foo", null);
+        SutContextProviderFactory.ContextResult r2 = factory.getContext("com.example.Foo", null, PromptSettings.fromProperties());
         assertEquals(2, sigProvider.callCount,
                 "Fallback results should not be cached since they depend on mutable TestCluster");
     }
@@ -310,8 +311,8 @@ class Phase2cReviewFixTest {
         SutContextProviderFactory factory = new SutContextProviderFactory(
                 counting, counting, counting, counting);
 
-        factory.getContext("com.example.Foo", null);
-        factory.getContext("com.example.Foo", null);
+        factory.getContext("com.example.Foo", null, PromptSettings.fromProperties());
+        factory.getContext("com.example.Foo", null, PromptSettings.fromProperties());
 
         assertEquals(1, counting.callCount,
                 "Non-signature primary success should still be cached");

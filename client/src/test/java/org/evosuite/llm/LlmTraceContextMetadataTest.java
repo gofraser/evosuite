@@ -25,6 +25,7 @@ import org.evosuite.llm.prompt.CoverageGoalFormatter;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptContextInfo;
 import org.evosuite.llm.prompt.PromptResult;
+import org.evosuite.llm.prompt.PromptSettings;
 import org.evosuite.llm.prompt.SutContextProviderFactory;
 import org.evosuite.llm.prompt.SystemPromptProvider;
 import org.evosuite.llm.prompt.TestCaseFormatter;
@@ -112,7 +113,7 @@ class LlmTraceContextMetadataTest {
     void sutContextFlagsSurviveFromTheContextFactoryToTheTraceRecord() throws Exception {
         SutContextProviderFactory factory = new SutContextProviderFactory() {
             @Override
-            public ContextResult getContext(String className, TestCluster cluster) {
+            public ContextResult getContext(String className, TestCluster cluster, PromptSettings settings) {
                 return new ContextResult("class Foo {}", Properties.LlmSutContextMode.BYTECODE_DISASSEMBLED,
                         false, true, true, true);
             }

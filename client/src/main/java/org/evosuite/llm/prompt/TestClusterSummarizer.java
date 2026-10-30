@@ -19,7 +19,6 @@
  */
 package org.evosuite.llm.prompt;
 
-import org.evosuite.Properties;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.utils.generic.GenericAccessibleObject;
 import org.evosuite.utils.generic.GenericClass;
@@ -55,6 +54,8 @@ public class TestClusterSummarizer {
 
     private static final Set<String> EXCLUDED_TYPES = new HashSet<>();
 
+    private final PromptSettings settings;
+
     static {
         EXCLUDED_TYPES.add("java.lang.Object");
         EXCLUDED_TYPES.add("java.lang.String");
@@ -68,6 +69,16 @@ public class TestClusterSummarizer {
         EXCLUDED_TYPES.add("java.lang.Double");
         EXCLUDED_TYPES.add("java.lang.Void");
         EXCLUDED_TYPES.add("java.lang.Number");
+    }
+
+    /** Creates a summarizer that renders under a snapshot of the current prompt settings. */
+    public TestClusterSummarizer() {
+        this(PromptSettings.fromProperties());
+    }
+
+    /** Creates a summarizer that renders under the given settings. */
+    public TestClusterSummarizer(PromptSettings settings) {
+        this.settings = settings;
     }
 
     /**
@@ -158,7 +169,7 @@ public class TestClusterSummarizer {
         if (cluster == null) {
             return DependencySummaryResult.empty();
         }
-        boolean compactSignatures = Properties.LLM_CLUSTER_SUMMARY_COMPACT_SIGNATURES;
+        boolean compactSignatures = settings.clusterSummaryCompactSignatures();
 
         // Collect direct dependency type names from CUT constructors and methods
         Set<String> directDependencyNames = collectDirectDependencies(cluster, targetClassName);
@@ -262,7 +273,7 @@ public class TestClusterSummarizer {
         List<TypeSummary> allDeps = new ArrayList<>(tier1DirectDeps);
         allDeps.addAll(tier2SutTypes);
         allDeps.addAll(tier3ThirdParty);
-        boolean perClassSoftCapAuto = Properties.LLM_CLUSTER_SUMMARY_PER_CLASS_SOFT_CAP_CHARS <= 0;
+        boolean perClassSoftCapAuto = settings.clusterSummaryPerClassSoftCapChars() <= 0;
         int perClassSoftCap = resolvePerClassSoftCap(maxChars, allDeps.size());
 
         // Compute total chars without budget for metadata
@@ -1284,7 +1295,7 @@ public class TestClusterSummarizer {
     }
 
     private int resolvePerClassSoftCap(int maxChars, int dependencyCount) {
-        int configured = Properties.LLM_CLUSTER_SUMMARY_PER_CLASS_SOFT_CAP_CHARS;
+        int configured = settings.clusterSummaryPerClassSoftCapChars();
         if (configured > 0) {
             return configured;
         }

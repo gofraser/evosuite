@@ -19,22 +19,24 @@
  */
 package org.evosuite.llm.prompt;
 
-import org.evosuite.Properties;
 import org.evosuite.Properties.LlmSutContextMode;
 import org.evosuite.setup.TestCluster;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.AbstractMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
  * Selects and applies the configured {@link SutContextProvider} based on
- * {@code LLM_SUT_CONTEXT_MODE} with fallback/strict semantics.
+ * the {@link PromptSettings#sutContextMode()} with fallback/strict semantics.
  *
- * <p>Results are cached per (className, mode) so that expensive operations like
- * bytecode disassembly or decompilation are performed at most once per class per run.
+ * <p>Results are cached per (settings snapshot, className) so that expensive operations like
+ * bytecode disassembly or decompilation are performed at most once per class per run, and a
+ * run with different settings never reuses an entry rendered under other ones.
  */
 public class SutContextProviderFactory {
 
@@ -47,7 +49,7 @@ public class SutContextProviderFactory {
     private final SutContextProvider decompiledProvider;
     private final SutContextProvider sourceCodeProvider;
 
-    private final ConcurrentMap<String, ContextResult> cache = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Map.Entry<PromptSettings, String>, ContextResult> cache = new ConcurrentHashMap<>();
 
     /** Returns the process-scoped shared instance (lazy-initialized with default providers). */
     public static SutContextProviderFactory getInstance() {
@@ -110,24 +112,23 @@ public class SutContextProviderFactory {
      * Extract context using the configured mode, applying fallback/strict policy.
      * Results are cached so that bytecode disassembly / decompilation is done at most once per class.
      *
+     * @param settings the snapshot that decides mode, limits and fallback; it is part of the cache key
      * @return result containing context text, the mode used, and whether context was unavailable
      */
-    public ContextResult getContext(String className, TestCluster cluster) {
-        LlmSutContextMode mode = Properties.LLM_SUT_CONTEXT_MODE;
+    public ContextResult getContext(String className, TestCluster cluster, PromptSettings settings) {
+        LlmSutContextMode mode = settings.sutContextMode();
         // SIGNATURE_ONLY depends on TestCluster which may change after cluster expansion,
         // so we skip caching for it. Other modes are class-intrinsic and safe to cache.
         if (mode == LlmSutContextMode.SIGNATURE_ONLY) {
-            return computeContext(className, cluster, mode);
+            return computeContext(className, cluster, settings);
         }
-        String cacheKey = mode.name()
-                + ":" + (className == null ? "" : className)
-                + ":max=" + Properties.LLM_CONTEXT_MAX_CHARS
-                + ":source=" + (Properties.LLM_SOURCE_PATH == null ? "" : Properties.LLM_SOURCE_PATH.trim());
+        Map.Entry<PromptSettings, String> cacheKey =
+                new AbstractMap.SimpleImmutableEntry<>(settings, className == null ? "" : className);
         ContextResult cached = cache.get(cacheKey);
         if (cached != null) {
             return cached;
         }
-        ContextResult result = computeContext(className, cluster, mode);
+        ContextResult result = computeContext(className, cluster, settings);
         // Only cache if the primary mode succeeded. Fallback results depend on
         // TestCluster state which may change after cluster expansion.
         if (result.getInfo().getSutContextMode() == mode) {
@@ -141,7 +142,8 @@ public class SutContextProviderFactory {
         cache.clear();
     }
 
-    private ContextResult computeContext(String className, TestCluster cluster, LlmSutContextMode mode) {
+    private ContextResult computeContext(String className, TestCluster cluster, PromptSettings settings) {
+        LlmSutContextMode mode = settings.sutContextMode();
         SutContextProvider primary = providerFor(mode);
 
         Optional<String> context;
@@ -153,20 +155,20 @@ public class SutContextProviderFactory {
         }
 
         if (context.isPresent()) {
-            TruncateResult tr = truncate(context.get(), mode);
+            TruncateResult tr = truncate(context.get(), mode, settings);
             return new ContextResult(tr.text, mode, false, tr.truncated, tr.commentsStripped,
                     tr.selectivelyTruncated);
         }
 
         // Primary failed — apply fallback policy
         if (mode == LlmSutContextMode.SIGNATURE_ONLY) {
-            if (Properties.LLM_CONTEXT_FALLBACK_ENABLED) {
+            if (settings.contextFallbackEnabled()) {
                 return new ContextResult("", mode, false);
             }
             return new ContextResult("", mode, true);
         }
 
-        if (Properties.LLM_CONTEXT_FALLBACK_ENABLED) {
+        if (settings.contextFallbackEnabled()) {
             // WARN (not debug): a wholesale fallback means the requested
             // representation never reached the model. This previously hid a
             // 100% decompiler failure that silently degraded to SIGNATURE_ONLY.
@@ -179,7 +181,7 @@ public class SutContextProviderFactory {
                 fallbackContext = Optional.empty();
             }
             if (fallbackContext.isPresent()) {
-                TruncateResult tr = truncate(fallbackContext.get(), LlmSutContextMode.SIGNATURE_ONLY);
+                TruncateResult tr = truncate(fallbackContext.get(), LlmSutContextMode.SIGNATURE_ONLY, settings);
                 return new ContextResult(tr.text, LlmSutContextMode.SIGNATURE_ONLY, false, tr.truncated,
                         tr.commentsStripped, tr.selectivelyTruncated);
             }
@@ -205,8 +207,8 @@ public class SutContextProviderFactory {
         }
     }
 
-    private TruncateResult truncate(String text, LlmSutContextMode mode) {
-        int maxChars = Properties.LLM_CONTEXT_MAX_CHARS;
+    private TruncateResult truncate(String text, LlmSutContextMode mode, PromptSettings settings) {
+        int maxChars = settings.contextMaxChars();
         if (maxChars <= 0 || text.length() <= maxChars) {
             return new TruncateResult(text, false, false, false);
         }

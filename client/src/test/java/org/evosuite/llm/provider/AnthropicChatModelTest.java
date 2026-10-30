@@ -26,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class AnthropicChatModelTest {
 
     private static String endpointFor(String baseUrl) {
-        return new AnthropicChatModel("claude", "key", baseUrl, 0.0, 10, 5).getEndpoint();
+        return new AnthropicChatModel("claude", "key", baseUrl, 0.0, 10, 5, false).getEndpoint();
     }
 
     @Test
