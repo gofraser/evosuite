@@ -45,10 +45,7 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
@@ -71,10 +68,7 @@ public class AsyncLlmTestProducer {
     private final int refreshInterval;
     private final int delayMs;
     private final RepeatedInjectionMemory repeatedInjectionMemory;
-    private final GoalDescriptionMapper goalDescriptionMapper = new GoalDescriptionMapper();
-    private final ProblemCardExtractor problemCardExtractor = new ProblemCardExtractor();
-    private final DiagnosticCardSelector diagnosticCardSelector = new DiagnosticCardSelector();
-    private final ExceptionBarrierTracker exceptionBarrierTracker = new ExceptionBarrierTracker();
+    private final DiagnosticCardAcquirer cardAcquirer = new DiagnosticCardAcquirer();
     /**
      * Makes all candidates of one response visible in a single drain, and
      * lets a producer facing a full queue wait for the consumer.
@@ -377,29 +371,10 @@ public class AsyncLlmTestProducer {
             return Collections.emptyList();
         }
         try {
-            Set<String> goalMethods = new LinkedHashSet<>();
-            for (TestFitnessFunction goal : goals) {
-                if (goal == null) {
-                    continue;
-                }
-                String key = goalDescriptionMapper.describeMethodOperation(goal).getExecutionKey();
-                if (!key.isEmpty()) {
-                    goalMethods.add(key);
-                }
-            }
-            // The extractor counts the population itself, so take the historical stats first.
-            Map<String, AttemptStats> historicalStats = exceptionBarrierTracker.snapshot(goalMethods);
-            ProblemCardExtractor.ExtractionResult extraction =
-                    problemCardExtractor.extractWithTelemetry(goals, population,
-                            Integer.MAX_VALUE, historicalStats);
-            exceptionBarrierTracker.record(extraction.getMethodStats());
-            List<ProblemCard> extracted = extraction.getCards();
-            if (extracted.isEmpty()) {
-                return Collections.emptyList();
-            }
-            DiagnosticCardSelector.SelectionResult selection = diagnosticCardSelector.select(
-                    extracted, ASYNC_DIAGNOSTIC_PROBLEM_CARDS_MAX, repeatedInjectionMemory, true);
-            return selection.getSelectedCards();
+            DiagnosticCardAcquirer.Acquisition acquisition = cardAcquirer.acquire(goals, population,
+                    ASYNC_DIAGNOSTIC_PROBLEM_CARDS_MAX, repeatedInjectionMemory, true);
+            return acquisition.selection() == null
+                    ? Collections.emptyList() : acquisition.selection().getSelectedCards();
         } catch (RuntimeException e) {
             logger.debug("Async producer diagnostic-card extraction failed: {}", e.getMessage());
             return Collections.emptyList();
@@ -418,7 +393,7 @@ public class AsyncLlmTestProducer {
             builder.withExistingTests(currentTests);
         }
         return builder.buildWithMetadata().toBuilder()
-                .repeatedInjectionTargets(toRepeatedTargets(promptGoals, goalDescriptionMapper))
+                .repeatedInjectionTargets(toRepeatedTargets(promptGoals, cardAcquirer.goalDescriptionMapper()))
                 .build();
     }
 
@@ -524,7 +499,7 @@ public class AsyncLlmTestProducer {
         if (goal == null || repeatedInjectionMemory == null) {
             return goal == null ? Double.NEGATIVE_INFINITY : 1.0;
         }
-        RepeatedInjectionTarget target = toRepeatedTarget(goal, goalDescriptionMapper);
+        RepeatedInjectionTarget target = toRepeatedTarget(goal, cardAcquirer.goalDescriptionMapper());
         RepeatedInjectionMemory.SelectionAdjustment adjustment =
                 repeatedInjectionMemory.adjustPriority(target, 1.0, true);
         return adjustment.isSuppressed() ? Double.NEGATIVE_INFINITY : adjustment.getPriority();

@@ -26,7 +26,6 @@ import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.prompt.CoverageGoalFormatter;
 import org.evosuite.llm.prompt.ExemplarAttacher;
-import org.evosuite.llm.prompt.GoalDescriptionMapper;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.TargetSection;
 import org.evosuite.llm.prompt.PromptResult;
@@ -73,11 +72,8 @@ public class StagnationDetector {
     private final int thresholdSeconds;
     private final int testsPerRequest;
     private final LongSupplier nanoClock;
-    private final ProblemCardExtractor problemCardExtractor = new ProblemCardExtractor();
-    private final DiagnosticCardSelector diagnosticCardSelector = new DiagnosticCardSelector();
-    private final ExceptionBarrierTracker exceptionBarrierTracker = new ExceptionBarrierTracker();
-    private final GoalDescriptionMapper goalDescriptionMapper = new GoalDescriptionMapper();
-    private final ExemplarAttacher exemplarAttacher = new ExemplarAttacher(goalDescriptionMapper);
+    private final DiagnosticCardAcquirer cardAcquirer = new DiagnosticCardAcquirer();
+    private final ExemplarAttacher exemplarAttacher = new ExemplarAttacher(cardAcquirer.goalDescriptionMapper());
     private final RepeatedInjectionMemory repeatedInjectionMemory;
     /**
      * Volatile: in ASYNC stagnation mode, {@link #consumeWindow()} is called
@@ -279,7 +275,7 @@ public class StagnationDetector {
 
     public void reset() {
         windowStarted = false;
-        exceptionBarrierTracker.reset();
+        cardAcquirer.resetHistory();
     }
 
     /**
@@ -374,13 +370,10 @@ public class StagnationDetector {
                                                int totalGoals, int coveredGoalCount,
                                                Map<TestFitnessFunction, Double> bestFitnessPerGoal,
                                                boolean suppressInFlightRepeats) {
-        Set<String> goalMethods = collectGoalMethodKeys(uncoveredGoals);
-        // The extractor counts the current population itself, so the historical stats must
-        // be taken before this population enters the tracker's window.
-        Map<String, AttemptStats> historicalStats = exceptionBarrierTracker.snapshot(goalMethods);
-        ProblemCardExtractor.ExtractionResult extraction = problemCardExtractor.extractWithTelemetry(
-                uncoveredGoals, currentPopulation, Integer.MAX_VALUE, historicalStats);
-        exceptionBarrierTracker.record(extraction.getMethodStats());
+        DiagnosticCardAcquirer.Acquisition acquisition = cardAcquirer.acquire(uncoveredGoals,
+                currentPopulation, DIAGNOSTIC_PROBLEM_CARDS_MAX, repeatedInjectionMemory,
+                suppressInFlightRepeats);
+        ProblemCardExtractor.ExtractionResult extraction = acquisition.extraction();
         List<ProblemCard> extractedCards = extraction.getCards();
         LlmStatistics.recordDiagnosticExtractorCandidates(extraction.getCandidateCounts());
         LlmStatistics.recordDiagnosticExtractorRejects(extraction.getRejectCounts());
@@ -388,9 +381,7 @@ public class StagnationDetector {
             logDiagnosticExtractionTelemetry(extraction.getRejectCounts(), extraction.getCandidateCounts());
             return null;
         }
-        DiagnosticCardSelector.SelectionResult selection = diagnosticCardSelector.select(
-                extractedCards, DIAGNOSTIC_PROBLEM_CARDS_MAX,
-                repeatedInjectionMemory, suppressInFlightRepeats);
+        DiagnosticCardSelector.SelectionResult selection = acquisition.selection();
         logDiagnosticCardSelection(extractedCards, selection,
                 extraction.getRejectCounts(), extraction.getCandidateCounts());
         List<ProblemCard> cards = selection.getSelectedCards();
@@ -452,23 +443,6 @@ public class StagnationDetector {
         return ticket;
     }
 
-    private Set<String> collectGoalMethodKeys(Collection<TestFitnessFunction> uncoveredGoals) {
-        if (uncoveredGoals == null || uncoveredGoals.isEmpty()) {
-            return Collections.emptySet();
-        }
-        Set<String> keys = new LinkedHashSet<>();
-        for (TestFitnessFunction goal : uncoveredGoals) {
-            if (goal == null) {
-                continue;
-            }
-            String key = goalDescriptionMapper.describeMethodOperation(goal).getExecutionKey();
-            if (!key.isEmpty()) {
-                keys.add(key);
-            }
-        }
-        return keys;
-    }
-
     private PromptResult buildPoolPrompt(Collection<TestFitnessFunction> uncoveredGoals,
                                          List<TestChromosome> currentPopulation,
                                          int totalGoals, int coveredGoalCount,
@@ -496,7 +470,7 @@ public class StagnationDetector {
         }
         return builder.buildWithMetadata().toBuilder()
                 .repeatedInjectionTargets(AsyncLlmTestProducer.toRepeatedTargets(
-                        uncoveredGoals, goalDescriptionMapper))
+                        uncoveredGoals, cardAcquirer.goalDescriptionMapper()))
                 .build();
     }
 
