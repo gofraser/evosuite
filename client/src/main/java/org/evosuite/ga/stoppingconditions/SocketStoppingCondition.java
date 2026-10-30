@@ -30,7 +30,11 @@ import java.io.IOException;
 import java.net.ServerSocket;
 
 /**
- * <p>SocketStoppingCondition class.</p>
+ * Ends the search when something connects to {@code Properties.STOPPING_PORT}.
+ *
+ * <p>The condition owns its server socket and a daemon listener thread. {@link #accept()} opens
+ * them and is idempotent; {@link #searchFinished} closes the socket, which unblocks the thread
+ * and frees the port. The condition can be started again afterwards.</p>
  *
  * @author Gordon Fraser
  */
@@ -42,6 +46,10 @@ public class SocketStoppingCondition<T extends Chromosome<T>> implements Stoppin
     private static SocketStoppingCondition<?> instance = null;
 
     private volatile boolean interrupted = false;
+
+    private ServerSocket serverSocket;
+
+    private Thread listener;
 
     private static final Logger logger = LoggerFactory.getLogger(SocketStoppingCondition.class);
 
@@ -66,30 +74,60 @@ public class SocketStoppingCondition<T extends Chromosome<T>> implements Stoppin
         return (SocketStoppingCondition<T>) instance;
     }
 
-    public void accept() {
-        Thread t = new Thread(() -> {
-            ServerSocket serverSocket = null;
-            try {
-                serverSocket = new ServerSocket(Properties.STOPPING_PORT);
-                serverSocket.accept();
-                LoggingUtils.getEvoLogger().info("* Stopping request received");
-                interrupted = true;
+    /**
+     * Starts listening on {@code Properties.STOPPING_PORT} for a stop request: a connection to
+     * the port ends the search. The port is bound before this method returns. Calling it while a
+     * listener is already running does nothing.
+     */
+    public synchronized void accept() {
+        if (listener != null && listener.isAlive()) {
+            return;
+        }
+        final ServerSocket socket;
+        try {
+            socket = new ServerSocket(Properties.STOPPING_PORT);
+        } catch (IOException e) {
+            LoggingUtils.getEvoLogger().warn("Failed to create socket on port "
+                    + Properties.STOPPING_PORT);
+            return;
+        }
+        serverSocket = socket;
+        listener = new Thread(() -> listen(socket), "EvoSuite-stopping-socket");
+        listener.setDaemon(true);
+        listener.start();
+    }
 
-            } catch (IOException e) {
-                LoggingUtils.getEvoLogger().warn("Failed to create socket on port "
-                        + Properties.STOPPING_PORT);
-            } finally {
-                if (serverSocket != null) {
-                    try {
-                        serverSocket.close();
-                    } catch (IOException e) {
-                        logger.info("Error while closing socket: " + e);
-                    }
-                }
+    private void listen(ServerSocket socket) {
+        try {
+            socket.accept().close();
+            LoggingUtils.getEvoLogger().info("* Stopping request received");
+            interrupted = true;
+        } catch (IOException e) {
+            if (!socket.isClosed()) {
+                logger.info("Error while waiting for a stopping request: " + e);
             }
+        } finally {
+            try {
+                socket.close();
+            } catch (IOException e) {
+                logger.info("Error while closing socket: " + e);
+            }
+        }
+    }
 
-        });
-        t.start();
+    /**
+     * Closes the listening socket, which ends the listener thread, and frees the port.
+     */
+    private synchronized void close() {
+        if (serverSocket != null) {
+            try {
+                serverSocket.close();
+            } catch (IOException e) {
+                logger.info("Error while closing socket: " + e);
+            }
+            serverSocket = null;
+        }
+        listener = null;
     }
 
     @Override
@@ -106,8 +144,7 @@ public class SocketStoppingCondition<T extends Chromosome<T>> implements Stoppin
 
     @Override
     public void searchFinished(GeneticAlgorithm<T> algorithm) {
-        // TODO Auto-generated method stub
-
+        close();
     }
 
     @Override
