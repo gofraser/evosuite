@@ -22,7 +22,6 @@ package org.evosuite.testcarver.capture;
 import com.thoughtworks.xstream.XStream;
 import com.thoughtworks.xstream.io.xml.StaxDriver;
 import org.evosuite.TimeController;
-import org.evosuite.testcarver.exception.CapturerException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -107,52 +106,6 @@ public final class Capturer {
 
         logger.info("Capturer has been started successfully");
 
-    }
-
-    /**
-     * Starts the capture process for the specified classes.
-     *
-     * @param classesToBeObservedString a whitespace-separated string of class names
-     */
-    public static void startCapture(final String classesToBeObservedString) {
-        if (classesToBeObservedString == null) {
-            final String msg = "no arguments specified";
-            logger.error(msg);
-            throw new CapturerException(msg);
-        }
-
-        final ArrayList<String> args = new ArrayList<>(
-                Arrays.asList(classesToBeObservedString.split("\\s+")));
-        if (args.isEmpty()) {
-            final String msg = "no class to be observed specified";
-            logger.error(msg);
-            throw new CapturerException(msg);
-        }
-
-        // start Capturer if not active yet
-        // NOTE: Stopping the capture and saving the corresponding logs is handled in the ShutdownHook
-        //       which is automatically initialized in the Capturer
-        Capturer.startCapture(args);
-    }
-
-    /**
-     * Starts the capture process for the specified list of classes.
-     *
-     * @param classesToBeObserved the list of class names to observe
-     */
-    public static void startCapture(final List<String> classesToBeObserved) {
-        logger.info("Starting Capturer...");
-
-        if (isCaptureStarted) {
-            throw new IllegalStateException("Capture has already been started");
-        }
-
-        currentLog = new CaptureLog();
-        isCaptureStarted = true;
-
-        FieldRegistry.restoreForegoingGETSTATIC();
-
-        logger.info("Capturer has been started successfully");
     }
 
     /**
