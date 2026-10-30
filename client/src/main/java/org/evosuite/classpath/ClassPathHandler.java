@@ -301,8 +301,8 @@ public class ClassPathHandler {
             }
 
             targetClassPath += File.pathSeparator + element;
-            Properties.CP = targetClassPath;
         }
+        Properties.CP = targetClassPath;
     }
 
     private static boolean containsEntry(String classPath, String element) {

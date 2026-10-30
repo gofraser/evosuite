@@ -19,6 +19,7 @@
  */
 package org.evosuite.classpath;
 
+import org.evosuite.Properties;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -35,8 +36,11 @@ class ClassPathHandlerAppendTest {
     @TempDir
     Path dir;
 
+    private final String originalCp = Properties.CP;
+
     @AfterEach
     void reset() {
+        Properties.CP = originalCp;
         ClassPathHandler.resetSingleton();
     }
 
@@ -65,5 +69,19 @@ class ClassPathHandlerAppendTest {
                 new File(other.getPath(), ".." + File.separator + "classes").getPath());
 
         assertEquals(before, handler.getTargetProjectClasspath());
+    }
+
+    @Test
+    void firstEntryOnEmptyClassPathIsReflectedInProperties() throws IOException {
+        File classes = Files.createDirectory(dir.resolve("classes")).toFile();
+        File other = Files.createDirectory(dir.resolve("other")).toFile();
+        Properties.CP = "";
+        ClassPathHandler handler = ClassPathHandler.getInstance();
+
+        handler.addElementToTargetProjectClassPath(classes.getPath());
+        assertEquals(classes.getPath(), Properties.CP);
+
+        handler.addElementToTargetProjectClassPath(other.getPath());
+        assertEquals(classes.getPath() + File.pathSeparator + other.getPath(), Properties.CP);
     }
 }
