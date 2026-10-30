@@ -15,123 +15,6 @@
         As such, it should have no reference to any other EvoSuite module, and we
         should try to keep the number of external dependencies to a minimum -->
 
-    <profiles>
-        <profile>
-            <id>modern-runtime</id>
-            <activation>
-                <jdk>[11,)</jdk>
-            </activation>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>build-helper-maven-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>add-java11-source</id>
-                                <phase>generate-sources</phase>
-                                <goals>
-                                    <goal>add-source</goal>
-                                </goals>
-                                <configuration>
-                                    <sources>
-                                        <source>${project.basedir}/src/main/java11</source>
-                                    </sources>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-        <profile>
-            <id>modern-runtime-java17</id>
-            <activation>
-                <jdk>[17,)</jdk>
-            </activation>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>build-helper-maven-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>add-java17-source</id>
-                                <phase>generate-sources</phase>
-                                <goals>
-                                    <goal>add-source</goal>
-                                </goals>
-                                <configuration>
-                                    <sources>
-                                        <source>${project.basedir}/src/main/java17</source>
-                                    </sources>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-        <profile>
-            <id>modern-runtime-java25</id>
-            <activation>
-                <jdk>[25,)</jdk>
-            </activation>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>build-helper-maven-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>add-java25-source</id>
-                                <phase>generate-sources</phase>
-                                <goals>
-                                    <goal>add-source</goal>
-                                </goals>
-                                <configuration>
-                                    <sources>
-                                        <source>${project.basedir}/src/main/java25</source>
-                                    </sources>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-        <!-- java.applet was removed in JDK 25 (JEP 504). Only attach MockApplet
-             sources for JDKs that still ship the Applet API. -->
-        <profile>
-            <id>legacy-applet-runtime</id>
-            <activation>
-                <jdk>(,25)</jdk>
-            </activation>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>build-helper-maven-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>add-java-applet-source</id>
-                                <phase>generate-sources</phase>
-                                <goals>
-                                    <goal>add-source</goal>
-                                </goals>
-                                <configuration>
-                                    <sources>
-                                        <source>${project.basedir}/src/main/java-applet</source>
-                                    </sources>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
-
     <dependencies>
 
         <dependency>
@@ -226,21 +109,59 @@
 
     <build>
         <plugins>
-            <!-- Runtime module contains multi-version sources (java11, java17, java25);
-                 disable the release flag to allow JDK 11+ APIs in main sources. -->
+            <!-- The published jar must have the same class inventory whichever JDK
+                 runs the build. src/main/java is compiled with release 8 (inherited
+                 from the parent), so javac enforces the Java 8 API floor. The mocks for
+                 newer platform APIs live in their own source roots and are compiled in
+                 one extra execution, against the JDK's own API, to Java 8 bytecode (they
+                 are only loaded when the running JVM has the API). The enforcer below
+                 fails the build on a JDK that lacks those APIs instead of silently
+                 dropping the classes. src/main/java25 needs a JDK 25 compiler and is not
+                 part of the jar. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>enforce-runtime-build-jdk</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireJavaVersion>
+                                    <version>[17,)</version>
+                                    <message>The runtime module compiles the java11 and java17 source roots against the JDK's own API: build it with JDK 17 or newer.</message>
+                                </requireJavaVersion>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
-                    <source>1.8</source>
-                    <target>1.8</target>
                     <encoding>${project.build.sourceEncoding}</encoding>
                 </configuration>
                 <executions>
                     <execution>
-                        <id>default-compile</id>
+                        <id>compile-versioned-mocks</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
                         <configuration>
                             <release combine.self="override" />
+                            <source>8</source>
+                            <target>8</target>
+                            <compileSourceRoots>
+                                <compileSourceRoot>${project.basedir}/src/main/java-applet</compileSourceRoot>
+                                <compileSourceRoot>${project.basedir}/src/main/java11</compileSourceRoot>
+                                <compileSourceRoot>${project.basedir}/src/main/java17</compileSourceRoot>
+                                <compileSourceRoot>${project.basedir}/src/main/java-jdk-internal</compileSourceRoot>
+                            </compileSourceRoots>
                         </configuration>
                     </execution>
                 </executions>

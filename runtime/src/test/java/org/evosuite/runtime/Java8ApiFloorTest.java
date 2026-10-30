@@ -40,10 +40,8 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -53,50 +51,24 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
- * {@code runtime/src/main/java} has a Java 8 floor that the build does not check.
+ * {@code runtime/src/main/java} has a Java 8 floor.
  *
  * <p>The runtime jar is what executes generated tests on a user's machine, and EvoSuite supports
- * running them on Java 8. This module therefore compiles its main source root at
- * {@code -source 8 -target 8} (see {@code runtime/pom.xml}, which overrides {@code default-compile}
- * because the module also carries {@code src/main/java11}, {@code java17} and {@code java25} source
- * sets that must be compiled at higher levels). But {@code -source}/{@code -target} only constrain
- * the <em>language level</em>: they happily resolve any API the compiling JDK offers. So a call to a
- * method added in Java 9 or later compiles cleanly on JDK 17, ships, and then fails on a user's
- * Java 8 JVM.
+ * running them on Java 8. The build compiles this source root with {@code --release 8}, which
+ * links against Java 8's actual API signatures. {@code -source}/{@code -target} alone only
+ * constrain the <em>language level</em>: a call to a method added in Java 9 or later would compile
+ * cleanly on JDK 17, ship, and then fail on a user's Java 8 JVM. This test repeats the check
+ * through the compiler API, so the floor also holds if the compiler configuration is edited or an
+ * IDE compiles the module with different options.
  *
  * <p>Two severities, both observed in practice. A post-8 <em>type</em> in a field, parameter or
  * local breaks the whole class at load time ({@code NoClassDefFoundError}). A post-8 <em>method
  * call</em> throws only when that line executes ({@code NoSuchMethodError}), which is worse,
  * because it survives every smoke test.
  *
- * <p>{@code javac --release 8} is the fix: unlike {@code -source}/{@code -target} it links against
- * Java 8's actual API signatures, so it rejects a post-8 API outright. This runs as a test rather
- * than as a second {@code maven-compiler-plugin} execution: a second execution's {@code
- * outputDirectory} is bound to the shared, read-write {@code ${project.build.outputDirectory}}
- * parameter, so configuring it there would redirect the module's output for the rest of the
- * reactor, and downstream modules would then compile against the release-8 scratch directory. As
- * a test there is no build state to corrupt, and it still runs on every {@code mvn test} -- which
- * an opt-in profile would not.
- *
  * @see #theCheckActuallyRejectsAPostJava8Api() the canary, which proves this test can fail
  */
 public class Java8ApiFloorTest {
-
-    /**
-     * Paths (relative to the source root) that {@code --release} cannot check, with the reason.
-     *
-     * <p>{@code --release} refuses to resolve JDK-internal packages at all, on principle, even
-     * though real {@code javac 8} compiles against them happily and this class has to implement a
-     * {@code sun.awt} interface to do its job. Excluding it costs nothing here, because
-     * {@link PeerCreationGuardToolkitTest} and a manual Corretto 8 run cover it instead.
-     *
-     * <p>{@link #everyExcludedPathStillExists()} fails if an entry here goes stale, so a rename
-     * cannot silently widen the hole.
-     */
-    private static final Set<String> EXCLUDED_FROM_RELEASE_CHECK = Collections.unmodifiableSet(
-            new LinkedHashSet<>(Collections.singletonList(
-                    // implements sun.awt.ComponentFactory; --release rejects sun.* packages
-                    "org/evosuite/runtime/PeerCreationGuardToolkit.java")));
 
     @Test
     public void mainSourcesCompileAgainstTheJava8Api() throws IOException {
@@ -104,7 +76,6 @@ public class Java8ApiFloorTest {
         List<File> sources = new ArrayList<>();
         try (Stream<Path> walk = Files.walk(sourceRoot)) {
             walk.filter(p -> p.toString().endsWith(".java"))
-                    .filter(p -> !isExcluded(sourceRoot, p))
                     .forEach(p -> sources.add(p.toFile()));
         }
         assertTrue(sources.size() > 100,
@@ -155,25 +126,7 @@ public class Java8ApiFloorTest {
                         .collect(Collectors.joining("; ")));
     }
 
-    @Test
-    public void everyExcludedPathStillExists() {
-        Path sourceRoot = mainSourceRoot();
-        for (String excluded : EXCLUDED_FROM_RELEASE_CHECK) {
-            assertTrue(Files.isRegularFile(sourceRoot.resolve(excluded)),
-                    "Excluded path no longer exists: " + excluded + ". It was skipped because "
-                            + "--release cannot resolve JDK-internal packages; if the file moved, "
-                            + "update EXCLUDED_FROM_RELEASE_CHECK, and if it is gone, drop the "
-                            + "entry -- leaving it stale silently excludes nothing while looking "
-                            + "like it still guards something.");
-        }
-    }
-
     // ---------------------------------------------------------------- helpers
-
-    private static boolean isExcluded(Path sourceRoot, Path file) {
-        String relative = sourceRoot.relativize(file).toString().replace(File.separatorChar, '/');
-        return EXCLUDED_FROM_RELEASE_CHECK.contains(relative);
-    }
 
     /**
      * Surefire runs with the module directory as the working directory, and Maven also sets
