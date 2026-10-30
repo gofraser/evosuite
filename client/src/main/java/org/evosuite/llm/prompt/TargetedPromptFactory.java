@@ -19,13 +19,11 @@
  */
 package org.evosuite.llm.prompt;
 
-import org.evosuite.Properties;
 import org.evosuite.llm.response.LlmAssertionPolicyResolver;
 import org.evosuite.llm.search.ProblemCard;
 import org.evosuite.llm.search.ProblemCardType;
 import org.evosuite.llm.search.RepeatedInjectionTarget;
 import org.evosuite.llm.search.operator.OperatorTarget;
-import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -148,12 +146,10 @@ public final class TargetedPromptFactory {
         }
 
         PromptResult prompt = new PromptBuilder()
-                .withSystemPrompt()
-                .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
+                .withTestGenerationContext()
                 .withExistingTests(existingTests)
                 .withInstruction(section.toString().trim())
-                .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(goals, null))
-                .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
+                .withConfiguredTechnique(goals, null)
                 .withInstruction(instruction + LlmAssertionPolicyResolver.instructionSuffix(false))
                 .buildWithMetadata();
         return prompt.toBuilder()

@@ -30,13 +30,11 @@ import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.LlmWaitBudget;
 import org.evosuite.llm.PhaseDeadline;
-import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.response.LlmAssertionPolicyResolver;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
-import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -320,10 +318,8 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
     private PromptResult buildPrompt() {
         Collection<TestFitnessFunction> goals = uncoveredGoalsSupplier.get();
         PromptBuilder builder = new PromptBuilder()
-                .withSystemPrompt()
-                .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
-                .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(goals, null))
-                .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
+                .withTestGenerationContext()
+                .withConfiguredTechnique(goals, null)
                 .withInstruction("Generate as many JUnit test methods for the target class as necessary. "
                         + "Focus on diverse paths, edge cases, and branch coverage."
                         + LlmAssertionPolicyResolver.instructionSuffix(llmStrategyContext));

@@ -26,7 +26,6 @@ import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.prompt.CoverageGoalFormatter;
-import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.GoalDescriptionMapper;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
@@ -35,7 +34,6 @@ import org.evosuite.llm.response.GeneratedTestRequest;
 import org.evosuite.llm.response.LlmAssertionPolicyResolver;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.rmi.ClientServices;
-import org.evosuite.setup.TestCluster;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.InjectionSource;
 import org.evosuite.testcase.TestCase;
@@ -411,11 +409,9 @@ public class AsyncLlmTestProducer {
     private PromptResult buildPoolPromptForAsync(Collection<TestFitnessFunction> promptGoals,
                                                  List<TestCase> currentTests) {
         PromptBuilder builder = new PromptBuilder()
-                .withSystemPrompt()
-                .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
+                .withTestGenerationContext()
                 .withUncoveredGoals(promptGoals)
-                .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(promptGoals, null))
-                .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
+                .withConfiguredTechnique(promptGoals, null)
                 .withInstruction("Generate one JUnit test that targets one uncovered goal."
                         + LlmAssertionPolicyResolver.instructionSuffix(false));
         if (Properties.LLM_ASYNC_PRODUCER_INCLUDE_TESTS && !currentTests.isEmpty()) {
@@ -438,10 +434,8 @@ public class AsyncLlmTestProducer {
         String goalsSection = goalFormatter.format(goalsForPrompt, null);
 
         PromptBuilder builder = new PromptBuilder()
-                .withSystemPrompt()
-                .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
-                .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(goalsForPrompt, null))
-                .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
+                .withTestGenerationContext()
+                .withConfiguredTechnique(goalsForPrompt, null)
                 .withInstruction("Generate one focused JUnit test that addresses one of the diagnostic "
                         + "problem cards below while targeting uncovered goals. Prefer compact, "
                         + "executable call sequences over assertions."

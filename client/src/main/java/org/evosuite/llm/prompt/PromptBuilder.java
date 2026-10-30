@@ -23,6 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.llm.LlmMessage;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 
 import java.util.ArrayList;
@@ -114,6 +115,24 @@ public class PromptBuilder {
     public PromptBuilder withSystemPrompt(String systemPrompt) {
         this.systemPrompt = systemPrompt;
         return this;
+    }
+
+    /**
+     * Starts a test-generation prompt: the test-generation system prompt and the context of
+     * the target class. The producer's own goals, tests and instruction follow.
+     */
+    public PromptBuilder withTestGenerationContext() {
+        return withSystemPrompt().withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance());
+    }
+
+    /**
+     * Adds the configured prompt technique. Under FEW_SHOT the examples are selected for the
+     * given goals, and from the archive candidates if there are any.
+     */
+    public PromptBuilder withConfiguredTechnique(Collection<TestFitnessFunction> goals,
+                                                 Collection<TestChromosome> archiveCandidates) {
+        return withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(goals, archiveCandidates))
+                .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE);
     }
 
     /**

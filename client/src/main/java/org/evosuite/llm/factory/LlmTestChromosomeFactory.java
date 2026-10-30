@@ -26,7 +26,6 @@ import org.evosuite.ga.metaheuristics.SearchListener;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmWaitBudget;
-import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.prompt.TargetedPromptFactory;
@@ -38,7 +37,6 @@ import org.evosuite.llm.search.AttemptTicket;
 import org.evosuite.llm.search.RepeatedInjectionMemory;
 import org.evosuite.llm.search.operator.OperatorTarget;
 import org.evosuite.llm.search.operator.OperatorTargetSelector;
-import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -269,10 +267,8 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
     private PromptResult buildGoalListPrompt() {
         Collection<TestFitnessFunction> goals = uncoveredGoalsSupplier.get();
         PromptBuilder builder = new PromptBuilder()
-                .withSystemPrompt()
-                .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
-                .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(goals, null))
-                .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
+                .withTestGenerationContext()
+                .withConfiguredTechnique(goals, null)
                 .withInstruction("Generate one JUnit test that is likely to improve coverage."
                         + LlmAssertionPolicyResolver.instructionSuffix(false));
         if (goals != null && !goals.isEmpty()) {
