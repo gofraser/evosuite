@@ -72,19 +72,19 @@ public class ErrorConditionMethodAdapter extends GeneratorAdapter {
         }
         if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.LIST)) {
             instrumentation.add(new ListInstrumentation(this));
-            instrumentation.add(new LinkedListInstrumentation(this));
+            instrumentation.add(EmptyCollectionInstrumentation.linkedList(this));
         }
         if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.CAST)) {
             instrumentation.add(new CastErrorInstrumentation(this));
         }
         if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.DEQUE)) {
-            instrumentation.add(new DequeInstrumentation(this));
+            instrumentation.add(EmptyCollectionInstrumentation.deque(this));
         }
         if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.DIVISIONBYZERO)) {
             instrumentation.add(new DivisionByZeroInstrumentation(this));
         }
         if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.LINKEDHASHSET)) {
-            instrumentation.add(new LinkedHashSetInstrumentation(this));
+            instrumentation.add(EmptyCollectionInstrumentation.linkedHashSet(this));
         }
         if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.NPE)) {
             instrumentation.add(new NullPointerExceptionInstrumentation(this));
@@ -93,12 +93,13 @@ public class ErrorConditionMethodAdapter extends GeneratorAdapter {
             instrumentation.add(new OverflowInstrumentation(this));
         }
         if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.QUEUE)) {
-            instrumentation.add(new QueueInstrumentation(this));
+            instrumentation.add(EmptyCollectionInstrumentation.queue(this));
         }
         if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.STACK)) {
-            instrumentation.add(new StackInstrumentation(this));
+            instrumentation.add(EmptyCollectionInstrumentation.stack(this));
         }
         if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.VECTOR)) {
+            instrumentation.add(EmptyCollectionInstrumentation.vector(this));
             instrumentation.add(new VectorInstrumentation(this));
         }
         if (ArrayUtil.contains(Properties.ERROR_INSTRUMENTATION, Properties.ErrorInstrumentation.COLLECTIONCAPACITY)) {

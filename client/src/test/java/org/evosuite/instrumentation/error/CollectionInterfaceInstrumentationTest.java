@@ -32,7 +32,7 @@ public class CollectionInterfaceInstrumentationTest {
 
     @Test
     public void queueInterfaceGuardUsesInvokeInterface() {
-        new QueueInstrumentation(mv).visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/Queue",
+        EmptyCollectionInstrumentation.queue(mv).visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/Queue",
                 "remove", "()Ljava/lang/Object;", true);
 
         verify(mv).visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/Queue", "isEmpty", "()Z", true);
@@ -40,7 +40,7 @@ public class CollectionInterfaceInstrumentationTest {
 
     @Test
     public void queueClassGuardUsesInvokeVirtual() {
-        new QueueInstrumentation(mv).visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/util/ArrayDeque",
+        EmptyCollectionInstrumentation.queue(mv).visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/util/ArrayDeque",
                 "remove", "()Ljava/lang/Object;", false);
 
         verify(mv).visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/util/ArrayDeque", "isEmpty", "()Z", false);
@@ -48,7 +48,7 @@ public class CollectionInterfaceInstrumentationTest {
 
     @Test
     public void dequeInterfaceGuardUsesInvokeInterface() {
-        new DequeInstrumentation(mv).visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/Deque",
+        EmptyCollectionInstrumentation.deque(mv).visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/Deque",
                 "removeFirst", "()Ljava/lang/Object;", true);
 
         verify(mv).visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/Deque", "isEmpty", "()Z", true);

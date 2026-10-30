@@ -32,8 +32,6 @@ public class VectorInstrumentation extends ErrorBranchInstrumenter {
 
     private static final String VECTORNAME = Vector.class.getCanonicalName().replace('.', '/');
 
-    private final List<String> emptyListMethods = Arrays.asList("firstElement", "lastElement");
-
     private final List<String> indexListMethods = Arrays.asList("elementAt", "removeElementAt");
 
     // Missing:
@@ -47,18 +45,7 @@ public class VectorInstrumentation extends ErrorBranchInstrumenter {
     public void visitMethodInsn(int opcode, String owner, String name,
                                 String desc, boolean itf) {
         if (owner.equals(VECTORNAME)) {
-            if (emptyListMethods.contains(name)) {
-                // empty
-                Map<Integer, Integer> tempVariables = getMethodCallee(desc);
-
-                tagBranchStart();
-                mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, VECTORNAME,
-                        "isEmpty", "()Z", false);
-                insertBranch(Opcodes.IFLE, "java/util/NoSuchElementException");
-                tagBranchEnd();
-                restoreMethodParameters(tempVariables, desc);
-
-            } else if (indexListMethods.contains(name)) {
+            if (indexListMethods.contains(name)) {
                 Type[] args = Type.getArgumentTypes(desc);
                 if (args.length == 0) {
                     return;
