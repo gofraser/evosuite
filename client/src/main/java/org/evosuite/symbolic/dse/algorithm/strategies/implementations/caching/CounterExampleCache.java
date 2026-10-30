@@ -40,9 +40,10 @@ import java.util.Set;
 public class CounterExampleCache {
 
     private static final Logger logger = LoggerFactory.getLogger(CounterExampleCache.class);
-    private static final DSEStatistics statisticsLogger = DSEStatistics.getInstance();
 
     public CacheQueryResult checkCache(Set<Constraint<?>> query, Map<Set<Constraint<?>>, SolverResult> queryCache) {
+        // The statistics instance is replaced on every context reset, so it is read per query.
+        final DSEStatistics statisticsLogger = DSEStatistics.getInstance();
         statisticsLogger.reportNewQueryCacheCall();
 
         // Cache hit of an exact set solution

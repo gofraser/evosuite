@@ -22,12 +22,28 @@ package org.evosuite;
 import org.evosuite.graphs.GraphPool;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.setup.DependencyAnalysis;
+import org.evosuite.symbolic.dse.DSEStatistics;
+import org.evosuite.symbolic.dse.algorithm.strategies.implementations.caching.CounterExampleCache;
+import org.evosuite.symbolic.expr.Comparator;
+import org.evosuite.symbolic.expr.Constraint;
+import org.evosuite.symbolic.expr.bv.IntegerConstant;
+import org.evosuite.symbolic.expr.constraint.IntegerConstraint;
+import org.evosuite.symbolic.solver.SolverCache;
+import org.evosuite.symbolic.solver.SolverResult;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ContextResetterTest {
 
@@ -59,5 +75,47 @@ public class ContextResetterTest {
             Properties.TARGET_CLASS = oldTarget;
             ContextResetter.reset();
         }
+    }
+
+    private static Set<Constraint<?>> query() {
+        Set<Constraint<?>> query = new LinkedHashSet<>();
+        query.add(new IntegerConstraint(new IntegerConstant(1), Comparator.EQ, new IntegerConstant(2)));
+        return query;
+    }
+
+    private static long queryCacheCalls(DSEStatistics statistics) throws Exception {
+        Field field = DSEStatistics.class.getDeclaredField("queryCacheCalls");
+        field.setAccessible(true);
+        return field.getLong(statistics);
+    }
+
+    @Test
+    public void resetEmptiesTheSolverCache() {
+        SolverCache cache = SolverCache.getInstance();
+        Set<Constraint<?>> constraints = query();
+        cache.saveSolverResult(constraints, SolverResult.newUNSAT());
+        assertTrue(cache.hasCachedResult(constraints));
+
+        ContextResetter.reset();
+
+        assertFalse(cache.hasCachedResult(constraints));
+        assertEquals(0, cache.getNumberOfUNSATs());
+        assertEquals(0, cache.getNumberOfSATs());
+    }
+
+    @Test
+    public void counterExampleCacheReportsIntoTheStatisticsOfTheCurrentRun() throws Exception {
+        CounterExampleCache cache = new CounterExampleCache();
+        DSEStatistics before = DSEStatistics.getInstance();
+        cache.checkCache(query(), Collections.emptyMap());
+        assertEquals(1, queryCacheCalls(before));
+
+        ContextResetter.reset();
+
+        DSEStatistics after = DSEStatistics.getInstance();
+        assertNotSame(before, after);
+        cache.checkCache(query(), Collections.emptyMap());
+        assertEquals(1, queryCacheCalls(before));
+        assertEquals(1, queryCacheCalls(after));
     }
 }

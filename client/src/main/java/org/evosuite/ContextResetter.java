@@ -48,6 +48,7 @@ import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.setup.TestClusterGenerator;
 import org.evosuite.symbolic.dse.DSEStatistics;
+import org.evosuite.symbolic.solver.SolverCache;
 import org.evosuite.testcarver.extraction.CarvingManager;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testcase.execution.TestCaseExecutor;
@@ -183,6 +184,7 @@ public final class ContextResetter {
         MethodCallReplacementCache.resetSingleton();
 
         DSEStatistics.clear();
+        SolverCache.getInstance().clear();
 
         // keep the list of initialized classes (clear them when needed in
         // the system test cases)

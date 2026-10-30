@@ -27,6 +27,10 @@ import java.util.HashMap;
 /**
  * A cache for solver results.
  *
+ * <p>The cache belongs to one test generation run: {@link #clear()} drops the results and the
+ * counters, and {@link org.evosuite.ContextResetter#reset()} calls it, so that a run never sees
+ * the results or the hit rate of an earlier one.
+ *
  * @author ilebrero
  */
 public final class SolverCache {
@@ -74,6 +78,19 @@ public final class SolverCache {
      */
     public static SolverCache getInstance() {
         return instance;
+    }
+
+    /**
+     * Drops all cached results, the pending cached solution and the statistics counters.
+     */
+    public void clear() {
+        cachedSolverResults.clear();
+        cachedSolution = null;
+        validCachedSolution = false;
+        numberOfHits = 0;
+        numberOfAccesses = 0;
+        cachedSatResultCount = 0;
+        cachedUnsatResultCount = 0;
     }
 
     private void addUNSAT(Collection<Constraint<?>> unsatConstraints, SolverResult unsatResult) {
