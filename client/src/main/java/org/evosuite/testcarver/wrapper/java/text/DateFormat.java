@@ -62,6 +62,21 @@ public abstract class DateFormat extends java.text.DateFormat {
      * Static wrapper for the final format method.
      *
      * @param format the formatter the call is made on
+     * @param obj the object to format
+     * @return the formatted string
+     */
+    public static String format(java.text.DateFormat format, Object obj) {
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_TEXT_DATEFORMAT, format, "format",
+                "(Ljava/lang/Object;)Ljava/lang/String;", new Object[]{obj});
+        String ret = format.format(obj);
+        Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_TEXT_DATEFORMAT, format, ret);
+        return ret;
+    }
+
+    /**
+     * Static wrapper for the final format method.
+     *
+     * @param format the formatter the call is made on
      * @param date the date to format
      * @return the formatted string
      */

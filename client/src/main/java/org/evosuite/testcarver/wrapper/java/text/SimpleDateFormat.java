@@ -271,4 +271,52 @@ public class SimpleDateFormat extends java.text.SimpleDateFormat {
         return ret;
     }
 
+    /**
+     * Static wrapper for a final format method.
+     *
+     * @param format the formatter the call is made on
+     * @param obj the object to format
+     * @return the formatted text
+     */
+    public static String format(java.text.SimpleDateFormat format, Object obj) {
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_TEXT_SIMPLEDATEFORMAT, format, "format",
+                "(Ljava/lang/Object;)Ljava/lang/String;", new Object[]{obj});
+        String ret = format.format(obj);
+        Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_TEXT_SIMPLEDATEFORMAT, format, ret);
+        return ret;
+    }
+
+    /**
+     * Static wrapper for a final format method.
+     *
+     * @param format the formatter the call is made on
+     * @param date the date to format
+     * @return the formatted text
+     */
+    public static String format(java.text.SimpleDateFormat format, java.util.Date date) {
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_TEXT_SIMPLEDATEFORMAT, format, "format",
+                "(Ljava/util/Date;)Ljava/lang/String;", new Object[]{date});
+        String ret = format.format(date);
+        Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_TEXT_SIMPLEDATEFORMAT, format, ret);
+        return ret;
+    }
+
+    /**
+     * Static wrapper for a final format method.
+     *
+     * @param format the formatter the call is made on
+     * @param obj the object to format
+     * @param toAppendTo the string buffer to append to
+     * @param pos the field position
+     * @return the formatted text
+     */
+    public static StringBuffer format(java.text.SimpleDateFormat format, Object obj, StringBuffer toAppendTo,
+                                      FieldPosition pos) {
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_TEXT_SIMPLEDATEFORMAT, format, "format",
+                "(Ljava/lang/Object;Ljava/lang/StringBuffer;Ljava/text/FieldPosition;)Ljava/lang/StringBuffer;", new Object[]{obj, toAppendTo, pos});
+        StringBuffer ret = format.format(obj, toAppendTo, pos);
+        Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_TEXT_SIMPLEDATEFORMAT, format, ret);
+        return ret;
+    }
+
 }

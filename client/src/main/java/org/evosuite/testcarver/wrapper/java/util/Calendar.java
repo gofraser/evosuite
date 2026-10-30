@@ -46,31 +46,31 @@ public class Calendar extends java.util.Calendar {
     }
 
     /**
-     * Shadow of getTime method.
+     * Static wrapper for the final setTime method.
      *
-     * @return the time as a Date
+     * @param cal the calendar the call is made on
+     * @param date the date to set
      */
-    public java.util.Date getTime_final() {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "getTime", "()Ljava/util/Date;",
-                new Object[]{});
-        java.util.Date ret = new Date(wrappedCalendar.getTimeInMillis());
-        Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, ret);
-        return ret;
+    public static void setTime(java.util.Calendar cal, java.util.Date date) {
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, cal, "setTime", "(Ljava/util/Date;)V",
+                new Object[]{date});
+        cal.setTime(date);
+        Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, cal, CaptureLog.RETURN_TYPE_VOID);
     }
 
     /**
-     * Shadow of setTime method.
+     * Static wrapper for the final toInstant method.
      *
-     * @param date the date to set
+     * @param cal the calendar the call is made on
+     * @return the instant represented by the calendar
      */
-    public final void setTime_final(java.util.Date date) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "setTime", "(Ljava/util/Date;)V",
-                new Object[]{date});
-        wrappedCalendar.setTime(date);
-        Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, CaptureLog.RETURN_TYPE_VOID);
-
+    public static java.time.Instant toInstant(java.util.Calendar cal) {
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, cal, "toInstant", "()Ljava/time/Instant;",
+                new Object[]{});
+        java.time.Instant ret = cal.toInstant();
+        Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, cal, ret);
+        return ret;
     }
-
 
     /**
      * Static wrapper for getTime.
@@ -205,38 +205,41 @@ public class Calendar extends java.util.Calendar {
     }
 
     /**
-     * Shadow of set method.
+     * Static wrapper for the final set method.
      *
+     * @param cal the calendar the call is made on
      * @param year the year
      * @param month the month
      * @param date the date
      */
-    public final void set_final(int year, int month, int date) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "set", "(III)V",
+    public static void set(java.util.Calendar cal, int year, int month, int date) {
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, cal, "set", "(III)V",
                 new Object[]{year, month, date});
-        wrappedCalendar.set(year, month, date);
-        Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, CaptureLog.RETURN_TYPE_VOID);
+        cal.set(year, month, date);
+        Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, cal, CaptureLog.RETURN_TYPE_VOID);
     }
 
     /**
-     * Shadow of set method.
+     * Static wrapper for the final set method.
      *
+     * @param cal the calendar the call is made on
      * @param year the year
      * @param month the month
      * @param date the date
      * @param hourOfDay the hour
      * @param minute the minute
      */
-    public final void set_final(int year, int month, int date, int hourOfDay, int minute) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "set", "(IIIII)V",
+    public static void set(java.util.Calendar cal, int year, int month, int date, int hourOfDay, int minute) {
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, cal, "set", "(IIIII)V",
                 new Object[]{year, month, date, hourOfDay, minute});
-        wrappedCalendar.set(year, month, date, hourOfDay, minute);
-        Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, CaptureLog.RETURN_TYPE_VOID);
+        cal.set(year, month, date, hourOfDay, minute);
+        Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, cal, CaptureLog.RETURN_TYPE_VOID);
     }
 
     /**
-     * Shadow of set method.
+     * Static wrapper for the final set method.
      *
+     * @param cal the calendar the call is made on
      * @param year the year
      * @param month the month
      * @param date the date
@@ -244,44 +247,48 @@ public class Calendar extends java.util.Calendar {
      * @param minute the minute
      * @param second the second
      */
-    public final void set_final(int year, int month, int date, int hourOfDay, int minute,
-                                int second) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "set", "(IIIIII)V",
+    public static void set(java.util.Calendar cal, int year, int month, int date, int hourOfDay, int minute,
+                           int second) {
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, cal, "set", "(IIIIII)V",
                 new Object[]{year, month, date, hourOfDay, minute, second});
-        wrappedCalendar.set(year, month, date, hourOfDay, minute, second);
-        Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, CaptureLog.RETURN_TYPE_VOID);
+        cal.set(year, month, date, hourOfDay, minute, second);
+        Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, cal, CaptureLog.RETURN_TYPE_VOID);
     }
 
     /**
-     * Shadow of clear method.
-     */
-    public final void clear_final() {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "clear", "()V", new Object[]{});
-        wrappedCalendar.clear();
-        Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, CaptureLog.RETURN_TYPE_VOID);
-    }
-
-    /**
-     * Shadow of clear method.
+     * Static wrapper for the final clear method.
      *
+     * @param cal the calendar the call is made on
+     */
+    public static void clear(java.util.Calendar cal) {
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, cal, "clear", "()V", new Object[]{});
+        cal.clear();
+        Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, cal, CaptureLog.RETURN_TYPE_VOID);
+    }
+
+    /**
+     * Static wrapper for the final clear method.
+     *
+     * @param cal the calendar the call is made on
      * @param field the field to clear
      */
-    public final void clear_final(int field) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "clear", "(I)V", new Object[]{field});
-        wrappedCalendar.clear(field);
-        Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, CaptureLog.RETURN_TYPE_VOID);
+    public static void clear(java.util.Calendar cal, int field) {
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, cal, "clear", "(I)V", new Object[]{field});
+        cal.clear(field);
+        Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, cal, CaptureLog.RETURN_TYPE_VOID);
     }
 
     /**
-     * Shadow of isSet method.
+     * Static wrapper for the final isSet method.
      *
+     * @param cal the calendar the call is made on
      * @param field the field to check
      * @return true if set, false otherwise
      */
-    public final boolean isSet_final(int field) {
-        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, "isSet", "(I)Z", new Object[]{field});
-        boolean ret = wrappedCalendar.isSet(field);
-        Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, this, ret);
+    public static boolean isSet(java.util.Calendar cal, int field) {
+        Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, cal, "isSet", "(I)Z", new Object[]{field});
+        boolean ret = cal.isSet(field);
+        Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_UTIL_CALENDAR, cal, ret);
         return ret;
     }
 

@@ -34,6 +34,7 @@ import org.objectweb.asm.tree.MethodNode;
 import java.io.InputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -121,6 +122,39 @@ public class WrapperSignatureAuditTest {
             }
         }
         Assertions.assertTrue(checked > 100, "audit found only " + checked + " recorded signatures");
+        Assertions.assertTrue(problems.isEmpty(), String.join("\n", problems));
+    }
+
+    /**
+     * The instrumentation redirects a call of a final method of a wrapped class to a static method of the
+     * wrapper that takes the receiver as its first argument, because a final method cannot be overridden. A
+     * final method without such a static method makes the carved class fail with a NoSuchMethodError.
+     */
+    @Test
+    public void testFinalMethodsHaveStaticReceiverFirstForm() throws Exception {
+        final List<String> problems = new ArrayList<>();
+        for (String wrapperName : WRAPPERS) {
+            final Class<?> wrapper = Class.forName(wrapperName);
+            final Class<?> jdkClass = wrapper.getSuperclass();
+            for (Method method : wrapper.getMethods()) {
+                if (!Modifier.isFinal(method.getModifiers()) || Modifier.isStatic(method.getModifiers())
+                        || method.getDeclaringClass() == Object.class) {
+                    continue;
+                }
+                final Class<?>[] parameters = new Class<?>[method.getParameterCount() + 1];
+                parameters[0] = jdkClass;
+                System.arraycopy(method.getParameterTypes(), 0, parameters, 1, method.getParameterCount());
+                try {
+                    final Method redirect = wrapper.getMethod(method.getName(), parameters);
+                    if (!Modifier.isStatic(redirect.getModifiers())
+                            || !redirect.getReturnType().equals(method.getReturnType())) {
+                        problems.add(wrapper.getSimpleName() + "." + redirect + " is not a static form of " + method);
+                    }
+                } catch (NoSuchMethodException e) {
+                    problems.add(wrapper.getSimpleName() + " has no static form of " + method);
+                }
+            }
+        }
         Assertions.assertTrue(problems.isEmpty(), String.join("\n", problems));
     }
 }
