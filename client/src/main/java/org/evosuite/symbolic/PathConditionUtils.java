@@ -98,31 +98,6 @@ public class PathConditionUtils {
      * @param queries the collection of constraint sets to compare against.
      * @return the supra set if found.
      */
-    public static Set<Constraint<?>> getConstraintSetSubSetOf(Set<Constraint<?>> query,
-                                                              Collection<Set<Constraint<?>>> queries) {
-        if (query == null) {
-            throw new IllegalArgumentException(QUERY_CANNOT_BE_NULL_EXCEPTION_MESSAGE);
-        }
-        if (queries == null) {
-            throw new IllegalArgumentException(QUERIES_CANNOT_BE_NULL_EXCEPTION_MESSAGE);
-        }
-
-        for (Set<Constraint<?>> pathCondition : queries) {
-            if (pathCondition.containsAll(query)) {
-                return pathCondition;
-            }
-        }
-
-        throw new IllegalArgumentException("Query has to be a sub set of one of the given queries");
-    }
-
-    /**
-     * Returns the set that is a supra set of the given query.
-     *
-     * @param query   the set of constraints to check.
-     * @param queries the collection of constraint sets to compare against.
-     * @return the supra set if found.
-     */
     public static Set<Constraint<?>> getConstraintSetSupraSetOf(Set<Constraint<?>> query,
                                                                 Collection<Set<Constraint<?>>> queries) {
         if (query == null) {

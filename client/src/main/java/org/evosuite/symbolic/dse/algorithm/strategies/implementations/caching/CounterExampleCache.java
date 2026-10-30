@@ -30,20 +30,10 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Resembles checks (a) and (b) of a counter-example cache strategy.
- * (b) Is performed only if exactly the same constraint set is found.
- *     TODO: Implement the solution for supersets.
- *
- * <p>Counter-example cache strategy: Maps sets of constraints to counter-examples and performs three
- * optimizations:
- * (a)  When a subset of a constraint set has no solution, then neither does the original set.
- *      i.e. as the query x&gt;10 ∧ x&lt;5 has no solution, neither does the original query
- *      x&gt;10 ∧ x&lt;5 ∧ y=0
- * (b)  When a superset of a constraint set has a solution, that solution also satisfies the
- *      original set.  i.e. x=14 is the solution for the query x&gt;0 ∧ x&lt;5, thus it satisfies
- *      either x&gt;0 or x&lt;5 individually
- * (c)  When a subset of a constraint set has a solution, it is likely that this is also a
- *      solution for the original set
+ * Counter-example cache strategy: answers a query from the cache when exactly the same constraint
+ * set was solved before, or when the query contains a constraint set that is cached as
+ * unsatisfiable (the query x&gt;10 ∧ x&lt;5 ∧ y=0 has no solution because x&gt;10 ∧ x&lt;5 has none).
+ * Every other query is a miss and goes to the solver.
  *
  * @author Ignacio Lebrero
  */
@@ -71,44 +61,16 @@ public class CounterExampleCache {
             }
         }
 
-        // Cache hit of a sub set solution
+        // A query containing a cached unsatisfiable set is itself unsatisfiable. Only the first
+        // contained entry is consulted.
         if (PathConditionUtils.isConstraintSetSupraSetOf(query, queryCache.keySet())) {
             Set<Constraint<?>> subSetSolution =
                     PathConditionUtils.getConstraintSetSupraSetOf(query, queryCache.keySet());
-            SolverResult cachedResult = queryCache.get(subSetSolution);
 
-            // Case (a) for sub sets: the query is a supra set of a sat solution. Heuristics can be implemented here
-            if (cachedResult.isSAT()) {
-                // TODO: implement me!
-                return new CacheQueryResult(CacheQueryStatus.MISS);
-
-                // Case (b) for sub sets: the query is a supra set of an unsat solution
-            } else if (cachedResult.isUNSAT()) {
+            if (queryCache.get(subSetSolution).isUNSAT()) {
                 statisticsLogger.reportNewQueryCacheHit();
                 logger.debug("skipping current query since it is in the query cache and it unsatisfiable");
                 return new CacheQueryResult(CacheQueryStatus.HIT_UNSAT);
-            }
-
-        }
-
-        // Cache hit of a supra set solution
-        if (PathConditionUtils.isConstraintSetSubSetOf(query, queryCache.keySet())) {
-            Set<Constraint<?>> supraSetSolution =
-                    PathConditionUtils.getConstraintSetSubSetOf(query, queryCache.keySet());
-            SolverResult cachedResult = queryCache.get(supraSetSolution);
-
-            // Case (c) of Counter-example cache: Heuristics can be implemented here
-            if (cachedResult.isUNSAT()) {
-                // TODO: implement me!
-                return new CacheQueryResult(CacheQueryStatus.MISS);
-
-                // Case (b) for for supra sets: The query is sat as there was a bigger query that was SAT
-            } else if (cachedResult.isSAT()) {
-                // TODO: Implement me!
-                // We cannot use all the solution model from the superset
-                // as it may differ with other elements of this path.
-                // Implementation idea: reuse only the necessary elements of the model.
-                return new CacheQueryResult(CacheQueryStatus.MISS);
             }
         }
 
