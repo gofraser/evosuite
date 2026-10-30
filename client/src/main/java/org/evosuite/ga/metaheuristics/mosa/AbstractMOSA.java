@@ -2380,12 +2380,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             clientNode.trackOutputVariable(RuntimeVariable.Disruption_Sidecar_Path,
                     rec.getTotalEvents() > 0 ? rec.resolveSidecarPath() : "");
         } else {
-            clientNode.trackOutputVariable(RuntimeVariable.Disruption_Events_Total, 0);
-            clientNode.trackOutputVariable(RuntimeVariable.Disruption_Standard_Mutations, 0);
-            clientNode.trackOutputVariable(RuntimeVariable.Disruption_Semantic_Mutations, 0);
-            clientNode.trackOutputVariable(RuntimeVariable.Disruption_Standard_Crossovers, 0);
-            clientNode.trackOutputVariable(RuntimeVariable.Disruption_Semantic_Crossovers, 0);
-            clientNode.trackOutputVariable(RuntimeVariable.Disruption_Semantic_Fallbacks, 0);
+            DisruptionRecorder.trackNoEvents(clientNode);
             clientNode.trackOutputVariable(RuntimeVariable.Disruption_Sidecar_Path, "");
         }
     }

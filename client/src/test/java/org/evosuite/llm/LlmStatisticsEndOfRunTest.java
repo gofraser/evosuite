@@ -22,6 +22,7 @@ package org.evosuite.llm;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.DummyClientNodeImpl;
 import org.evosuite.statistics.RuntimeVariable;
+import org.evosuite.statistics.SearchRuntimeVariableDefaults;
 import org.evosuite.testcase.TestChromosome;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -113,6 +114,7 @@ public class LlmStatisticsEndOfRunTest {
     @Test
     public void defaultsAreInPlaceForFeaturesAnLlmRunNeverExercises() {
         // An LLM run publishes only the values of the features it used; the defaults fill the rest.
+        SearchRuntimeVariableDefaults.publish();
         LlmStatistics.initializeRuntimeVariables();
         new LlmStatistics().publishRuntimeVariables();
 

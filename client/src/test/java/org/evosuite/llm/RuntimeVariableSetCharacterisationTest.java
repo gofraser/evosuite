@@ -24,6 +24,7 @@ import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.DummyClientNodeImpl;
 import org.evosuite.seeding.ObjectPoolManager;
 import org.evosuite.statistics.RuntimeVariable;
+import org.evosuite.statistics.SearchRuntimeVariableDefaults;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutableSnippetEngine;
 import org.junit.jupiter.api.AfterEach;
@@ -98,6 +99,7 @@ public class RuntimeVariableSetCharacterisationTest {
 
     /** The calls TestSuiteGenerator makes before the search. */
     private static void publishDefaults() {
+        SearchRuntimeVariableDefaults.publish();
         LlmStatistics.initializeRuntimeVariables();
     }
 

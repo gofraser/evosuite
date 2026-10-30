@@ -46,6 +46,7 @@ import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.TargetClassInitializer;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.statistics.RuntimeVariable;
+import org.evosuite.statistics.SearchRuntimeVariableDefaults;
 import org.evosuite.statistics.StatisticsSender;
 import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.symbolic.dse.DSEStatistics;
@@ -177,9 +178,10 @@ public class TestSuiteGenerator {
 
         ObjectPoolManager.resetSequenceUsageCount();
 
-        // Publish the zero defaults of the LLM, speciation and disruption columns before anything
-        // else tracks them, so a feature the run never exercises reads 0 rather than blank in
-        // every mode. The master keeps the last value, so what the run tracks replaces them.
+        // Publish the zero defaults of the search and LLM columns before anything else tracks
+        // them, so a feature the run never exercises reads 0 rather than blank in every mode.
+        // The master keeps the last value, so what the run tracks replaces them.
+        SearchRuntimeVariableDefaults.publish();
         LlmStatistics.initializeRuntimeVariables();
 
         // Deactivate loop counter to make sure classes initialize properly

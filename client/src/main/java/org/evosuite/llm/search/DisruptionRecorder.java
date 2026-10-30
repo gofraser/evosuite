@@ -23,6 +23,8 @@ import org.evosuite.Properties;
 import org.evosuite.llm.search.DisruptionEvent.OperatorKind;
 import org.evosuite.llm.search.DisruptionEvent.OperatorOutcome;
 import org.evosuite.llm.search.DisruptionEvent.OperatorSource;
+import org.evosuite.rmi.service.ClientNodeLocal;
+import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.utils.SidecarCsv;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,6 +84,16 @@ public class DisruptionRecorder {
     /** Reset state for a new run (or for testing). */
     public static synchronized void resetInstance() {
         instance = null;
+    }
+
+    /** Tracks the event counters of a run without disruption analysis, which are all zero. */
+    public static void trackNoEvents(ClientNodeLocal<?> clientNode) {
+        clientNode.trackOutputVariable(RuntimeVariable.Disruption_Events_Total, 0);
+        clientNode.trackOutputVariable(RuntimeVariable.Disruption_Standard_Mutations, 0);
+        clientNode.trackOutputVariable(RuntimeVariable.Disruption_Semantic_Mutations, 0);
+        clientNode.trackOutputVariable(RuntimeVariable.Disruption_Standard_Crossovers, 0);
+        clientNode.trackOutputVariable(RuntimeVariable.Disruption_Semantic_Crossovers, 0);
+        clientNode.trackOutputVariable(RuntimeVariable.Disruption_Semantic_Fallbacks, 0);
     }
 
     /** Returns true if disruption analysis is enabled. */
