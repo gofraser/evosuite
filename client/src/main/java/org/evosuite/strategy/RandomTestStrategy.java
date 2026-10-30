@@ -73,10 +73,11 @@ public class RandomTestStrategy extends TestGenerationStrategy {
         LoggingUtils.getEvoLogger().info("* Total number of test goals: ");
         for (int i = 0; i < goalFactories.size(); i++) {
             TestFitnessFactory<? extends TestFitnessFunction> goalFactory = goalFactories.get(i);
-            goals.addAll(goalFactory.getCoverageGoals());
+            List<? extends TestFitnessFunction> factoryGoals = goalFactory.getCoverageGoals();
+            goals.addAll(factoryGoals);
             LoggingUtils.getEvoLogger().info("  - {} {}",
                     FitnessFunctions.displayName(Properties.CRITERION[i]),
-                    goalFactory.getCoverageGoals().size());
+                    factoryGoals.size());
         }
         ClientServices.track(RuntimeVariable.Total_Goals,
                 goals.size());

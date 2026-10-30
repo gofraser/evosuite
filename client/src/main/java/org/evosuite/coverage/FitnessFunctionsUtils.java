@@ -70,13 +70,14 @@ public class FitnessFunctionsUtils {
 
         if (goalFactories.size() == 1) {
             TestFitnessFactory<? extends TestFitnessFunction> factory = goalFactories.iterator().next();
-            goals.addAll(factory.getCoverageGoals());
+            List<? extends TestFitnessFunction> factoryGoals = factory.getCoverageGoals();
+            goals.addAll(factoryGoals);
 
             if (verbose) {
                 LoggingUtils.getEvoLogger().info("* Total number of test goals: {}",
-                        factory.getCoverageGoals().size());
+                        factoryGoals.size());
                 if (Properties.PRINT_GOALS) {
-                    for (TestFitnessFunction goal : factory.getCoverageGoals()) {
+                    for (TestFitnessFunction goal : factoryGoals) {
                         LoggingUtils.getEvoLogger().info("{}", goal);
                     }
                 }
@@ -88,15 +89,16 @@ public class FitnessFunctionsUtils {
 
             for (int i = 0; i < goalFactories.size(); i++) {
                 TestFitnessFactory<? extends TestFitnessFunction> goalFactory = goalFactories.get(i);
-                goals.addAll(goalFactory.getCoverageGoals());
+                List<? extends TestFitnessFunction> factoryGoals = goalFactory.getCoverageGoals();
+                goals.addAll(factoryGoals);
 
                 if (verbose) {
                     LoggingUtils.getEvoLogger()
                             .info("  - {} {}",
                                     FitnessFunctions.displayName(criterion[i]),
-                                    goalFactory.getCoverageGoals().size());
+                                    factoryGoals.size());
                     if (Properties.PRINT_GOALS) {
-                        for (TestFitnessFunction goal : goalFactory.getCoverageGoals()) {
+                        for (TestFitnessFunction goal : factoryGoals) {
                             LoggingUtils.getEvoLogger().info("{}", goal);
                         }
                     }

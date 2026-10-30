@@ -948,8 +948,9 @@ public class TestSuiteMinimizer {
                     for (int fitnessIndex = 0; fitnessIndex < modifiedVerFitness.size(); fitnessIndex++) {
                         TestFitnessFactory<?> ff = testFitnessFactories.get(fitnessIndex);
                         boolean isMaximization = false;
-                        if (!ff.getCoverageGoals().isEmpty()) {
-                            isMaximization = ff.getCoverageGoals().get(0).isMaximizationFunction();
+                        List<? extends TestFitnessFunction> ffGoals = ff.getCoverageGoals();
+                        if (!ffGoals.isEmpty()) {
+                            isMaximization = ffGoals.get(0).isMaximizationFunction();
                         }
 
                         int comp = Double.compare(modifiedVerFitness.get(fitnessIndex), fitness.get(fitnessIndex));
