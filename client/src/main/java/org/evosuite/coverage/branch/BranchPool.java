@@ -49,6 +49,17 @@ import java.util.concurrent.ConcurrentHashMap;
  * pool.
  * </p>
  * <p>
+ * The registries (branches per method, branch ids, the instruction to branch maps, switch
+ * labels, branchless methods, usable methods) describe the same set of branches and are guarded
+ * by the monitor of the pool: a registration or a clearing changes all of them in one step, so
+ * a reader never sees a branch in one registry and not in another. The getters return
+ * snapshots, which stay valid when the pool changes afterwards, so callers can iterate them
+ * while classes are loaded and instrumented on other threads. Clearing a class or a method
+ * removes its branches from every registry, and the next branch id is the one after the highest
+ * id still registered, so instrumenting the class again numbers its branches as a fresh pool
+ * would (ids of other classes are never handed out twice).
+ * </p>
+ * <p>
  * There are two kinds of Branch objects: normal branches and switch case
  * branches. For more details about the difference between these two look at the
  * Branch class.
@@ -179,7 +190,7 @@ public class BranchPool {
      * @param methodName Unique methodName - consisting of &lt;className&gt;.&lt;methodName&gt; -
      *                   of a method without Branches
      */
-    public void addBranchlessMethod(String className, String methodName,
+    public synchronized void addBranchlessMethod(String className, String methodName,
                                     int lineNumber) {
         if (!branchlessMethods.containsKey(className)) {
             branchlessMethods.put(className, new HashMap<>());
@@ -215,8 +226,12 @@ public class BranchPool {
             return;
         }
 
-        registerInstruction(instruction);
-
+        synchronized (this) {
+            // another thread may have registered it while the checks above ran
+            if (!isKnownAsBranch(instruction)) {
+                registerInstruction(instruction);
+            }
+        }
     }
 
     private void registerInstruction(BytecodeInstruction v) {
@@ -427,22 +442,22 @@ public class BranchPool {
      * registerAsBranch(instruction), false otherwise.
      * </p>
      */
-    public boolean isKnownAsBranch(BytecodeInstruction instruction) {
+    public synchronized boolean isKnownAsBranch(BytecodeInstruction instruction) {
         return isKnownAsNormalBranchInstruction(instruction)
                 || isKnownAsSwitchBranchInstruction(instruction);
     }
 
-    public boolean isKnownAsNormalBranchInstruction(BytecodeInstruction ins) {
+    public synchronized boolean isKnownAsNormalBranchInstruction(BytecodeInstruction ins) {
 
         return registeredNormalBranches.containsKey(ins);
     }
 
-    public boolean isKnownAsSwitchBranchInstruction(BytecodeInstruction instruction) {
+    public synchronized boolean isKnownAsSwitchBranchInstruction(BytecodeInstruction instruction) {
 
         return registeredSwitches.containsKey(instruction);
     }
 
-    public int getActualBranchIdForNormalBranchInstruction(BytecodeInstruction ins) {
+    public synchronized int getActualBranchIdForNormalBranchInstruction(BytecodeInstruction ins) {
         if (!isKnownAsNormalBranchInstruction(ins)) {
             throw new IllegalArgumentException(
                     "instruction not registered as a normal branch");
@@ -456,7 +471,7 @@ public class BranchPool {
                 "expect registeredNormalBranches to contain a key for each known normal branch instruction");
     }
 
-    public List<Branch> getCaseBranchesForSwitch(BytecodeInstruction instruction) {
+    public synchronized List<Branch> getCaseBranchesForSwitch(BytecodeInstruction instruction) {
         if (instruction == null) {
             throw new IllegalArgumentException("null given");
         }
@@ -467,10 +482,10 @@ public class BranchPool {
             throw new IllegalArgumentException("not registered as a switch instruction");
         }
 
-        return registeredSwitches.get(instruction);
+        return new ArrayList<>(registeredSwitches.get(instruction));
     }
 
-    public Branch getBranchForInstruction(BytecodeInstruction instruction) {
+    public synchronized Branch getBranchForInstruction(BytecodeInstruction instruction) {
         if (instruction == null) {
             throw new IllegalArgumentException("null given");
         }
@@ -482,11 +497,12 @@ public class BranchPool {
         return getBranch(registeredNormalBranches.get(instruction));
     }
 
-    public List<Branch> getBranchForLabel(LabelNode label) {
+    public synchronized List<Branch> getBranchForLabel(LabelNode label) {
 
         // TODO see registerSwitchLabel()!
 
-        return switchLabels.get(label);
+        List<Branch> branches = switchLabels.get(label);
+        return branches == null ? null : new ArrayList<>(branches);
     }
 
     /**
@@ -495,7 +511,7 @@ public class BranchPool {
      *
      * @return The number of currently known Branches inside the given method.
      */
-    public int getBranchCountForMethod(String className, String methodName) {
+    public synchronized int getBranchCountForMethod(String className, String methodName) {
         if (branchMap.get(className) == null) {
             return 0;
         }
@@ -513,7 +529,7 @@ public class BranchPool {
      * @param methodName the method name.
      * @return the number of non-artificial branches.
      */
-    public int getNonArtificialBranchCountForMethod(String className,
+    public synchronized int getNonArtificialBranchCountForMethod(String className,
                                                     String methodName) {
         if (branchMap.get(className) == null) {
             return 0;
@@ -537,7 +553,7 @@ public class BranchPool {
      *
      * @return The number of currently known Branches inside the given class.
      */
-    public int getBranchCountForClass(String className) {
+    public synchronized int getBranchCountForClass(String className) {
         if (branchMap.get(className) == null) {
             return 0;
         }
@@ -553,7 +569,7 @@ public class BranchPool {
      *
      * @return The number of currently known Branches inside the given class.
      */
-    public int getBranchCountForPrefix(String prefix) {
+    public synchronized int getBranchCountForPrefix(String prefix) {
         int num = 0;
         for (String className : branchMap.keySet()) {
             if (className.startsWith(prefix)) {
@@ -572,7 +588,7 @@ public class BranchPool {
      *
      * @return The number of currently known Branches.
      */
-    public int getBranchCounter() {
+    public synchronized int getBranchCounter() {
         return branchCounter;
     }
 
@@ -581,7 +597,7 @@ public class BranchPool {
      *
      * @return the number of artificial branches.
      */
-    public int getNumArtificialBranches() {
+    public synchronized int getNumArtificialBranches() {
         int num = 0;
         for (Branch b : branchIdMap.values()) {
             if (b.isInstrumented()) {
@@ -598,13 +614,13 @@ public class BranchPool {
      * @param branchId The ID of a branch
      * @return The branch, or null if it does not exist.
      */
-    public Branch getBranch(int branchId) {
+    public synchronized Branch getBranch(int branchId) {
 
         return branchIdMap.get(branchId);
     }
 
-    public Collection<Branch> getAllBranches() {
-        return branchIdMap.values();
+    public synchronized Collection<Branch> getAllBranches() {
+        return new ArrayList<>(branchIdMap.values());
     }
 
     /**
@@ -612,12 +628,12 @@ public class BranchPool {
      *
      * @return A set with all unique methodNames of methods without Branches.
      */
-    public Set<String> getBranchlessMethods(String className) {
+    public synchronized Set<String> getBranchlessMethods(String className) {
         if (!branchlessMethods.containsKey(className)) {
             return new LinkedHashSet<>();
         }
 
-        return branchlessMethods.get(className).keySet();
+        return new LinkedHashSet<>(branchlessMethods.get(className).keySet());
     }
 
     /**
@@ -625,7 +641,7 @@ public class BranchPool {
      *
      * @return A set with all unique methodNames of methods without Branches.
      */
-    public Set<String> getBranchlessMethodsPrefix(String className) {
+    public synchronized Set<String> getBranchlessMethodsPrefix(String className) {
         Set<String> methods = new LinkedHashSet<>();
 
         for (String name : branchlessMethods.keySet()) {
@@ -642,7 +658,7 @@ public class BranchPool {
      *
      * @return A set with all unique methodNames of methods without Branches.
      */
-    public Set<String> getBranchlessMethods() {
+    public synchronized Set<String> getBranchlessMethods() {
         Set<String> methods = new LinkedHashSet<>();
 
         for (String name : branchlessMethods.keySet()) {
@@ -659,7 +675,7 @@ public class BranchPool {
      * @param methodName the method name.
      * @return true if the method is branchless.
      */
-    public boolean isBranchlessMethod(String className, String methodName) {
+    public synchronized boolean isBranchlessMethod(String className, String methodName) {
         Map<String, Integer> methodMap = branchlessMethods.get(className);
         if (methodMap != null) {
             return methodMap.containsKey(methodName);
@@ -672,7 +688,7 @@ public class BranchPool {
      *
      * @return The number of methods without Branches.
      */
-    public int getNumBranchlessMethods(String className) {
+    public synchronized int getNumBranchlessMethods(String className) {
         if (!branchlessMethods.containsKey(className)) {
             return 0;
         }
@@ -683,7 +699,7 @@ public class BranchPool {
      * Returns the total number of methods without branches in the instrumented
      * classes.
      */
-    public int getNumBranchlessMethods() {
+    public synchronized int getNumBranchlessMethods() {
         int num = 0;
         for (String name : branchlessMethods.keySet()) {
             num += branchlessMethods.get(name).size();
@@ -695,7 +711,7 @@ public class BranchPool {
      * Returns a Set containing all classes for which this pool knows Branches
      * for as Strings.
      */
-    public Set<String> knownClasses() {
+    public synchronized Set<String> knownClasses() {
         Set<String> r = new LinkedHashSet<>();
         r.addAll(branchMap.keySet());
         r.addAll(branchlessMethods.keySet());
@@ -707,7 +723,7 @@ public class BranchPool {
      * Returns a Set containing all methods in the class represented by the
      * given String for which this pool knows Branches for as Strings.
      */
-    public Set<String> knownMethods(String className) {
+    public synchronized Set<String> knownMethods(String className) {
         Set<String> r = new LinkedHashSet<>();
         Map<String, List<Branch>> methods = branchMap.get(className);
         if (methods != null) {
@@ -723,7 +739,7 @@ public class BranchPool {
      * Should no such Branch exist an empty List is returned.
      * </p>
      */
-    public List<Branch> retrieveBranchesInMethod(String className,
+    public synchronized List<Branch> retrieveBranchesInMethod(String className,
                                                  String methodName) {
         List<Branch> r = new ArrayList<>();
         if (branchMap.get(className) == null) {
@@ -736,7 +752,7 @@ public class BranchPool {
         return r;
     }
 
-    public Branch getDefaultBranchForSwitch(BytecodeInstruction v) {
+    public synchronized Branch getDefaultBranchForSwitch(BytecodeInstruction v) {
         if (!v.isSwitch()) {
             throw new IllegalArgumentException("switch instruction expected");
         }
@@ -755,7 +771,7 @@ public class BranchPool {
     /**
      * Forgets all the branch information and the recorded methods of this pool.
      */
-    public void clear() {
+    public synchronized void clear() {
         methods.clear();
         branchCounter = 0;
         branchMap.clear();
@@ -767,26 +783,74 @@ public class BranchPool {
         registeredSwitches.clear();
     }
 
-    public void clear(String className) {
-        branchMap.remove(className);
+    /**
+     * Forgets everything this pool knows about the given class.
+     *
+     * @param className the class to forget
+     */
+    public synchronized void clear(String className) {
+        Map<String, List<Branch>> classBranches = branchMap.remove(className);
+        if (classBranches != null) {
+            for (List<Branch> branches : classBranches.values()) {
+                forgetBranches(branches);
+            }
+        }
         branchlessMethods.remove(className);
+        methods.remove(className);
     }
 
-    public void clear(String className, String methodName) {
-        int numBranches = 0;
-
-        if (branchMap.containsKey(className)) {
-            if (branchMap.get(className).containsKey(methodName)) {
-                numBranches = branchMap.get(className).get(methodName).size();
+    /**
+     * Forgets everything this pool knows about the given method of a class.
+     *
+     * @param className  the class of the method
+     * @param methodName the method to forget, as name and descriptor
+     */
+    public synchronized void clear(String className, String methodName) {
+        Map<String, List<Branch>> classBranches = branchMap.get(className);
+        if (classBranches != null) {
+            List<Branch> branches = classBranches.remove(methodName);
+            if (branches != null) {
+                forgetBranches(branches);
             }
-            branchMap.get(className).remove(methodName);
+            if (classBranches.isEmpty()) {
+                branchMap.remove(className);
+            }
         }
-        if (branchlessMethods.containsKey(className)) {
-            branchlessMethods.get(className).remove(methodName);
+        Map<String, Integer> classBranchless = branchlessMethods.get(className);
+        if (classBranchless != null) {
+            classBranchless.remove(methodName);
+            if (classBranchless.isEmpty()) {
+                branchlessMethods.remove(className);
+            }
         }
-        logger.info("Resetting branchCounter from " + branchCounter + " to "
-                + (branchCounter - numBranches));
-        branchCounter -= numBranches;
+        Set<String> classMethods = methods.get(className);
+        if (classMethods != null) {
+            classMethods.remove(className + "." + methodName);
+        }
+    }
+
+    // Removes the branches from every registry but branchMap, and lets the next branch id follow
+    // the highest one still registered. That reuses the ids of the branches removed last, which
+    // is what instrumenting the cleared class again needs to match a fresh pool, and never
+    // hands out an id that is still in use.
+    private void forgetBranches(List<Branch> branches) {
+        Set<Branch> forgotten = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Branch b : branches) {
+            forgotten.add(b);
+            branchIdMap.remove(b.getActualBranchId());
+            registeredNormalBranches.remove(b.getInstruction());
+            registeredSwitches.remove(b.getInstruction());
+            registeredDefaultCases.remove(b.getInstruction());
+        }
+        Iterator<List<Branch>> labels = switchLabels.values().iterator();
+        while (labels.hasNext()) {
+            List<Branch> labelled = labels.next();
+            labelled.removeIf(forgotten::contains);
+            if (labelled.isEmpty()) {
+                labels.remove();
+            }
+        }
+        branchCounter = branchIdMap.isEmpty() ? 0 : Collections.max(branchIdMap.keySet());
     }
 
 }
