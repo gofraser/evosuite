@@ -213,7 +213,9 @@ public class InstrumentingClassLoader extends ClassLoader {
             // class loader.
             ClassLoader context = Thread.currentThread().getContextClassLoader();
             if (context != null && context != this && context != getParent()) {
-                return context.loadClass(name);
+                Class<?> loaded = context.loadClass(name);
+                LoopCounter.getInstance().noteClassLoadProgress();
+                return loaded;
             }
             throw e;
         }
@@ -282,6 +284,11 @@ public class InstrumentingClassLoader extends ClassLoader {
      */
     private Class<?> instrumentClass(String fullyQualifiedTargetClass) throws ClassNotFoundException {
         String className = fullyQualifiedTargetClass.replace('.', '/');
+
+        // Reading and instrumenting the bytes can alone outlast the grace window of an
+        // abandoned static initializer, so the window starts fresh when a class begins to
+        // load rather than only once it has been defined.
+        LoopCounter.getInstance().noteClassLoadProgress();
 
         try (InputStream is = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                 .getClassAsStream(fullyQualifiedTargetClass)) {

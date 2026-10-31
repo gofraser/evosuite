@@ -28,6 +28,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -97,6 +99,30 @@ public class AbandonedClinitClassLoadingTest {
         assertTrue(loaded >= CLASSES.length, "the fixture should have loaded its classes");
     }
 
+    /**
+     * The initializer runs for 0.6 s before it starts loading a class whose instrumentation
+     * takes another 0.6 s and reaches termination probes meanwhile; the class is still being
+     * loaded after the one second grace window of the abandonment has passed.
+     */
+    @Test
+    @Timeout(value = 30, unit = TimeUnit.SECONDS)
+    public void testAbandonedInitializerInsideSlowInstrumentationIsNotStopped() throws Exception {
+        loader = new InstrumentingClassLoader() {
+            @Override
+            protected byte[] getTransformedBytes(String className, InputStream is) throws IOException {
+                long end = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(600);
+                while (System.nanoTime() < end) {
+                    LoopCounter.getInstance().checkLoop(probeIndex);
+                }
+                return super.getTransformedBytes(className, is);
+            }
+        };
+        runAbandonedInitializer(SlowInstrumentationClinit.class);
+
+        assertTrue(finished, "the initializer should have run to completion");
+        assertFalse(threw, "an initializer must not be stopped while a class is being instrumented");
+    }
+
     @Test
     @Timeout(value = 30, unit = TimeUnit.SECONDS)
     public void testAbandonedSpinningInitializerIsStopped() throws Exception {
@@ -129,6 +155,24 @@ public class AbandonedClinitClassLoadingTest {
 
         static {
             runSlowInitializer();
+        }
+    }
+
+    private static class SlowInstrumentationClinit {
+
+        static {
+            try {
+                long end = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(600);
+                while (System.nanoTime() < end) {
+                    LoopCounter.getInstance().checkLoop(probeIndex);
+                }
+                loader.loadClass(CLASSES[0]);
+                finished = true;
+            } catch (TooManyResourcesException e) {
+                threw = true;
+            } catch (ClassNotFoundException e) {
+                throw new IllegalStateException(e);
+            }
         }
     }
 
