@@ -116,8 +116,8 @@
                  one extra execution, against the JDK's own API, to Java 8 bytecode (they
                  are only loaded when the running JVM has the API). The enforcer below
                  fails the build on a JDK that lacks those APIs instead of silently
-                 dropping the classes. src/main/java25 needs a JDK 25 compiler and is not
-                 part of the jar. -->
+                 dropping the classes. src/main/java25 needs a JDK 25 compiler and is only
+                 part of the jar in the opt-in java25 profile (see below). -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
@@ -189,6 +189,71 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- Opt-in (profile java25, never activated automatically): compiles the mocks for
+             JDK 25 APIs in src/main/java25 with release 25 into the normal classes
+             directory, so the runtime jar (and the shaded and standalone jars built from
+             it) contain them. They are class file version 69 and MockList only registers
+             them when the running JVM can load them (JDK 25 or newer); without the profile
+             the jar simply lacks them. The profile needs nothing in the shaded or
+             standalone_runtime modules: they take whatever is in the runtime jar.
+             Only MockScopedValue and MockScopedValueCarrier are compiled: ScopedValue is
+             final in JDK 25 (JEP 506). StructuredTaskScope is still a preview API in
+             JDK 25 (JEP 505), so MockStructuredTaskScope cannot be compiled without
+             the preview flag, which would mark its class file as loadable only on exactly
+             that JDK with preview enabled. It stays out until the API is final. -->
+        <profile>
+            <id>java25</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-enforcer-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>enforce-runtime-build-jdk-25</id>
+                                <goals>
+                                    <goal>enforce</goal>
+                                </goals>
+                                <configuration>
+                                    <rules>
+                                        <requireJavaVersion>
+                                            <version>[25,)</version>
+                                            <message>The java25 profile compiles src/main/java25 with --release 25: build with JDK 25 or newer, or drop -Pjava25.</message>
+                                        </requireJavaVersion>
+                                    </rules>
+                                    <fail>true</fail>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>compile-java25-mocks</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>compile</goal>
+                                </goals>
+                                <configuration>
+                                    <release>25</release>
+                                    <compileSourceRoots>
+                                        <compileSourceRoot>${project.basedir}/src/main/java25</compileSourceRoot>
+                                    </compileSourceRoots>
+                                    <excludes>
+                                        <exclude>**/MockStructuredTaskScope.java</exclude>
+                                    </excludes>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
 </project>
 	
