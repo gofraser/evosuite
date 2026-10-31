@@ -84,6 +84,12 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
         // TODO: compute minimum over all use-fitnesses
         // TODO: return that minimum after normalization, stop once a use-fitness is 0
 
+        // A goal restored without the pool has no uses to measure: it is not covered, with the
+        // same worst distance as a definition without any use.
+        if (uses == null) {
+            return Double.MAX_VALUE;
+        }
+
         // first inefficient version:
         double min = Double.MAX_VALUE;
         for (Use use : uses.keySet()) {
@@ -103,7 +109,11 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
     public int hashCode() {
         final int prime = 31;
         int result = 1;
-        result = prime * result + ((targetDef == null) ? defId : targetDef.hashCode());
+        // Only what equals() always compares, so that a goal restored without the pool hashes like
+        // the goal it was sent from.
+        result = prime * result + defId;
+        result = prime * result + ((targetClass == null) ? 0 : targetClass.hashCode());
+        result = prime * result + ((targetMethod == null) ? 0 : targetMethod.hashCode());
         return result;
     }
 

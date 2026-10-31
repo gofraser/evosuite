@@ -157,4 +157,17 @@ public class DefUseCoverageTestFitnessSerializationTest {
         assertNotEquals(0, restored.compareTo(otherRestored));
         assertEquals(2, new HashSet<>(Arrays.asList(restored, otherRestored)).size());
     }
+
+    @Test
+    public void testGoalAndItsCopyRestoredWithoutPoolHashAlike() throws Exception {
+        DefUseCoverageTestFitness goal = createGoal(10, 1);
+        byte[] bytes = serialize(goal);
+        DefUsePool.clear();
+
+        DefUseCoverageTestFitness restored = deserialize(bytes);
+
+        assertEquals(goal, restored);
+        assertEquals(restored, goal);
+        assertEquals(goal.hashCode(), restored.hashCode());
+    }
 }

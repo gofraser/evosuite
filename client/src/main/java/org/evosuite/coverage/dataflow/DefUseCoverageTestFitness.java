@@ -284,18 +284,14 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 
     @Override
     public int hashCode() {
+        // Only what equals() always compares, so that a goal restored without the pool hashes like
+        // the goal it was sent from.
         final int prime = 31;
         int result = 1;
-        if (goalUse == null) {
-            result = prime * result + defId;
-            result = prime * result + useId;
-            result = prime * result + ((goalVariable == null) ? 0 : goalVariable.hashCode());
-            result = prime * result + ((type == null) ? 0 : type.hashCode());
-            return result;
-        }
-        result = prime * result
-                + ((goalDefinition == null) ? 0 : goalDefinition.hashCode());
-        result = prime * result + ((goalUse == null) ? 0 : goalUse.hashCode());
+        result = prime * result + defId;
+        result = prime * result + useId;
+        result = prime * result + ((targetClass == null) ? 0 : targetClass.hashCode());
+        result = prime * result + ((targetMethod == null) ? 0 : targetMethod.hashCode());
         result = prime * result + ((goalVariable == null) ? 0 : goalVariable.hashCode());
         result = prime * result + ((type == null) ? 0 : type.hashCode());
         return result;

@@ -25,6 +25,9 @@ import org.evosuite.graphs.cfg.BasicBlock;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.BytecodeInstructionPool;
 import org.evosuite.graphs.cfg.RawControlFlowGraph;
+import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testcase.execution.ExecutionResult;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,6 +39,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -43,6 +47,7 @@ import java.util.HashSet;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -166,5 +171,35 @@ public class AllDefsCoverageTestFitnessSerializationTest {
         assertNotEquals(restored, otherRestored);
         assertNotEquals(0, restored.compareTo(otherRestored));
         assertEquals(2, new HashSet<>(Arrays.asList(restored, otherRestored)).size());
+    }
+
+    @Test
+    public void testGoalAndItsCopyRestoredWithoutPoolHashAlike() throws Exception {
+        AllDefsCoverageTestFitness goal = createGoal();
+        byte[] bytes = serialize(goal);
+        DefUsePool.clear();
+
+        AllDefsCoverageTestFitness restored = (AllDefsCoverageTestFitness) deserialize(bytes);
+
+        assertEquals(goal, restored);
+        assertEquals(restored, goal);
+        assertEquals(goal.hashCode(), restored.hashCode());
+    }
+
+    @Test
+    public void testGoalRestoredWithoutPoolHasNoUsesToMeasure() throws Exception {
+        byte[] bytes = serialize(createGoal());
+        DefUsePool.clear();
+
+        AllDefsCoverageTestFitness restored = (AllDefsCoverageTestFitness) deserialize(bytes);
+        // The definition itself counts as covered, so that the uses are consulted
+        TestFitnessFunction covered = mock(TestFitnessFunction.class);
+        when(covered.getFitness(any(), any())).thenReturn(0.0);
+        Field definitionFitness = AllDefsCoverageTestFitness.class.getDeclaredField("goalDefinitionFitness");
+        definitionFitness.setAccessible(true);
+        definitionFitness.set(restored, covered);
+        TestChromosome individual = new TestChromosome();
+
+        assertEquals(Double.MAX_VALUE, restored.getFitness(individual, mock(ExecutionResult.class)));
     }
 }
