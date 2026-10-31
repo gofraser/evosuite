@@ -946,28 +946,13 @@ public class TestSuiteMinimizer {
                     boolean worse = false;
                     boolean better = false;
                     for (int fitnessIndex = 0; fitnessIndex < modifiedVerFitness.size(); fitnessIndex++) {
-                        TestFitnessFactory<?> ff = testFitnessFactories.get(fitnessIndex);
-                        boolean isMaximization = false;
-                        List<? extends TestFitnessFunction> ffGoals = ff.getCoverageGoals();
-                        if (!ffGoals.isEmpty()) {
-                            isMaximization = ffGoals.get(0).isMaximizationFunction();
-                        }
-
+                        // Test goals are always minimised, so a larger fitness value is worse.
                         int comp = Double.compare(modifiedVerFitness.get(fitnessIndex), fitness.get(fitnessIndex));
                         if (comp > 0) { // new > old
-                            if (isMaximization) {
-                                better = true;
-                            } else {
-                                worse = true;
-                                break; // At least one goal got worse, must reject
-                            }
+                            worse = true;
+                            break; // At least one goal got worse, must reject
                         } else if (comp < 0) { // new < old
-                            if (isMaximization) {
-                                worse = true;
-                                break; 
-                            } else {
-                                better = true; 
-                            }
+                            better = true;
                         }
                     }
 
