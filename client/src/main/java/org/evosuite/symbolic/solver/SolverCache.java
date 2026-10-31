@@ -126,9 +126,12 @@ public final class SolverCache {
     /**
      * Returns the hit rate of the cache.
      *
-     * @return the hit rate
+     * @return the hit rate, 0 if the cache has not been accessed yet
      */
     public double getHitRate() {
+        if (numberOfAccesses == 0) {
+            return 0.0;
+        }
         return (double) this.numberOfHits / (double) this.numberOfAccesses;
     }
 
