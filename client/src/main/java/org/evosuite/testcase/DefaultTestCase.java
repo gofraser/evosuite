@@ -264,6 +264,9 @@ public class DefaultTestCase implements TestCase, Serializable {
         if (presentationMetadata != null) {
             presentationMetadata.truncateFrom(length);
         }
+        if (length >= statements.size()) {
+            return;
+        }
         while (statements.size() > length) {
             statements.remove(length);
         }

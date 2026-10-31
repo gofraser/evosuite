@@ -41,7 +41,9 @@ import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.execution.UncompilableCodeException;
 import org.evosuite.testcase.fm.EvoInvocationListener;
 import org.evosuite.testcase.fm.MethodDescriptor;
+import org.evosuite.testcase.variable.ArrayIndex;
 import org.evosuite.testcase.variable.ConstantValue;
+import org.evosuite.testcase.variable.FieldReference;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericAccessibleObject;
 import org.evosuite.utils.generic.GenericClass;
@@ -504,13 +506,32 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         // default answer for that method. null and ConstantValue are self-contained.
         stubs.removeIf(stub -> {
             for (VariableReference ref : stub.values) {
-                if (ref != null && !(ref instanceof ConstantValue) && !present.contains(ref)) {
+                if (ref != null && !(ref instanceof ConstantValue) && !isDefined(ref, present)) {
                     return true;
                 }
             }
             return false;
         });
         refreshParameters();
+    }
+
+    /**
+     * A reference is defined when a statement of the test case returns it or, for a field or an
+     * array element that no statement returns, when the variable it is read from is defined. A
+     * static field has no such variable and is always defined.
+     */
+    private static boolean isDefined(VariableReference ref, Set<VariableReference> present) {
+        if (present.contains(ref)) {
+            return true;
+        }
+        if (ref instanceof FieldReference) {
+            VariableReference source = ((FieldReference) ref).getSource();
+            return source == null || isDefined(source, present);
+        }
+        if (ref instanceof ArrayIndex) {
+            return isDefined(((ArrayIndex) ref).getArray(), present);
+        }
+        return false;
     }
 
     /**
