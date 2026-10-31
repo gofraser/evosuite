@@ -26,7 +26,6 @@ import org.evosuite.coverage.TestFitnessFactory;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.TestSuiteFitnessFunctionMock;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
-import org.evosuite.ga.stoppingconditions.MaxStatementsStoppingCondition;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientState;
 import org.evosuite.statistics.RuntimeVariable;
@@ -139,13 +138,7 @@ public class MOSuiteStrategy extends TestGenerationStrategy {
             LoggingUtils.getEvoLogger().info("");
         }
 
-        String text = " statements, best individual has fitness: ";
-        LoggingUtils.clientInfo("Search finished after {}s and {} generations, {}{}{}",
-                (endTime - startTime),
-                algorithm.getAge(),
-                MaxStatementsStoppingCondition.getNumExecutedStatements(),
-                text,
-                testSuite.getFitness());
+        logSearchFinished(startTime, endTime, algorithm, testSuite);
         // Search is finished, send statistics
         sendExecutionStatistics();
 

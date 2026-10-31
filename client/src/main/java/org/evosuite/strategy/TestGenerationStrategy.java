@@ -98,7 +98,7 @@ public abstract class TestGenerationStrategy {
 
     /**
      * Reports the end of a search, except in system tests where the timing would make the output
-     * nondeterministic.
+     * nondeterministic. With parallel clients the line names the client that finished.
      *
      * @param startTime start of the search in seconds
      * @param endTime   end of the search in seconds
@@ -108,8 +108,8 @@ public abstract class TestGenerationStrategy {
     protected static void logSearchFinished(long startTime, long endTime, GeneticAlgorithm<?> algorithm,
                                             TestSuiteChromosome testSuite) {
         if (!Properties.IS_RUNNING_A_SYSTEM_TEST) {
-            LoggingUtils.getEvoLogger().info(
-                    "* Search finished after {}s and {} generations, {} statements, best individual has fitness: {}",
+            LoggingUtils.clientInfo(
+                    "Search finished after {}s and {} generations, {} statements, best individual has fitness: {}",
                     (endTime - startTime),
                     algorithm.getAge(),
                     MaxStatementsStoppingCondition.getNumExecutedStatements(),
