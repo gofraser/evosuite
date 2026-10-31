@@ -19,67 +19,34 @@
  */
 package org.evosuite.seeding;
 
-
-import java.util.ArrayDeque;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Queue;
-import java.util.function.Predicate;
 
 /**
  * Bounded queue of constants drawn in proportion to how often they were added. The oldest
  * occurrence is evicted once the queue exceeds the dynamic pool size.
  */
-public class FrequencyBasedRandomAccessQueue<T> implements ConstantBag<T> {
+public class FrequencyBasedRandomAccessQueue<T> extends BoundedConstantQueue<T> {
 
     private final FrequencyBasedPool<T> values = new FrequencyBasedPool<>();
 
-    private final Queue<T> queue = new ArrayDeque<>();
-
-    private final int maxSize;
-
-    /**
-     * @param maxSize the number of constants to keep; the oldest one is dropped beyond that
-     */
     public FrequencyBasedRandomAccessQueue(int maxSize) {
-        this.maxSize = Math.max(1, maxSize);
+        super(maxSize);
     }
 
     @Override
-    public synchronized void add(T value) {
-        if (value == null) {
-            return;
-        }
+    protected boolean register(T value) {
         values.add(value);
-        queue.add(value);
-        reduceSize();
+        return true;
     }
 
-    private void reduceSize() {
-        if (queue.size() > maxSize) {
-            T value = queue.poll();
-            values.removeConstant(value);
-        }
+    @Override
+    protected void unregister(T value) {
+        values.removeConstant(value);
     }
 
     @Override
     public synchronized T random() {
         return values.random();
-    }
-
-    @Override
-    public synchronized int removeIf(Predicate<? super T> predicate) {
-        int removed = 0;
-        Iterator<T> iterator = queue.iterator();
-        while (iterator.hasNext()) {
-            T value = iterator.next();
-            if (predicate.test(value)) {
-                iterator.remove();
-                values.removeConstant(value);
-                removed++;
-            }
-        }
-        return removed;
     }
 
     @Override
@@ -90,16 +57,6 @@ public class FrequencyBasedRandomAccessQueue<T> implements ConstantBag<T> {
     @Override
     public synchronized List<T> snapshot() {
         return values.snapshot();
-    }
-
-    @Override
-    public synchronized String toString() {
-        String res = "[ ";
-        for (final Object element : queue) {
-            res += element + " ";
-        }
-        res += "]";
-        return res;
     }
 
 }

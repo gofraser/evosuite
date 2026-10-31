@@ -21,15 +21,8 @@ package org.evosuite.seeding;
 
 import org.evosuite.utils.Randomness;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Queue;
 import java.util.Set;
-import java.util.function.Predicate;
 
 /**
  * Bounded queue of distinct constants drawn uniformly. The oldest constant is evicted once the
@@ -37,78 +30,27 @@ import java.util.function.Predicate;
  *
  * @author Gordon Fraser
  */
-public class DefaultRandomAccessQueue<T> implements ConstantBag<T> {
+public class DefaultRandomAccessQueue<T> extends BoundedConstantQueue<T> {
 
     private final Set<T> valueSet = new HashSet<>();
 
-    private final Queue<T> queue = new ArrayDeque<>();
-
-    private final int maxSize;
-
-    /**
-     * @param maxSize the number of constants to keep; the oldest one is dropped beyond that
-     */
     public DefaultRandomAccessQueue(int maxSize) {
-        this.maxSize = Math.max(1, maxSize);
+        super(maxSize);
     }
 
     @Override
-    public synchronized void add(T value) {
-        if (value == null) {
-            return;
-        }
-        if (!valueSet.contains(value)) {
-            queue.add(value);
-            valueSet.add(value);
-            reduceSize();
-        }
+    protected boolean register(T value) {
+        return valueSet.add(value);
     }
 
-    private void reduceSize() {
-        if (queue.size() > maxSize) {
-            T value = queue.poll();
-            valueSet.remove(value);
-        }
+    @Override
+    protected void unregister(T value) {
+        valueSet.remove(value);
     }
 
     @Override
     public synchronized T random() {
         return Randomness.choice(valueSet);
-    }
-
-    @Override
-    public synchronized int removeIf(Predicate<? super T> predicate) {
-        int removed = 0;
-        Iterator<T> iterator = queue.iterator();
-        while (iterator.hasNext()) {
-            T value = iterator.next();
-            if (predicate.test(value)) {
-                iterator.remove();
-                valueSet.remove(value);
-                removed++;
-            }
-        }
-        return removed;
-    }
-
-    @Override
-    public synchronized boolean isEmpty() {
-        return queue.isEmpty();
-    }
-
-    @Override
-    public synchronized List<T> snapshot() {
-        return Collections.unmodifiableList(new ArrayList<>(queue));
-    }
-
-    @Override
-    public synchronized String toString() {
-        String res = "[ ";
-        for (final Object element : queue) {
-            res += element + " ";
-        }
-        res += "]";
-        return res;
     }
 
 }
