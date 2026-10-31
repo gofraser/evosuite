@@ -104,7 +104,7 @@ class PromptPrefixStabilityTest {
 
     private static PromptBuilder newBuilder(SutContextProviderFactory factory) {
         return new PromptBuilder(new SystemPromptProvider(), new TestClusterSummarizer(),
-                new CoverageGoalFormatter(), new TestCaseFormatter(), factory);
+                new CoverageGoalFormatter(PromptSettings.fromProperties()), new TestCaseFormatter(), factory);
     }
 
     @Test
@@ -170,12 +170,12 @@ class PromptPrefixStabilityTest {
         CountingSummarizer summarizer = new CountingSummarizer();
 
         new PromptBuilder(new SystemPromptProvider(), summarizer,
-                new CoverageGoalFormatter(), new TestCaseFormatter(), factory)
+                new CoverageGoalFormatter(PromptSettings.fromProperties()), new TestCaseFormatter(), factory)
                 .withSystemPrompt()
                 .withSutContext("com.example.Foo", cluster)
                 .build();
         new PromptBuilder(new SystemPromptProvider(), summarizer,
-                new CoverageGoalFormatter(), new TestCaseFormatter(), factory)
+                new CoverageGoalFormatter(PromptSettings.fromProperties()), new TestCaseFormatter(), factory)
                 .withSystemPrompt()
                 .withSutContext("com.example.Foo", cluster)
                 .build();
@@ -186,7 +186,7 @@ class PromptPrefixStabilityTest {
         StaticPromptContext.resetForRunCompletion();
 
         new PromptBuilder(new SystemPromptProvider(), summarizer,
-                new CoverageGoalFormatter(), new TestCaseFormatter(), factory)
+                new CoverageGoalFormatter(PromptSettings.fromProperties()), new TestCaseFormatter(), factory)
                 .withSystemPrompt()
                 .withSutContext("com.example.Foo", cluster)
                 .build();

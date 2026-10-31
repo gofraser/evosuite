@@ -19,7 +19,6 @@
  */
 package org.evosuite.llm.prompt;
 
-import org.evosuite.Properties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,8 +48,8 @@ public class SourceCodeProvider {
     }
 
     /** Returns the source code for the given class name, or empty if unavailable. */
-    public Optional<String> getSourceCode(String className) {
-        Path configured = configuredSourcePath();
+    public Optional<String> getSourceCode(String className, PromptSettings settings) {
+        Path configured = configuredSourcePath(settings);
         if (configured != null) {
             return readFile(configured);
         }
@@ -62,8 +61,8 @@ public class SourceCodeProvider {
         return Optional.empty();
     }
 
-    private Path configuredSourcePath() {
-        String configuredPath = Properties.LLM_SOURCE_PATH == null ? "" : Properties.LLM_SOURCE_PATH.trim();
+    private Path configuredSourcePath(PromptSettings settings) {
+        String configuredPath = settings.sourcePath();
         if (configuredPath.isEmpty()) {
             return null;
         }

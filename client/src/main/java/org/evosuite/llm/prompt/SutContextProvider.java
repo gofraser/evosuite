@@ -37,4 +37,12 @@ public interface SutContextProvider {
      * @return context text, or empty if extraction fails
      */
     Optional<String> getContext(String className, TestCluster cluster);
+
+    /**
+     * Extract context under the given settings snapshot. Providers whose output depends on
+     * a setting override this; the default ignores the snapshot.
+     */
+    default Optional<String> getContext(String className, TestCluster cluster, PromptSettings settings) {
+        return getContext(className, cluster);
+    }
 }

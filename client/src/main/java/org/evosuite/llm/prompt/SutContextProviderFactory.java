@@ -148,7 +148,7 @@ public class SutContextProviderFactory {
 
         Optional<String> context;
         try {
-            context = primary.getContext(className, cluster);
+            context = primary.getContext(className, cluster, settings);
         } catch (Exception e) {
             logger.debug("Context provider {} failed for {}: {}", mode, className, e.getMessage());
             context = Optional.empty();
@@ -175,7 +175,7 @@ public class SutContextProviderFactory {
             logger.warn("Context mode {} unavailable for {}; falling back to SIGNATURE_ONLY", mode, className);
             Optional<String> fallbackContext;
             try {
-                fallbackContext = signatureProvider.getContext(className, cluster);
+                fallbackContext = signatureProvider.getContext(className, cluster, settings);
             } catch (Exception e) {
                 logger.debug("Signature fallback also failed for {}: {}", className, e.getMessage());
                 fallbackContext = Optional.empty();

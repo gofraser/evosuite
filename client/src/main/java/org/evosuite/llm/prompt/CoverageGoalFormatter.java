@@ -44,21 +44,22 @@ public class CoverageGoalFormatter {
 
     private final GoalDescriptionMapper mapper;
     private final int maxGoalsPerMethod;
+    private final Properties.LlmGoalFormat goalFormat;
 
-    /**
-     * Creates a formatter that respects the current {@code LLM_GOAL_FORMAT} property.
-     */
-    public CoverageGoalFormatter() {
-        this(new GoalDescriptionMapper(), DEFAULT_MAX_GOALS_PER_METHOD);
+    /** Creates a formatter that renders goals in the goal format of the given snapshot. */
+    public CoverageGoalFormatter(PromptSettings settings) {
+        this(new GoalDescriptionMapper(), DEFAULT_MAX_GOALS_PER_METHOD, settings);
     }
 
     /** Creates a formatter with an explicit mapper and overflow cap. */
-    public CoverageGoalFormatter(GoalDescriptionMapper mapper, int maxGoalsPerMethod) {
+    public CoverageGoalFormatter(GoalDescriptionMapper mapper, int maxGoalsPerMethod,
+                                 PromptSettings settings) {
         this.mapper = mapper;
         this.maxGoalsPerMethod = Math.max(1, maxGoalsPerMethod);
+        this.goalFormat = settings.goalFormat();
     }
 
-    /** Formats goals into a numbered list (raw or LLM-friendly, per property). */
+    /** Formats goals into a numbered list (raw or LLM-friendly, per the snapshot). */
     public String format(Collection<TestFitnessFunction> goals) {
         return format(goals, null);
     }
@@ -76,7 +77,7 @@ public class CoverageGoalFormatter {
         if (goals == null || goals.isEmpty()) {
             return "No uncovered goals available.";
         }
-        if (Properties.LLM_GOAL_FORMAT == Properties.LlmGoalFormat.RAW) {
+        if (goalFormat == Properties.LlmGoalFormat.RAW) {
             return formatRaw(goals);
         }
         return formatLlmFriendly(goals, fitnessDistances);
@@ -164,7 +165,7 @@ public class CoverageGoalFormatter {
     }
 
     private String describeGoal(TestFitnessFunction goal) {
-        if (Properties.LLM_GOAL_FORMAT == Properties.LlmGoalFormat.RAW) {
+        if (goalFormat == Properties.LlmGoalFormat.RAW) {
             return goal.toString();
         }
         return mapper.describe(goal);

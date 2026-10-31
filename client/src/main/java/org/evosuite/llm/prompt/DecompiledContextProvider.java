@@ -24,7 +24,6 @@ import org.benf.cfr.reader.api.CfrDriver;
 import org.benf.cfr.reader.api.ClassFileSource;
 import org.benf.cfr.reader.api.OutputSinkFactory;
 import org.benf.cfr.reader.bytecode.analysis.parse.utils.Pair;
-import org.evosuite.Properties;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.utils.ReplaceableWorker;
@@ -69,11 +68,16 @@ public class DecompiledContextProvider implements SutContextProvider {
 
     @Override
     public Optional<String> getContext(String className, TestCluster cluster) {
+        return getContext(className, cluster, PromptSettings.fromProperties());
+    }
+
+    @Override
+    public Optional<String> getContext(String className, TestCluster cluster, PromptSettings settings) {
         if (className == null || className.trim().isEmpty()) {
             return Optional.empty();
         }
 
-        int timeoutSeconds = Math.max(1, Properties.LLM_DECOMPILER_TIMEOUT_SECONDS);
+        int timeoutSeconds = Math.max(1, settings.decompilerTimeoutSeconds());
         try {
             return WORKER.call(createDecompileTask(className), timeoutSeconds, TimeUnit.SECONDS);
         } catch (TimeoutException e) {

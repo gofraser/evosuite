@@ -380,7 +380,8 @@ class LlmStrategyBehaviorTest {
         PromptBuilder builder = new PromptBuilder(
                 new org.evosuite.llm.prompt.SystemPromptProvider(),
                 new org.evosuite.llm.prompt.TestClusterSummarizer(),
-                new org.evosuite.llm.prompt.CoverageGoalFormatter(),
+                new org.evosuite.llm.prompt.CoverageGoalFormatter(
+                        org.evosuite.llm.prompt.PromptSettings.fromProperties()),
                 new org.evosuite.llm.prompt.TestCaseFormatter(),
                 org.evosuite.llm.prompt.SutContextProviderFactory.getInstance());
 

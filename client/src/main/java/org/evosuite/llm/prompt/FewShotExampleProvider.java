@@ -62,22 +62,23 @@ public class FewShotExampleProvider {
     private final Properties.LlmFewShotArchiveStrategy archiveStrategy;
 
     /**
-     * Creates a provider using the current {@link Properties} settings.
+     * Creates a provider using the few-shot settings of a snapshot.
      *
      * @param parsedTests externally parsed JUnit tests (may be null or empty)
      */
-    public FewShotExampleProvider(List<TestCase> parsedTests) {
+    public FewShotExampleProvider(List<TestCase> parsedTests, PromptSettings settings) {
         this(parsedTests,
-                Properties.LLM_FEW_SHOT_USE_PARSED_JUNIT,
-                Properties.LLM_FEW_SHOT_USE_ARCHIVE,
-                Properties.LLM_FEW_SHOT_MAX_EXAMPLES,
-                Properties.LLM_FEW_SHOT_ARCHIVE_STRATEGY,
-                Properties.LLM_FEW_SHOT_MAX_CHARS_TOTAL,
-                Properties.LLM_FEW_SHOT_MAX_CHARS_PER_EXAMPLE);
+                settings.fewShotUseParsedJunit(),
+                settings.fewShotUseArchive(),
+                settings.fewShotMaxExamples(),
+                settings.fewShotArchiveStrategy(),
+                settings.fewShotMaxCharsTotal(),
+                settings.fewShotMaxCharsPerExample());
     }
 
     /**
-     * Creates a provider with explicit configuration (for testing).
+     * Creates a provider with explicit configuration and the character budgets of the current
+     * settings (for testing).
      */
     public FewShotExampleProvider(List<TestCase> parsedTests,
                                   boolean useParsedJunit,
@@ -85,8 +86,8 @@ public class FewShotExampleProvider {
                                   int maxExamples,
                                   Properties.LlmFewShotArchiveStrategy archiveStrategy) {
         this(parsedTests, useParsedJunit, useArchive, maxExamples, archiveStrategy,
-                Properties.LLM_FEW_SHOT_MAX_CHARS_TOTAL,
-                Properties.LLM_FEW_SHOT_MAX_CHARS_PER_EXAMPLE);
+                PromptSettings.fromProperties().fewShotMaxCharsTotal(),
+                PromptSettings.fromProperties().fewShotMaxCharsPerExample());
     }
 
     /**
@@ -350,25 +351,27 @@ public class FewShotExampleProvider {
      * {@link Properties.LlmPromptTechnique#FEW_SHOT}. Returns an empty list
      * otherwise.
      *
+     * @param settings the snapshot that decides the technique and the few-shot limits
      * @param uncoveredGoals currently uncovered goals (may be null)
      * @param archiveCandidates explicit candidates (may be null)
      * @return truncated code snippets, never null
      */
     public static List<String> collectSnippetsIfFewShot(
+            PromptSettings settings,
             Collection<TestFitnessFunction> uncoveredGoals,
             Collection<TestChromosome> archiveCandidates) {
-        if (Properties.LLM_PROMPT_TECHNIQUE != Properties.LlmPromptTechnique.FEW_SHOT) {
+        if (settings.promptTechnique() != Properties.LlmPromptTechnique.FEW_SHOT) {
             return Collections.emptyList();
         }
         List<TestCase> parsedTests = Collections.emptyList();
-        if (Properties.LLM_FEW_SHOT_USE_PARSED_JUNIT) {
+        if (settings.fewShotUseParsedJunit()) {
             try {
                 parsedTests = ParsedFewShotExampleSource.getInstance().getParsedTests();
             } catch (Exception e) {
                 logger.debug("Could not load parsed tests for FEW_SHOT", e);
             }
         }
-        return new FewShotExampleProvider(parsedTests)
+        return new FewShotExampleProvider(parsedTests, settings)
                 .getExampleSnippets(uncoveredGoals, archiveCandidates);
     }
 }

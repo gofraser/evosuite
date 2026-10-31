@@ -42,7 +42,7 @@ class CoverageGoalFormatterTest {
 
     @Test
     void format_emptyGoals_returnsNoGoalsMessage() {
-        CoverageGoalFormatter formatter = new CoverageGoalFormatter();
+        CoverageGoalFormatter formatter = new CoverageGoalFormatter(PromptSettings.fromProperties());
         assertEquals("No uncovered goals available.", formatter.format(null));
         assertEquals("No uncovered goals available.", formatter.format(Collections.emptyList()));
     }
@@ -56,10 +56,22 @@ class CoverageGoalFormatterTest {
         TestFitnessFunction goal = mock(TestFitnessFunction.class);
         when(goal.toString()).thenReturn("goal-1-desc");
 
-        CoverageGoalFormatter formatter = new CoverageGoalFormatter();
+        CoverageGoalFormatter formatter = new CoverageGoalFormatter(PromptSettings.fromProperties());
         String result = formatter.format(Collections.singletonList(goal));
 
         assertEquals("1. goal-1-desc", result);
+    }
+
+    @Test
+    void format_usesTheGoalFormatOfItsSnapshotNotLaterPropertyChanges() {
+        Properties.LLM_GOAL_FORMAT = Properties.LlmGoalFormat.RAW;
+        CoverageGoalFormatter formatter = new CoverageGoalFormatter(PromptSettings.fromProperties());
+        Properties.LLM_GOAL_FORMAT = Properties.LlmGoalFormat.LLM_FRIENDLY;
+
+        TestFitnessFunction goal = mock(TestFitnessFunction.class);
+        when(goal.toString()).thenReturn("goal-1-desc");
+
+        assertEquals("1. goal-1-desc", formatter.format(Collections.singletonList(goal)));
     }
 
     // ---- format LLM_FRIENDLY mode ----
@@ -78,7 +90,7 @@ class CoverageGoalFormatterTest {
         when(goal2.getTargetClass()).thenReturn("com.example.Bar");
         when(goal2.getTargetMethod()).thenReturn("bar(Z)V");
 
-        CoverageGoalFormatter formatter = new CoverageGoalFormatter();
+        CoverageGoalFormatter formatter = new CoverageGoalFormatter(PromptSettings.fromProperties());
         String result = formatter.format(Arrays.asList(goal1, goal2));
 
         assertTrue(result.contains("## Method:"), "should have method headers");
@@ -107,7 +119,7 @@ class CoverageGoalFormatterTest {
         Map<TestFitnessFunction, Double> distances = new HashMap<>();
         distances.put(goal, 0.05);
 
-        CoverageGoalFormatter formatter = new CoverageGoalFormatter();
+        CoverageGoalFormatter formatter = new CoverageGoalFormatter(PromptSettings.fromProperties());
         String result = formatter.format(Collections.singletonList(goal), distances);
 
         assertTrue(result.contains("[fitness:"), "should include fitness annotation");
@@ -129,7 +141,7 @@ class CoverageGoalFormatterTest {
         }
 
         CoverageGoalFormatter formatter =
-                new CoverageGoalFormatter(new GoalDescriptionMapper(), 2);
+                new CoverageGoalFormatter(new GoalDescriptionMapper(), 2, PromptSettings.fromProperties());
         String result = formatter.format(goals);
 
         assertTrue(result.contains("... and 3 more"),
@@ -148,7 +160,7 @@ class CoverageGoalFormatterTest {
         when(goal2.getTargetClass()).thenReturn("com.example.Bar");
         when(goal2.getTargetMethod()).thenReturn("bar(Z)V");
 
-        CoverageGoalFormatter formatter = new CoverageGoalFormatter();
+        CoverageGoalFormatter formatter = new CoverageGoalFormatter(PromptSettings.fromProperties());
         Map<String, List<TestFitnessFunction>> grouped =
                 formatter.groupByMethod(Arrays.asList(goal1, goal2));
 
@@ -162,7 +174,7 @@ class CoverageGoalFormatterTest {
         TestFitnessFunction goal = mock(TestFitnessFunction.class);
         when(goal.getTargetMethod()).thenReturn(null);
 
-        CoverageGoalFormatter formatter = new CoverageGoalFormatter();
+        CoverageGoalFormatter formatter = new CoverageGoalFormatter(PromptSettings.fromProperties());
         Map<String, List<TestFitnessFunction>> grouped =
                 formatter.groupByMethod(Collections.singletonList(goal));
 

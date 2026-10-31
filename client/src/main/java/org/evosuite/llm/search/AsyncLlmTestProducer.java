@@ -29,6 +29,7 @@ import org.evosuite.llm.prompt.CoverageGoalFormatter;
 import org.evosuite.llm.prompt.GoalDescriptionMapper;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
+import org.evosuite.llm.prompt.PromptSettings;
 import org.evosuite.llm.prompt.TestRelevanceRanker;
 import org.evosuite.llm.response.GeneratedTestRequest;
 import org.evosuite.llm.response.LlmAssertionPolicyResolver;
@@ -407,7 +408,8 @@ public class AsyncLlmTestProducer {
     private PromptResult buildDiagnosticPromptForAsync(Collection<TestFitnessFunction> currentGoals,
                                                        List<TestCase> currentTests,
                                                        List<ProblemCard> cards) {
-        CoverageGoalFormatter goalFormatter = new CoverageGoalFormatter();
+        PromptSettings settings = PromptSettings.fromProperties();
+        CoverageGoalFormatter goalFormatter = new CoverageGoalFormatter(settings);
         // Restrict the goals section to the goals related to the selected cards so the prompt
         // stays small. Falls back to the full uncovered-goal set when card relations are empty.
         Collection<TestFitnessFunction> cardRelatedGoals = ProblemCard.relatedGoals(cards);
@@ -415,7 +417,7 @@ public class AsyncLlmTestProducer {
                 ? currentGoals : cardRelatedGoals;
         String goalsSection = goalFormatter.format(goalsForPrompt, null);
 
-        PromptBuilder builder = new PromptBuilder()
+        PromptBuilder builder = new PromptBuilder(settings)
                 .withTestGenerationContext()
                 .withConfiguredTechnique(goalsForPrompt, null)
                 .withInstruction("Generate one focused JUnit test that addresses one of the diagnostic "

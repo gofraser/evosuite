@@ -55,7 +55,7 @@ class SourceCodeProviderTest {
         Properties.LLM_SOURCE_PATH = sourceFile.toString();
         SourceCodeProvider provider = new SourceCodeProvider(tempDir);
 
-        Optional<String> result = provider.getSourceCode("com.example.Foo");
+        Optional<String> result = provider.getSourceCode("com.example.Foo", PromptSettings.fromProperties());
         assertFalse(result.isPresent());
     }
 
@@ -68,7 +68,7 @@ class SourceCodeProviderTest {
         Properties.LLM_SOURCE_PATH = sourceFile.toString();
         SourceCodeProvider provider = new SourceCodeProvider(tempDir);
 
-        Optional<String> result = provider.getSourceCode("com.example.Foo");
+        Optional<String> result = provider.getSourceCode("com.example.Foo", PromptSettings.fromProperties());
         assertTrue(result.isPresent());
         assertEquals(source, result.get());
     }

@@ -160,6 +160,32 @@ class PromptSettingsIsolationTest {
     }
 
     @Test
+    void sourcePathAndDecompilerTimeoutReachTheProviderAndKeyTheCache() {
+        SutContextProvider echo = new SutContextProvider() {
+            @Override
+            public Optional<String> getContext(String className, TestCluster cluster) {
+                throw new AssertionError("the factory must pass its settings snapshot");
+            }
+
+            @Override
+            public Optional<String> getContext(String className, TestCluster cluster, PromptSettings settings) {
+                return Optional.of("path=" + settings.sourcePath() + " timeout=" + settings.decompilerTimeoutSeconds());
+            }
+        };
+        SutContextProviderFactory shared = new SutContextProviderFactory(echo, echo, echo, echo);
+        PromptSettings.Builder base = PromptSettings.builderFromProperties()
+                .sutContextMode(LlmSutContextMode.SOURCE_CODE);
+
+        String first = shared.getContext("com.example.Foo", null,
+                base.sourcePath("/a").decompilerTimeoutSeconds(5).build()).getText();
+        String second = shared.getContext("com.example.Foo", null,
+                base.sourcePath("/b").decompilerTimeoutSeconds(9).build()).getText();
+
+        assertEquals("path=/a timeout=5", first);
+        assertEquals("path=/b timeout=9", second);
+    }
+
+    @Test
     void thePromptRendersFromItsSnapshotNotFromLaterPropertyChanges() {
         Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT = false;
         Properties.TARGET_CLASS = "com.example.Foo";
@@ -167,7 +193,7 @@ class PromptSettingsIsolationTest {
         SutContextProviderFactory factory = new SutContextProviderFactory(stub, stub, stub, stub);
         PromptSettings uncached = PromptSettings.fromProperties();
         PromptBuilder builder = new PromptBuilder(new SystemPromptProvider(), new TestClusterSummarizer(uncached),
-                new CoverageGoalFormatter(), new TestCaseFormatter(), factory, uncached);
+                new CoverageGoalFormatter(PromptSettings.fromProperties()), new TestCaseFormatter(), factory, uncached);
 
         Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT = true;
         PromptResult result = builder.withSystemPrompt().withSutContext("com.example.Foo", null).buildWithMetadata();
@@ -186,11 +212,17 @@ class PromptSettingsIsolationTest {
                 .contextFallbackEnabled(!a.contextFallbackEnabled()).build());
         assertNotEquals(a, PromptSettings.builderFromProperties()
                 .clusterSummaryCompactSignatures(!a.clusterSummaryCompactSignatures()).build());
+        assertNotEquals(a, PromptSettings.builderFromProperties()
+                .goalFormat(a.goalFormat() == Properties.LlmGoalFormat.RAW
+                        ? Properties.LlmGoalFormat.LLM_FRIENDLY : Properties.LlmGoalFormat.RAW).build());
+        assertNotEquals(a, PromptSettings.builderFromProperties()
+                .promptTechnique(a.promptTechnique() == Properties.LlmPromptTechnique.FEW_SHOT
+                        ? Properties.LlmPromptTechnique.NONE : Properties.LlmPromptTechnique.FEW_SHOT).build());
     }
 
     private static String systemMessage(SutContextProviderFactory factory, TestClusterSummarizer summarizer,
                                         PromptSettings settings, TestCluster cluster) {
-        return new PromptBuilder(new SystemPromptProvider(), summarizer, new CoverageGoalFormatter(),
+        return new PromptBuilder(new SystemPromptProvider(), summarizer, new CoverageGoalFormatter(PromptSettings.fromProperties()),
                 new TestCaseFormatter(), factory, settings)
                 .withSystemPrompt()
                 .withSutContext("com.example.Foo", cluster)

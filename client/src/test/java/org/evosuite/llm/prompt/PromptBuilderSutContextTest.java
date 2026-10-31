@@ -104,7 +104,7 @@ class PromptBuilderSutContextTest {
         PromptBuilder builder = new PromptBuilder(
                 new SystemPromptProvider(),
                 new TestClusterSummarizer(),
-                new CoverageGoalFormatter(),
+                new CoverageGoalFormatter(PromptSettings.fromProperties()),
                 new TestCaseFormatter(),
                 factory);
 
@@ -164,7 +164,7 @@ class PromptBuilderSutContextTest {
         return new PromptBuilder(
                 new SystemPromptProvider(),
                 new TestClusterSummarizer(),
-                new CoverageGoalFormatter(),
+                new CoverageGoalFormatter(PromptSettings.fromProperties()),
                 new TestCaseFormatter(),
                 factory);
     }
@@ -182,7 +182,7 @@ class PromptBuilderSutContextTest {
         PromptBuilder builder = new PromptBuilder(
                 new SystemPromptProvider(),
                 new TestClusterSummarizer(),
-                new CoverageGoalFormatter(),
+                new CoverageGoalFormatter(PromptSettings.fromProperties()),
                 new TestCaseFormatter(),
                 factory);
 
@@ -213,7 +213,7 @@ class PromptBuilderSutContextTest {
         PromptBuilder builder = new PromptBuilder(
                 new SystemPromptProvider(),
                 new TestClusterSummarizer(),
-                new CoverageGoalFormatter(),
+                new CoverageGoalFormatter(PromptSettings.fromProperties()),
                 new TestCaseFormatter(),
                 factory);
 
@@ -236,7 +236,7 @@ class PromptBuilderSutContextTest {
         PromptBuilder builder = new PromptBuilder(
                 new SystemPromptProvider(),
                 new TestClusterSummarizer(),
-                new CoverageGoalFormatter(),
+                new CoverageGoalFormatter(PromptSettings.fromProperties()),
                 new TestCaseFormatter(),
                 factory);
 
@@ -258,7 +258,7 @@ class PromptBuilderSutContextTest {
         PromptBuilder builder = new PromptBuilder(
                 new SystemPromptProvider(),
                 new TestClusterSummarizer(),
-                new CoverageGoalFormatter(),
+                new CoverageGoalFormatter(PromptSettings.fromProperties()),
                 new TestCaseFormatter(),
                 factory);
 
@@ -284,7 +284,7 @@ class PromptBuilderSutContextTest {
         PromptBuilder builder = new PromptBuilder(
                 new SystemPromptProvider(),
                 new TestClusterSummarizer(),
-                new CoverageGoalFormatter(),
+                new CoverageGoalFormatter(PromptSettings.fromProperties()),
                 new TestCaseFormatter(),
                 factory);
 
@@ -316,7 +316,7 @@ class PromptBuilderSutContextTest {
         PromptBuilder builder = new PromptBuilder(
                 new SystemPromptProvider(),
                 new TestClusterSummarizer(),
-                new CoverageGoalFormatter(),
+                new CoverageGoalFormatter(PromptSettings.fromProperties()),
                 new TestCaseFormatter(),
                 factory);
 
@@ -369,7 +369,7 @@ class PromptBuilderSutContextTest {
         return new PromptBuilder(
                 new SystemPromptProvider(),
                 new TestClusterSummarizer(),
-                new CoverageGoalFormatter(),
+                new CoverageGoalFormatter(PromptSettings.fromProperties()),
                 new TestCaseFormatter(),
                 factory);
     }
@@ -387,7 +387,7 @@ class PromptBuilderSutContextTest {
         PromptBuilder builder = new PromptBuilder(
                 new SystemPromptProvider(),
                 summarizer,
-                new CoverageGoalFormatter(),
+                new CoverageGoalFormatter(PromptSettings.fromProperties()),
                 new TestCaseFormatter(),
                 SutContextProviderFactory.getInstance());
 
@@ -411,7 +411,7 @@ class PromptBuilderSutContextTest {
         PromptBuilder builder = new PromptBuilder(
                 new SystemPromptProvider(),
                 summarizer,
-                new CoverageGoalFormatter(),
+                new CoverageGoalFormatter(PromptSettings.fromProperties()),
                 new TestCaseFormatter(),
                 SutContextProviderFactory.getInstance());
 

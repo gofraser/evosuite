@@ -22,10 +22,10 @@ package org.evosuite.llm;
 import com.google.gson.Gson;
 import org.evosuite.Properties;
 import org.evosuite.llm.prompt.CoverageGoalFormatter;
+import org.evosuite.llm.prompt.PromptSettings;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptContextInfo;
 import org.evosuite.llm.prompt.PromptResult;
-import org.evosuite.llm.prompt.PromptSettings;
 import org.evosuite.llm.prompt.SutContextProviderFactory;
 import org.evosuite.llm.prompt.SystemPromptProvider;
 import org.evosuite.llm.prompt.TestCaseFormatter;
@@ -119,7 +119,7 @@ class LlmTraceContextMetadataTest {
             }
         };
         PromptResult prompt = new PromptBuilder(new SystemPromptProvider(), new TestClusterSummarizer(),
-                new CoverageGoalFormatter(), new TestCaseFormatter(), factory)
+                new CoverageGoalFormatter(PromptSettings.fromProperties()), new TestCaseFormatter(), factory)
                 .withSystemPrompt()
                 .withSutContext("com.example.Foo", null)
                 .buildWithMetadata();

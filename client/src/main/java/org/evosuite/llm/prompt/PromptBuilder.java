@@ -78,10 +78,11 @@ public class PromptBuilder {
         this(PromptSettings.fromProperties());
     }
 
-    private PromptBuilder(PromptSettings settings) {
+    /** Creates a builder with default providers that render every section from the given snapshot. */
+    public PromptBuilder(PromptSettings settings) {
         this(new SystemPromptProvider(),
                 new TestClusterSummarizer(settings),
-                new CoverageGoalFormatter(),
+                new CoverageGoalFormatter(settings),
                 new TestCaseFormatter(),
                 SutContextProviderFactory.getInstance(),
                 settings);
@@ -152,8 +153,8 @@ public class PromptBuilder {
      */
     public PromptBuilder withConfiguredTechnique(Collection<TestFitnessFunction> goals,
                                                  Collection<TestChromosome> archiveCandidates) {
-        return withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(goals, archiveCandidates))
-                .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE);
+        return withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(settings, goals, archiveCandidates))
+                .withPromptTechnique(settings.promptTechnique());
     }
 
     /**

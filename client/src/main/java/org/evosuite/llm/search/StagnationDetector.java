@@ -27,6 +27,7 @@ import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.prompt.CoverageGoalFormatter;
 import org.evosuite.llm.prompt.ExemplarAttacher;
 import org.evosuite.llm.prompt.PromptBuilder;
+import org.evosuite.llm.prompt.PromptSettings;
 import org.evosuite.llm.prompt.TargetSection;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.prompt.TestRelevanceRanker;
@@ -394,13 +395,14 @@ public class StagnationDetector {
         LlmStatistics.recordDiagnosticCardsDiscarded(selection.getDiscardedCards());
         List<TestChromosome> popCandidates = currentPopulation != null
                 ? currentPopulation : Collections.emptyList();
-        CoverageGoalFormatter goalFormatter = new CoverageGoalFormatter();
+        PromptSettings settings = PromptSettings.fromProperties();
+        CoverageGoalFormatter goalFormatter = new CoverageGoalFormatter(settings);
         String goalsSection = goalFormatter.format(uncoveredGoals, bestFitnessPerGoal);
 
         List<TestCase> existingTests = selectExistingTestsForPoolPrompt(
                 currentPopulation, uncoveredGoals, cards);
 
-        PromptBuilder builder = new PromptBuilder()
+        PromptBuilder builder = new PromptBuilder(settings)
                 .withTestGenerationContext()
                 .withConfiguredTechnique(uncoveredGoals, new ArrayList<>(popCandidates))
                 .withInstruction(buildDiagnosticInstruction(totalGoals, coveredGoalCount, cards.size()))
@@ -450,12 +452,13 @@ public class StagnationDetector {
         List<TestChromosome> popCandidates = currentPopulation != null
                 ? currentPopulation : Collections.emptyList();
 
-        CoverageGoalFormatter goalFormatter = new CoverageGoalFormatter();
+        PromptSettings settings = PromptSettings.fromProperties();
+        CoverageGoalFormatter goalFormatter = new CoverageGoalFormatter(settings);
         String goalsSection = goalFormatter.format(uncoveredGoals, bestFitnessPerGoal);
 
         String instruction = buildPoolInstruction(totalGoals, coveredGoalCount);
 
-        PromptBuilder builder = new PromptBuilder()
+        PromptBuilder builder = new PromptBuilder(settings)
                 .withTestGenerationContext()
                 .withConfiguredTechnique(uncoveredGoals, new ArrayList<>(popCandidates))
                 .withInstruction(instruction);

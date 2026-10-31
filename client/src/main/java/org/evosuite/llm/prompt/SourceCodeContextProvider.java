@@ -40,6 +40,11 @@ public class SourceCodeContextProvider implements SutContextProvider {
 
     @Override
     public Optional<String> getContext(String className, TestCluster cluster) {
-        return sourceCodeProvider.getSourceCode(className);
+        return getContext(className, cluster, PromptSettings.fromProperties());
+    }
+
+    @Override
+    public Optional<String> getContext(String className, TestCluster cluster, PromptSettings settings) {
+        return sourceCodeProvider.getSourceCode(className, settings);
     }
 }

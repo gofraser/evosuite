@@ -395,7 +395,7 @@ class FewShotExampleProviderTest {
         ParsedFewShotExampleSource.setInstance(
                 ParsedFewShotExampleSource.ofTests(Collections.singletonList(parsed)));
 
-        List<String> result = FewShotExampleProvider.collectSnippetsIfFewShot(null, null);
+        List<String> result = FewShotExampleProvider.collectSnippetsIfFewShot(PromptSettings.fromProperties(), null, null);
 
         assertEquals(1, result.size());
         assertEquals(parsed.toCode(), result.get(0),
@@ -412,7 +412,7 @@ class FewShotExampleProviderTest {
         ParsedFewShotExampleSource.setInstance(
                 ParsedFewShotExampleSource.ofTests(Collections.singletonList(parsed)));
 
-        List<String> result = FewShotExampleProvider.collectSnippetsIfFewShot(null, null);
+        List<String> result = FewShotExampleProvider.collectSnippetsIfFewShot(PromptSettings.fromProperties(), null, null);
 
         assertTrue(result.isEmpty(),
                 "Parsed examples should not be used when llm_few_shot_use_parsed_junit=false");
@@ -428,7 +428,7 @@ class FewShotExampleProviderTest {
         ParsedFewShotExampleSource.setInstance(
                 ParsedFewShotExampleSource.ofTests(Collections.emptyList()));
 
-        List<String> result = FewShotExampleProvider.collectSnippetsIfFewShot(null, null);
+        List<String> result = FewShotExampleProvider.collectSnippetsIfFewShot(PromptSettings.fromProperties(), null, null);
 
         assertTrue(result.isEmpty(),
                 "Should gracefully return empty when no parsed tests available");
@@ -589,15 +589,30 @@ class FewShotExampleProviderTest {
     }
 
     @Test
+    void collectSnippetsIfFewShotUsesTheTechniqueOfItsSnapshot() {
+        Properties.LLM_PROMPT_TECHNIQUE = Properties.LlmPromptTechnique.FEW_SHOT;
+        Properties.LLM_FEW_SHOT_USE_PARSED_JUNIT = true;
+        Properties.LLM_FEW_SHOT_USE_ARCHIVE = false;
+        ParsedFewShotExampleSource.setInstance(
+                ParsedFewShotExampleSource.ofTests(Collections.singletonList(makeTestCase("parsed"))));
+        PromptSettings fewShot = PromptSettings.fromProperties();
+        Properties.LLM_PROMPT_TECHNIQUE = Properties.LlmPromptTechnique.NONE;
+
+        assertEquals(1, FewShotExampleProvider.collectSnippetsIfFewShot(fewShot, null, null).size());
+        assertTrue(FewShotExampleProvider.collectSnippetsIfFewShot(
+                PromptSettings.fromProperties(), null, null).isEmpty());
+    }
+
+    @Test
     void collectSnippetsIfFewShotReturnsEmptyForNone() {
         Properties.LLM_PROMPT_TECHNIQUE = Properties.LlmPromptTechnique.NONE;
-        assertTrue(FewShotExampleProvider.collectSnippetsIfFewShot(null, null).isEmpty());
+        assertTrue(FewShotExampleProvider.collectSnippetsIfFewShot(PromptSettings.fromProperties(), null, null).isEmpty());
     }
 
     @Test
     void collectSnippetsIfFewShotReturnsEmptyForChainOfThought() {
         Properties.LLM_PROMPT_TECHNIQUE = Properties.LlmPromptTechnique.CHAIN_OF_THOUGHT;
-        assertTrue(FewShotExampleProvider.collectSnippetsIfFewShot(null, null).isEmpty());
+        assertTrue(FewShotExampleProvider.collectSnippetsIfFewShot(PromptSettings.fromProperties(), null, null).isEmpty());
     }
 
     // -- Issue 1 fix: hard cap compliance --

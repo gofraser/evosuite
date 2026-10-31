@@ -33,7 +33,6 @@ import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmWaitBudget;
 import org.evosuite.llm.PhaseDeadline;
 import org.evosuite.llm.factory.LlmSeededPopulationFactory;
-import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.prompt.TestRelevanceRanker;
@@ -521,8 +520,7 @@ public class LlmStrategy extends TestGenerationStrategy {
         PromptResult prompt = new PromptBuilder()
                 .withSystemPrompt()
                 .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
-                .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(null, null))
-                .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
+                .withConfiguredTechnique(null, null)
                 .withInstruction("Generate as many JUnit test methods for the target class as necessary. "
                         + "Focus on diverse paths, edge cases, and branch coverage."
                         + optionalTestCountGuidance(Properties.LLM_STRATEGY_INITIAL_TARGET_TESTS,
@@ -550,8 +548,7 @@ public class LlmStrategy extends TestGenerationStrategy {
                 .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
                 .withCoverageFeedback(newlyCovered, totalGoals, coveredCount)
                 .withUncoveredGoals(uncoveredGoals)
-                .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(uncoveredGoals, null))
-                .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE);
+                .withConfiguredTechnique(uncoveredGoals, null);
 
         if (previousFailureHint != null && !previousFailureHint.isEmpty()) {
             builder.withError("Your previous response could not be used: "

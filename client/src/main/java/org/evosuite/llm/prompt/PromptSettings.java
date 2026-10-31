@@ -35,6 +35,14 @@ import java.util.Objects;
  * their keys, so two runs in one JVM with different settings never share an entry, and a setting
  * changed mid-JVM cannot serve text rendered under the old value.
  *
+ * <p>{@link FewShotExampleProvider}, {@link CoverageGoalFormatter}, {@link DecompiledContextProvider}
+ * and {@link SourceCodeProvider} are given the snapshot too, so one prompt is rendered from one
+ * set of values. A setting changed while a run is in progress is therefore seen by the next
+ * snapshot only: a builder, formatter or context lookup that already holds a snapshot keeps
+ * the old value, where these helpers used to re-read {@link Properties} on every call (the
+ * few-shot limits and archive strategy, the prompt technique, the goal format, the decompiler
+ * timeout and the source path).
+ *
  * <p>Value semantics: two snapshots are equal exactly when they would render the same text.
  */
 public final class PromptSettings {
@@ -55,6 +63,14 @@ public final class PromptSettings {
     private final int existingTestsMaxCharsTotal;
     private final int existingTestsMaxCharsPerTest;
     private final boolean annotateExistingTests;
+    private final boolean fewShotUseParsedJunit;
+    private final boolean fewShotUseArchive;
+    private final int fewShotMaxExamples;
+    private final Properties.LlmFewShotArchiveStrategy fewShotArchiveStrategy;
+    private final int fewShotMaxCharsTotal;
+    private final int fewShotMaxCharsPerExample;
+    private final Properties.LlmGoalFormat goalFormat;
+    private final Properties.LlmPromptTechnique promptTechnique;
 
     private PromptSettings(Builder b) {
         this.sutContextMode = b.sutContextMode;
@@ -73,6 +89,14 @@ public final class PromptSettings {
         this.existingTestsMaxCharsTotal = b.existingTestsMaxCharsTotal;
         this.existingTestsMaxCharsPerTest = b.existingTestsMaxCharsPerTest;
         this.annotateExistingTests = b.annotateExistingTests;
+        this.fewShotUseParsedJunit = b.fewShotUseParsedJunit;
+        this.fewShotUseArchive = b.fewShotUseArchive;
+        this.fewShotMaxExamples = b.fewShotMaxExamples;
+        this.fewShotArchiveStrategy = b.fewShotArchiveStrategy;
+        this.fewShotMaxCharsTotal = b.fewShotMaxCharsTotal;
+        this.fewShotMaxCharsPerExample = b.fewShotMaxCharsPerExample;
+        this.goalFormat = b.goalFormat;
+        this.promptTechnique = b.promptTechnique;
     }
 
     /** Snapshots the current values of the prompt and context settings in {@link Properties}. */
@@ -99,6 +123,14 @@ public final class PromptSettings {
         b.existingTestsMaxCharsTotal = Properties.LLM_EXISTING_TESTS_MAX_CHARS_TOTAL;
         b.existingTestsMaxCharsPerTest = Properties.LLM_EXISTING_TESTS_MAX_CHARS_PER_TEST;
         b.annotateExistingTests = Properties.LLM_ANNOTATE_EXISTING_TESTS;
+        b.fewShotUseParsedJunit = Properties.LLM_FEW_SHOT_USE_PARSED_JUNIT;
+        b.fewShotUseArchive = Properties.LLM_FEW_SHOT_USE_ARCHIVE;
+        b.fewShotMaxExamples = Properties.LLM_FEW_SHOT_MAX_EXAMPLES;
+        b.fewShotArchiveStrategy = Properties.LLM_FEW_SHOT_ARCHIVE_STRATEGY;
+        b.fewShotMaxCharsTotal = Properties.LLM_FEW_SHOT_MAX_CHARS_TOTAL;
+        b.fewShotMaxCharsPerExample = Properties.LLM_FEW_SHOT_MAX_CHARS_PER_EXAMPLE;
+        b.goalFormat = Properties.LLM_GOAL_FORMAT;
+        b.promptTechnique = Properties.LLM_PROMPT_TECHNIQUE;
         return b;
     }
 
@@ -136,6 +168,46 @@ public final class PromptSettings {
 
     boolean annotateExistingTests() {
         return annotateExistingTests;
+    }
+
+    boolean fewShotUseParsedJunit() {
+        return fewShotUseParsedJunit;
+    }
+
+    boolean fewShotUseArchive() {
+        return fewShotUseArchive;
+    }
+
+    int fewShotMaxExamples() {
+        return fewShotMaxExamples;
+    }
+
+    Properties.LlmFewShotArchiveStrategy fewShotArchiveStrategy() {
+        return fewShotArchiveStrategy;
+    }
+
+    int fewShotMaxCharsTotal() {
+        return fewShotMaxCharsTotal;
+    }
+
+    int fewShotMaxCharsPerExample() {
+        return fewShotMaxCharsPerExample;
+    }
+
+    Properties.LlmGoalFormat goalFormat() {
+        return goalFormat;
+    }
+
+    Properties.LlmPromptTechnique promptTechnique() {
+        return promptTechnique;
+    }
+
+    int decompilerTimeoutSeconds() {
+        return decompilerTimeoutSeconds;
+    }
+
+    String sourcePath() {
+        return sourcePath;
     }
 
     /**
@@ -198,7 +270,15 @@ public final class PromptSettings {
                 && clusterSummaryCompactSignatures == that.clusterSummaryCompactSignatures
                 && existingTestsMaxCharsTotal == that.existingTestsMaxCharsTotal
                 && existingTestsMaxCharsPerTest == that.existingTestsMaxCharsPerTest
-                && annotateExistingTests == that.annotateExistingTests;
+                && annotateExistingTests == that.annotateExistingTests
+                && fewShotUseParsedJunit == that.fewShotUseParsedJunit
+                && fewShotUseArchive == that.fewShotUseArchive
+                && fewShotMaxExamples == that.fewShotMaxExamples
+                && fewShotArchiveStrategy == that.fewShotArchiveStrategy
+                && fewShotMaxCharsTotal == that.fewShotMaxCharsTotal
+                && fewShotMaxCharsPerExample == that.fewShotMaxCharsPerExample
+                && goalFormat == that.goalFormat
+                && promptTechnique == that.promptTechnique;
     }
 
     @Override
@@ -208,7 +288,9 @@ public final class PromptSettings {
                 clusterSummaryDynamicScaling, clusterSummaryDynamicMaxChars, clusterSummaryDynamicRatio,
                 clusterSummaryDynamicMinChars, clusterSummaryPerClassSoftCapChars,
                 clusterSummaryCompactSignatures, existingTestsMaxCharsTotal, existingTestsMaxCharsPerTest,
-                annotateExistingTests);
+                annotateExistingTests, fewShotUseParsedJunit, fewShotUseArchive, fewShotMaxExamples,
+                fewShotArchiveStrategy, fewShotMaxCharsTotal, fewShotMaxCharsPerExample, goalFormat,
+                promptTechnique);
     }
 
     /** Fluent builder; start from {@link #builderFromProperties()}. */
@@ -229,6 +311,14 @@ public final class PromptSettings {
         private int existingTestsMaxCharsTotal;
         private int existingTestsMaxCharsPerTest;
         private boolean annotateExistingTests;
+        private boolean fewShotUseParsedJunit;
+        private boolean fewShotUseArchive;
+        private int fewShotMaxExamples;
+        private Properties.LlmFewShotArchiveStrategy fewShotArchiveStrategy;
+        private int fewShotMaxCharsTotal;
+        private int fewShotMaxCharsPerExample;
+        private Properties.LlmGoalFormat goalFormat;
+        private Properties.LlmPromptTechnique promptTechnique;
 
         private Builder() {
         }
@@ -260,6 +350,26 @@ public final class PromptSettings {
 
         public Builder clusterSummaryMaxChars(int value) {
             this.clusterSummaryMaxChars = value;
+            return this;
+        }
+
+        public Builder sourcePath(String value) {
+            this.sourcePath = value;
+            return this;
+        }
+
+        public Builder decompilerTimeoutSeconds(int value) {
+            this.decompilerTimeoutSeconds = value;
+            return this;
+        }
+
+        public Builder goalFormat(Properties.LlmGoalFormat value) {
+            this.goalFormat = value;
+            return this;
+        }
+
+        public Builder promptTechnique(Properties.LlmPromptTechnique value) {
+            this.promptTechnique = value;
             return this;
         }
 

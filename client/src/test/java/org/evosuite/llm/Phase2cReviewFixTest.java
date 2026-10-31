@@ -164,7 +164,7 @@ class Phase2cReviewFixTest {
         PromptBuilder builder = new PromptBuilder(
                 new SystemPromptProvider(),
                 new TestClusterSummarizer(),
-                new CoverageGoalFormatter(),
+                new CoverageGoalFormatter(PromptSettings.fromProperties()),
                 new TestCaseFormatter(),
                 factory);
 
@@ -211,7 +211,7 @@ class Phase2cReviewFixTest {
             PromptResult promptResult = new PromptBuilder(
                     new SystemPromptProvider(),
                     new TestClusterSummarizer(),
-                    new CoverageGoalFormatter(),
+                    new CoverageGoalFormatter(PromptSettings.fromProperties()),
                     new TestCaseFormatter(),
                     factory)
                     .withSystemPrompt()
