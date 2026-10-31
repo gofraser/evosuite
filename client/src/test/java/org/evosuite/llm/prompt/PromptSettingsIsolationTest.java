@@ -21,6 +21,7 @@ package org.evosuite.llm.prompt;
 
 import org.evosuite.Properties;
 import org.evosuite.Properties.LlmSutContextMode;
+import org.evosuite.llm.LlmMessage;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.utils.generic.GenericAccessibleObject;
 import org.evosuite.utils.generic.GenericClass;
@@ -57,6 +58,7 @@ class PromptSettingsIsolationTest {
     private boolean originalCompact;
     private boolean originalScaling;
     private String originalTargetClass;
+    private Properties.LlmPromptTechnique originalTechnique;
 
     @BeforeEach
     void saveProperties() {
@@ -67,12 +69,14 @@ class PromptSettingsIsolationTest {
         originalCompact = Properties.LLM_CLUSTER_SUMMARY_COMPACT_SIGNATURES;
         originalScaling = Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_SCALING;
         originalTargetClass = Properties.TARGET_CLASS;
+        originalTechnique = Properties.LLM_PROMPT_TECHNIQUE;
         StaticPromptContext.resetForRunCompletion();
         SutContextProviderFactory.resetInstanceForTesting();
     }
 
     @AfterEach
     void restoreProperties() {
+        Properties.LLM_PROMPT_TECHNIQUE = originalTechnique;
         Properties.LLM_SUT_CONTEXT_MODE = originalMode;
         Properties.LLM_CONTEXT_FALLBACK_ENABLED = originalFallback;
         Properties.LLM_CONTEXT_MAX_CHARS = originalContextMaxChars;
@@ -249,5 +253,31 @@ class PromptSettingsIsolationTest {
             return new DependencySummaryResult("dep budget=" + maxChars, false, 0, 0, false, 1,
                     new DependencySummaryStats());
         }
+    }
+
+    @Test
+    void techniqueWithoutExamplesFollowsTheSnapshotNotTheLiveProperty() {
+        PromptSettings chainOfThought = PromptSettings.builderFromProperties()
+                .promptTechnique(Properties.LlmPromptTechnique.CHAIN_OF_THOUGHT).build();
+        Properties.LLM_PROMPT_TECHNIQUE = Properties.LlmPromptTechnique.NONE;
+
+        String withSnapshot = userText(new PromptBuilder(chainOfThought).withInstruction("Suggest constants.")
+                .withConfiguredTechniqueWithoutExamples());
+        assertTrue(withSnapshot.contains("Think step by step"), "snapshot technique not applied");
+
+        PromptSettings none = PromptSettings.builderFromProperties()
+                .promptTechnique(Properties.LlmPromptTechnique.NONE).build();
+        Properties.LLM_PROMPT_TECHNIQUE = Properties.LlmPromptTechnique.CHAIN_OF_THOUGHT;
+        String withoutTechnique = userText(new PromptBuilder(none).withInstruction("Suggest constants.")
+                .withConfiguredTechniqueWithoutExamples());
+        assertFalse(withoutTechnique.contains("Think step by step"), "live technique applied");
+    }
+
+    private static String userText(PromptBuilder builder) {
+        StringBuilder text = new StringBuilder();
+        for (LlmMessage message : builder.build()) {
+            text.append(message.getContent()).append('\n');
+        }
+        return text.toString();
     }
 }

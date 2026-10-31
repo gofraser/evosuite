@@ -433,7 +433,7 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
                         + "start with imports or the first @Test method.\n"
                         + "Focus on construction only — no SUT exercise, no control flow, no helper methods."
                         + LlmAssertionPolicyResolver.instructionSuffix(keepAssertions))
-                .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE);
+                .withConfiguredTechniqueWithoutExamples();
         return builder.buildWithMetadata();
     }
 

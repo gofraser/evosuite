@@ -158,6 +158,14 @@ public class PromptBuilder {
     }
 
     /**
+     * Adds the configured prompt technique without few-shot examples, for prompts that do not ask
+     * for test code (under FEW_SHOT nothing is added).
+     */
+    public PromptBuilder withConfiguredTechniqueWithoutExamples() {
+        return withPromptTechnique(settings.promptTechnique());
+    }
+
+    /**
      * Add CUT context using the configured {@code LLM_SUT_CONTEXT_MODE}.
      * The dependency summary (constructors, enum constants) is added with it; the CUT itself is
      * excluded from that summary because this section already covers it.

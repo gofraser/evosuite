@@ -491,7 +491,7 @@ public class LlmCastClassEnricher extends AbstractLlmEnricher<LlmCastClassEnrich
                         + "- Use fully-qualified class names\n"
                         + "- Suggest at most " + Properties.LLM_CAST_CLASS_MAX_SUGGESTIONS + " classes\n"
                         + "- Return ONLY the JSON object, no explanations")
-                .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE);
+                .withConfiguredTechniqueWithoutExamples();
         return builder.buildWithMetadata();
     }
 

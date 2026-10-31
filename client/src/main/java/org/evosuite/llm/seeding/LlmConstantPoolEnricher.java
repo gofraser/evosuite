@@ -199,7 +199,7 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
                         + paramDigest
                         + vocabularyHint + "\n"
                         + "Only provide the literal values, no explanations needed.")
-                .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE);
+                .withConfiguredTechniqueWithoutExamples();
         return builder.buildWithMetadata();
     }
 
@@ -215,7 +215,7 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
                         + "Focus on dependency-facing values (ids, keys, paths, protocol tokens, numeric boundaries).\n"
                         + "Provide typed Java literals only, one per line.\n"
                         + "Do not include explanations.")
-                .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE);
+                .withConfiguredTechniqueWithoutExamples();
         return builder.buildWithMetadata();
     }
 
