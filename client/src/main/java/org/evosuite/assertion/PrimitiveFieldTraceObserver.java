@@ -22,7 +22,6 @@ package org.evosuite.assertion;
 import org.apache.commons.lang3.ClassUtils;
 import org.evosuite.setup.TestClusterGenerator;
 import org.evosuite.testcase.execution.CodeUnderTestException;
-import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
@@ -83,11 +82,6 @@ public class PrimitiveFieldTraceObserver extends
         } catch (CodeUnderTestException e) {
             logger.debug("", e);
         }
-    }
-
-    @Override
-    public void testExecutionFinished(ExecutionResult r, Scope s) {
-        // do nothing
     }
 
     @Override
