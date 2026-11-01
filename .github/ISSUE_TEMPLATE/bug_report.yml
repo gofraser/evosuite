@@ -1,0 +1,79 @@
+name: Bug report
+description: Report a problem or ask for help with EvoSuite
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What were you doing when the issue happened, or what do you want to achieve?
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: EvoSuite version
+      placeholder: e.g. 1.2.0, 2.0.0, or a commit hash
+    validations:
+      required: true
+  - type: input
+    id: jdk
+    attributes:
+      label: JDK version and vendor
+      placeholder: e.g. Temurin 17.0.12
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: e.g. Ubuntu 24.04, macOS 15, Windows 11
+    validations:
+      required: true
+  - type: dropdown
+    id: invocation
+    attributes:
+      label: How did you run EvoSuite?
+      options:
+        - Command line
+        - Maven plugin
+        - Eclipse plugin
+        - Docker image
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command line or configuration
+      description: The full EvoSuite command, or the relevant pom.xml / plugin settings.
+      render: shell
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: If possible, link or attach a small project to generate tests for.
+      placeholder: |
+        1.
+        2.
+        3.
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: Include screenshots if helpful.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Console output or stack traces. For the Maven plugin, -X output helps.
+      render: text
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional information

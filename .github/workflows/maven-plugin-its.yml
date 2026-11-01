@@ -1,0 +1,45 @@
+# Weekly smoke subset of the Maven plugin integration tests. The full set takes
+# about an hour and runs only on request (start it manually with empty groups).
+name: Maven plugin ITs
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+    inputs:
+      groups:
+        description: 'Value of -Dits.groups (empty runs all ITs, about 1 hour)'
+        default: smoke
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maven-plugin-its
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+      - name: Install the reactor
+        run: mvn -B -ntp install -DskipTests
+      - name: Run the integration tests
+        env:
+          ITS_GROUPS: ${{ github.event_name == 'workflow_dispatch' && inputs.groups || 'smoke' }}
+        run: mvn -B -ntp verify -Pmaven-plugin-its -pl plugins/maven-test ${ITS_GROUPS:+-Dits.groups=$ITS_GROUPS}
+      - name: Upload reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maven-plugin-its-reports
+          path: plugins/maven-test/target/
+          if-no-files-found: ignore
+          retention-days: 14

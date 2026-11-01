@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: EvoSuite documentation
+    url: https://www.evosuite.org/documentation/
+    about: Usage guides, command-line options and tutorials.

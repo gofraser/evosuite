@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build and test (JDK ${{ matrix.java }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [17, 21]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+      # verify, not test: some runtime tests need the packaged runtime jar.
+      - name: Build and test
+        run: mvn -B -ntp verify -Djava.awt.headless=true
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-jdk${{ matrix.java }}
+          path: |
+            **/target/surefire-reports/
+            **/target/failsafe-reports/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # JDK 25 activates a profile that adds the Java 25 runtime sources. The full
+  # suite is not run here; this checks that the build compiles and that the
+  # runtime module works. Experimental, so it does not fail the workflow.
+  jdk25:
+    name: Runtime build and tests (JDK 25)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+      - name: Build and test the runtime
+        run: mvn -B -ntp verify -pl runtime -am -Djava.awt.headless=true
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-jdk25
+          path: |
+            **/target/surefire-reports/
+            **/target/failsafe-reports/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  eclipse-plugin:
+    name: Eclipse plugin
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      # The reactor needs JDK 17 and Tycho needs 21. Both are installed; the
+      # last one listed (17) becomes JAVA_HOME, the other is JAVA_HOME_21_X64.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: |
+            21
+            17
+          cache: maven
+      - name: Build the engine jars the plugin bundles
+        run: mvn -B -ntp -pl master,standalone_runtime -am package -DskipTests
+      - name: Install xvfb and GTK for the UI tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgtk-3-0
+      - name: Build and test the plugin
+        working-directory: plugins/eclipse
+        run: |
+          export JAVA_HOME="$JAVA_HOME_21_X64"
+          xvfb-run --auto-servernum ./mvnw -B -ntp verify
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-eclipse
+          path: plugins/eclipse/**/target/surefire-reports/
+          if-no-files-found: ignore
+          retention-days: 14

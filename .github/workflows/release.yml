@@ -1,0 +1,49 @@
+# Publishes a release to Maven Central. Run manually from the release tag or branch.
+#
+# Required repository secrets:
+#   MAVEN_CENTRAL_USERNAME  Central Portal user token name
+#   MAVEN_CENTRAL_PASSWORD  Central Portal user token password
+#   GPG_PRIVATE_KEY         ASCII-armoured private key used for signing
+#   GPG_PASSPHRASE          passphrase of that key
+#
+# With dry-run enabled nothing is signed or uploaded: the release profile runs
+# up to verify (sources, javadoc) with gpg skipped.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Build the release artifacts without signing or deploying'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+          server-id: central
+          server-username: MAVEN_CENTRAL_USERNAME
+          server-password: MAVEN_CENTRAL_PASSWORD
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+      - name: Dry run
+        if: ${{ inputs.dry-run }}
+        run: mvn -B -ntp -Prelease verify -DskipTests -Dgpg.skip
+      - name: Deploy to Maven Central
+        if: ${{ !inputs.dry-run }}
+        env:
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: mvn -B -ntp -Prelease deploy -DskipTests
