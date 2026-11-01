@@ -164,14 +164,9 @@ public class FieldReference extends VariableReferenceImpl {
             if (source != null) {
                 sourceObject = source.getObject(scope);
                 if (sourceObject == null) {
-                    /*
-                     * #FIXME this is dangerously far away from the java semantics
-                     *    That means we can have a testcase
-                     *  SomeObject var1 = null;
-                     *  var1.someAttribute = test;
-                     *  and the testcase will execute in evosuite, executing it with junit will
-                     *  however lead to a nullpointer exception
-                     */
+                    // A null source is reported as a NullPointerException of the statement, as the
+                    // generated JUnit test would throw one for "var1.someAttribute = test" with
+                    // var1 == null.
                     throw new CodeUnderTestException(new NullPointerException());
                 }
 

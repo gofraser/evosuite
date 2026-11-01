@@ -97,7 +97,7 @@ public class JUnit4TestAdapter implements UnitTestAdapter {
     public String getMethodDefinition(String testName) {
         StringBuilder builder = new StringBuilder();
         builder.append("  @" + getJUnitTestShortName());
-        //TODO remove once JUnit is fixed. See comments in Scaffolding regarding Timeout rule
+        // The timeout is set on the test rather than with a Timeout rule. See comments in Scaffolding.
         builder.append("(timeout = " + Properties.TIMEOUT + ")");
         builder.append("\n");
         builder.append("  public void " + testName + "() ");

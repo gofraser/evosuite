@@ -650,8 +650,8 @@ public class Scaffolding {
             bd.append(Sandbox.class.getName()).append(".goingToExecuteSUTCode(); \n");
         }
 
-        // FIXME those should be handled in the mocked classes,eg mock for
-        // java.lang.System
+        // The standard streams are saved here instead of in the mocked classes (e.g., a mock for
+        // java.lang.System).
         bd.append(BLOCK_SPACE);
         bd.append("standardStreams = ").append(StandardStreams.class.getName()).append(".save();");
         bd.append(" \n");
@@ -829,9 +829,8 @@ public class Scaffolding {
             bd.append("classStandardStreams = ").append(StandardStreams.class.getName()).append(".save(); \n");
         }
 
-        // FIXME: This is just commented out for experiments
-        // bd.append("org.evosuite.utils.LoggingUtils.setLoggingForJUnit();
-        // \n");
+        // The generated setup does not call LoggingUtils.setLoggingForJUnit(), which would switch
+        // off the EvoSuite loggers when the test is run without a logging configuration.
 
         bd.append(BLOCK_SPACE);
         bd.append(RuntimeSettings.class.getName()).append(".className = \"")

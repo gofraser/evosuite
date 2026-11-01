@@ -1416,9 +1416,9 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                             throw new CodeUnderTestException(
                                     e.getCause() != null ? e.getCause() : e);
                         } catch (IllegalArgumentException | IllegalAccessError e) {
-                            // FIXME: Happens for reasons I don't understand. By throwing a
-                            // CodeUnderTestException EvoSuite will just ignore that
-                            // mocking statement and continue, instead of crashing
+                            // The cause has not been analysed. Throwing a CodeUnderTestException
+                            // makes EvoSuite ignore this mocking statement and continue
+                            // instead of crashing.
                             logger.error("IAE on <{}> when called with {}", method,
                                     Arrays.toString(targetInputs));
                             throw new CodeUnderTestException(e);
@@ -1505,9 +1505,9 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                 throw new CodeUnderTestException(e);
             } catch (MockitoException | IllegalAccessException | IllegalAccessError
                     | IllegalArgumentException e) {
-                // FIXME: Happens for reasons I don't understand. By throwing a
-                // CodeUnderTestException EvoSuite will just ignore that mocking
-                // statement and continue, instead of crashing
+                // The cause has not been analysed for every case. Throwing a
+                // CodeUnderTestException makes EvoSuite ignore this mocking statement
+                // and continue instead of crashing.
                 if (isSealed(targetClass.getRawClass()) || isRecord(targetClass.getRawClass())) {
                     AtMostOnceLogger.warn(logger, "Cannot use Mockito on " + targetClass
                             + " as it is a sealed class or a record: " + e.getMessage());

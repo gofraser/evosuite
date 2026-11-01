@@ -67,8 +67,7 @@ public abstract class LanguageModelSearch implements Comparator<Chromosome> {
         try {
             this.languageModel = new LangModel(Properties.LM_SRC);
         } catch (Exception e) {
-            //FIXME: remove this garbage
-            throw new RuntimeException("Couldn't create language model");
+            throw new RuntimeException("Couldn't create language model from " + Properties.LM_SRC, e);
         }
         this.startPoint = (String) constantValue.getValue();
         this.objective = objective;

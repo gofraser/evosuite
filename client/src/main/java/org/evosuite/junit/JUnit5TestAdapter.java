@@ -100,7 +100,6 @@ public class JUnit5TestAdapter implements UnitTestAdapter {
 
     @Override
     public String getMethodDefinition(String testName) {
-        //TODO remove once JUnit is fixed. See comments in Scaffolding regarding Timeout rule
         return "  @" + getJUnitTestShortName() + "\n  " + getTimeoutAnnotation()
                 + "\n" + "  public void " + testName + "() ";
     }

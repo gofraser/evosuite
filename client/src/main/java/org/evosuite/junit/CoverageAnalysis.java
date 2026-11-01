@@ -75,14 +75,11 @@ import java.util.zip.ZipFile;
 public class CoverageAnalysis {
 
     /**
-     * FIXME.
+     * Criteria that are not supported when measuring the coverage of existing JUnit tests: OUTPUT,
+     * METHOD and METHODNOEXCEPTION.
      *
-     * <p>OUTPUT
-     * METHOD
-     * METHODNOEXCEPTION
-     *
-     * <p>relies on Observers. to have coverage of these criteria, JUnit test cases
-     * must have to be converted to some format that EvoSuite can understand
+     * <p>They rely on observers, so to measure coverage of these criteria the JUnit test cases
+     * would have to be converted to a format that EvoSuite can understand.
      */
 
     private static final Logger logger = LoggerFactory.getLogger(CoverageAnalysis.class);

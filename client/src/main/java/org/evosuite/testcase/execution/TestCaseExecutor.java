@@ -624,11 +624,9 @@ public class TestCaseExecutor implements ThreadFactory {
         callable.storeCurrentThreads();
 
         /*
-         * FIXME: the sequence of "catch" with calls to "result.set" should be
-         * re-factored, as these things should be (already) handled in
-         * TestRunnable.call. If not, it should be explained, as it is not
-         * necessarily obvious why some checks are done here, and others in
-         * TestRunnable
+         * The catch clauses below build the result for failures that reach this thread (thread death,
+         * interruption, an ExecutionException, a timeout) instead of TestRunnable.call. They
+         * repeat the same few result.set calls and could share a helper.
          */
 
         try {
@@ -714,7 +712,8 @@ public class TestCaseExecutor implements ThreadFactory {
             } else if (e1.getCause() instanceof RuntimeException) {
                 throw (RuntimeException) e1.getCause();
             }
-            return result; // FIXME: is this reachable?
+            // Reachable when the cause is a checked exception.
+            return result;
         } catch (TimeoutException e1) {
             return recoverFromTimeout(tc, timeout, handler, callable, e1);
         } finally {
