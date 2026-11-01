@@ -50,7 +50,8 @@ public final class GoalActionHint {
     static final String OUTPUT = "Call the method so its return value falls into the regime this goal names.";
     static final String DEFAULT = "Reach this goal with the smallest change to the existing test.";
 
-    private GoalActionHint() {}
+    private GoalActionHint() {
+    }
 
     public static String forGoal(TestFitnessFunction goal) {
         if (BranchGoalView.isBranchGoal(goal)) {

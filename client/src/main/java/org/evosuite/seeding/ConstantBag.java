@@ -30,7 +30,9 @@ import java.util.function.Predicate;
  */
 interface ConstantBag<T> {
 
-    /** Adds a constant; {@code null} is ignored. */
+    /**
+     * Adds a constant; {@code null} is ignored.
+     */
     void add(T value);
 
     /** Draws a constant using the bag's own selection rule. */

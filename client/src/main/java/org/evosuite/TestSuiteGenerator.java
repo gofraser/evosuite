@@ -224,7 +224,8 @@ public class TestSuiteGenerator {
                         // No-op, error handled below
                     }
                     if (Properties.ASSERTIONS && Properties.ASSERTION_STRATEGY == AssertionStrategy.MUTATION) {
-                        LoggingUtils.clientInfo("Deactivating assertion minimization because mutation instrumentation does not work");
+                        LoggingUtils.clientInfo("Deactivating assertion minimization because mutation "
+                                + "instrumentation does not work");
                         Properties.ASSERTION_STRATEGY = AssertionStrategy.ALL;
                     }
                 }
@@ -432,8 +433,8 @@ public class TestSuiteGenerator {
                 .filter(c -> TestSuiteGeneratorHelper.isLineDebugInfoDependentCriterion(c))
                 .map(FitnessFunctions::displayName)
                 .collect(java.util.stream.Collectors.joining(", "));
-        LoggingUtils.clientInfo("Missing line debug information in target class {}; omitting criterion during test generation: {}",
-                Properties.TARGET_CLASS, omittedCriteria);
+        LoggingUtils.clientInfo("Missing line debug information in target class {}; omitting criterion "
+                + "during test generation: {}", Properties.TARGET_CLASS, omittedCriteria);
 
         requestedCriteria = oldCriteria;
         Properties.CRITERION = filteredCriteria;
@@ -475,8 +476,8 @@ public class TestSuiteGenerator {
                 .filter(TestSuiteGenerator::isCallGraphDependentCriterion)
                 .map(FitnessFunctions::displayName)
                 .collect(java.util.stream.Collectors.joining(", "));
-        LoggingUtils.clientWarn("Dependency analysis did not produce a call graph for {}; omitting criterion during test "
-                + "generation: {}", Properties.TARGET_CLASS, omittedCriteria);
+        LoggingUtils.clientWarn("Dependency analysis did not produce a call graph for {}; omitting criterion "
+                + "during test generation: {}", Properties.TARGET_CLASS, omittedCriteria);
 
         Properties.CRITERION = removeCallGraphDependentCriteria(Properties.CRITERION);
         // requestedCriteria is replayed over Properties.CRITERION for the coverage-analysis phase,

@@ -180,7 +180,9 @@ public class LlmResponseParser {
             return recoveryReason;
         }
 
-        /** The number of reflective {@code assertThrows} calls rewritten in {@link #getSource()}. */
+        /**
+         * The number of reflective {@code assertThrows} calls rewritten in {@link #getSource()}.
+         */
         public int getReflectiveRewrites() {
             return reflectiveRewrites;
         }

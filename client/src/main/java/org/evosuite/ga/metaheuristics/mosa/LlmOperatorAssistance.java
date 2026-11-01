@@ -62,7 +62,9 @@ final class LlmOperatorAssistance {
      */
     SyncOperatorHook mutation;
 
-    /** SYNC breeding-loop crossover hook; created alongside {@link #mutation}. */
+    /**
+     * SYNC breeding-loop crossover hook; created alongside {@link #mutation}.
+     */
     SyncOperatorHook crossover;
 
     /**
@@ -227,7 +229,9 @@ final class LlmOperatorAssistance {
         return ready;
     }
 
-    /** Stops the {@link #executor}, releasing its still-open attempts. Idempotent. */
+    /**
+     * Stops the {@link #executor}, releasing its still-open attempts. Idempotent.
+     */
     void shutdown() {
         if (executor != null) {
             executor.shutdown();

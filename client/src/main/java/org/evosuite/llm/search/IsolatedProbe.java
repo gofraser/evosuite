@@ -50,7 +50,9 @@ public final class IsolatedProbe {
         this.failure = failure;
     }
 
-    /** Clones {@code offspring} and evaluates the clone against {@code goals} in isolation. */
+    /**
+     * Clones {@code offspring} and evaluates the clone against {@code goals} in isolation.
+     */
     public static IsolatedProbe run(TestChromosome offspring, Collection<TestFitnessFunction> goals) {
         try {
             TestChromosome snapshot = offspring.clone();

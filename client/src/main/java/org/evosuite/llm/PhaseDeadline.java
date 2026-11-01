@@ -43,12 +43,16 @@ public final class PhaseDeadline {
         return fromNanos > NONE - duration ? NONE : fromNanos + duration;
     }
 
-    /** The deadline {@code durationNanos} from now; a negative duration counts as zero. */
+    /**
+     * The deadline {@code durationNanos} from now; a negative duration counts as zero.
+     */
     public static long fromNow(long durationNanos) {
         return after(System.nanoTime(), durationNanos);
     }
 
-    /** Whether {@code deadlineNanos} has passed; never for {@link #NONE}. */
+    /**
+     * Whether {@code deadlineNanos} has passed; never for {@link #NONE}.
+     */
     public static boolean isExpired(long deadlineNanos) {
         return deadlineNanos != NONE && System.nanoTime() >= deadlineNanos;
     }

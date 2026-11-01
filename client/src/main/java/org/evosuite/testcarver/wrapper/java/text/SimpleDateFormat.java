@@ -313,7 +313,8 @@ public class SimpleDateFormat extends java.text.SimpleDateFormat {
     public static StringBuffer format(java.text.SimpleDateFormat format, Object obj, StringBuffer toAppendTo,
                                       FieldPosition pos) {
         Capturer.capture(Instrumenter.CAPTURE_ID_JAVA_TEXT_SIMPLEDATEFORMAT, format, "format",
-                "(Ljava/lang/Object;Ljava/lang/StringBuffer;Ljava/text/FieldPosition;)Ljava/lang/StringBuffer;", new Object[]{obj, toAppendTo, pos});
+                "(Ljava/lang/Object;Ljava/lang/StringBuffer;Ljava/text/FieldPosition;)Ljava/lang/StringBuffer;",
+                new Object[]{obj, toAppendTo, pos});
         StringBuffer ret = format.format(obj, toAppendTo, pos);
         Capturer.enable(Instrumenter.CAPTURE_ID_JAVA_TEXT_SIMPLEDATEFORMAT, format, ret);
         return ret;

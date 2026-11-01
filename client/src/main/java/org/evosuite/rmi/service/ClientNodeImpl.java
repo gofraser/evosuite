@@ -220,64 +220,64 @@ public class ClientNodeImpl<T extends Chromosome<T>>
     }
 
     private void runSearchTask() {
-            List<TestGenerationResult> results = null;
+        List<TestGenerationResult> results = null;
+        try {
+            changeState(ClientState.STARTED);
+
+            //Before starting search, let's activate the sandbox
+            if (Properties.SANDBOX) {
+                ClientSandbox.activate();
+            }
+            results = new ArrayList<>();
+
             try {
-                changeState(ClientState.STARTED);
-
-                //Before starting search, let's activate the sandbox
-                if (Properties.SANDBOX) {
-                    ClientSandbox.activate();
+                // Starting a new search
+                if (SEARCH_FOR_TESTING != null) {
+                    results.add(SEARCH_FOR_TESTING.get());
+                } else {
+                    TestSuiteGenerator generator = new TestSuiteGenerator();
+                    results.add(generator.generateTestSuite());
                 }
-                results = new ArrayList<>();
-
-                try {
-                    // Starting a new search
-                    if (SEARCH_FOR_TESTING != null) {
-                        results.add(SEARCH_FOR_TESTING.get());
-                    } else {
-                        TestSuiteGenerator generator = new TestSuiteGenerator();
-                        results.add(generator.generateTestSuite());
-                    }
-                    // TODO: Why?
-                    // GeneticAlgorithm<?> ga = generator.getEmployedGeneticAlgorithm();
-                } catch (Throwable t) {
-                    safeLogSearchFailure(t);
-                    safeAppendErrorResult(results, t);
-                }
-
-                sendTestGenerationResultBestEffort(results);
+                // TODO: Why?
+                // GeneticAlgorithm<?> ga = generator.getEmployedGeneticAlgorithm();
             } catch (Throwable t) {
                 safeLogSearchFailure(t);
-                if (results != null) {
-                    safeAppendErrorResult(results, t);
-                }
-            } finally {
-                try {
-                    changeState(ClientState.DONE);
-                } catch (Throwable t) {
-                    safePrintToStderr("Failed to change client state to DONE: ", t);
-                }
-
-                if (Properties.SANDBOX) {
-                    /*
-                     * Note: this is mainly done for debugging purposes, to simplify how test cases are run/written
-                     */
-                    try {
-                        Sandbox.resetDefaultSecurityManager();
-                    } catch (Throwable t) {
-                        safePrintToStderr("Failed to reset sandbox security manager: ", t);
-                    }
-                }
+                safeAppendErrorResult(results, t);
             }
 
-            /*
-             * System is special due to the handling of properties
-             *
-             *  TODO: re-add it once we save JUnit code in the
-             *  best individual. Otherwise, we wouldn't
-             *  be able to properly create the JUnit files in the
-             *  system test cases after the search
-             */
+            sendTestGenerationResultBestEffort(results);
+        } catch (Throwable t) {
+            safeLogSearchFailure(t);
+            if (results != null) {
+                safeAppendErrorResult(results, t);
+            }
+        } finally {
+            try {
+                changeState(ClientState.DONE);
+            } catch (Throwable t) {
+                safePrintToStderr("Failed to change client state to DONE: ", t);
+            }
+
+            if (Properties.SANDBOX) {
+                /*
+                 * Note: this is mainly done for debugging purposes, to simplify how test cases are run/written
+                 */
+                try {
+                    Sandbox.resetDefaultSecurityManager();
+                } catch (Throwable t) {
+                    safePrintToStderr("Failed to reset sandbox security manager: ", t);
+                }
+            }
+        }
+
+        /*
+         * System is special due to the handling of properties
+         *
+         *  TODO: re-add it once we save JUnit code in the
+         *  best individual. Otherwise, we wouldn't
+         *  be able to properly create the JUnit files in the
+         *  system test cases after the search
+         */
     }
 
     private static void safePrintToStderr(String message) {

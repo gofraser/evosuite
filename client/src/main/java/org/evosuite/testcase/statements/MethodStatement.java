@@ -418,7 +418,9 @@ public class MethodStatement extends EntityWithParametersStatement {
      */
     private static final long ABSURD_INT_THRESHOLD = Integer.MAX_VALUE / 2L;
 
-    /** The product of two positive factors, or {@link Long#MAX_VALUE} if it does not fit a long. */
+    /**
+     * The product of two positive factors, or {@link Long#MAX_VALUE} if it does not fit a long.
+     */
     private static long saturatedProduct(long product, int factor) {
         return product > Long.MAX_VALUE / factor ? Long.MAX_VALUE : product * factor;
     }

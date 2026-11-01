@@ -136,6 +136,8 @@ public class TimeController {
     }
 
     /**
+     * Gets the phase the client is currently in.
+     *
      * @return the phase the client is in
      */
     public ClientState getState() {

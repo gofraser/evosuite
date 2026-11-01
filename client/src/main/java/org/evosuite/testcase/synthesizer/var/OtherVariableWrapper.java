@@ -655,7 +655,9 @@ public class OtherVariableWrapper extends DepVariableWrapper {
         return null;
     }
 
-    /** The receiver's {@code add*}/{@code put*} methods that the generated test can call. */
+    /**
+     * The receiver's {@code add*}/{@code put*} methods that the generated test can call.
+     */
     static List<Method> collectionMutationCandidates(Class<?> receiverClass) {
         return ContainerSetup.findMutators(
                 receiverClass, name -> name.startsWith("add") || name.startsWith("put"), 1, 2);

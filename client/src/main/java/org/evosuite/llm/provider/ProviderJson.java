@@ -65,7 +65,9 @@ final class ProviderJson {
         return root;
     }
 
-    /** The numeric field {@code field} of {@code parent}, 0 when absent or null, protocol error when non-numeric. */
+    /**
+     * The numeric field {@code field} of {@code parent}, 0 when absent or null, protocol error when non-numeric.
+     */
     static int requireNumericIfPresent(JsonNode parent, String field, String providerName, String responseBody)
             throws LlmProtocolException {
         JsonNode value = parent.path(field);

@@ -52,7 +52,9 @@ final class RandomPairSampler {
         }
     }
 
-    /** Every (parent, goal) pair in {@code population x kept.keySet()} with a finite cached distance. */
+    /**
+     * Every (parent, goal) pair in {@code population x kept.keySet()} with a finite cached distance.
+     */
     static List<Pair> validPairs(List<TestChromosome> population, Map<TestFitnessFunction, Double> kept) {
         List<Pair> pairs = new ArrayList<>();
         for (TestChromosome parent : population) {

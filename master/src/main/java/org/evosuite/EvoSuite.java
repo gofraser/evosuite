@@ -135,12 +135,6 @@ public class EvoSuite {
     }
 
     /**
-     * Reports a crash of the main process and ends it. Reporting is best effort: a crash caused
-     * by memory exhaustion usually cannot allocate what logging needs, and an error escaping
-     * from here would end only the main thread. The RMI and logging threads that are still
-     * running would then keep the JVM alive with nothing left to stop it.
-     */
-    /**
      * Continuous test generation failed for a reason it explains: report that, and not a crash report about a
      * class under test and a seed, which mean nothing here, and exit with an error for the caller.
      */
@@ -153,6 +147,12 @@ public class EvoSuite {
         exit.accept(1);
     }
 
+    /**
+     * Reports a crash of the main process and ends it. Reporting is best effort: a crash caused
+     * by memory exhaustion usually cannot allocate what logging needs, and an error escaping
+     * from here would end only the main thread. The RMI and logging threads that are still
+     * running would then keep the JVM alive with nothing left to stop it.
+     */
     static void exitAfterFatalCrash(Throwable crash, Consumer<Throwable> report, IntConsumer exit) {
         try {
             report.accept(crash);

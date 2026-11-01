@@ -1896,8 +1896,8 @@ public final class MockHeadlessSwing {
      * {@code java.awt.headless=true}. Skipping it while GUI mocking is on left the container and
      * the component inconsistent, and the next call that reads the tree failed (for example
      * {@code mainPanel.add(tab1, null)} followed by {@code mainPanel.setSelectedComponent(tab1)} threw
-     * "component not found in tabbed pane"). So do the real work and only fall back to the previous no-op if the environment
-     * really refuses it.
+     * "component not found in tabbed pane"). So do the real work and only fall back to the previous no-op if
+     * the environment really refuses it.
      *
      * @param add       the real add call
      * @param mocked    what to return when a headless environment refuses the call

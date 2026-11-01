@@ -659,6 +659,7 @@ public class BytecodeInstrumentation {
 
         return cv;
     }
+
     private static boolean isAsmFrameMergeFailure(Throwable throwable) {
         Throwable current = throwable;
         while (current != null) {

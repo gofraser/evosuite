@@ -1208,7 +1208,9 @@ public class TestUsageChecker {
         return isCallableFromTestPackage(m) && !isNotCallableFromSource(m);
     }
 
-    /** Constructor counterpart of {@link #isSynthesisCallable(Method)}. */
+    /**
+     * Constructor counterpart of {@link #isSynthesisCallable(Method)}.
+     */
     public static boolean isSynthesisCallable(Constructor<?> c) {
         return isCallableFromTestPackage(c) && !isNotCallableFromSource(c);
     }

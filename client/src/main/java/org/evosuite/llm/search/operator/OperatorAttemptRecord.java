@@ -60,11 +60,15 @@ final class OperatorAttemptRecord {
                     + "statements_kept,statements_added,statements_removed,input_tokens,cached_input_tokens,"
                     + "output_tokens,latency_ms,admitted,admitted_generation,survived_plus1,survived_plus5";
 
-    /** {@link #recordEvaluated} return flags: a newly-counted hit / distance improvement. */
+    /**
+     * {@link #recordEvaluated} return flags: a newly-counted hit / distance improvement.
+     */
     static final int EVAL_NEW_HIT = 1;
     static final int EVAL_NEW_IMPROVED = 2;
 
-    /** {@link #applySurvivorScan} return flags: what this scan resolved. */
+    /**
+     * {@link #applySurvivorScan} return flags: what this scan resolved.
+     */
     static final int SCAN_PLUS1_SURVIVED = 1;
     static final int SCAN_PLUS5_RESOLVED_EARLY = 2;
     static final int SCAN_FINAL = 4;
@@ -115,13 +119,17 @@ final class OperatorAttemptRecord {
     private boolean countedHit;
     private boolean countedImproved;
 
-    /** Set once by {@link #recordAdmitted}; non-null means admitted. */
+    /**
+     * Set once by {@link #recordAdmitted}; non-null means admitted.
+     */
     private Integer admittedGeneration;
     private TestChromosome admittedOffspring;
     private Boolean survivedPlus1;
     private Boolean survivedPlus5;
 
-    /** Consecutive {@link OperatorAttemptLog#recordSurvivors} scans found PARSED-but-unadmitted; retired at 2. */
+    /**
+     * Consecutive {@link OperatorAttemptLog#recordSurvivors} scans found PARSED-but-unadmitted; retired at 2.
+     */
     private int unadmittedParsedScanCount;
 
     OperatorAttemptRecord(String attemptId, int generation, OperatorTarget target, String mode, int batchSize) {
@@ -150,7 +158,9 @@ final class OperatorAttemptRecord {
         }
     }
 
-    /** Best-effort, same reasoning as {@link #goalId}. */
+    /**
+     * Best-effort, same reasoning as {@link #goalId}.
+     */
     private static String cardType(OperatorTarget target) {
         try {
             return target.getCard().map(ProblemCard::getType).map(Enum::name).orElse("");
@@ -327,7 +337,9 @@ final class OperatorAttemptRecord {
         return admittedOffspring != null;
     }
 
-    /** Whether {@link #parentStatementCodes} is still held; package-visible, for tests only. */
+    /**
+     * Whether {@link #parentStatementCodes} is still held; package-visible, for tests only.
+     */
     boolean hasParentStatementCodesForTesting() {
         return parentStatementCodes != null;
     }
@@ -408,7 +420,9 @@ final class OperatorAttemptRecord {
         return codes;
     }
 
-    /** Multiset diff of {@code before} vs. {@code after}: {kept, added, removed}. Package-visible (testable). */
+    /**
+     * Multiset diff of {@code before} vs. {@code after}: {kept, added, removed}. Package-visible (testable).
+     */
     static int[] diffStatementCodes(List<String> before, List<String> after) {
         Map<String, Integer> counts = new HashMap<>();
         for (String code : before) {

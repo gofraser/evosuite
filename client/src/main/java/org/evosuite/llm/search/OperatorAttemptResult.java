@@ -61,7 +61,9 @@ public class OperatorAttemptResult {
         return new OperatorAttemptResult(Path.SEMANTIC_APPLIED, SkipReason.NONE, null, null, -1);
     }
 
-    /** Semantic path was attempted and successfully applied for {@code target}, under {@code ticket} (nullable). */
+    /**
+     * Semantic path was attempted and successfully applied for {@code target}, under {@code ticket} (nullable).
+     */
     public static OperatorAttemptResult semanticApplied(OperatorTarget target, AttemptTicket ticket) {
         return semanticApplied(target, ticket, -1);
     }
@@ -80,7 +82,9 @@ public class OperatorAttemptResult {
         return new OperatorAttemptResult(Path.SEMANTIC_FALLBACK, SkipReason.NONE, null, null, -1);
     }
 
-    /** Semantic path was attempted for {@code target} but failed; standard fallback was used. */
+    /**
+     * Semantic path was attempted for {@code target} but failed; standard fallback was used.
+     */
     public static OperatorAttemptResult semanticFallback(OperatorTarget target) {
         return new OperatorAttemptResult(Path.SEMANTIC_FALLBACK, SkipReason.NONE, target, null, -1);
     }
@@ -121,7 +125,9 @@ public class OperatorAttemptResult {
         return ticket.isTracked() ? ticket.getId() : null;
     }
 
-    /** The generation the target's {@code SyncTargetPlan} was built for; {@code -1} when not tracked. */
+    /**
+     * The generation the target's {@code SyncTargetPlan} was built for; {@code -1} when not tracked.
+     */
     public int getGeneration() {
         return generation;
     }

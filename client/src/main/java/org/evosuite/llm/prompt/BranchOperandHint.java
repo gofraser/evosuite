@@ -67,9 +67,12 @@ public final class BranchOperandHint {
         }
     }
 
-    private BranchOperandHint() {}
+    private BranchOperandHint() {
+    }
 
-    /** The hint line for {@code goal} given the execution of {@code exemplar}, or null when there is nothing to say. */
+    /**
+     * The hint line for {@code goal} given the execution of {@code exemplar}, or null when there is nothing to say.
+     */
     public static String forGoal(TestFitnessFunction goal, TestChromosome exemplar) {
         if (exemplar == null) {
             return null;
@@ -166,7 +169,8 @@ public final class BranchOperandHint {
         }
     }
 
-    private static void renderOneOperand(StringBuilder sb, BranchOperands operands, String relation, int opcode, BytecodeInstruction jump) {
+    private static void renderOneOperand(StringBuilder sb, BranchOperands operands, String relation,
+            int opcode, BytecodeInstruction jump) {
         String name = nameFor(jump, 0);
         sb.append(display(name, operands.getLeft())).append(" (").append(operands.getOpcodeName()).append(')');
         if (relation == null) {
@@ -190,7 +194,9 @@ public final class BranchOperandHint {
                 : ">".equals(relation) ? "<=" : ">";
     }
 
-    /** Simple field name or {@code method()} for the operand's source instruction; null on anything else or failure. */
+    /**
+     * Simple field name or {@code method()} for the operand's source instruction; null on anything else or failure.
+     */
     private static String nameFor(BytecodeInstruction jump, int positionFromTop) {
         if (jump == null) {
             return null;

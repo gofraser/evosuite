@@ -54,7 +54,9 @@ final class FailureStreakPolicy {
         this.failedStreakStartedNanos = strategyStartedNanos;
     }
 
-    /** The failure summary of the previous round, or {@code null} when there is nothing to feed back. */
+    /**
+     * The failure summary of the previous round, or {@code null} when there is nothing to feed back.
+     */
     String previousFailureHint() {
         return previousFailureHint;
     }

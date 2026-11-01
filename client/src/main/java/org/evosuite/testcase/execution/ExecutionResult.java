@@ -705,6 +705,8 @@ public class ExecutionResult implements Cloneable {
     }
 
     /**
+     * Gets the positions of the statements that passed only because of the ephemeral assist.
+     *
      * @return the positions of the statements that passed only because of the ephemeral assist
      */
     public Set<Integer> getDmonAssistedPositions() {

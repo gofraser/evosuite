@@ -82,6 +82,8 @@ final class ExecutionFailureFormatter {
     private final TestParser testParser;
 
     /**
+     * Creates a formatter for execution failures.
+     *
      * @param sutContextSummary supplies the SUT context summary used for API suggestions and
      *                          type kinds, on first use; may supply null
      * @param testParser        the parser whose class loader resolves type names; may be null

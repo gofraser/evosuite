@@ -372,10 +372,12 @@ public class CreateClassResetClassAdapter extends ClassVisitor {
         if (!clinitFound && !isInterface && !isAnonymous && !resetMethodAdded) {
             // create brand new __STATIC_RESET
             if (!definesUid) {
+                // A declared serialVersionUID is kept by visitField(), so nothing is added here.
             }
             createEmptyStaticReset();
         } else if (clinitFound) {
             if (!definesUid) {
+                // A declared serialVersionUID is kept by visitField(), so nothing is added here.
             }
         }
         if (!modifiedStaticFields.isEmpty()) {

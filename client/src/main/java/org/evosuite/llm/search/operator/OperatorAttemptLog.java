@@ -90,9 +90,13 @@ public final class OperatorAttemptLog {
 
     private final LinkedHashMap<String, OperatorAttemptRecord> records = new LinkedHashMap<>();
     private final OperatorAttemptCsvWriter csvWriter = new OperatorAttemptCsvWriter();
-    /** Guarded by {@link #csvWriter}'s monitor, not the log's. */
+    /**
+     * Guarded by {@link #csvWriter}'s monitor, not the log's.
+     */
     private boolean writeFailureLogged;
-    /** Guarded by {@link #csvWriter}'s monitor, not the log's. */
+    /**
+     * Guarded by {@link #csvWriter}'s monitor, not the log's.
+     */
     private long rowsWritten;
 
     private long attempts;
@@ -154,7 +158,9 @@ public final class OperatorAttemptLog {
         }
     }
 
-    /** Records what the call behind {@code attemptId} produced for this target. No-op if never opened. */
+    /**
+     * Records what the call behind {@code attemptId} produced for this target. No-op if never opened.
+     */
     public void recordResponse(String attemptId, TargetedResponse.Status status,
                                boolean parseSucceeded, boolean targetMatched, int repairTurns,
                                TargetedResponse.CallUsage usage, TestCase offspringOrNull) {
@@ -274,7 +280,9 @@ public final class OperatorAttemptLog {
         writeRows(rows);
     }
 
-    /** The row-mutating part of {@link #recordSurvivors}; returns the rendered rows to write. */
+    /**
+     * The row-mutating part of {@link #recordSurvivors}; returns the rendered rows to write.
+     */
     private List<String> retireSettledLocked(Collection<TestChromosome> population, int generation) {
         try {
             List<OperatorAttemptRecord> toRetire = new ArrayList<>();
@@ -360,7 +368,9 @@ public final class OperatorAttemptLog {
         }
     }
 
-    /** The row behind {@code attemptId}, or {@code null} if never opened or already retired; for tests. */
+    /**
+     * The row behind {@code attemptId}, or {@code null} if never opened or already retired; for tests.
+     */
     synchronized OperatorAttemptRecord recordFor(String attemptId) {
         return records.get(attemptId);
     }

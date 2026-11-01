@@ -35,6 +35,8 @@ final class ExitRefusingSecurityManager extends SecurityManager {
     }
 
     /**
+     * Gets the security manager that this one stands in for.
+     *
      * @return the manager this one stands in for, null if there was none
      */
     SecurityManager getReplacedManager() {

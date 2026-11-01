@@ -57,7 +57,9 @@ public final class ReplaceableWorker {
         });
     }
 
-    /** The thread of the current executor, or {@code null} if it has not started one yet. */
+    /**
+     * The thread of the current executor, or {@code null} if it has not started one yet.
+     */
     public Thread thread() {
         return thread;
     }
@@ -123,7 +125,9 @@ public final class ReplaceableWorker {
         }
     }
 
-    /** Installs {@code replacement} as the worker and shuts the previous one down. */
+    /**
+     * Installs {@code replacement} as the worker and shuts the previous one down.
+     */
     public void setForTesting(ExecutorService replacement) {
         if (replacement == null) {
             throw new IllegalArgumentException("Worker executor must not be null");

@@ -76,13 +76,12 @@ public class TimeoutExceededRethrowAdapter extends MethodVisitor {
     private Map<Label, Label> shiftedRangeStarts;
 
     /**
-     * javac also emits a handler range that begins earlier and runs past the handler's first
-     * instruction: a finally block after a catch block is protected as
-     * {@code [catch handler, finally handler + 1) -> finally handler}. The handler is then inside a range that leads back to it, so
-     * the kill-switch probe at its start throws into the handler again. The range cannot be
-     * split here, because the exception table is written before the code is seen; the
-     * probe is left out instead: it is the first thing of the handler's line, and the
-     * handler's code, or what follows it, carries probes of its own.
+     * javac also emits a handler range that begins earlier and runs past the handler's first instruction: a finally
+     * block after a catch block is protected as {@code [catch handler, finally handler + 1) -> finally handler}. The
+     * handler is then inside a range that leads back to it, so the kill-switch probe at its start throws into the
+     * handler again. The range cannot be split here, because the exception table is written before the code is seen;
+     * the probe is left out instead: it is the first thing of the handler's line, and the handler's code, or what
+     * follows it, carries probes of its own.
      */
     private final Map<Label, java.util.List<Label[]>> tryCatchRangesByHandler = new HashMap<>();
     private final Set<Label> visitedLabels = new HashSet<>();

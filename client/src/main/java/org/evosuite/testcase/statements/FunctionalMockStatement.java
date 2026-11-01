@@ -577,8 +577,10 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
     }
 
     /**
+     * Returns the stubs declared for this mock.
+     *
      * @return the stubs of this mock in the order they are declared, including methods that
-     * have no values
+     *     have no values
      */
     public List<Stub> getStubs() {
         return Collections.unmodifiableList(stubs);

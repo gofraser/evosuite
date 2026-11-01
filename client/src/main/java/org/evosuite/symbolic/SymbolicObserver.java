@@ -971,8 +971,8 @@ public class SymbolicObserver extends ExecutionObserver {
                         this::newByteReference);
 
             } else if (s instanceof CharPrimitiveStatement) {
-                afterIntegral(s, scope, ((CharPrimitiveStatement) s).getValue(), Character.MIN_VALUE, Character.MAX_VALUE,
-                        this::newCharacterReference);
+                afterIntegral(s, scope, ((CharPrimitiveStatement) s).getValue(), Character.MIN_VALUE,
+                        Character.MAX_VALUE, this::newCharacterReference);
 
             } else if (s instanceof DoublePrimitiveStatement) {
                 afterReal(s, scope, ((DoublePrimitiveStatement) s).getValue(), -Double.MAX_VALUE, Double.MAX_VALUE,

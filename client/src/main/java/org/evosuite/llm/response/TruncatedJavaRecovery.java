@@ -48,7 +48,9 @@ public final class TruncatedJavaRecovery {
             this.parsedUnit = parsedUnit;
         }
 
-        /** The syntax tree {@link #getSource()} parsed to while recovering, or null if it does not parse. */
+        /**
+         * The syntax tree {@link #getSource()} parsed to while recovering, or null if it does not parse.
+         */
         CompilationUnit getParsedUnit() {
             return parsedUnit;
         }

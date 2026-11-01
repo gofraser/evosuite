@@ -38,7 +38,9 @@ public final class LlmBudgetCoordinator {
     /** Counter for every feature, or for the non-operator features when a share is reserved. */
     private final AtomicInteger otherRemaining;
 
-    /** Operator quota, or {@code null} when the budget is not partitioned. */
+    /**
+     * Operator quota, or {@code null} when the budget is not partitioned.
+     */
     private final AtomicInteger operatorRemaining;
 
     private LlmBudgetCoordinator(AtomicInteger otherRemaining, AtomicInteger operatorRemaining) {

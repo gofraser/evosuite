@@ -47,7 +47,9 @@ public final class OperatorTarget {
     private final boolean stalled;
     private final ProblemCard card;
     private final TestChromosome partner;
-    /** Lazily rendered by {@link #toRepeatedInjectionTarget()}: it costs a {@code toCode()} per test. */
+    /**
+     * Lazily rendered by {@link #toRepeatedInjectionTarget()}: it costs a {@code toCode()} per test.
+     */
     private RepeatedInjectionTarget repeatedInjectionTarget;
 
     private OperatorTarget(Builder builder) {
@@ -65,7 +67,9 @@ public final class OperatorTarget {
         return new Builder(parent, goal);
     }
 
-    /** A copy of this target carrying {@code card} (the card does not affect kind, priority or identity). */
+    /**
+     * A copy of this target carrying {@code card}. The card does not affect kind, priority or identity.
+     */
     public OperatorTarget withCard(ProblemCard card) {
         return card == this.card ? this : copy(priority, card);
     }
@@ -82,14 +86,37 @@ public final class OperatorTarget {
         return copy;
     }
 
-    public TestChromosome getParent() { return parent; }
-    public TestFitnessFunction getGoal() { return goal; }
-    public double getDistance() { return distance; }
-    public double getPriority() { return priority; }
-    public Kind getKind() { return kind; }
-    public boolean isStalled() { return stalled; }
-    public Optional<ProblemCard> getCard() { return Optional.ofNullable(card); }
-    public Optional<TestChromosome> getPartner() { return Optional.ofNullable(partner); }
+    public TestChromosome getParent() {
+        return parent;
+    }
+
+    public TestFitnessFunction getGoal() {
+        return goal;
+    }
+
+    public double getDistance() {
+        return distance;
+    }
+
+    public double getPriority() {
+        return priority;
+    }
+
+    public Kind getKind() {
+        return kind;
+    }
+
+    public boolean isStalled() {
+        return stalled;
+    }
+
+    public Optional<ProblemCard> getCard() {
+        return Optional.ofNullable(card);
+    }
+
+    public Optional<TestChromosome> getPartner() {
+        return Optional.ofNullable(partner);
+    }
 
     /**
      * Repeated-injection identity for this target: the key identifies the goal
@@ -120,7 +147,9 @@ public final class OperatorTarget {
                 + ", partner=" + (partner != null) + ", card=" + (card != null) + '}';
     }
 
-    /** Builder for {@link OperatorTarget}; every field but parent/goal is optional. */
+    /**
+     * Builder for {@link OperatorTarget}; every field but parent/goal is optional.
+     */
     public static final class Builder {
         private final TestChromosome parent;
         private final TestFitnessFunction goal;
@@ -135,11 +164,30 @@ public final class OperatorTarget {
             this.goal = goal;
         }
 
-        public Builder distance(double distance) { this.distance = distance; return this; }
-        public Builder priority(double priority) { this.priority = priority; return this; }
-        public Builder stalled(boolean stalled) { this.stalled = stalled; return this; }
-        public Builder card(ProblemCard card) { this.card = card; return this; }
-        public Builder partner(TestChromosome partner) { this.partner = partner; return this; }
+        public Builder distance(double distance) {
+            this.distance = distance;
+            return this;
+        }
+
+        public Builder priority(double priority) {
+            this.priority = priority;
+            return this;
+        }
+
+        public Builder stalled(boolean stalled) {
+            this.stalled = stalled;
+            return this;
+        }
+
+        public Builder card(ProblemCard card) {
+            this.card = card;
+            return this;
+        }
+
+        public Builder partner(TestChromosome partner) {
+            this.partner = partner;
+            return this;
+        }
 
         public OperatorTarget build() {
             return new OperatorTarget(this);

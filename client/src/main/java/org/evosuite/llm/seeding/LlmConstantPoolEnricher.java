@@ -92,7 +92,8 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
                         logger.debug("Cancelled after dependency constant query, stopping");
                         break;
                     }
-                    List<Object> depConstants = capDependencyConstants(ConstantResponseParser.parseConstants(depResponse));
+                    List<Object> depConstants =
+                            capDependencyConstants(ConstantResponseParser.parseConstants(depResponse));
                     nonSutParsed += depConstants.size();
                     nonSutAdded += addToPool(depConstants, false);
                 } catch (Throwable t) {

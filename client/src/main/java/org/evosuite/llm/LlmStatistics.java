@@ -622,7 +622,7 @@ public class LlmStatistics {
         final boolean seeding;
 
         Metric(RuntimeVariable variable, Object defaultValue, Function<Publication, Object> reader,
-               boolean seeding) {
+                boolean seeding) {
             this.variable = variable;
             this.defaultValue = defaultValue;
             this.reader = reader;
@@ -645,7 +645,9 @@ public class LlmStatistics {
             add(new Metric(variable, defaultValue, reader, false));
         }
 
-        /** A process-wide seeding counter, which {@link #flushSeedingMetrics()} publishes on its own. */
+        /**
+         * A process-wide seeding counter, which {@link #flushSeedingMetrics()} publishes on its own.
+         */
         void seeding(RuntimeVariable variable, Supplier<Long> counter) {
             add(new Metric(variable, 0, publication -> counter.get(), true));
         }

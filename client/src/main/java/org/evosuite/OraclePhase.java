@@ -138,7 +138,8 @@ final class OraclePhase {
 
         if (Properties.NO_RUNTIME_DEPENDENCY) {
             LoggingUtils.clientInfo("Property NO_RUNTIME_DEPENDENCY is set to true - skipping JUnit compile check");
-            LoggingUtils.clientInfo("WARNING: Not including the runtime dependencies is likely to lead to flaky tests!");
+            LoggingUtils.clientInfo(
+                    "WARNING: Not including the runtime dependencies is likely to lead to flaky tests!");
         } else if (Properties.JUNIT_TESTS && (Properties.JUNIT_CHECK == Properties.JUnitCheckValues.TRUE
                 || Properties.JUNIT_CHECK == Properties.JUnitCheckValues.OPTIONAL)) {
             if (ClassPathHacker.isJunitCheckAvailable()) {

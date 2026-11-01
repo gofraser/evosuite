@@ -235,6 +235,8 @@ public final class FunctionalMockFailover {
     }
 
     /**
+     * Returns the probability of a functional mock.
+     *
      * @return the probability of a functional mock, which is zero while mocking is disabled or
      *         throttled and {@link Properties#P_FUNCTIONAL_MOCKING} otherwise
      */
@@ -243,6 +245,8 @@ public final class FunctionalMockFailover {
     }
 
     /**
+     * Returns whether to mock an interface or abstract class without a generator.
+     *
      * @return whether to mock an interface or abstract class without a generator, which is false
      *         while mocking is disabled or throttled and {@link Properties#MOCK_IF_NO_GENERATOR}
      *         otherwise
@@ -252,6 +256,8 @@ public final class FunctionalMockFailover {
     }
 
     /**
+     * Returns whether the GLOBAL mock failover has permanently disabled functional mocking.
+     *
      * @return true once the GLOBAL mock failover has permanently disabled functional mocking
      */
     public static boolean isFunctionalMockingGloballyDisabled() {

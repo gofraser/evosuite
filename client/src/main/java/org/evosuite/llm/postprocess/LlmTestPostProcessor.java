@@ -371,7 +371,8 @@ final class LlmTestPostProcessor {
             }
             recordAssertionLifecycle(llmService, proposal, testIndex, minimizationResult,
                     "applied", "final");
-            traces.add(new LlmPostProcessor.AppliedAssertionTrace(llmService, proposal, LlmPostProcessor.assertionSignatureForSession(assertion),
+            traces.add(new LlmPostProcessor.AppliedAssertionTrace(llmService, proposal,
+                    LlmPostProcessor.assertionSignatureForSession(assertion),
                     testIndex, minimizationResult));
         }
     }
@@ -467,14 +468,17 @@ final class LlmTestPostProcessor {
                             diagnostic.getCode() == null ? "" : diagnostic.getCode().name(),
                             diagnostic.getPath(),
                             diagnostic.getMessage(),
-                            firstNonEmpty(AssertionProposal.idOrEmpty(proposal), rawField(rawAssertion, "assertionId"), pathToken),
+                            firstNonEmpty(AssertionProposal.idOrEmpty(proposal),
+                                    rawField(rawAssertion, "assertionId"), pathToken),
                             firstNonEmpty(AssertionProposal.kindOrEmpty(proposal), rawField(rawAssertion, "kind")),
                             firstNonEmpty(AssertionProposal.actualOrEmpty(proposal), rawField(rawAssertion, "actual")),
-                            firstNonEmpty(AssertionProposal.expectedOrEmpty(proposal), rawField(rawAssertion, "expected")),
+                            firstNonEmpty(AssertionProposal.expectedOrEmpty(proposal),
+                                    rawField(rawAssertion, "expected")),
                             firstNonEmpty(AssertionProposal.deltaOrEmpty(proposal), rawField(rawAssertion, "delta")),
                             firstNonEmpty(AssertionProposal.intentOrEmpty(proposal), rawField(rawAssertion, "intent")),
                             "",
-                            firstNonEmpty(AssertionProposal.purposeOrEmpty(proposal), rawField(rawAssertion, "purpose")),
+                            firstNonEmpty(AssertionProposal.purposeOrEmpty(proposal),
+                                    rawField(rawAssertion, "purpose")),
                             proposal == null
                                     ? (rawField(rawAssertion, "candidateId").isEmpty()
                                     ? "SYNTHESIZED" : "SELECTED_CANDIDATE")
@@ -665,7 +669,8 @@ final class LlmTestPostProcessor {
         }
     }
 
-    private static boolean shouldRunAssertionFallback(boolean assertionEligible, LlmPostProcessor.FallbackTrigger trigger,
+    private static boolean shouldRunAssertionFallback(boolean assertionEligible,
+                                                      LlmPostProcessor.FallbackTrigger trigger,
                                                       PostProcessingOptions options) {
         if (!options.features().assertions() || !assertionEligible) {
             return false;

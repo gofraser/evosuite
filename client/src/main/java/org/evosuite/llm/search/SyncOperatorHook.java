@@ -54,6 +54,8 @@ public class SyncOperatorHook {
     private final AtomicInteger fallbackCount = new AtomicInteger(0);
 
     /**
+     * Creates a hook that gates one kind of semantic operator.
+     *
      * @param operator the semantic operator this hook wraps
      * @param kind the kind of target this hook takes from a plan (the operator's own kind)
      * @param probability the probability gate applied once the mode check has passed
@@ -66,13 +68,17 @@ public class SyncOperatorHook {
         this.memory = memory;
     }
 
-    /** The hook for mutation, gated by {@link Properties#LLM_MUTATION_PROBABILITY}. */
+    /**
+     * The hook for mutation, gated by {@link Properties#LLM_MUTATION_PROBABILITY}.
+     */
     public static SyncOperatorHook mutation(LlmSemanticOperator operator, RepeatedInjectionMemory memory) {
         return new SyncOperatorHook(operator, OperatorTarget.Kind.MUTATION,
                 () -> Properties.LLM_MUTATION_PROBABILITY, memory);
     }
 
-    /** The hook for crossover, gated by {@link Properties#LLM_CROSSOVER_PROBABILITY}. */
+    /**
+     * The hook for crossover, gated by {@link Properties#LLM_CROSSOVER_PROBABILITY}.
+     */
     public static SyncOperatorHook crossover(LlmSemanticOperator operator, RepeatedInjectionMemory memory) {
         return new SyncOperatorHook(operator, OperatorTarget.Kind.CROSSOVER,
                 () -> Properties.LLM_CROSSOVER_PROBABILITY, memory);

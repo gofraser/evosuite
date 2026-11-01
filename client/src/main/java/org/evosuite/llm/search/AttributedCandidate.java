@@ -34,6 +34,8 @@ public final class AttributedCandidate {
     private final InjectionAttemptMetadata metadata;
 
     /**
+     * Creates an attributed candidate.
+     *
      * @param candidate the produced test
      * @param metadata the attempt's attribution, null when there is none
      */
@@ -51,7 +53,9 @@ public final class AttributedCandidate {
         return metadata;
     }
 
-    /** The candidates of {@code entries}, in order. */
+    /**
+     * The candidates of {@code entries}, in order.
+     */
     public static List<TestChromosome> candidatesOf(List<AttributedCandidate> entries) {
         List<TestChromosome> candidates = new ArrayList<>(entries.size());
         for (AttributedCandidate entry : entries) {

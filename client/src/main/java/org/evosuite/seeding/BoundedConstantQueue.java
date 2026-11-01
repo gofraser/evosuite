@@ -38,6 +38,8 @@ abstract class BoundedConstantQueue<T> implements ConstantBag<T> {
     private final int maxSize;
 
     /**
+     * Creates a queue that keeps at most the given number of constants.
+     *
      * @param maxSize the number of constants to keep; the oldest one is dropped beyond that
      */
     BoundedConstantQueue(int maxSize) {

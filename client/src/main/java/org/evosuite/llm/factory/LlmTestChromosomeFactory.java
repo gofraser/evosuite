@@ -260,7 +260,8 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
         if (goals == null || goals.isEmpty()) {
             return null;
         }
-        List<OperatorTarget> targets = targetSelector.select(population, goals, 1, generationSupplier.getAsLong(), false);
+        List<OperatorTarget> targets =
+                targetSelector.select(population, goals, 1, generationSupplier.getAsLong(), false);
         return targets.isEmpty() ? null : targets.get(0);
     }
 

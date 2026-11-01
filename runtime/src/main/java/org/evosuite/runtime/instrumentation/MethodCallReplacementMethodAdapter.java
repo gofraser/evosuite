@@ -73,7 +73,8 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
                     "replacement_addTabTitleIconComponentGeneric"),
             new SwingFallback("addTab", "(Ljava/lang/String;Ljavax/swing/Icon;Ljava/awt/Component;Ljava/lang/String;)V",
                     "replacement_addTabTitleIconComponentTipGeneric"),
-            new SwingFallback("insertTab", "(Ljava/lang/String;Ljavax/swing/Icon;Ljava/awt/Component;Ljava/lang/String;I)V",
+            new SwingFallback("insertTab",
+                    "(Ljava/lang/String;Ljavax/swing/Icon;Ljava/awt/Component;Ljava/lang/String;I)V",
                     "replacement_insertTabGeneric")
     };
 

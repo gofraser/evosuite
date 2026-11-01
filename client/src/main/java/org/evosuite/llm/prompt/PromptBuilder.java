@@ -42,7 +42,8 @@ public class PromptBuilder {
             + "(e.g., Vector<Character>, List<String>) match the "
             + "class definition exactly. Do not use generic types like Vector<String> if the class "
             + "expects Vector<Character>.";
-    private static final String REMINDER_VISIBILITY = "IMPORTANT: Do NOT access private or protected fields or methods. "
+    private static final String REMINDER_VISIBILITY =
+            "IMPORTANT: Do NOT access private or protected fields or methods. "
             + "Only use public and package-private members in the generated tests.";
     private static final String REMINDER_CONCRETE_TYPES = "IMPORTANT: Instantiate only concrete classes. "
             + "Do NOT use new on abstract classes or interfaces; use concrete subtypes listed in dependency context.";
@@ -190,7 +191,8 @@ public class PromptBuilder {
     public PromptBuilder withSutContext(String className, TestCluster cluster,
                                         boolean includeTestGenerationReminders,
                                         boolean includeDependencyContext) {
-        SutContextProviderFactory.ContextResult result = sutContextProviderFactory.getContext(className, cluster, settings);
+        SutContextProviderFactory.ContextResult result =
+                sutContextProviderFactory.getContext(className, cluster, settings);
         this.contextInfo = contextInfo.withSutContextOf(result.getInfo());
         String text = result.getText();
         if (text != null && !text.trim().isEmpty()) {
@@ -241,7 +243,8 @@ public class PromptBuilder {
         if (cached) {
             Set<String> addedClassNames = new TreeSet<>(StaticPromptContext.clusterClassNames(cluster));
             addedClassNames.removeAll(entry.getClusterClassNamesAtRender());
-            growthDelta = ClusterGrowthDelta.render(testClusterSummarizer, cluster, targetClassName, addedClassNames, settings);
+            growthDelta = ClusterGrowthDelta.render(testClusterSummarizer, cluster, targetClassName,
+                    addedClassNames, settings);
         }
 
         if (entry.getSectionText() == null) {

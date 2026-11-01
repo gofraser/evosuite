@@ -34,7 +34,8 @@ public final class StringMultipleToIntegerExpression extends AbstractMultipleExp
 
     private static final long serialVersionUID = 7172041118401792672L;
 
-    public StringMultipleToIntegerExpression(Expression<String> left, Operator op, Expression<?> right, ArrayList<Expression<?>> other, Long con) {
+    public StringMultipleToIntegerExpression(Expression<String> left, Operator op, Expression<?> right,
+                                             ArrayList<Expression<?>> other, Long con) {
         super(con, left, op, right, other);
     }
 

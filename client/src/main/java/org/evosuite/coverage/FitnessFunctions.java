@@ -107,7 +107,9 @@ public class FitnessFunctions {
             return this;
         }
 
-        /** Like {@link #requiresTraceCalls()}, but only for the many-objective search strategy. */
+        /**
+         * Like {@link #requiresTraceCalls()}, but only for the many-objective search strategy.
+         */
         FitnessRegistryEntry requiresTraceCallsForManyObjectives() {
             this.requiresTraceCallsForManyObjectives = true;
             return this;
@@ -124,7 +126,8 @@ public class FitnessFunctions {
                 StrongMutationTestFitness.class
         ));
         registry.put(Criterion.WEAKMUTATION, new FitnessRegistryEntry(
-                "Mutation testing (weak)", RuntimeVariable.WeakMutationScore, RuntimeVariable.WeakMutationCoverageBitString,
+                "Mutation testing (weak)", RuntimeVariable.WeakMutationScore,
+                RuntimeVariable.WeakMutationCoverageBitString,
                 WeakMutationSuiteFitness::new,
                 () -> new MutationFactory(false),
                 WeakMutationTestFitness.class
@@ -136,7 +139,8 @@ public class FitnessFunctions {
                 MutationTestFitness.class
         ));
         registry.put(Criterion.ONLYMUTATION, new FitnessRegistryEntry(
-                "Only Mutation testing (weak)", RuntimeVariable.OnlyMutationScore, RuntimeVariable.OnlyMutationCoverageBitString,
+                "Only Mutation testing (weak)", RuntimeVariable.OnlyMutationScore,
+                RuntimeVariable.OnlyMutationCoverageBitString,
                 OnlyMutationSuiteFitness::new,
                 OnlyMutationFactory::new,
                 OnlyMutationTestFitness.class
@@ -160,7 +164,8 @@ public class FitnessFunctions {
                 CBranchTestFitness.class
         ));
         registry.put(Criterion.IBRANCH, new FitnessRegistryEntry(
-                "Interprocedural Context Branch Coverage", RuntimeVariable.IBranchCoverage, RuntimeVariable.IBranchCoverageBitString,
+                "Interprocedural Context Branch Coverage", RuntimeVariable.IBranchCoverage,
+                RuntimeVariable.IBranchCoverageBitString,
                 IBranchSuiteFitness::new,
                 IBranchFitnessFactory::new,
                 IBranchTestFitness.class
@@ -202,7 +207,8 @@ public class FitnessFunctions {
                 MethodCoverageTestFitness.class
         ));
         registry.put(Criterion.METHODNOEXCEPTION, new FitnessRegistryEntry(
-                "No-Exception Top-Level Method Coverage", RuntimeVariable.MethodNoExceptionCoverage, RuntimeVariable.MethodNoExceptionCoverageBitString,
+                "No-Exception Top-Level Method Coverage", RuntimeVariable.MethodNoExceptionCoverage,
+                RuntimeVariable.MethodNoExceptionCoverageBitString,
                 MethodNoExceptionCoverageSuiteFitness::new,
                 MethodNoExceptionCoverageFactory::new,
                 MethodNoExceptionCoverageTestFitness.class

@@ -350,7 +350,8 @@ public final class CaptureLogAnalyzer {
     }
 
 
-    private int[] restoreCodeFromLastPosTo(final CaptureLog log, final EvoTestCaseCodeGenerator generator, final int oid,
+    private int[] restoreCodeFromLastPosTo(final CaptureLog log, final EvoTestCaseCodeGenerator generator,
+                                          final int oid,
                                           final int end, final Set<Class<?>> blackList) {
         logger.debug("Restoring code from last pos");
 

@@ -383,8 +383,9 @@ public class GenericClassUtils {
      *     legacy exception: a class literal such as {@code LinkedList.class} is reified only to the raw
      *     {@code Class<LinkedList>}, never to {@code Class<LinkedList<String>>}, so Java itself has no
      *     syntax to obtain a fully concrete {@code Class<LinkedList<String>>} value from one. EvoSuite
-     *     still needs such a raw class literal to satisfy any instantiation of the same raw class, so a raw (type-parameter-missing) {@code inner} is contained whenever its class
-     *     equals the erasure of {@code outer}, regardless of {@code outer}'s own type arguments.</li>
+     *     still needs such a raw class literal to satisfy any instantiation of the same raw class, so a raw
+     *     (type-parameter-missing) {@code inner} is contained whenever its class equals the erasure of
+     *     {@code outer}, regardless of {@code outer}'s own type arguments.</li>
      * </ul>
      */
     private static boolean isContainedTypeArgument(Type inner, Type outer) {

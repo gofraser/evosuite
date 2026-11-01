@@ -60,7 +60,9 @@ public final class PrefixHash {
         return ofText(systemContent.toString());
     }
 
-    /** Lowercase hex SHA-256 of {@code text} ({@code null} treated as the empty string). */
+    /**
+     * Lowercase hex SHA-256 of {@code text} ({@code null} treated as the empty string).
+     */
     public static String ofText(String text) {
         String content = text == null ? "" : text;
         return hex(sha256().digest(content.getBytes(StandardCharsets.UTF_8)));
@@ -75,7 +77,9 @@ public final class PrefixHash {
         }
     }
 
-    /** Lowercase hex rendering of {@code data}. */
+    /**
+     * Lowercase hex rendering of {@code data}.
+     */
     public static String hex(byte[] data) {
         StringBuilder hex = new StringBuilder(data.length * 2);
         for (byte b : data) {

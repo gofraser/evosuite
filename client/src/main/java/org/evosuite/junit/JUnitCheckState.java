@@ -63,7 +63,9 @@ public final class JUnitCheckState {
      */
     private static volatile boolean incomplete = false;
 
-    /** Number of distinct give-up events recorded via {@link #recordIncomplete(String)}. */
+    /**
+     * Number of distinct give-up events recorded via {@link #recordIncomplete(String)}.
+     */
     private static volatile int incompleteRounds = 0;
 
     private JUnitCheckState() {

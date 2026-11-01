@@ -91,14 +91,18 @@ public final class PromptContextInfo {
                 clusterSummaryChars, metadata);
     }
 
-    /** This info with the SUT context fields of {@code sut}. */
+    /**
+     * This info with the SUT context fields of {@code sut}.
+     */
     public PromptContextInfo withSutContextOf(PromptContextInfo sut) {
         return new PromptContextInfo(sut.sutContextMode, sut.contextUnavailable, sut.contextTruncated,
                 sut.contextCommentsStripped, sut.contextSelectivelyTruncated, clusterSummaryTruncated,
                 clusterSummaryChars, dependencySummaryMetadata);
     }
 
-    /** This info with the dependency summary fields of {@code dependencies}. */
+    /**
+     * This info with the dependency summary fields of {@code dependencies}.
+     */
     public PromptContextInfo withDependencySummaryOf(PromptContextInfo dependencies) {
         return new PromptContextInfo(sutContextMode, contextUnavailable, contextTruncated,
                 contextCommentsStripped, contextSelectivelyTruncated, dependencies.clusterSummaryTruncated,
@@ -118,7 +122,9 @@ public final class PromptContextInfo {
         return contextUnavailable;
     }
 
-    /** True if the SUT context was truncated to fit within {@code LLM_CONTEXT_MAX_CHARS}. */
+    /**
+     * True if the SUT context was truncated to fit within {@code LLM_CONTEXT_MAX_CHARS}.
+     */
     public boolean isContextTruncated() {
         return contextTruncated;
     }

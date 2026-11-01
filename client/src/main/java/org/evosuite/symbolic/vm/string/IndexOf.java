@@ -63,7 +63,7 @@ public abstract class IndexOf extends SymbolicFunction {
      *
      * @param env the symbolic environment
      * @return the functions for int, String, (int, int) and (String, int)
-     * arguments
+     *     arguments
      */
     public static List<SymbolicFunction> indexOfFunctions(
             SymbolicEnvironment env) {
@@ -76,7 +76,7 @@ public abstract class IndexOf extends SymbolicFunction {
      *
      * @param env the symbolic environment
      * @return the functions for int, String, (int, int) and (String, int)
-     * arguments
+     *     arguments
      */
     public static List<SymbolicFunction> lastIndexOfFunctions(
             SymbolicEnvironment env) {

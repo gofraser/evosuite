@@ -130,7 +130,8 @@ public abstract class JUnitAnalyzer {
 
         while (iter.hasNext()) {
             if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
-                JUnitCheckState.recordIncomplete("ran out of time in the compile filter; remaining test(s) kept unchecked");
+                JUnitCheckState.recordIncomplete(
+                        "ran out of time in the compile filter; remaining test(s) kept unchecked");
                 break;
             }
             if (JUnitCheckState.isMemoryExhausted()) {
@@ -144,7 +145,8 @@ public abstract class JUnitAnalyzer {
                 logger.warn("Failed to create tmp dir");
                 // Infrastructure setup failure, not a judgment on the remaining test(s): they are
                 // kept unchecked, so record that the compile filter never actually ran on them.
-                JUnitCheckState.recordIncomplete("compile filter: failed to create tmp dir; remaining test(s) kept unchecked");
+                JUnitCheckState.recordIncomplete(
+                        "compile filter: failed to create tmp dir; remaining test(s) kept unchecked");
                 return;
             }
             logger.debug("Created tmp folder: " + dir.getAbsolutePath());
@@ -639,7 +641,8 @@ public abstract class JUnitAnalyzer {
             @Override
             Set<String> failed(Exception e) {
                 logger.warn("Order-sensitivity analysis failed: {}", e.getMessage());
-                JUnitCheckState.recordIncomplete("order-sensitivity analysis: unexpected exception during execution: " + e);
+                JUnitCheckState.recordIncomplete(
+                        "order-sensitivity analysis: unexpected exception during execution: " + e);
                 return Collections.singleton("execution-error");
             }
 

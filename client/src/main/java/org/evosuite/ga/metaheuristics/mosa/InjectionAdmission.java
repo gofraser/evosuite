@@ -89,13 +89,17 @@ final class InjectionAdmission {
 
         void removeUnusedVariables(TestChromosome chromosome);
 
-        /** {@code candidates} without the ones holding orphaned variable references. */
+        /**
+         * {@code candidates} without the ones holding orphaned variable references.
+         */
         List<TestChromosome> filterOrphans(List<TestChromosome> candidates, String origin);
 
         /** A fresh, mutable copy of the uncovered goals. */
         Set<TestFitnessFunction> uncoveredGoals();
 
-        /** Whether {@code chromosome} is within its species-incubation window. */
+        /**
+         * Whether {@code chromosome} is within its species-incubation window.
+         */
         boolean isIncubatorActive(TestChromosome chromosome);
     }
 
@@ -121,7 +125,9 @@ final class InjectionAdmission {
         int blendXoverTournamentAdmitted;
         int blendEvalsSpent;
 
-        /** Candidates drained from {@code source} in this generation. */
+        /**
+         * Candidates drained from {@code source} in this generation.
+         */
         int attemptsFrom(InjectionSource source) {
             Integer count = attemptsBySource.get(source);
             return count == null ? 0 : count;
@@ -344,7 +350,9 @@ final class InjectionAdmission {
         counts.attemptsBySource = attemptCounts;
     }
 
-    /** The source with the most candidates in {@code countsBySource}; the first one wins a tie, null when empty. */
+    /**
+     * The source with the most candidates in {@code countsBySource}; the first one wins a tie, null when empty.
+     */
     static InjectionSource dominantSource(Map<InjectionSource, Integer> countsBySource) {
         InjectionSource dominant = null;
         int dominantCount = 0;
@@ -960,7 +968,9 @@ final class InjectionAdmission {
         metadata.getTicket().evaluated(targetGoals.isEmpty() ? Double.NaN : candidate.getFitness(targetGoals.get(0)));
     }
 
-    /** Indexes the attribution of {@code drained} by candidate identity, skipping entries without one. */
+    /**
+     * Indexes the attribution of {@code drained} by candidate identity, skipping entries without one.
+     */
     private static Map<TestChromosome, InjectionAttemptMetadata> metadataByCandidate(
             List<AttributedCandidate> drained) {
         Map<TestChromosome, InjectionAttemptMetadata> byCandidate = new IdentityHashMap<>();

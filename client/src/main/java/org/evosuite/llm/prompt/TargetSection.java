@@ -42,7 +42,8 @@ public final class TargetSection {
     static final String TRUNCATION_MARKER = "// ... (truncated)";
     static final int INLINE_EXAMPLE_STATEMENTS = 8;
 
-    private TargetSection() {}
+    private TargetSection() {
+    }
 
     /**
      * Appends one complete block: the heading line, then the detail lines in
@@ -146,7 +147,10 @@ public final class TargetSection {
         return code.toString().trim();
     }
 
-    /** Whitespace-normalised code used to recognise the same test across copies; falls back to identity when rendering fails. */
+    /**
+     * Whitespace-normalised code used to recognise the same test across copies; falls back to identity
+     * when rendering fails.
+     */
     public static String canonicalCode(TestCase test) {
         if (test == null) {
             return "";
@@ -198,7 +202,10 @@ public final class TargetSection {
         return out.toString();
     }
 
-    /** Copies the literal delimited by {@code quote} starting at {@code start} verbatim into {@code out}; returns the index past its closing delimiter, or the input length when it is unterminated. */
+    /**
+     * Copies the literal delimited by {@code quote} starting at {@code start} verbatim into {@code out};
+     * returns the index past its closing delimiter, or the input length when it is unterminated.
+     */
     private static int copyLiteral(String code, int start, char quote, StringBuilder out) {
         int length = code.length();
         out.append(quote);

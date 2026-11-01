@@ -259,7 +259,8 @@ public final class CompilerClasspath {
         return repaired;
     }
 
-    private static List<String> sanitizeClasspathEntriesForCompiler(List<String> rawEntries, Set<String> seedBadBasenames) {
+    private static List<String> sanitizeClasspathEntriesForCompiler(List<String> rawEntries,
+            Set<String> seedBadBasenames) {
         List<String> normalizedEntries = new ArrayList<>();
         LinkedHashSet<String> seenEntries = new LinkedHashSet<>();
         LinkedHashSet<String> problematicBasenames = new LinkedHashSet<>();

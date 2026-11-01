@@ -52,7 +52,9 @@ public final class LlmPrivilegedThreads {
     private LlmPrivilegedThreads() {
     }
 
-    /** The name for an LLM background thread with the given role, e.g. {@code operator-1}. */
+    /**
+     * The name for an LLM background thread with the given role, e.g. {@code operator-1}.
+     */
     public static String threadName(String role) {
         return THREAD_NAME_PREFIX + role;
     }

@@ -2823,7 +2823,9 @@ public class TestCodeVisitor extends TestVisitor {
         return getSimpleTypeName(type);
     }
 
-    /** See {@link DeclaredType}: the type a constructor's variable is declared with. */
+    /**
+     * See {@link DeclaredType}: the type a constructor's variable is declared with.
+     */
     private String getConstructorDeclarationTypeName(ConstructorStatement statement) {
         DeclaredType declared = DeclaredType.of(statement, test);
         String constructorTypeName = declared.nameable

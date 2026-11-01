@@ -35,7 +35,9 @@ import java.util.List;
  */
 public final class LlmRequest {
 
-    /** {@link #getDeadlineNanos()} of a request without a deadline. */
+    /**
+     * {@link #getDeadlineNanos()} of a request without a deadline.
+     */
     public static final long NO_DEADLINE = PhaseDeadline.NONE;
 
     private final List<LlmMessage> messages;
@@ -89,7 +91,9 @@ public final class LlmRequest {
         this.attribution = attribution;
     }
 
-    /** A first-turn request for {@code prompt}'s messages, carrying its context metadata. */
+    /**
+     * A first-turn request for {@code prompt}'s messages, carrying its context metadata.
+     */
     public static LlmRequest of(PromptResult prompt, LlmFeature feature) {
         if (prompt == null) {
             throw new IllegalArgumentException("prompt must not be null");
@@ -98,7 +102,9 @@ public final class LlmRequest {
                 Collections.<String>emptyList(), NO_DEADLINE, PostProcessingAttribution.NONE);
     }
 
-    /** A first-turn request for {@code messages}, without prompt context metadata. */
+    /**
+     * A first-turn request for {@code messages}, without prompt context metadata.
+     */
     public static LlmRequest of(List<LlmMessage> messages, LlmFeature feature) {
         return new LlmRequest(messages == null ? Collections.<LlmMessage>emptyList() : messages,
                 feature, null, 1, false, Collections.<String>emptyList(), NO_DEADLINE, PostProcessingAttribution.NONE);
@@ -123,7 +129,9 @@ public final class LlmRequest {
                 expandedClasses, deadlineNanos, attribution);
     }
 
-    /** This request numbered as conversation turn {@code repairAttempt} (1 = the initial request). */
+    /**
+     * This request numbered as conversation turn {@code repairAttempt} (1 = the initial request).
+     */
     public LlmRequest withRepairAttempt(int repairAttempt) {
         return new LlmRequest(messages, feature, context, repairAttempt, expansionAttempted,
                 expandedClasses, deadlineNanos, attribution);

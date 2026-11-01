@@ -61,6 +61,8 @@ public class LenientMockAnswer implements Answer<Object> {
     }
 
     /**
+     * Creates a lenient mock answer for a mock at the given chain depth.
+     *
      * @param chain the number of mocks that the mock answering with this hangs off
      */
     protected LenientMockAnswer(int chain) {

@@ -34,7 +34,8 @@ public final class StringMultipleExpression extends AbstractMultipleExpression<S
 
     private static final long serialVersionUID = 7172041118401792672L;
 
-    public StringMultipleExpression(Expression<String> left, Operator op, Expression<?> right, ArrayList<Expression<?>> other, String con) {
+    public StringMultipleExpression(Expression<String> left, Operator op, Expression<?> right,
+            ArrayList<Expression<?>> other, String con) {
         super(con, left, op, right, other);
     }
 

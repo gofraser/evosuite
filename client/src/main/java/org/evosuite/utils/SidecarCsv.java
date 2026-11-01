@@ -28,23 +28,26 @@ import java.io.FileWriter;
 import java.io.IOException;
 
 /**
- * The conventions every per-run sidecar CSV shares: the file lives in a
- * report directory as {@code <prefix>_<sanitized target class>.csv}, and
- * free-text fields are quoted RFC-4180 style. Files are written in one go as a header line followed by one line per row. Kept in one place so the
- * sidecars written by different recorders stay byte-compatible for offline
- * joins on their shared columns (goal descriptions, ids).
+ * The conventions every per-run sidecar CSV shares: the file lives in a report directory as {@code <prefix>_<sanitized
+ * target class>.csv}, and free-text fields are quoted RFC-4180 style. Files are written in one go as a header line
+ * followed by one line per row. Kept in one place so the sidecars written by different recorders stay byte-compatible
+ * for offline joins on their shared columns (goal descriptions, ids).
  */
 public final class SidecarCsv {
 
     private SidecarCsv() {
     }
 
-    /** {@code <REPORT_DIR>/<prefix>[_<target class>].csv}. */
+    /**
+     * {@code <REPORT_DIR>/<prefix>[_<target class>].csv}.
+     */
     public static String path(String prefix) {
         return path(Properties.REPORT_DIR, prefix);
     }
 
-    /** {@code <dir>/<prefix>[_<target class>].csv}, with {@code dir} falling back to {@code REPORT_DIR} when empty. */
+    /**
+     * {@code <dir>/<prefix>[_<target class>].csv}, with {@code dir} falling back to {@code REPORT_DIR} when empty.
+     */
     public static String path(String dir, String prefix) {
         String directory = dir == null || dir.isEmpty() ? Properties.REPORT_DIR : dir;
         String tc = Properties.TARGET_CLASS;
@@ -52,12 +55,16 @@ public final class SidecarCsv {
         return directory + File.separator + prefix + suffix + ".csv";
     }
 
-    /** Replaces every character outside {@code [A-Za-z0-9_.$-]} so a class name is a safe file-name component. */
+    /**
+     * Replaces every character outside {@code [A-Za-z0-9_.$-]} so a class name is a safe file-name component.
+     */
     public static String sanitize(String s) {
         return s.replaceAll("[^A-Za-z0-9_.$-]", "_");
     }
 
-    /** Quotes {@code s} when it contains a comma, quote or line break; null becomes the empty field. */
+    /**
+     * Quotes {@code s} when it contains a comma, quote or line break; null becomes the empty field.
+     */
     public static String escape(String s) {
         if (s == null) {
             return "";

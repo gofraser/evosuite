@@ -62,7 +62,9 @@ public final class InjectionAttemptMetadata {
         return ticket;
     }
 
-    /** The attempt's id, {@code ""} when untracked. */
+    /**
+     * The attempt's id, {@code ""} when untracked.
+     */
     public String getAttemptId() {
         return ticket.getId();
     }

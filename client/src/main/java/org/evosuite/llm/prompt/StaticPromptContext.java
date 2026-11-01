@@ -46,11 +46,14 @@ import java.util.function.Supplier;
  */
 public final class StaticPromptContext {
 
-    /** Header of the dependency-summary section, rendered by {@link PromptBuilder}. */
+    /**
+     * Header of the dependency-summary section, rendered by {@link PromptBuilder}.
+     */
     public static final String DEPENDENCY_SECTION_HEADER =
             "Available dependency types (standard Java library classes may also be used freely):";
 
-    private static final ConcurrentMap<Map.Entry<PromptSettings, String>, DependencyEntry> DEPENDENCY_ENTRIES = new ConcurrentHashMap<>();
+    private static final ConcurrentMap<Map.Entry<PromptSettings, String>, DependencyEntry> DEPENDENCY_ENTRIES =
+            new ConcurrentHashMap<>();
 
     private StaticPromptContext() {
     }
@@ -120,7 +123,9 @@ public final class StaticPromptContext {
                     : Collections.unmodifiableSet(new TreeSet<>(clusterClassNamesAtRender));
         }
 
-        /** The rendered "Available dependency types..." block, or {@code null} if the summary was empty. */
+        /**
+         * The rendered "Available dependency types..." block, or {@code null} if the summary was empty.
+         */
         public String getSectionText() {
             return sectionText;
         }

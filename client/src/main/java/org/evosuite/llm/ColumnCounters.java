@@ -46,6 +46,8 @@ final class ColumnCounters<E extends Enum<E>> {
     private final Map<E, AtomicLong> counters;
 
     /**
+     * Creates the counters, one for each constant of the key type.
+     *
      * @param keyType       the enum to count
      * @param totalVariable the variable of the total, or null if the table has none
      * @param prefix        the start of the name of each constant's variable
@@ -110,7 +112,9 @@ final class ColumnCounters<E extends Enum<E>> {
         return total.get();
     }
 
-    /** Adds {@code count} to the counter of {@code key} and publishes its new value. */
+    /**
+     * Adds {@code count} to the counter of {@code key} and publishes its new value.
+     */
     void add(E key, long count) {
         AtomicLong counter = key == null ? null : counters.get(key);
         if (counter != null) {
@@ -118,7 +122,9 @@ final class ColumnCounters<E extends Enum<E>> {
         }
     }
 
-    /** Adds {@code count} to the total and publishes its new value. */
+    /**
+     * Adds {@code count} to the total and publishes its new value.
+     */
     void addToTotal(long count) {
         ClientServices.track(totalVariable, total.addAndGet(count));
     }

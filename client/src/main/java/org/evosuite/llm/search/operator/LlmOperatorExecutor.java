@@ -174,7 +174,9 @@ public final class LlmOperatorExecutor {
         return true;
     }
 
-    /** Registers {@code target} as its own attempt and tracks it as open; untracked without memory. */
+    /**
+     * Registers {@code target} as its own attempt and tracks it as open; untracked without memory.
+     */
     private AttemptTicket openTicket(OperatorTarget target) {
         AttemptTicket ticket = AttemptTicket.open(memory,
                 Collections.singletonList(target.toRepeatedInjectionTarget()), true);
@@ -231,7 +233,9 @@ public final class LlmOperatorExecutor {
         }
     }
 
-    /** Releases every attempt of {@code attribution} without recording a (mis-attributed) outcome. */
+    /**
+     * Releases every attempt of {@code attribution} without recording a (mis-attributed) outcome.
+     */
     private void release(OperatorBatchAttribution attribution) {
         for (AttemptTicket ticket : attribution.getTickets()) {
             openTickets.remove(ticket);
@@ -360,7 +364,9 @@ public final class LlmOperatorExecutor {
         return !shutDown && inFlight.get() < maxInFlight;
     }
 
-    public int getInFlight() { return inFlight.get(); }
+    public int getInFlight() {
+        return inFlight.get();
+    }
 
     /** Call once per generation; counts a generation during which at least one call was in flight. */
     public void tickGeneration() {
@@ -369,11 +375,25 @@ public final class LlmOperatorExecutor {
         }
     }
 
-    public long getDroppedBudget() { return droppedBudget.get(); }
-    public long getDroppedInFlight() { return droppedInFlight.get(); }
-    public long getDroppedTime() { return droppedTime.get(); }
-    public long getFailedCalls() { return failedCalls.get(); }
-    public long getInFlightGenerations() { return inFlightGenerations.get(); }
+    public long getDroppedBudget() {
+        return droppedBudget.get();
+    }
+
+    public long getDroppedInFlight() {
+        return droppedInFlight.get();
+    }
+
+    public long getDroppedTime() {
+        return droppedTime.get();
+    }
+
+    public long getFailedCalls() {
+        return failedCalls.get();
+    }
+
+    public long getInFlightGenerations() {
+        return inFlightGenerations.get();
+    }
 
     /**
      * Stops accepting work, cancels in-flight calls, and releases every attempt

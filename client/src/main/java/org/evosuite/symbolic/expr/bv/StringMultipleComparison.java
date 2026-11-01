@@ -34,7 +34,8 @@ public final class StringMultipleComparison extends AbstractMultipleExpression<L
 
     private static final long serialVersionUID = -3844726361666119758L;
 
-    public StringMultipleComparison(Expression<String> left, Operator op, Expression<?> right, ArrayList<Expression<?>> other, Long con) {
+    public StringMultipleComparison(Expression<String> left, Operator op, Expression<?> right,
+            ArrayList<Expression<?>> other, Long con) {
         super(con, left, op, right, other);
     }
 

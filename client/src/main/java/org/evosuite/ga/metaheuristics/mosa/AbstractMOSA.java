@@ -831,7 +831,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         }
     }
 
-    /** The standard mutation applied to a fresh clone of {@code parent}; unchanged clones are kept as such. */
+    /**
+     * The standard mutation applied to a fresh clone of {@code parent}; unchanged clones are kept as such.
+     */
     private TestChromosome standardMutationTwin(TestChromosome parent) {
         TestChromosome twin = parent.clone();
         this.clearCachedResults(twin);
@@ -1285,7 +1287,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         }
     }
 
-    /** The search state and operators {@link #injectionAdmission} works with. */
+    /**
+     * The search state and operators {@link #injectionAdmission} works with.
+     */
     private final class AdmissionHost implements InjectionAdmission.Host {
         @Override
         public List<TestChromosome> population() {

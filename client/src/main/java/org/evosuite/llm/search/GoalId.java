@@ -49,7 +49,9 @@ public final class GoalId {
     private GoalId() {
     }
 
-    /** The stable identifier for {@code goal}; see the class javadoc for the format. */
+    /**
+     * The stable identifier for {@code goal}; see the class javadoc for the format.
+     */
     public static String of(TestFitnessFunction goal) {
         if (goal == null) {
             return "";

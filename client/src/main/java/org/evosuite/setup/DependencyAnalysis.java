@@ -555,7 +555,8 @@ public class DependencyAnalysis {
         int analyzedClasses = TestCluster.getInstance().getAnalyzedClasses().size();
         int generators = TestCluster.getInstance().getGenerators().size();
         int modifiers = TestCluster.getInstance().getModifiers().size();
-        int methods = BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getNumMethods();
+        int methods = BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .getNumMethods();
         int branches = BranchPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                 .getBranchCounter();
         int lines = LinePool.getNumLines();

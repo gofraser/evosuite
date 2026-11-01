@@ -46,7 +46,9 @@ public final class BranchGoalView {
         this.context = context;
     }
 
-    /** The view of {@code goal}, or null when it is not a branch goal. */
+    /**
+     * The view of {@code goal}, or null when it is not a branch goal.
+     */
     public static BranchGoalView of(TestFitnessFunction goal) {
         if (goal instanceof BranchCoverageTestFitness) {
             BranchCoverageTestFitness f = (BranchCoverageTestFitness) goal;
@@ -63,7 +65,9 @@ public final class BranchGoalView {
         return null;
     }
 
-    /** True if {@code goal} is one of the four branch goal types. */
+    /**
+     * True if {@code goal} is one of the four branch goal types.
+     */
     public static boolean isBranchGoal(TestFitnessFunction goal) {
         return of(goal) != null;
     }

@@ -48,7 +48,9 @@ import java.util.Set;
  */
 public final class TargetedPromptFactory {
 
-    /** Method name the model is asked to use for target {@code i}; responses are mapped back by it. */
+    /**
+     * Method name the model is asked to use for target {@code i}; responses are mapped back by it.
+     */
     static final String TEST_METHOD_NAME_FORMAT = "test_target_%d";
     static final String TARGETS_HEADER = "Targets:";
     static final String TARGET_HEADING_FORMAT = "Target #%d: %s";
@@ -80,7 +82,9 @@ public final class TargetedPromptFactory {
                 ? new GoalDescriptionMapper() : goalDescriptionMapper;
     }
 
-    /** The method name target number {@code index} (1-based) is asked to produce. */
+    /**
+     * The method name target number {@code index} (1-based) is asked to produce.
+     */
     public static String testMethodName(int index) {
         return String.format(Locale.ROOT, TEST_METHOD_NAME_FORMAT, index);
     }
@@ -117,7 +121,8 @@ public final class TargetedPromptFactory {
             throw new IllegalArgumentException("target must not be null");
         }
         if (target.getKind() != OperatorTarget.Kind.MUTATION) {
-            throw new IllegalArgumentException("generate-for-target needs a single-parent target, got " + target.getKind());
+            throw new IllegalArgumentException(
+                    "generate-for-target needs a single-parent target, got " + target.getKind());
         }
         return build(Collections.singletonList(target), GENERATE_SENTENCE);
     }
@@ -201,7 +206,10 @@ public final class TargetedPromptFactory {
                 existingTests, actionHint, howToProceed);
     }
 
-    /** Adds one line naming what only {@code test} covers relative to {@code other}; nothing when the sets do not differ. */
+    /**
+     * Adds one line naming what only {@code test} covers relative to {@code other};
+     * nothing when the sets do not differ.
+     */
     private void complementarity(List<String> lines, String label, TestCase test, TestCase other) {
         Set<TestFitnessFunction> only = new LinkedHashSet<>(coveredGoals(test));
         only.removeAll(coveredGoals(other));

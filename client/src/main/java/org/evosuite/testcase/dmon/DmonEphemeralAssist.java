@@ -50,8 +50,8 @@ import java.util.Optional;
  * NullPointerException that DMoN can attribute to a missing dependency, this injects a
  * mock for it, re-executes the statement, and records every write it made so that
  * {@link #rollback(ExecutionResult)} can undo them once the execution ends.
- * <p>
- * One instance serves one execution; the rollback log is not shared.
+ *
+ * <p>One instance serves one execution; the rollback log is not shared.
  */
 public class DmonEphemeralAssist {
 
@@ -414,7 +414,9 @@ public class DmonEphemeralAssist {
         return null;
     }
 
-    /** Injects through a static setter, or through a setter of {@code receiver} if it is not null. */
+    /**
+     * Injects through a static setter, or through a setter of {@code receiver} if it is not null.
+     */
     private boolean tryEphemeralSetterInjection(Class<?> ownerClass, Object receiver, Class<?> dependencyType,
                                                 String fieldName) {
         boolean wantStatic = receiver == null;

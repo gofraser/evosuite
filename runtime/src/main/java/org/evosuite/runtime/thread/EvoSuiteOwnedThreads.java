@@ -50,7 +50,9 @@ public final class EvoSuiteOwnedThreads {
         OWNED.add(t);
     }
 
-    /** Returns whether {@code t} was previously {@link #register}ed. */
+    /**
+     * Returns whether {@code t} was previously {@link #register}ed.
+     */
     public static synchronized boolean isOwned(Thread t) {
         return OWNED.contains(t);
     }

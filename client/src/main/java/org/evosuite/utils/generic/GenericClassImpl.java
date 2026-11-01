@@ -1680,10 +1680,10 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
             });
 
     /**
-     * Clears {@link #SATISFIES_BOUNDARIES_CACHE}. Called from {@code ContextResetter.reset()} alongside the
-     * other per-run static caches (e.g. {@code CastClassManager.getInstance().clear()}): a reset installs a fresh class loader, so stale
-     * entries keyed on the old classes' {@code Type} strings would never be looked up again --
-     * but left uncleared they would grow unboundedly across runs sharing a JVM.
+     * Clears {@link #SATISFIES_BOUNDARIES_CACHE}. Called from {@code ContextResetter.reset()} alongside the other
+     * per-run static caches (e.g. {@code CastClassManager.getInstance().clear()}): a reset installs a fresh class
+     * loader, so stale entries keyed on the old classes' {@code Type} strings would never be looked up again -- but
+     * left uncleared they would grow unboundedly across runs sharing a JVM.
      */
     public static void clearSatisfiesBoundariesCache() {
         SATISFIES_BOUNDARIES_CACHE.clear();

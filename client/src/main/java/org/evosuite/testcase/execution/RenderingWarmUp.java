@@ -30,8 +30,8 @@ import org.evosuite.utils.StringUtil;
 /**
  * Initialises, on the calling thread, the EvoSuite-side helper classes that test-case rendering
  * ({@code TestCase#toCode()}) uses.
- * <p>
- * Rendering also runs on the test-execution thread (for example when logging a test after an
+ *
+ * <p>Rendering also runs on the test-execution thread (for example when logging a test after an
  * out-of-memory error), and that thread is {@code Thread.stop}-ed when a test exceeds its timeout.
  * If the stop lands while one of these classes is being initialised, the class is left in the
  * erroneous state and every later use fails with {@code NoClassDefFoundError} for the lifetime of

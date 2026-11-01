@@ -202,7 +202,8 @@ final class LegacyHelperRewriter {
                 Type ownerType = typeResolver.resolveType(((ClassExpr) firstArg).getType());
                 ownerClass = GenericUtils.rawClassOrObject(ownerType);
             } else {
-                callee = parser.handleExpression(parser.nextSyntheticName("__legacy_invoke_owner"), firstArg, Object.class);
+                callee = parser.handleExpression(parser.nextSyntheticName("__legacy_invoke_owner"),
+                        firstArg, Object.class);
                 if (callee == null) {
                     parser.addWarning(expr, DiagnosticKind.LEGACY_HELPER_CALL,
                             "Could not resolve receiver for legacy helper call: " + expr);
@@ -223,7 +224,8 @@ final class LegacyHelperRewriter {
 
             Method reflectedMethod = overloadResolver.resolveMethod(ownerClass, reflectedMethodName, argTypes);
             parser.retypeNullArguments(argRefs, reflectedMethod.getParameterTypes(), reflectedMethod.isVarArgs());
-            StatementParser.DiagnosticMessage mismatch = parser.validateArgumentTypes(argRefs, reflectedMethod.getParameterTypes(),
+            StatementParser.DiagnosticMessage mismatch = parser.validateArgumentTypes(argRefs,
+                    reflectedMethod.getParameterTypes(),
                     reflectedMethod.getGenericParameterTypes(), expr, reflectedMethod.isVarArgs());
             if (mismatch != null) {
                 parser.addWarning(expr, DiagnosticKind.LEGACY_HELPER_CALL,

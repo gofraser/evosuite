@@ -266,7 +266,7 @@ public abstract class Chromosome<T extends Chromosome<T>>
     }
 
     /**
-     * Create a deep copy of the chromosome
+     * Create a deep copy of the chromosome.
      *
      * @return a deep copy of this chromosome
      */

@@ -111,7 +111,9 @@ final class DeclaredType {
                 && isDeclaredTypeNameableInGeneratedTest(retval.getVariableClass());
     }
 
-    /** The declaration of the variable {@code statement} defines in {@code test}. */
+    /**
+     * The declaration of the variable {@code statement} defines in {@code test}.
+     */
     static DeclaredType of(ConstructorStatement statement, TestCase test) {
         return new DeclaredType(statement, test);
     }

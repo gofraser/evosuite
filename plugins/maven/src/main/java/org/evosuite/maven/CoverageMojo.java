@@ -57,7 +57,8 @@ public class CoverageMojo extends AbstractEvoSuiteMojo {
     @Parameter(property = "evosuite.globalTimeout", defaultValue = "120")
     private int globalTimeout;
 
-    @Parameter(property = "evosuite.outputVariables", defaultValue = "TARGET_CLASS,criterion,Coverage,Total_Goals,Covered_Goals"
+    @Parameter(property = "evosuite.outputVariables",
+            defaultValue = "TARGET_CLASS,criterion,Coverage,Total_Goals,Covered_Goals"
             + ",LineCoverage,LineCoverageBitString"
             + ",BranchCoverage,BranchCoverageBitString"
             + ",CBranchCoverage,CBranchCoverageBitString"

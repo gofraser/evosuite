@@ -235,7 +235,9 @@ final class ContainerSetup {
         return instance != null ? instance : staticFactoryResult(test, raw, position);
     }
 
-    /** An instance of {@code type} created by a no-argument constructor a test can call. */
+    /**
+     * An instance of {@code type} created by a no-argument constructor a test can call.
+     */
     private static VariableReference newInstance(TestCase test, Class<?> type, int position) {
         if (type.isInterface() || Modifier.isAbstract(type.getModifiers())) {
             return null;
@@ -254,7 +256,9 @@ final class ContainerSetup {
         return null;
     }
 
-    /** The result of the first public static no-argument method of {@code type} that returns it. */
+    /**
+     * The result of the first public static no-argument method of {@code type} that returns it.
+     */
     private static VariableReference staticFactoryResult(
             TestCase test, Class<?> type, int position) {
         List<Method> factories = new ArrayList<>();
@@ -279,7 +283,9 @@ final class ContainerSetup {
                 position);
     }
 
-    /** Make the key of an existing {@code put} a string literal inserted just before the call. */
+    /**
+     * Make the key of an existing {@code put} a string literal inserted just before the call.
+     */
     static VariableReference ensureStringMapKey(TestCase test, VariableReference mutationResult)
             throws ConstructionFailedException {
         MethodStatement mutation =

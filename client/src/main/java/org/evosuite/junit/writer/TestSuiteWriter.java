@@ -215,7 +215,8 @@ public class TestSuiteWriter implements Opcodes {
         // When the writer is invoked after a post-processing failure the JVM may already be near
         // OOM, and re-executing more tests here can push it over the edge.
         PhaseMemoryGuard memoryGuard =
-                new PhaseMemoryGuard(this::freeHeapBytes, this::collectGarbage, PhaseMemoryGuard.defaultThresholdBytes());
+                new PhaseMemoryGuard(this::freeHeapBytes, this::collectGarbage,
+                        PhaseMemoryGuard.defaultThresholdBytes());
         for (TestCase test : testCases) {
             boolean budgetExhausted = !TimeController.getInstance().hasTimeToExecuteATestCase();
             if (!budgetExhausted && !memoryGuard.isExhaustedAlready() && memoryGuard.isExhausted()) {

@@ -68,35 +68,6 @@ public class AssignmentStatement extends AbstractStatement {
     }
 
     /**
-     * Refuses to let an assignment statement target a final field.
-     *
-     * <p>
-     * A direct write to a final field is never legal Java, whether or not EvoSuite's
-     * instrumentation has stripped {@code ACC_FINAL} from the bytecode to support the
-     * bytecode-level {@code __STATIC_RESET()} static-state machinery: that machinery
-     * never has to compile as Java source, but a generated test statement does. This is
-     * the single choke point for statement construction: {@link StatementFactory} and
-     * DMoN's field selectors ({@code DmonInjectionDiscovery},
-     * {@code DmonPromotionOperator}) already screen their own generation paths before
-     * doing the (possibly expensive) work of building the callee/value, but several
-     * other callers (test carving, symbolic-execution test building, the test parser,
-     * object-construction synthesis) construct {@code AssignmentStatement}s directly
-     * and have no such pre-check, so this backstop still matters.
-     * </p>
-     *
-     * <p>
-     * Also reused by {@link #setRetval(VariableReference)}, which repoints an
-     * already-constructed statement's target and so needs the identical check: here
-     * {@code retval} is unambiguously the assignment target (unlike, say,
-     * {@code FieldStatement}'s retval, which is a freshly declared local that merely
-     * holds the value read from a field), so guarding it narrowly in this subclass is
-     * safe without touching {@link AbstractStatement#setRetval}, which other statement
-     * types also use and whose retval does not always mean "assignment target".
-     * </p>
-     *
-     * @param target the statement's assignment target
-     */
-    /**
      * Whether {@code value} is a null that would be written into the primitive {@code target}.
      * Such a write cannot be compiled ("&lt;nulltype&gt; cannot be converted to boolean") and
      * fails at run time (Field.set of null into a primitive field throws), so no assignment
@@ -139,6 +110,35 @@ public class AssignmentStatement extends AbstractStatement {
         }
     }
 
+    /**
+     * Refuses to let an assignment statement target a final field.
+     *
+     * <p>
+     * A direct write to a final field is never legal Java, whether or not EvoSuite's
+     * instrumentation has stripped {@code ACC_FINAL} from the bytecode to support the
+     * bytecode-level {@code __STATIC_RESET()} static-state machinery: that machinery
+     * never has to compile as Java source, but a generated test statement does. This is
+     * the single choke point for statement construction: {@link StatementFactory} and
+     * DMoN's field selectors ({@code DmonInjectionDiscovery},
+     * {@code DmonPromotionOperator}) already screen their own generation paths before
+     * doing the (possibly expensive) work of building the callee/value, but several
+     * other callers (test carving, symbolic-execution test building, the test parser,
+     * object-construction synthesis) construct {@code AssignmentStatement}s directly
+     * and have no such pre-check, so this backstop still matters.
+     * </p>
+     *
+     * <p>
+     * Also reused by {@link #setRetval(VariableReference)}, which repoints an
+     * already-constructed statement's target and so needs the identical check: here
+     * {@code retval} is unambiguously the assignment target (unlike, say,
+     * {@code FieldStatement}'s retval, which is a freshly declared local that merely
+     * holds the value read from a field), so guarding it narrowly in this subclass is
+     * safe without touching {@link AbstractStatement#setRetval}, which other statement
+     * types also use and whose retval does not always mean "assignment target".
+     * </p>
+     *
+     * @param target the statement's assignment target
+     */
     private static void rejectFinalFieldTarget(VariableReference target) {
         GenericField field = finalFieldTarget(target);
         if (field == null) {

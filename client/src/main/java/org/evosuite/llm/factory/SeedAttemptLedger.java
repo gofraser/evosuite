@@ -78,7 +78,9 @@ final class SeedAttemptLedger {
 
     private final Map<TestChromosome, Pending> pending = new IdentityHashMap<>();
 
-    /** Keeps {@code ticket} open until {@code test} has been evaluated. */
+    /**
+     * Keeps {@code ticket} open until {@code test} has been evaluated.
+     */
     synchronized void open(TestChromosome test, AttemptTicket ticket, TestFitnessFunction goal, long generation) {
         expire(generation);
         pending.put(test, new Pending(ticket, goal, generation));

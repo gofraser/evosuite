@@ -70,7 +70,9 @@ public class TestClusterUtils {
                     "jdk.jfr.internal."
             ));
     private static final Map<Class<?>, Set<Field>> accessibleFieldCache = new LinkedHashMap<>();
-    /** The test package {@link #accessibleFieldCache} was computed for. */
+    /**
+     * The test package {@link #accessibleFieldCache} was computed for.
+     */
     private static String accessibleFieldCachePrefix;
     private static final Map<Class<?>, Set<Method>> methodCache = new LinkedHashMap<>();
 

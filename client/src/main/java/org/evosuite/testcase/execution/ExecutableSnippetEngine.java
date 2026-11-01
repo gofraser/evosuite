@@ -221,7 +221,9 @@ public final class ExecutableSnippetEngine {
         private final boolean infrastructureFailure;
         private final String compilerDiagnostics;
 
-        /** The compiler rejected the snippet; {@code compilerDiagnostics} is its output, possibly empty. */
+        /**
+         * The compiler rejected the snippet; {@code compilerDiagnostics} is its output, possibly empty.
+         */
         public SnippetCompilationException(String message, String compilerDiagnostics) {
             super(message);
             this.infrastructureFailure = false;
@@ -1389,7 +1391,9 @@ public final class ExecutableSnippetEngine {
             this.collidingSimpleNames = collidingSimpleNames;
         }
 
-        /** Registers the first group of every match of {@code pattern} in {@code text}. */
+        /**
+         * Registers the first group of every match of {@code pattern} in {@code text}.
+         */
         private void scan(String text, Pattern pattern) {
             Matcher matcher = pattern.matcher(text);
             while (matcher.find()) {

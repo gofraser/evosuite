@@ -92,7 +92,9 @@ public class TestRunnable implements Callable<ExecutionResult> {
      */
     private final AtomicBoolean streamsHandedBack = new AtomicBoolean(true);
 
-    /** The thread currently inside {@link #call()}, or null; guarded by {@code this}. */
+    /**
+     * The thread currently inside {@link #call()}, or null; guarded by {@code this}.
+     */
     private Thread worker;
 
     /**
@@ -683,6 +685,8 @@ public class TestRunnable implements Callable<ExecutionResult> {
     }
 
     /**
+     * Tells whether the thread waiting for this run timed out, so that its result is discarded.
+     *
      * @return true if the thread waiting for this run timed out and its result is discarded
      */
     public boolean isResultDiscarded() {

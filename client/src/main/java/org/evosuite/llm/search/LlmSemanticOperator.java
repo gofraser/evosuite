@@ -56,10 +56,14 @@ public class LlmSemanticOperator {
     private final LlmFeature feature;
     private final TargetedPromptFactory promptFactory;
 
-    /** Seconds the search has left, negative for no limit; bounds {@link #complete(PromptResult, int)}. */
+    /**
+     * Seconds the search has left, negative for no limit; bounds {@link #complete(PromptResult, int)}.
+     */
     private volatile LongSupplier remainingSearchSeconds = () -> -1L;
 
-    /** The loop of {@link #complete(PromptResult, int)}; see {@link #repairLoop()}. */
+    /**
+     * The loop of {@link #complete(PromptResult, int)}; see {@link #repairLoop()}.
+     */
     private final Supplier<TestRepairLoop> repairLoop =
             lazily(() -> newRepairLoop(true, Properties.LLM_OPERATOR_REPAIR_ATTEMPTS));
 
@@ -155,7 +159,9 @@ public class LlmSemanticOperator {
         return promptFactory.build(targets);
     }
 
-    /** The only {@link OperatorTarget.Kind} this operator accepts. */
+    /**
+     * The only {@link OperatorTarget.Kind} this operator accepts.
+     */
     public OperatorTarget.Kind kind() {
         return kind;
     }

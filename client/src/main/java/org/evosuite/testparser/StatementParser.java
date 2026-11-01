@@ -1333,14 +1333,16 @@ public class StatementParser {
                                 HelperInliner.inlineHelperKey(methodName, expr.getArguments().size()));
                         if (inlineHelper != null) {
                             Expression inlinedReturn =
-                                    helperInliner.instantiateInlineHelperReturn(inlineHelper, expr.getArguments(), expr);
+                                    helperInliner.instantiateInlineHelperReturn(inlineHelper, expr.getArguments(),
+                                            expr);
                             if (inlinedReturn != null) {
                                 Type helperType = (declaredType == null) ? Object.class : declaredType;
                                 return handleExpression("__inlinedHelper" + syntheticVarCounter++,
                                         inlinedReturn, helperType);
                             }
                             Expression inlinedSideEffect =
-                                    helperInliner.instantiateInlineHelperExpression(inlineHelper, expr.getArguments(), expr);
+                                    helperInliner.instantiateInlineHelperExpression(inlineHelper, expr.getArguments(),
+                                            expr);
                             if (inlinedSideEffect != null && HelperInliner.isVoidContext(declaredType, targetVarName)) {
                                 handleExpressionStatement(inlinedSideEffect);
                                 return null;

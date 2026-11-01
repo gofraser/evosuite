@@ -410,8 +410,7 @@ public class SimpleMutationAssertionGenerator extends AssertionGenerator {
         List<Mutation> executedMutants = new ArrayList<>();
 
         for (Integer mutationId : origResult.getTrace().getTouchedMutants()) {
-            if (!mutants.containsKey(mutationId)) {
-            } else {
+            if (mutants.containsKey(mutationId)) {
                 executedMutants.add(mutants.get(mutationId));
             }
         }

@@ -58,6 +58,8 @@ final class TimeoutGuardedRunner implements AutoCloseable {
     private volatile ExecutorService executorService;
 
     /**
+     * Creates a runner whose guarded calls run on executors from the given factory.
+     *
      * @param executorFactory    creates the executor the calls run on, now and after each replacement
      * @param onExecutorReplaced runs after a stuck worker forced the executor to be replaced
      */

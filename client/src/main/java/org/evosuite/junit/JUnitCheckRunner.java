@@ -203,7 +203,8 @@ final class JUnitCheckRunner {
             // Same reasoning as the InterruptedException branch above: the result is synthesized,
             // not observed.
             gaveUp = true;
-            JUnitCheckState.recordIncomplete("JUnit check runner failed unexpectedly while awaiting its result: " + cause);
+            JUnitCheckState.recordIncomplete(
+                    "JUnit check runner failed unexpectedly while awaiting its result: " + cause);
             return JUnitResult.allFailed(testClasses.length, cause);
         } finally {
             abandonRunnerLeftRunning(future, progress, runnerThread.get(), gaveUp);

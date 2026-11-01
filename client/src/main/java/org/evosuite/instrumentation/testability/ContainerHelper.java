@@ -55,8 +55,8 @@ public class ContainerHelper {
 
     /**
      * Helper function that is called instead of Collection.contains.
-     * <p>
-     * The sign of the result is always the outcome of the real {@code contains} call, so that
+     *
+     * <p>The sign of the result is always the outcome of the real {@code contains} call, so that
      * the instrumented class behaves exactly as it does without instrumentation: containers
      * that do not decide membership with a linear {@code equals} scan (a {@code TreeSet}
      * compares, a {@code HashSet} hashes, a {@code SetUniqueList} delegates) keep throwing what

@@ -65,7 +65,6 @@ final class RepairConversation {
      * instructions even when later turns surface different errors.
      */
     private final Set<String> poisonedClasses = new LinkedHashSet<>();
-    /** Hint-id -> last repair attempt where it was emitted, for cooldown/dedup. */
     /**
      * Access-violation tracking keys ("memberName:declaringClass") accumulated
      * across repair attempts. Used to detect recurrent inaccessible-member
@@ -113,7 +112,9 @@ final class RepairConversation {
         return previousError;
     }
 
-    /** Records that {@code error} was sent for repair and {@code repairedResponse} came back. */
+    /**
+     * Records that {@code error} was sent for repair and {@code repairedResponse} came back.
+     */
     void advance(String error, String repairedResponse) {
         previousError = error;
         response = repairedResponse;

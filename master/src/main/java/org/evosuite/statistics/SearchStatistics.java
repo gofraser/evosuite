@@ -985,7 +985,8 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
      */
     private void initFactories() {
         variableFactories.put(RuntimeVariable.Length.name(),
-                ChromosomeOutputVariableFactory.of(RuntimeVariable.Length, TestSuiteChromosome::totalLengthOfTestCases));
+                ChromosomeOutputVariableFactory.of(RuntimeVariable.Length,
+                        TestSuiteChromosome::totalLengthOfTestCases));
         variableFactories.put(RuntimeVariable.Size.name(),
                 ChromosomeOutputVariableFactory.of(RuntimeVariable.Size, TestSuiteChromosome::size));
         variableFactories.put(RuntimeVariable.Coverage.name(),

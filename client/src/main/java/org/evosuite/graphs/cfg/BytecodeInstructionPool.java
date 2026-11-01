@@ -542,7 +542,8 @@ public class BytecodeInstructionPool {
      * @param lineNumber line number
      * @return first instruction at line number, or null
      */
-    public synchronized BytecodeInstruction getFirstInstructionAtLineNumber(String className, String methodName, int lineNumber) {
+    public synchronized BytecodeInstruction getFirstInstructionAtLineNumber(String className, String methodName,
+            int lineNumber) {
         if (instructionMap.get(className) == null) {
             return null;
         }

@@ -940,7 +940,7 @@ class CastPolicy {
         }
         try {
             for (Class<?> current = calleeClass; current != null && current != declaring;
-                 current = current.getSuperclass()) {
+                    current = current.getSuperclass()) {
                 Method[] declared = current.getDeclaredMethods();
                 for (Method candidate : declared) {
                     if (candidate.isBridge() && candidate.getName().equals(method.getName())
@@ -1225,7 +1225,9 @@ class CastPolicy {
         return declaredVariableType(statement.getTestCase(), statement.getCallee());
     }
 
-    /** See {@link #declaredReceiverType}: the type javac sees for a variable. */
+    /**
+     * See {@link #declaredReceiverType}: the type javac sees for a variable.
+     */
     Type declaredVariableType(TestCase testCase, VariableReference callee) {
         DeclaredType declared = host.declaredType(testCase, callee);
         // An inner class whose model owner disagrees with the enclosing instance is declared
@@ -1238,7 +1240,9 @@ class CastPolicy {
         return callee.getType();
     }
 
-    /** Whether {@code type} is a non-static member of a class with type parameters, at any depth. */
+    /**
+     * Whether {@code type} is a non-static member of a class with type parameters, at any depth.
+     */
     private static boolean isInnerClassOfGenericClass(Class<?> type) {
         Class<?> current = type;
         while (current.isMemberClass() && !Modifier.isStatic(current.getModifiers())) {
@@ -1554,7 +1558,9 @@ class CastPolicy {
                 && !ClassUtils.isAssignable(field.getType(), targetClass, true);
     }
 
-    /** {@link #isFieldReadErasedByRawReceiver} for a field reference used as a value. */
+    /**
+     * {@link #isFieldReadErasedByRawReceiver} for a field reference used as a value.
+     */
     boolean isFieldReferenceErasedByRawReceiver(VariableReference var, Class<?> targetClass) {
         return var instanceof FieldReference
                 && isFieldReadErasedByRawReceiver(((FieldReference) var).getField().getField(),
@@ -1673,7 +1679,9 @@ class CastPolicy {
         return parameterizedCastIsInconvertible(targetType, value.getType(), value.getVariableClass());
     }
 
-    /** See {@link #parameterizedCastIsInconvertible(Type, VariableReference)}. */
+    /**
+     * See {@link #parameterizedCastIsInconvertible(Type, VariableReference)}.
+     */
     boolean parameterizedCastIsInconvertible(Type targetType, Type valueType, Class<?> valueClass) {
         if (!(targetType instanceof ParameterizedType)) {
             return false;

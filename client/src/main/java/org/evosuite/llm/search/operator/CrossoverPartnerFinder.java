@@ -62,7 +62,9 @@ final class CrossoverPartnerFinder {
         return newGoals < Properties.LLM_OPERATOR_PARTNER_MIN_NEW_GOALS ? -1 : newGoals;
     }
 
-    /** The eligible partners for {@code parent}; see {@link #newGoalsIfEligible}. */
+    /**
+     * The eligible partners for {@code parent}; see {@link #newGoalsIfEligible}.
+     */
     static List<TestChromosome> eligible(List<TestChromosome> population, TestChromosome parent,
                                          TestFitnessFunction goal, double best) {
         Set<TestFitnessFunction> parentCovered = parent.getTestCase().getCoveredGoals();
@@ -75,7 +77,10 @@ final class CrossoverPartnerFinder {
         return result;
     }
 
-    /** Among the eligible candidates, the one adding the most goals over the parent (ties broken by smaller distance), or null. */
+    /**
+     * Among the eligible candidates, the one adding the most goals over the parent (ties broken by smaller
+     * distance), or null.
+     */
     static TestChromosome directed(List<TestChromosome> population, TestChromosome parent,
                                    TestFitnessFunction goal, double best) {
         Set<TestFitnessFunction> parentCovered = parent.getTestCase().getCoveredGoals();

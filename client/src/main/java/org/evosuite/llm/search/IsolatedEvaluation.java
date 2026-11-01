@@ -63,7 +63,9 @@ public final class IsolatedEvaluation {
         }
     }
 
-    /** The cached distance of {@code chromosome} to {@code goal}, or NaN when it was not evaluated for it. */
+    /**
+     * The cached distance of {@code chromosome} to {@code goal}, or NaN when it was not evaluated for it.
+     */
     public static double distance(TestChromosome chromosome, TestFitnessFunction goal) {
         if (chromosome == null || goal == null) {
             return Double.NaN;

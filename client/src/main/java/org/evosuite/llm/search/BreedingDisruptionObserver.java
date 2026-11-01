@@ -66,8 +66,10 @@ public class BreedingDisruptionObserver {
      * @param attemptResult   LLM operator attempt result
      * @param crossoverApplied whether any crossover was applied
      * @param generation      current generation number
-     * @param postCrossoverProbe isolated probe of the offspring after crossover ({@link IsolatedProbe#NONE} if not probed)
-     * @param probe           isolated view of the semantic result and its twin (never null; {@link SemanticProbeResult#NONE} if none)
+     * @param postCrossoverProbe isolated probe of the offspring after crossover ({@link IsolatedProbe#NONE} if not
+     *                           probed)
+     * @param probe           isolated view of the semantic result and its twin (never null; {@link
+     *                        SemanticProbeResult#NONE} if none)
      */
     public void recordCrossover(TestChromosome offspring,
                                 TestChromosome parent1,
@@ -152,8 +154,10 @@ public class BreedingDisruptionObserver {
      * @param attemptResult                LLM operator attempt result
      * @param accepted                     true if offspring was changed and added to population
      * @param generation                   current generation number
-     * @param postCrossoverProbe           isolated probe of the offspring after crossover ({@link IsolatedProbe#NONE} if not probed)
-     * @param probe                        isolated view of the semantic result and its twin (never null; {@link SemanticProbeResult#NONE} if none)
+     * @param postCrossoverProbe           isolated probe of the offspring after crossover ({@link IsolatedProbe#NONE}
+     *                                     if not probed)
+     * @param probe                        isolated view of the semantic result and its twin (never null; {@link
+     *                                     SemanticProbeResult#NONE} if none)
      */
     public void recordMutation(TestChromosome offspring,
                                TestChromosome parent,

@@ -43,6 +43,8 @@ public final class SyncTargetPlan {
     private final int generation;
 
     /**
+     * Creates a plan that keeps one target per parent.
+     *
      * @param targets one target per parent; the selector already caps one per
      *                parent, but if two share a parent regardless, the first
      *                one encountered is kept.
@@ -51,7 +53,9 @@ public final class SyncTargetPlan {
         this(targets, -1);
     }
 
-    /** Same as {@link #SyncTargetPlan(List)}, tagged with the generation it was built for. */
+    /**
+     * Same as {@link #SyncTargetPlan(List)}, tagged with the generation it was built for.
+     */
     public SyncTargetPlan(List<OperatorTarget> targets, int generation) {
         this.generation = generation;
         this.byParent = new IdentityHashMap<>();
@@ -62,7 +66,9 @@ public final class SyncTargetPlan {
         }
     }
 
-    /** The generation this plan's targets were selected for; {@code -1} when not tracked. */
+    /**
+     * The generation this plan's targets were selected for; {@code -1} when not tracked.
+     */
     public int getGeneration() {
         return generation;
     }

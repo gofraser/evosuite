@@ -75,7 +75,9 @@ final class OperatorBatchAttribution {
         return snapshots.size();
     }
 
-    /** Per-target snapshot at {@code index} (0-based), in the order targets were added. */
+    /**
+     * Per-target snapshot at {@code index} (0-based), in the order targets were added.
+     */
     TargetSnapshot snapshot(int index) {
         return snapshots.get(index);
     }

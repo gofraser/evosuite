@@ -72,7 +72,10 @@ public final class SemanticProbeResult {
         return new SemanticProbeResult(IsolatedProbe.of(semanticSnapshot), IsolatedProbe.failed(), false, goal);
     }
 
-    /** The semantic offspring as evaluated in isolation, or null when none was taken; reusable as the post-crossover probe. */
+    /**
+     * The semantic offspring as evaluated in isolation, or null when none was taken.
+     * It is reusable as the post-crossover probe.
+     */
     public TestChromosome getSemanticSnapshot() {
         return semantic.getSnapshot();
     }

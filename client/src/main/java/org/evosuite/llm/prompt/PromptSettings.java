@@ -99,12 +99,16 @@ public final class PromptSettings {
         this.promptTechnique = b.promptTechnique;
     }
 
-    /** Snapshots the current values of the prompt and context settings in {@link Properties}. */
+    /**
+     * Snapshots the current values of the prompt and context settings in {@link Properties}.
+     */
     public static PromptSettings fromProperties() {
         return builderFromProperties().build();
     }
 
-    /** A builder pre-filled with the current values in {@link Properties}, for varying one setting. */
+    /**
+     * A builder pre-filled with the current values in {@link Properties}, for varying one setting.
+     */
     public static Builder builderFromProperties() {
         Builder b = new Builder();
         b.sutContextMode = Properties.LLM_SUT_CONTEXT_MODE;
@@ -293,7 +297,9 @@ public final class PromptSettings {
                 promptTechnique);
     }
 
-    /** Fluent builder; start from {@link #builderFromProperties()}. */
+    /**
+     * Fluent builder; start from {@link #builderFromProperties()}.
+     */
     public static final class Builder {
         private LlmSutContextMode sutContextMode;
         private int contextMaxChars;

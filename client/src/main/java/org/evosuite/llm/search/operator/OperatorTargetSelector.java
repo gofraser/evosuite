@@ -89,7 +89,8 @@ public class OperatorTargetSelector {
     /** Picks a crossover partner for a given (population, parent, goal, best) tuple. */
     @FunctionalInterface
     private interface PartnerPicker {
-        TestChromosome pick(List<TestChromosome> population, TestChromosome parent, TestFitnessFunction goal, double best);
+        TestChromosome pick(List<TestChromosome> population, TestChromosome parent, TestFitnessFunction goal,
+                double best);
     }
 
     private final RepeatedInjectionMemory memory;
@@ -266,7 +267,10 @@ public class OperatorTargetSelector {
         return target;
     }
 
-    /** Sorts by priority desc then distance asc (stable, so encounter order breaks remaining ties), then applies {@link #capOnePerParent}. */
+    /**
+     * Sorts by priority desc then distance asc (stable, so encounter order breaks remaining ties), then applies {@link
+     * #capOnePerParent}.
+     */
     private List<OperatorTarget> rankAndTrim(List<OperatorTarget> candidates, int k) {
         List<OperatorTarget> ranked = new ArrayList<>(candidates);
         ranked.sort((a, b) -> {
@@ -276,7 +280,10 @@ public class OperatorTargetSelector {
         return capOnePerParent(ranked, k);
     }
 
-    /** Keeps at most one target per parent, in iteration order, so a single dominant individual cannot crowd out every other target in the same batch. */
+    /**
+     * Keeps at most one target per parent, in iteration order, so a single dominant individual cannot crowd out
+     * every other target in the same batch.
+     */
     private static List<OperatorTarget> capOnePerParent(List<OperatorTarget> candidates, int k) {
         List<OperatorTarget> result = new ArrayList<>();
         Set<TestChromosome> usedParents = Collections.newSetFromMap(new IdentityHashMap<>());

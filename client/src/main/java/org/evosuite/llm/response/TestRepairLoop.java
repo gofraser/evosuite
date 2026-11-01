@@ -112,7 +112,9 @@ public class TestRepairLoop {
     private final TestExecutor testExecutor;
     private final int maxAttempts;
     private final String systemPrompt;
-    /** The dependency summary, built on first use; see {@link #sutContextSummary()}. */
+    /**
+     * The dependency summary, built on first use; see {@link #sutContextSummary()}.
+     */
     private final Supplier<String> sutContextSummary;
     private final RepairOptions repairOptions;
     private final ExecutionFailureFormatter failureFormatter;
@@ -334,19 +336,25 @@ public class TestRepairLoop {
         return sutContextSummary.get();
     }
 
-    /** Returns the {@link RepairOptions} this loop was configured with. */
+    /**
+     * Returns the {@link RepairOptions} this loop was configured with.
+     */
     public RepairOptions getRepairOptions() {
         return repairOptions;
     }
 
-    /** Parses and repairs a response to {@code prompt}, which also supplies the starting conversation. */
+    /**
+     * Parses and repairs a response to {@code prompt}, which also supplies the starting conversation.
+     */
     public RepairResult attemptParse(String llmResponse,
                                      PromptResult prompt,
                                      LlmFeature feature) {
         return attemptParse(llmResponse, prompt, feature, NO_REPAIR_DEADLINE);
     }
 
-    /** Deadline-aware variant of {@link #attemptParse(String, PromptResult, LlmFeature)}. */
+    /**
+     * Deadline-aware variant of {@link #attemptParse(String, PromptResult, LlmFeature)}.
+     */
     public RepairResult attemptParse(String llmResponse,
                                      PromptResult prompt,
                                      LlmFeature feature,
@@ -718,8 +726,6 @@ public class TestRepairLoop {
         }
         return sb.toString();
     }
-
-    /** Runs a salvage candidate through the injected executor; null when it could not be executed. */
 
     /**
      * Build a repair prompt body that tells the LLM about every test in the batch:
@@ -1246,7 +1252,9 @@ public class TestRepairLoop {
         PARSE_COMPILE_WORKER.setForTesting(executor);
     }
 
-    /** Test-only seam: see {@link #testClusterSupplier}. */
+    /**
+     * Test-only seam: see {@link #testClusterSupplier}.
+     */
     void setTestClusterSupplierForTesting(Supplier<TestCluster> supplier) {
         this.testClusterSupplier = supplier == null ? TestCluster::getInstance : supplier;
     }
@@ -1339,7 +1347,9 @@ public class TestRepairLoop {
         return override != null ? override : ToolProvider.getSystemJavaCompiler();
     }
 
-    /** Test-only seam: the compiler the parse-phase probe runs, {@code null} for the system one. */
+    /**
+     * Test-only seam: the compiler the parse-phase probe runs, {@code null} for the system one.
+     */
     static void setParseCompileCompilerForTesting(JavaCompiler compiler) {
         parseCompileCompilerForTesting = compiler;
     }

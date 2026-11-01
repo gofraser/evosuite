@@ -43,7 +43,9 @@ public final class QueryResult {
         return text;
     }
 
-    /** The usage of the call that produced {@link #getText()}, as one value shared with the response mapping. */
+    /**
+     * The usage of the call that produced {@link #getText()}, as one value shared with the response mapping.
+     */
     public TargetedResponse.CallUsage getUsage() {
         return usage;
     }

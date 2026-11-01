@@ -241,7 +241,7 @@ public abstract class Append extends SymbolicFunction {
      *
      * @param env the symbolic environment
      * @return the functions for boolean, char, double, float, int, long,
-     * Object and String arguments
+     *     Object and String arguments
      */
     public static List<SymbolicFunction> stringBuilderFunctions(
             SymbolicEnvironment env) {
@@ -274,7 +274,7 @@ public abstract class Append extends SymbolicFunction {
      *
      * @param env the symbolic environment
      * @return the functions for boolean, char, int, long, float, double and
-     * String arguments
+     *     String arguments
      */
     public static List<SymbolicFunction> stringBufferFunctions(
             SymbolicEnvironment env) {

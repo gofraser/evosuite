@@ -42,6 +42,8 @@ public abstract class TransformingClassLoader extends ClassLoader {
     private final ClassLoader delegate;
 
     /**
+     * Creates a transforming class loader that delegates the classes it does not transform.
+     *
      * @param parent   the parent class loader
      * @param delegate the class loader that loads the classes this loader does not transform
      */

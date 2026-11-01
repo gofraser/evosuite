@@ -43,7 +43,9 @@ public class Sandbox {
      */
     private static final boolean SECURITY_MANAGER_SUPPORTED;
 
-    /** Returned by {@link #securityManagerUnavailable} when the Java version cannot be parsed. */
+    /**
+     * Returned by {@link #securityManagerUnavailable} when the Java version cannot be parsed.
+     */
     static final String UNKNOWN_VERSION = "unknown Java version";
 
     static {

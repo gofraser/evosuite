@@ -43,7 +43,9 @@ public class LoopCounter {
 
     private Object delegate;
 
-    /** {@code checkLoop(int)} of the delegate, looked up once because it is called on every loop back-edge. */
+    /**
+     * {@code checkLoop(int)} of the delegate, looked up once because it is called on every loop back-edge.
+     */
     private java.lang.reflect.Method delegateCheckLoop;
 
     public void setDelegate(Object delegate) {

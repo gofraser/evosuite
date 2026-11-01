@@ -78,7 +78,9 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
     private String id; //derived field
     private final Class<?>[] matcherParameterTypes;
 
-    /** The last result of {@link #getStubTarget}, which is asked once for each stub and render. */
+    /**
+     * The last result of {@link #getStubTarget}, which is asked once for each stub and render.
+     */
     private transient volatile StubTarget stubTarget;
 
 
@@ -284,8 +286,10 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
         }
 
         /**
+         * Returns the matcher used for parameters of a given type.
+         *
          * @return the matcher for parameters of {@code type}, or null if it is matched with
-         * {@code nullable}
+         *     {@code nullable}
          */
         static TypeMatcher of(Class<?> type) {
             return BY_TYPE.get(type);
@@ -356,12 +360,20 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
             this.matchers = initMatchers(matcherTypes);
         }
 
-        /** @return the stubbed method */
+        /**
+         * Returns the stubbed method.
+         *
+         * @return the stubbed method
+         */
         public Method getMethod() {
             return method;
         }
 
-        /** @return the matchers of the parameters as source code, separated by commas */
+        /**
+         * Returns the matchers of the parameters as source code.
+         *
+         * @return the matchers of the parameters as source code, separated by commas
+         */
         public String getMatchers() {
             return matchers;
         }

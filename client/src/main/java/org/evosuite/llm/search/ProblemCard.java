@@ -303,7 +303,9 @@ public final class ProblemCard {
         return new RepeatedInjectionTarget(key, fingerprint, type);
     }
 
-    /** The goals related to any of {@code cards}, in card order without duplicates; empty for none. */
+    /**
+     * The goals related to any of {@code cards}, in card order without duplicates; empty for none.
+     */
     public static Collection<TestFitnessFunction> relatedGoals(List<ProblemCard> cards) {
         if (cards == null || cards.isEmpty()) {
             return Collections.emptyList();
@@ -317,7 +319,9 @@ public final class ProblemCard {
         return goals;
     }
 
-    /** The types of {@code cards}, one per card that has one, in card order. */
+    /**
+     * The types of {@code cards}, one per card that has one, in card order.
+     */
     public static List<ProblemCardType> types(List<ProblemCard> cards) {
         if (cards == null || cards.isEmpty()) {
             return Collections.emptyList();
@@ -331,7 +335,9 @@ public final class ProblemCard {
         return types;
     }
 
-    /** The repeated-injection target of each of {@code cards}, in card order. */
+    /**
+     * The repeated-injection target of each of {@code cards}, in card order.
+     */
     public static List<RepeatedInjectionTarget> repeatedInjectionTargets(List<ProblemCard> cards) {
         if (cards == null || cards.isEmpty()) {
             return Collections.emptyList();

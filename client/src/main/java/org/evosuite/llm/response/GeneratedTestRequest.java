@@ -63,7 +63,9 @@ public final class GeneratedTestRequest {
         this.stillWanted = stillWanted;
     }
 
-    /** A request for {@code prompt}, charged to {@code feature}, without a deadline. */
+    /**
+     * A request for {@code prompt}, charged to {@code feature}, without a deadline.
+     */
     public static GeneratedTestRequest of(PromptResult prompt, LlmFeature feature) {
         return new GeneratedTestRequest(prompt, feature, LlmRequest.NO_DEADLINE, null, null);
     }
@@ -76,7 +78,9 @@ public final class GeneratedTestRequest {
         return new GeneratedTestRequest(prompt, feature, deadlineNanos, salvagedTests, stillWanted);
     }
 
-    /** This request handing the tests the repair loop salvages along the way to {@code consumer}. */
+    /**
+     * This request handing the tests the repair loop salvages along the way to {@code consumer}.
+     */
     public GeneratedTestRequest onSalvagedTests(Consumer<List<ParseResult>> consumer) {
         return new GeneratedTestRequest(prompt, feature, deadlineNanos, consumer, stillWanted);
     }
@@ -124,7 +128,9 @@ public final class GeneratedTestRequest {
         }
     }
 
-    /** How a {@link GeneratedTestRequest} ended. */
+    /**
+     * How a {@link GeneratedTestRequest} ended.
+     */
     public static final class Outcome {
 
         /** The stage a request reached. */
@@ -139,7 +145,9 @@ public final class GeneratedTestRequest {
             ABANDONED,
             /** The response arrived, but parsing or repairing it threw. */
             PARSE_CRASHED,
-            /** The response was parsed; {@link #getResult()} says whether any test came of it. */
+            /**
+             * The response was parsed; {@link #getResult()} says whether any test came of it.
+             */
             PARSED
         }
 
@@ -177,12 +185,16 @@ public final class GeneratedTestRequest {
             return response;
         }
 
-        /** The usage of the call, {@link TargetedResponse.CallUsage#NONE} when none was delivered. */
+        /**
+         * The usage of the call, {@link TargetedResponse.CallUsage#NONE} when none was delivered.
+         */
         public TargetedResponse.CallUsage getUsage() {
             return usage;
         }
 
-        /** The parse result, or null unless {@link #getStatus()} is {@link Status#PARSED}. */
+        /**
+         * The parse result, or null unless {@link #getStatus()} is {@link Status#PARSED}.
+         */
         public RepairResult getResult() {
             return result;
         }
@@ -192,12 +204,16 @@ public final class GeneratedTestRequest {
             return result != null && result.isSuccess();
         }
 
-        /** The parsed tests as chromosomes; empty unless {@link #isSuccess()}. */
+        /**
+         * The parsed tests as chromosomes; empty unless {@link #isSuccess()}.
+         */
         public List<TestChromosome> toChromosomes() {
             return isSuccess() ? result.toChromosomes() : Collections.<TestChromosome>emptyList();
         }
 
-        /** Throws {@link #getFailure()}, if there is one. */
+        /**
+         * Throws {@link #getFailure()}, if there is one.
+         */
         public void rethrowFailure() {
             if (failure != null) {
                 throw failure;

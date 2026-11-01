@@ -491,7 +491,9 @@ public class VariableCodeGenerationUtil {
         }
     }
 
-    /** The first one-argument {@code add} method of {@code type} that a test can call. */
+    /**
+     * The first one-argument {@code add} method of {@code type} that a test can call.
+     */
     static Method findElementAddMethod(Class<?> type) {
         List<Method> mutators = ContainerSetup.findMutators(type, "add"::equals, 1, 1);
         return mutators.isEmpty() ? null : mutators.get(0);

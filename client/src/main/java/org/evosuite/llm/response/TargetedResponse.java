@@ -142,13 +142,17 @@ public final class TargetedResponse {
                 Status.DELIVERED, 0, false, safeUsage, false, rawResponse);
     }
 
-    /** An empty, {@link Status#NO_BUDGET} response: no call was made, budget ran out first. */
+    /**
+     * An empty, {@link Status#NO_BUDGET} response: no call was made, budget ran out first.
+     */
     public static TargetedResponse noBudget() {
         return new TargetedResponse(new TreeMap<Integer, TestCase>(), new ArrayList<TestCase>(),
                 Status.NO_BUDGET, 0, false, CallUsage.NONE, false, "");
     }
 
-    /** An empty, {@link Status#FAILED} response: the call went out but never came back. */
+    /**
+     * An empty, {@link Status#FAILED} response: the call went out but never came back.
+     */
     public static TargetedResponse failed() {
         return new TargetedResponse(new TreeMap<Integer, TestCase>(), new ArrayList<TestCase>(),
                 Status.FAILED, 0, false, CallUsage.NONE, false, "");
@@ -167,12 +171,16 @@ public final class TargetedResponse {
         return repairTurns;
     }
 
-    /** Whether the delivered response was successfully parsed; {@code false} when no call was delivered. */
+    /**
+     * Whether the delivered response was successfully parsed; {@code false} when no call was delivered.
+     */
     public boolean isParseSucceeded() {
         return parseSucceeded;
     }
 
-    /** Token usage and latency of the call behind this response; {@link CallUsage#NONE} when there was none. */
+    /**
+     * Token usage and latency of the call behind this response; {@link CallUsage#NONE} when there was none.
+     */
     public CallUsage getUsage() {
         return usage;
     }
@@ -198,7 +206,9 @@ public final class TargetedResponse {
         return rawResponse;
     }
 
-    /** The 1-based target number encoded in {@code methodName}, or 0 when it names no target in range. */
+    /**
+     * The 1-based target number encoded in {@code methodName}, or 0 when it names no target in range.
+     */
     static int targetIndex(String methodName, int targetCount) {
         if (methodName == null) {
             return 0;
@@ -213,7 +223,9 @@ public final class TargetedResponse {
         return 0;
     }
 
-    /** The test produced for target number {@code index} (1-based), if any. */
+    /**
+     * The test produced for target number {@code index} (1-based), if any.
+     */
     public Optional<TestCase> forTarget(int index) {
         return Optional.ofNullable(matched.get(index));
     }

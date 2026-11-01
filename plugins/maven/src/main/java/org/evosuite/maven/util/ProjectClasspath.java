@@ -96,6 +96,8 @@ public final class ProjectClasspath {
     }
 
     /**
+     * Returns the classes to work on.
+     *
      * @return the classes to work on, separated by the path separator, or {@code null} if none
      */
     public String getTarget() {
@@ -103,6 +105,8 @@ public final class ProjectClasspath {
     }
 
     /**
+     * Returns the classpath of the tests.
+     *
      * @return the classpath of the tests, separated by the path separator, or {@code null} if empty
      */
     public String getClasspath() {
@@ -110,6 +114,8 @@ public final class ProjectClasspath {
     }
 
     /**
+     * Returns whether there is nothing to run EvoSuite on.
+     *
      * @return whether there is nothing to run EvoSuite on
      */
     public boolean isEmpty() {

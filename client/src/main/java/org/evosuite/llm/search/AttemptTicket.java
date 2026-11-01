@@ -55,7 +55,9 @@ public final class AttemptTicket {
     public enum State {
         /** Registered and still owed an outcome (in flight if registered so). */
         OPEN,
-        /** Closed with a judged outcome; {@link #getGainedGoals()} holds the gain. */
+        /**
+         * Closed with a judged outcome; {@link #getGainedGoals()} holds the gain.
+         */
         CLOSED,
         /** Let go without an outcome (no response was delivered). */
         RELEASED
@@ -94,25 +96,35 @@ public final class AttemptTicket {
             return UNTRACKED;
         }
         RepeatedInjectionMemory.PromptAttemptRegistration registration = memory.registerAttempt(targets, inFlight);
-        return registration == null || registration.isEmpty() ? UNTRACKED : new AttemptTicket(memory, registration.getAttemptId());
+        return registration == null || registration.isEmpty()
+                ? UNTRACKED
+                : new AttemptTicket(memory, registration.getAttemptId());
     }
 
-    /** The ticket of an attempt nothing tracks: id {@code ""}, every method a no-op. */
+    /**
+     * The ticket of an attempt nothing tracks: id {@code ""}, every method a no-op.
+     */
     public static AttemptTicket untracked() {
         return UNTRACKED;
     }
 
-    /** Whether a {@code status} without a usable test means no response was delivered. */
+    /**
+     * Whether a {@code status} without a usable test means no response was delivered.
+     */
     public static boolean isUndelivered(TargetedResponse.Status status) {
         return status == TargetedResponse.Status.NO_BUDGET || status == TargetedResponse.Status.FAILED;
     }
 
-    /** Whether a call that threw {@code failure} delivered no response. */
+    /**
+     * Whether a call that threw {@code failure} delivered no response.
+     */
     public static boolean isUndelivered(Throwable failure) {
         return failure instanceof LlmBudgetExceededException || failure instanceof LlmCallFailedException;
     }
 
-    /** The memory's attempt id, {@code ""} for the untracked ticket. */
+    /**
+     * The memory's attempt id, {@code ""} for the untracked ticket.
+     */
     public String getId() {
         return id;
     }
@@ -138,12 +150,16 @@ public final class AttemptTicket {
         return isTracked() && state.get() == OPEN;
     }
 
-    /** The gain {@link #close} recorded, {@code -1} unless closed. */
+    /**
+     * The gain {@link #close} recorded, {@code -1} unless closed.
+     */
     public int getGainedGoals() {
         return gainedGoals;
     }
 
-    /** Records that the attempt newly covered {@code gained} goals; first settlement only. */
+    /**
+     * Records that the attempt newly covered {@code gained} goals; first settlement only.
+     */
     public void close(int gained) {
         if (memory != null && state.compareAndSet(OPEN, CLOSED)) {
             gainedGoals = gained;
@@ -167,17 +183,23 @@ public final class AttemptTicket {
         }
     }
 
-    /** {@link #settleWithoutGain} for a response with {@code status}. */
+    /**
+     * {@link #settleWithoutGain} for a response with {@code status}.
+     */
     public void settleWithoutGain(TargetedResponse.Status status) {
         settleWithoutGain(!isUndelivered(status));
     }
 
-    /** {@link #settleWithoutGain} for a call that threw {@code failure}. */
+    /**
+     * {@link #settleWithoutGain} for a call that threw {@code failure}.
+     */
     public void settleWithoutGain(Throwable failure) {
         settleWithoutGain(!isUndelivered(failure));
     }
 
-    /** Opens this attempt's row in the {@link OperatorAttemptLog}; no-op for the untracked ticket. */
+    /**
+     * Opens this attempt's row in the {@link OperatorAttemptLog}; no-op for the untracked ticket.
+     */
     public void openLogRow(int generation, OperatorTarget target, String mode, int batchSize) {
         if (memory == null) {
             return;
@@ -186,7 +208,9 @@ public final class AttemptTicket {
         OperatorAttemptLog.getInstance().open(id, generation, target, mode, batchSize);
     }
 
-    /** Whether {@link #openLogRow} opened an attempt-log row for this ticket. */
+    /**
+     * Whether {@link #openLogRow} opened an attempt-log row for this ticket.
+     */
     public boolean hasLogRow() {
         return logRow;
     }
@@ -198,7 +222,9 @@ public final class AttemptTicket {
         }
     }
 
-    /** Records that {@code offspring} entered the population of {@code generation}, if this ticket has a log row. */
+    /**
+     * Records that {@code offspring} entered the population of {@code generation}, if this ticket has a log row.
+     */
     public void admitted(TestChromosome offspring, int generation) {
         if (logRow) {
             OperatorAttemptLog.getInstance().recordAdmitted(id, offspring, generation);

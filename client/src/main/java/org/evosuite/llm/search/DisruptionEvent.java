@@ -86,7 +86,9 @@ public class DisruptionEvent {
     private final double targetDistanceAfter;    // NaN if unavailable
 
     // ---- Isolated view of the semantic result and its standard-operator twin ----
-    /** Isolated view of the semantic result and its twin; {@link SemanticProbeResult#NONE} when not probed. */
+    /**
+     * Isolated view of the semantic result and its twin; {@link SemanticProbeResult#NONE} when not probed.
+     */
     private final SemanticProbeResult probe;
 
     private DisruptionEvent(Builder b) {
@@ -512,7 +514,9 @@ public class DisruptionEvent {
             return this;
         }
 
-        /** The isolated probe of the semantic result and its twin; null means {@link SemanticProbeResult#NONE}. */
+        /**
+         * The isolated probe of the semantic result and its twin; null means {@link SemanticProbeResult#NONE}.
+         */
         public Builder probe(SemanticProbeResult v) {
             probe = v;
             return this;

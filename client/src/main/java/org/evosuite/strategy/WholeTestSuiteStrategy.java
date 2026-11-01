@@ -105,7 +105,8 @@ public class WholeTestSuiteStrategy extends TestGenerationStrategy {
 
         long endTime = System.currentTimeMillis() / 1000;
 
-        goals = FitnessFunctionsUtils.getFitnessFunctionsGoals(Properties.CRITERION, false); //recalculated now after the search, eg to handle exception fitness
+        // recalculated now after the search, eg to handle exception fitness
+        goals = FitnessFunctionsUtils.getFitnessFunctionsGoals(Properties.CRITERION, false);
         ClientServices.track(RuntimeVariable.Total_Goals, goals.size());
 
         // Newline after progress bar
