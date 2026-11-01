@@ -19,6 +19,8 @@
  */
 package org.evosuite.eclipse.launch;
 
+import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.ProjectScope;
 import org.eclipse.core.runtime.*;
 import org.eclipse.debug.core.*;
@@ -99,6 +101,7 @@ public final class MavenGeneration {
                                         targets.stream()
                                                 .map(GenerationTarget::className)
                                                 .toList())));
+        var folder = ProjectSetup.testFolder(project.getProject(), options);
         var job =
                 new org.eclipse.core.runtime.jobs.Job(
                         "EvoSuite Maven generation: " + project.getElementName()) {
@@ -108,6 +111,15 @@ public final class MavenGeneration {
                         for (var target : targets) {
                             var record = RunHistory.create(project, target, options, this, false);
                             RunHistory.update(record, "delegated", true);
+                            RunHistory.update(
+                                    record,
+                                    "output",
+                                    folder.getFile(
+                                                    target.className().replace('.', '/')
+                                                            + options.testSuffix
+                                                            + ".java")
+                                            .getFullPath()
+                                            .toPortableString());
                             records.add(record);
                         }
                     }
@@ -137,11 +149,7 @@ public final class MavenGeneration {
                                         status =
                                                 Activator.error(
                                                         "Maven generation failed; see the Maven"
-                                                            + " console.");
-                            project.getProject()
-                                    .refreshLocal(
-                                            org.eclipse.core.resources.IResource.DEPTH_INFINITE,
-                                            null);
+                                                                + " console.");
                         } catch (CoreException e) {
                             status = e.getStatus();
                         } catch (InterruptedException e) {
@@ -156,6 +164,14 @@ public final class MavenGeneration {
                                 } catch (CoreException e) {
                                     Activator.log(e.getStatus());
                                 }
+                            try {
+                                var outputs = refreshOutputs(project, records);
+                                if (options.openGeneratedTests)
+                                    TestGenerationJob.openEditors(outputs);
+                            } catch (CoreException e) {
+                                Activator.log(e.getStatus());
+                                if (status.isOK()) status = e.getStatus();
+                            }
                             for (var record : records)
                                 RunHistory.finish(
                                         record,
@@ -163,7 +179,7 @@ public final class MavenGeneration {
                                                 ? "Maven completed"
                                                 : "Maven stopped / failed",
                                         "Maven controls settings, seeds and export; repeat this"
-                                            + " request through the Maven runner. "
+                                                + " request through the Maven runner. "
                                                 + status.getMessage());
                         }
                         return status;
@@ -171,5 +187,31 @@ public final class MavenGeneration {
                 };
         job.setUser(true);
         job.schedule();
+    }
+
+    /** Import partial outputs too when Maven fails or is cancelled. */
+    static List<IFile> refreshOutputs(IJavaProject project, List<RunHistory.Entry> records)
+            throws CoreException {
+        project.getProject().refreshLocal(IResource.DEPTH_INFINITE, null);
+        List<IFile> outputs = new ArrayList<>();
+        for (var record : records) {
+            IFile file = record.output();
+            if (file == null || !file.exists()) continue;
+            outputs.add(file);
+            try (var input = file.getContents()) {
+                String source = new String(input.readAllBytes(), file.getCharset());
+                RunHistory.update(
+                        record,
+                        "tests",
+                        SuiteMerger.testCount(
+                                source,
+                                TestGenerationJob.simpleName(record.get("class"))
+                                        + record.options().testSuffix));
+            } catch (java.io.IOException e) {
+                throw new CoreException(
+                        Activator.error("Cannot read Maven output " + file.getFullPath(), e));
+            }
+        }
+        return List.copyOf(outputs);
     }
 }

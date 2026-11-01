@@ -462,7 +462,7 @@ public class TestGenerationJob extends Job {
 
         if (testFolder.exists()) testFolder.refreshLocal(IResource.DEPTH_INFINITE, null);
         summarise(console, result);
-        if (options.openGeneratedTests && !generated.isEmpty() && generated.size() <= MAX_EDITORS) {
+        if (options.openGeneratedTests) {
             openEditors(List.copyOf(generated));
         }
         if (!comparisons.isEmpty()) {
@@ -877,7 +877,8 @@ public class TestGenerationJob extends Job {
         }
     }
 
-    private static void openEditors(List<IFile> files) {
+    static void openEditors(List<IFile> files) {
+        if (files.isEmpty() || files.size() > MAX_EDITORS) return;
         Display display = PlatformUI.isWorkbenchRunning() ? PlatformUI.getWorkbench().getDisplay() : null;
         if (display == null) {
             return;

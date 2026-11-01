@@ -186,6 +186,28 @@ public class MavenSupportTest {
     }
 
     @Test
+    public void m2eResolvesBuiltinAndNestedMavenExpressions() throws Exception {
+        String pom =
+                PLAIN.replace(
+                                "<artifactId>plain</artifactId>",
+                                "<artifactId>expressions</artifactId>")
+                        .replace(
+                                "</project>",
+                                """
+<properties><generated.folder>${project.build.directory}/generated-${project.artifactId}</generated.folder></properties>
+<build><directory>custom-build</directory><plugins><plugin>
+<groupId>org.evosuite.plugins</groupId><artifactId>evosuite-maven-plugin</artifactId>
+<configuration><testFolder>${generated.folder}</testFolder>
+<evosuiteProperties><llm_model>${project.groupId}:${project.version}</llm_model></evosuiteProperties>
+</configuration></plugin></plugins></build></project>
+""");
+        GenerationOptions options =
+                EvoSuitePreferences.resolve(mavenProject("maven-expressions", pom), null);
+        assertEquals("custom-build/generated-expressions", options.testFolder);
+        assertEquals("t:1", options.pomProperties.get("llm_model"));
+    }
+
+    @Test
     public void readsPluginManagementWithoutAPluginDeclaration() throws Exception {
         mavenProject("maven-parent", PARENT);
         GenerationOptions options = EvoSuitePreferences.resolve(mavenProject("maven-managed", MANAGED), null);

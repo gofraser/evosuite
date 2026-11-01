@@ -75,16 +75,11 @@ public final class BuildToolSetup {
                 !options.effectiveNoRuntimeDependency()
                         && project.findType("org.evosuite.runtime.EvoRunnerParameters") == null;
         IFile pom = resource.getFile("pom.xml");
-        boolean maven = resource.hasNature("org.eclipse.m2e.core.maven2Nature") && pom.exists();
-        IFile file =
-                maven
-                        ? pom
-                        : resource.getFile(
-                                resource.getFile("build.gradle.kts").exists()
-                                        ? "build.gradle.kts"
-                                        : "build.gradle");
-        if (!file.exists()) return false;
-        String original = read(file);
+        boolean maven = resource.hasNature(ProjectSetup.MAVEN_NATURE) && pom.exists();
+        if (!maven && !resource.hasNature(ProjectSetup.GRADLE_NATURE)) return false;
+        IFile file = maven ? pom : gradleBuildFile(resource);
+        boolean existed = file.exists();
+        String original = existed ? read(file) : "";
         String version = runtimeVersion();
         String full =
                 maven
@@ -151,19 +146,37 @@ public final class BuildToolSetup {
         if (buffer != null && buffer.isDirty())
             throw new CoreException(
                     Activator.error("Save " + file.getName() + " before configuring it."));
-        if (!read(file).equals(original))
+        if (file.exists() != existed || (existed && !read(file).equals(original)))
             throw new CoreException(
                     Activator.error(
                             file.getName()
                                     + " changed while setup was being confirmed. Retry"
                                     + " generation."));
-        file.setContents(
-                new ByteArrayInputStream(updated.getBytes(Charset.forName(file.getCharset()))),
-                IResource.KEEP_HISTORY,
-                monitor);
+        String charset = existed ? file.getCharset() : resource.getDefaultCharset();
+        var contents = new ByteArrayInputStream(updated.getBytes(Charset.forName(charset)));
+        if (existed) file.setContents(contents, IResource.KEEP_HISTORY, monitor);
+        else file.create(contents, false, monitor);
         if (maven) MavenSupport.refresh(resource, monitor);
         else syncGradle(resource, monitor);
         return true;
+    }
+
+    /** Keep an existing script; otherwise inherit the nearest enclosing build's DSL. */
+    static IFile gradleBuildFile(IProject project) {
+        if (project.getFile("build.gradle.kts").exists())
+            return project.getFile("build.gradle.kts");
+        if (project.getFile("build.gradle").exists()) return project.getFile("build.gradle");
+        for (var directory = project.getLocation().toFile().toPath();
+                directory != null;
+                directory = directory.getParent()) {
+            if (java.nio.file.Files.isRegularFile(directory.resolve("build.gradle.kts"))
+                    || java.nio.file.Files.isRegularFile(directory.resolve("settings.gradle.kts")))
+                return project.getFile("build.gradle.kts");
+            if (java.nio.file.Files.isRegularFile(directory.resolve("build.gradle"))
+                    || java.nio.file.Files.isRegularFile(directory.resolve("settings.gradle")))
+                break;
+        }
+        return project.getFile("build.gradle");
     }
 
     private static String read(IFile file) throws CoreException {
@@ -184,13 +197,15 @@ public final class BuildToolSetup {
         String path =
                 options.testFolder.replace("\\", "\\\\").replace("\"", "\\\"").replace("$", "\\$");
         String block = START + "\nsourceSets.named(\"test\") { java.srcDir(\"" + path + "\") }\n";
-        if (!options.effectiveTestFormat().equals(GenerationOptions.JUNIT4))
-            block +=
-                    kotlin
-                            ? "tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {"
-                                  + " useJUnitPlatform() }\n"
-                            : "tasks.withType(org.gradle.api.tasks.testing.Test).configureEach {"
-                                  + " useJUnitPlatform() }\n";
+        String taskType =
+                kotlin
+                        ? "<org.gradle.api.tasks.testing.Test>()"
+                        : "(org.gradle.api.tasks.testing.Test)";
+        String runner =
+                options.effectiveTestFormat().equals(GenerationOptions.JUNIT4)
+                        ? "useJUnit()"
+                        : "useJUnitPlatform()";
+        block += "tasks.withType" + taskType + ".configureEach { " + runner + " }\n";
         block += END;
         int start = original.indexOf(START), end = original.indexOf(END);
         String result =

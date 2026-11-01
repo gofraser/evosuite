@@ -207,6 +207,109 @@ public class PluginParityTest {
     }
 
     @Test
+    public void gradleJUnit4OverridesInheritedPlatformTasks() {
+        for (boolean kotlin : List.of(true, false)) {
+            var options = new GenerationOptions();
+            options.testFormat = "JUNIT4";
+            String source =
+                    "// inherited configuration\n"
+                        + "tasks.withType(org.gradle.api.tasks.testing.Test).configureEach {"
+                        + " useJUnitPlatform() }\n";
+            String updated =
+                    BuildToolSetup.updateGradle(source, options, true, false, kotlin, "1.2.1");
+            assertTrue(updated.startsWith(source));
+            assertTrue(updated.indexOf("useJUnit()") > updated.indexOf("useJUnitPlatform()"));
+            assertTrue(updated.contains("junit:junit:4.13.2"));
+            assertEquals(
+                    updated,
+                    BuildToolSetup.updateGradle(updated, options, true, false, kotlin, "1.2.1"));
+        }
+    }
+
+    @Test
+    public void missingGradleScriptUsesNearestBuildDsl(@TempDir Path dir) throws Exception {
+        var project =
+                org.eclipse.core.resources.ResourcesPlugin.getWorkspace()
+                        .getRoot()
+                        .getProject("parity-gradle-dsl");
+        var description =
+                org.eclipse.core.resources.ResourcesPlugin.getWorkspace()
+                        .newProjectDescription(project.getName());
+        description.setLocation(
+                org.eclipse.core.runtime.IPath.fromOSString(dir.resolve("app").toString()));
+        project.create(description, null);
+        project.open(null);
+        Files.writeString(dir.resolve("settings.gradle.kts"), "include(\"app\")");
+        assertEquals("build.gradle.kts", BuildToolSetup.gradleBuildFile(project).getName());
+        Files.delete(dir.resolve("settings.gradle.kts"));
+        Files.writeString(dir.resolve("settings.gradle"), "include 'app'");
+        assertEquals("build.gradle", BuildToolSetup.gradleBuildFile(project).getName());
+        Files.writeString(dir.resolve("settings.gradle.kts"), "include(\"app\")");
+        project.getFile("build.gradle").create(new ByteArrayInputStream(new byte[0]), false, null);
+        assertEquals(
+                "build.gradle",
+                BuildToolSetup.gradleBuildFile(project).getName(),
+                "an existing subproject script wins over the parent's DSL");
+    }
+
+    @Test
+    public void delegatedMavenOutputsBecomeAvailableToHistory() throws Exception {
+        var project = TestProjects.create("parity-maven-output", "src", null);
+        var options = new GenerationOptions();
+        var record =
+                RunHistory.create(
+                        project, GenerationTarget.wholeClass("demo.Foo"), options, null, false);
+        var missing =
+                RunHistory.create(
+                        project, GenerationTarget.wholeClass("demo.Missing"), options, null, false);
+        var output = project.getProject().getFile(options.testFolder + "/demo/Foo_ESTest.java");
+        var path = output.getLocation().toFile().toPath();
+        Files.createDirectories(path.getParent());
+        Files.writeString(
+                path,
+                "package demo; public class Foo_ESTest { @org.junit.jupiter.api.Test public void"
+                    + " test0() {} }");
+        RunHistory.update(record, "output", output.getFullPath().toPortableString());
+        RunHistory.update(
+                missing,
+                "output",
+                project.getProject()
+                        .getFile(options.testFolder + "/demo/Missing_ESTest.java")
+                        .getFullPath()
+                        .toPortableString());
+        assertFalse(output.exists(), "external Maven writes are not yet workspace resources");
+        assertEquals(
+                List.of(output), MavenGeneration.refreshOutputs(project, List.of(record, missing)));
+        assertTrue(record.output().exists());
+        assertEquals("1", record.get("tests"));
+        RunHistory.finish(record, "Maven stopped / failed", "partial output remains usable");
+        RunHistory.finish(missing, "Maven stopped / failed", "no output");
+    }
+
+    @Test
+    public void historyMasksWholeCredentialTokensAndKeepsFollowingDiagnostics() throws Exception {
+        var project = TestProjects.create("parity-history-masking", "src", null);
+        var record =
+                RunHistory.create(
+                        project,
+                        GenerationTarget.wholeClass("demo.Foo"),
+                        new GenerationOptions(),
+                        null,
+                        false);
+        RunHistory.line(record, "java -Dllm_api_key=secret -Dtimeout=20");
+        RunHistory.line(record, "java -Dllm_api_key=\"secret with spaces\" -Drandom_seed=42");
+        RunHistory.line(record, "java -Dllm_api_key='another secret' -Dcriterion=BRANCH");
+        RunHistory.line(record, "* Total coverage: 72,5%");
+        String log = Files.readString(RunHistory.directory(record).resolve("console.log"));
+        assertFalse(log.contains("secret"), log);
+        assertTrue(log.contains("-Dllm_api_key=**** -Dtimeout=20"), log);
+        assertTrue(log.contains("-Dllm_api_key=**** -Drandom_seed=42"), log);
+        assertTrue(log.contains("-Dllm_api_key=**** -Dcriterion=BRANCH"), log);
+        assertEquals("72.5%", record.get("coverage"));
+        RunHistory.finish(record, "Completed", "");
+    }
+
+    @Test
     public void historyRedactsKeysAndRetainsReplayAndComparisonData() throws Exception {
         var project = TestProjects.create("parity-history", "src", null);
         var options = new GenerationOptions();

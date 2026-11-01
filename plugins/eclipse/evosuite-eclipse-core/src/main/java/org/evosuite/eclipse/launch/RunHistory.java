@@ -126,6 +126,11 @@ public final class RunHistory {
         }
     }
 
+    private static final Pattern COVERAGE =
+            Pattern.compile("Total coverage:\\s*([0-9]+(?:[.,][0-9]+)?)\\s*%");
+    private static final Pattern API_KEY =
+            Pattern.compile("(-Dllm_api_key=)(\"[^\"]*\"|'[^']*'|[^\\s]+)");
+
     private static final List<Runnable> LISTENERS = new CopyOnWriteArrayList<>();
     private static List<Entry> entries;
 
@@ -261,15 +266,13 @@ public final class RunHistory {
             Files.createDirectories(directory(entry));
             Files.writeString(
                     directory(entry).resolve("console.log"),
-                    line.replaceAll("-Dllm_api_key=[^\\s]+", "-Dllm_api_key=****")
-                            + System.lineSeparator(),
+                    API_KEY.matcher(line).replaceAll("$1****") + System.lineSeparator(),
                     StandardOpenOption.CREATE,
                     StandardOpenOption.APPEND);
         } catch (IOException e) {
             Activator.logError("Cannot retain EvoSuite output", e);
         }
-        var total =
-                Pattern.compile("Total coverage:\\s*([0-9]+(?:[.,][0-9]+)?)\\s*%").matcher(line);
+        var total = COVERAGE.matcher(line);
         if (total.find()) update(entry, "coverage", total.group(1).replace(',', '.') + "%");
         if (line.startsWith("* ")) update(entry, "phase", line.substring(2));
     }
