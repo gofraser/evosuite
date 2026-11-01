@@ -31,3 +31,5 @@ plugins/build-support-test/projects/*/.m2/
 log.txt
 __pycache__/
 *.pyc
+javac.*.args
+.claude/
