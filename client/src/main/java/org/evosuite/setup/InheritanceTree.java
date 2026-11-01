@@ -46,6 +46,7 @@ public class InheritanceTree {
 
     private Map<String, Set<String>> analyzedMethods = new LinkedHashMap<>();
 
+    // written and read by InheritanceGraphConverter, not field by field
     private DirectedMultigraph<String, DefaultEdge> inheritanceGraph = new DirectedMultigraph<>(
             DefaultEdge.class);
 

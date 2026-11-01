@@ -23,8 +23,8 @@ import dk.brics.automaton.Automaton;
 import dk.brics.automaton.RegExp;
 import dk.brics.automaton.State;
 import dk.brics.automaton.Transition;
-import org.jgrapht.DirectedGraph;
-import org.jgrapht.alg.CycleDetector;
+import org.jgrapht.Graph;
+import org.jgrapht.alg.cycle.CycleDetector;
 import org.jgrapht.graph.DefaultDirectedGraph;
 import org.jgrapht.graph.DefaultEdge;
 import org.jgrapht.traverse.TopologicalOrderIterator;
@@ -218,7 +218,7 @@ public class RegexDistanceUtils {
         automaton.expandSingleton();
 
         // We convert this to a graph without self-loops in order to determine the topological order
-        DirectedGraph<State, DefaultEdge> regexGraph = new DefaultDirectedGraph<>(
+        Graph<State, DefaultEdge> regexGraph = new DefaultDirectedGraph<>(
                 DefaultEdge.class);
         Set<State> visitedStates = new HashSet<>();
         Queue<State> states = new LinkedList<>();

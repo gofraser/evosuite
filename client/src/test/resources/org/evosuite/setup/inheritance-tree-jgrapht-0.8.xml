@@ -1,0 +1,164 @@
+<!--
+
+    Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
+    contributors
+
+    This file is part of EvoSuite.
+
+    EvoSuite is free software: you can redistribute it and/or modify it
+    under the terms of the GNU Lesser General Public License as published
+    by the Free Software Foundation, either version 3.0 of the License, or
+    (at your option) any later version.
+
+    EvoSuite is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+    Lesser Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public
+    License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
+
+-->
+<shaded.org.evosuite.setup.InheritanceTree>
+  <subclassCache class="linked-hash-map"/>
+  <interfacesSet class="linked-hash-set">
+    <string>I</string>
+  </interfacesSet>
+  <abstractClassesSet class="linked-hash-set"/>
+  <analyzedMethods class="linked-hash-map"/>
+  <inheritanceGraph>
+    <allowingLoops>true</allowingLoops>
+    <edgeFactory class="org.jgrapht.graph.ClassBasedEdgeFactory">
+      <edgeClass>org.jgrapht.graph.DefaultEdge</edgeClass>
+    </edgeFactory>
+    <edgeSetFactory class="org.jgrapht.graph.AbstractBaseGraph$ArrayListFactory"/>
+    <edgeMap class="linked-hash-map">
+      <entry>
+        <org.jgrapht.graph.DefaultEdge>
+          <source class="string">A</source>
+          <target class="string">B</target>
+        </org.jgrapht.graph.DefaultEdge>
+        <org.jgrapht.graph.DefaultEdge reference="../org.jgrapht.graph.DefaultEdge"/>
+      </entry>
+      <entry>
+        <org.jgrapht.graph.DefaultEdge>
+          <source class="string">A</source>
+          <target class="string">C</target>
+        </org.jgrapht.graph.DefaultEdge>
+        <org.jgrapht.graph.DefaultEdge reference="../org.jgrapht.graph.DefaultEdge"/>
+      </entry>
+      <entry>
+        <org.jgrapht.graph.DefaultEdge>
+          <source class="string">I</source>
+          <target class="string">C</target>
+        </org.jgrapht.graph.DefaultEdge>
+        <org.jgrapht.graph.DefaultEdge reference="../org.jgrapht.graph.DefaultEdge"/>
+      </entry>
+    </edgeMap>
+    <specifics class="org.jgrapht.graph.AbstractBaseGraph$DirectedSpecifics">
+      <outer-class class="org.jgrapht.graph.DirectedMultigraph" defined-in="org.jgrapht.graph.AbstractBaseGraph$Specifics" reference="../.."/>
+      <vertexMapDirected class="linked-hash-map">
+        <entry>
+          <string>B</string>
+          <org.jgrapht.graph.AbstractBaseGraph_-DirectedEdgeContainer>
+            <incoming class="org.jgrapht.util.ArrayUnenforcedSet" serialization="custom">
+              <unserializable-parents/>
+              <list>
+                <default>
+                  <size>1</size>
+                </default>
+                <int>1</int>
+                <org.jgrapht.graph.DefaultEdge reference="../../../../../../../edgeMap/entry/org.jgrapht.graph.DefaultEdge"/>
+              </list>
+            </incoming>
+            <outgoing class="org.jgrapht.util.ArrayUnenforcedSet" serialization="custom">
+              <unserializable-parents/>
+              <list>
+                <default>
+                  <size>0</size>
+                </default>
+                <int>0</int>
+              </list>
+            </outgoing>
+          </org.jgrapht.graph.AbstractBaseGraph_-DirectedEdgeContainer>
+        </entry>
+        <entry>
+          <string>A</string>
+          <org.jgrapht.graph.AbstractBaseGraph_-DirectedEdgeContainer>
+            <incoming class="org.jgrapht.util.ArrayUnenforcedSet" serialization="custom">
+              <unserializable-parents/>
+              <list>
+                <default>
+                  <size>0</size>
+                </default>
+                <int>0</int>
+              </list>
+            </incoming>
+            <outgoing class="org.jgrapht.util.ArrayUnenforcedSet" serialization="custom">
+              <unserializable-parents/>
+              <list>
+                <default>
+                  <size>2</size>
+                </default>
+                <int>2</int>
+                <org.jgrapht.graph.DefaultEdge reference="../../../../../../../edgeMap/entry/org.jgrapht.graph.DefaultEdge"/>
+                <org.jgrapht.graph.DefaultEdge reference="../../../../../../../edgeMap/entry[2]/org.jgrapht.graph.DefaultEdge"/>
+              </list>
+            </outgoing>
+          </org.jgrapht.graph.AbstractBaseGraph_-DirectedEdgeContainer>
+        </entry>
+        <entry>
+          <string>C</string>
+          <org.jgrapht.graph.AbstractBaseGraph_-DirectedEdgeContainer>
+            <incoming class="org.jgrapht.util.ArrayUnenforcedSet" serialization="custom">
+              <unserializable-parents/>
+              <list>
+                <default>
+                  <size>2</size>
+                </default>
+                <int>2</int>
+                <org.jgrapht.graph.DefaultEdge reference="../../../../../../../edgeMap/entry[2]/org.jgrapht.graph.DefaultEdge"/>
+                <org.jgrapht.graph.DefaultEdge reference="../../../../../../../edgeMap/entry[3]/org.jgrapht.graph.DefaultEdge"/>
+              </list>
+            </incoming>
+            <outgoing class="org.jgrapht.util.ArrayUnenforcedSet" serialization="custom">
+              <unserializable-parents/>
+              <list>
+                <default>
+                  <size>0</size>
+                </default>
+                <int>0</int>
+              </list>
+            </outgoing>
+          </org.jgrapht.graph.AbstractBaseGraph_-DirectedEdgeContainer>
+        </entry>
+        <entry>
+          <string>I</string>
+          <org.jgrapht.graph.AbstractBaseGraph_-DirectedEdgeContainer>
+            <incoming class="org.jgrapht.util.ArrayUnenforcedSet" serialization="custom">
+              <unserializable-parents/>
+              <list>
+                <default>
+                  <size>0</size>
+                </default>
+                <int>0</int>
+              </list>
+            </incoming>
+            <outgoing class="org.jgrapht.util.ArrayUnenforcedSet" serialization="custom">
+              <unserializable-parents/>
+              <list>
+                <default>
+                  <size>1</size>
+                </default>
+                <int>1</int>
+                <org.jgrapht.graph.DefaultEdge reference="../../../../../../../edgeMap/entry[3]/org.jgrapht.graph.DefaultEdge"/>
+              </list>
+            </outgoing>
+          </org.jgrapht.graph.AbstractBaseGraph_-DirectedEdgeContainer>
+        </entry>
+      </vertexMapDirected>
+      <outer-class class="org.jgrapht.graph.DirectedMultigraph" reference="../.."/>
+    </specifics>
+    <allowingMultipleEdges>true</allowingMultipleEdges>
+  </inheritanceGraph>
+</shaded.org.evosuite.setup.InheritanceTree>

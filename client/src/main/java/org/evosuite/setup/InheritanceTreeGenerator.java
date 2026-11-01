@@ -66,11 +66,11 @@ public class InheritanceTreeGenerator {
         XStream.setupDefaultSecurity(xstream);
         xstream.allowTypesByWildcard(new String[]{
                 "org.evosuite.**",
-                "shaded.org.evosuite.**",
-                "org.jgrapht.**",
-                "shaded.org.jgrapht.**"
+                "shaded.org.evosuite.**"
         });
         configureInheritanceTreeAliases(xstream);
+        xstream.registerLocalConverter(InheritanceTree.class, "inheritanceGraph",
+                new InheritanceGraphConverter());
         return xstream;
     }
 

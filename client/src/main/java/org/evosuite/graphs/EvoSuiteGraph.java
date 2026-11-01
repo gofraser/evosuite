@@ -19,9 +19,8 @@
  */
 package org.evosuite.graphs;
 
-import org.jgrapht.DirectedGraph;
-import org.jgrapht.alg.DijkstraShortestPath;
-import org.jgrapht.ext.*;
+import org.jgrapht.Graph;
+import org.jgrapht.alg.shortestpath.DijkstraShortestPath;
 import org.jgrapht.graph.DefaultDirectedGraph;
 import org.jgrapht.graph.DefaultEdge;
 import org.slf4j.Logger;
@@ -66,7 +65,7 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
     private static int evoSuiteGraphs = 0;
     protected int graphId;
 
-    protected DirectedGraph<V, E> graph;
+    protected Graph<V, E> graph;
     protected Class<E> edgeClass;
 
     // for .dot functionality
@@ -81,7 +80,7 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
         setId();
     }
 
-    protected EvoSuiteGraph(DirectedGraph<V, E> graph, Class<E> edgeClass) {
+    protected EvoSuiteGraph(Graph<V, E> graph, Class<E> edgeClass) {
         if (graph == null || edgeClass == null) {
             throw new IllegalArgumentException("null given");
         }
@@ -455,8 +454,9 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
     }
 
     public int getDistance(V v1, V v2) {
-        DijkstraShortestPath<V, E> d = new DijkstraShortestPath<>(graph, v1, v2);
-        return (int) Math.round(d.getPathLength());
+        // no path: an infinite weight, which the cast turns into -1
+        double length = new DijkstraShortestPath<>(graph).getPathWeight(v1, v2);
+        return (int) Math.round(length);
     }
 
     public boolean isDirectSuccessor(V v1, V v2) {
@@ -601,23 +601,7 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
         try (BufferedWriter out = new BufferedWriter(new FileWriter(filename))) {
 
             if (!graph.vertexSet().isEmpty()) {
-                // FrameVertexNameProvider nameprovider = new
-                // FrameVertexNameProvider(mn.instructions);
-                // DOTExporter<Integer,DefaultEdge> exporter = new
-                // DOTExporter<Integer,DefaultEdge>();
-                // DOTExporter<Integer,DefaultEdge> exporter = new
-                // DOTExporter<Integer,DefaultEdge>(new IntegerNameProvider(),
-                // nameprovider, new IntegerEdgeNameProvider());
-                // DOTExporter<Integer,DefaultEdge> exporter = new
-                // DOTExporter<Integer,DefaultEdge>(new LineNumberProvider(),
-                // new LineNumberProvider(), new IntegerEdgeNameProvider());
-                DOTExporter<V, E> exporter = new DOTExporter<>(
-                        new IntegerNameProvider<>(),
-                        new StringNameProvider<>(),
-                        new StringEdgeNameProvider<>(),
-                        vertexAttributeProvider, edgeAttributeProvider);
-
-                exporter.export(out, graph);
+                new DotWriter<>(vertexAttributeProvider, edgeAttributeProvider).write(out, graph);
 
                 logger.info("exported " + getName());
             }

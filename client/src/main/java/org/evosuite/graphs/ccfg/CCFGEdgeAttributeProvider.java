@@ -19,7 +19,7 @@
  */
 package org.evosuite.graphs.ccfg;
 
-import org.jgrapht.ext.ComponentAttributeProvider;
+import org.evosuite.graphs.ComponentAttributeProvider;
 
 import java.util.HashMap;
 import java.util.Map;
