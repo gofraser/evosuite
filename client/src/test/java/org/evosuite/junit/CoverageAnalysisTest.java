@@ -34,6 +34,7 @@ import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.factories.JUnitTestCarvedChromosomeFactory;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
@@ -60,6 +61,16 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 public class CoverageAnalysisTest {
+
+    /**
+     * {@code doCoverageAnalysis()} moves the shared {@link TimeController} to STARTED, which throws on
+     * the worker thread if an earlier test class in this fork left it on a later phase: the worker
+     * then dies before reaching DONE.
+     */
+    @BeforeEach
+    public void resetTimeController() {
+        TimeController.resetSingleton();
+    }
 
     @Test
     public void isTest() {
