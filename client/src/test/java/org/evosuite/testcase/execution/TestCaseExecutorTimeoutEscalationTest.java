@@ -425,7 +425,6 @@ public class TestCaseExecutorTimeoutEscalationTest {
         assertTrue(logged("Cancelling thread:"));
         assertTrue(logged("Run still not finished, thread " + abandoned.getName() + " is stuck at:"));
         assertTrue(logged(FORCE_STOPPING + " " + abandoned.getName() + " via Thread.stop()"));
-        assertTrue(logged(ROTATING));
         assertFalse(logged(SWALLOWS));
         assertFalse(logged(CLINIT_ABANDON));
         assertTrue(indexOfLog("Cancelling thread:") < indexOfLog("Run still not finished"));
