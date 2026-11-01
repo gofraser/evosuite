@@ -78,18 +78,7 @@ public class MockInetSocketAddress extends InetSocketAddress implements Override
                  * But it would be bit complicated, and not so important,
                  * as case we do not handle should be anyway rare, ie
                  * fail to resolve hostname (see DNS)
-                 *
-                 *
-        checkHost(hostname);
-        InetAddress addr = null;
-        String host = null;
-        try {
-            addr = InetAddress.getByName(hostname);
-        } catch (UnknownHostException e) {
-            host = hostname;
-        }
-        holder = new InetSocketAddressHolder(host, addr, checkPort(port));
-        */
+                 */
     }
 
     private static InetAddress getResolvedAddressed(String hostname) {
@@ -131,45 +120,7 @@ public class MockInetSocketAddress extends InetSocketAddress implements Override
         return hostname;
     }
 
-    /*
-     * Those are all final
-     *
-    public final int getPort() {
-        return holder.getPort();
-    }
-
-    public final InetAddress getAddress() {
-        return holder.getAddress();
-    }
-
-    public final String getHostName() {
-        return holder.getHostName();
-    }
-
-    public final String getHostString() {
-        return holder.getHostString();
-    }
-
-    public final boolean isUnresolved() {
-        return holder.isUnresolved();
-    }
-
-    @Override
-    public String toString() {
-        return holder.toString();
-    }
-
-    @Override
-    public final boolean equals(Object obj) {
-        if (obj == null || !(obj instanceof InetSocketAddress))
-            return false;
-        return holder.equals(((InetSocketAddress) obj).holder);
-    }
-
-    @Override
-    public final int hashCode() {
-        return holder.hashCode();
-    }
-    */
+    // getPort, getAddress, getHostName, getHostString, isUnresolved, toString, equals and hashCode
+    // are final in InetSocketAddress, so they cannot be mocked here.
 }
 

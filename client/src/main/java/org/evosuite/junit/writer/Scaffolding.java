@@ -505,27 +505,6 @@ public class Scaffolding {
             bd.append(");\n");
         }
 
-        /*
-         * Not needed any longer, since the issue was fixed with a
-         * customized @RunWith
-         *
-         * bd.append("\n");
-         *
-         * List<String> allInstrumentedClasses =
-         * TestGenerationContext.getInstance().getClassLoaderForSUT().
-         * getViewOfInstrumentedClasses();
-         *
-         * //this have to be done AFTER the classes have been loaded in a
-         * specific order bd.append(BLOCK_SPACE);
-         * bd.append(ClassStateSupport.class.getName()+".retransformIfNeeded(");
-         * bd.append(testClassName+ ".class.getClassLoader()");
-         *
-         * for(int i=0; i<allInstrumentedClasses.size(); i++){ String s =
-         * allInstrumentedClasses.get(i); bd.append(",\n");
-         * bd.append(INNER_BLOCK_SPACE); bd.append("\""+s+"\""); }
-         * bd.append("\n"); bd.append(BLOCK_SPACE); bd.append(");\n");
-         */
-
         bd.append(METHOD_SPACE);
         bd.append("} \n");
     }

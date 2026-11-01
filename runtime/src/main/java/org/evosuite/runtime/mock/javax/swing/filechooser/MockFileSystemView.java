@@ -362,37 +362,6 @@ public abstract class MockFileSystemView extends FileSystemView  implements Over
         }
 
         return dir.getParentFile();
-
-        /*
-        ShellFolder sf;
-
-        try {
-            sf = getShellFolder(dir);
-        } catch (FileNotFoundException e) {
-            return null;
-        }
-
-        File psf = sf.getParentFile();
-
-        if (psf == null) {
-            return null;
-        }
-
-        if (isFileSystem(psf)) {
-            File f = psf;
-            if (!f.exists()) {
-                // This could be a node under "Network Neighborhood".
-                File ppsf = psf.getParentFile();
-                if (ppsf == null || !isFileSystem(ppsf)) {
-                    // We're mostly after the exists() override for windows below.
-                    f = createFileSystemRoot(f);
-                }
-            }
-            return f;
-        } else {
-            return psf;
-        }
-        */
     }
 
     @Override

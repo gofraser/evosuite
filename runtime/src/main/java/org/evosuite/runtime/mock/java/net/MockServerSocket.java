@@ -317,42 +317,6 @@ public class MockServerSocket extends ServerSocket implements OverrideMock {
         s.doPostAccept();
     }
 
-    /* Cannot override because final
-    protected final void implAccept(Socket s) throws IOException {
-        SocketImpl si = null;
-        try {
-            if (s.impl == null)
-                s.setImpl();
-            else {
-                s.impl.reset();
-            }
-            si = s.impl;
-            s.impl = null;
-            si.address = new InetAddress();
-            si.fd = new FileDescriptor();
-            getImpl().accept(si);
-
-            SecurityManager security = System.getSecurityManager();
-            if (security != null) {
-                security.checkAccept(si.getInetAddress().getHostAddress(),
-                        si.getPort());
-            }
-        } catch (IOException e) {
-            if (si != null)
-                si.reset();
-            s.impl = si;
-            throw e;
-        } catch (SecurityException e) {
-            if (si != null)
-                si.reset();
-            s.impl = si;
-            throw e;
-        }
-        s.impl = si;
-        s.postAccept();
-    }
-    */
-
     @Override
     public void close() throws IOException {
         if (!MockFramework.isEnabled()) {

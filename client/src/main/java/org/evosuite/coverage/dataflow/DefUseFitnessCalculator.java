@@ -427,27 +427,6 @@ public class DefUseFitnessCalculator {
         // calculate fitness
         double fitness = callTestFitnessFunctionForTrace(cutTrace, targetFitness);
 
-        // TODO see comment in calculateDUFitness() Case2.
-        // // sanity check
-        // if (fitness == 0.0 && !wantToCoverTargetDU) {
-        //
-        // System.out.println(this.goal.toString());
-        //
-        // System.out.println(cutTrace.toDefUseTraceInformation());
-        // DefUseExecutionTraceAnalyzer.printFinishCalls(cutTrace);
-        //
-        // System.out.println("duPosStart: " + duCounterStart);
-        // System.out.println("duPosEnd: " + duCounterEnd);
-        // // int targetUseBranchBytecode =
-        // // targetDU.getControlDependentBranch()
-        // // .getInstruction().getInstructionId();
-        // // System.out.println("targetDU-branch-bytecode: "
-        // // + targetUseBranchBytecode);
-        // throw new IllegalStateException(targetFitness.toString()
-        // + " cant have fitness 0 in this cut trace: "
-        // + cutTrace.toDefUseTraceInformation(targetDU
-        // .getDUVariableName(), objectId));
-        // }
         if (expectNotToBeZero && fitness == 0.0) {
             throw new UnexpectedFitnessException();
         }

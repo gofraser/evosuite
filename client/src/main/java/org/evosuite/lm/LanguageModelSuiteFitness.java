@@ -47,34 +47,9 @@ public class LanguageModelSuiteFitness extends TestSuiteFitnessFunction {
     public double getFitness(TestSuiteChromosome individual) {
         double fitness = backingFitness.getFitness(individual);
 
-
-        //TODO: replace this ugly code with a visitor; will TestVisitor work?
-        //        for(TestChromosome test : individual.getTestChromosomes()){
-        //
-        //            TestCase testCase = test.getTestCase();
-        //            for(StatementInterface statement : testCase){
-        //                if(statement instanceof StringPrimitiveStatement){
-        //                    StringPrimitiveStatement stringPrimitive = (StringPrimitiveStatement) statement;
-        //
-        //                    String value = stringPrimitive.getValue();
-        //                    double score = languageModel.score(value);
-        //
-        //                    fitness += 1-score;
-        //
-        //
-        //                    //TODO: we need to decide here how to reward good strings;
-        //                    //Afshan et al do this on a per-branch basis but we can only see the whole suite
-        //                    // fitness (unless we subclass BranchCoverageSuiteFitness rather than wrapping it)
-        //
-        //                    //At the moment this just penalises each string, rather than allowing EvoSuite to cover
-        //                    // branches before penalising them.
-        //
-        //
-        //
-        //                }
-        //            }
-        //
-        //        }
+        // The language model score of the string values is not yet part of the fitness: only the
+        // wrapped fitness is returned. Rewarding likely strings would have to happen per branch (as
+        // in Afshan et al.), which is not possible when wrapping a suite-level fitness function.
 
         return fitness;
     }
