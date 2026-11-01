@@ -146,57 +146,73 @@ when writing a new class (or re-factoring a current one), fields should come fir
 
 
 ---------------------------------------------
+CODE STYLE
+
+Formatting follows the Google Java style. Formatter settings for Eclipse and
+IntelliJ are in eclipse-java-google-style.xml and intellij-java-google-style.xml
+in the repository root, and checkstyle-evosuite.xml (with
+checkstyle-suppressions.xml) holds the checkstyle rules.
+
+
+
+---------------------------------------------
 BUILD COMMANDS
 
-The default build excludes the "shaded" module (which re-shades the
-master uber-jar for the Maven plugin) to save ~9 seconds:
+Build with JDK 17 (21 also works; JDK 25 additionally compiles
+runtime/src/main/java25, JDK 27 does not work). Maven 3.6.3 or later is
+required. All modules target Java 8 (java.release 8), and the runtime module
+must stay Java 8 compatible.
 
-  mvn package -DskipTests          # fast development build
-  mvn package -DskipTests -Pwith-shaded   # full build including shaded jar
+  mvn package -DskipTests          # fast build, no tests
+  mvn verify                       # build and run the tests
 
-Parallel builds are enabled by default via .mvn/maven.config (-T 1C).
+Traps:
+
+- Use 'verify', not 'clean test': EvoSelectorInstrumentedTest needs the
+  packaged runtime jar, which exists only after the package phase.
+- When building a single module with -pl X, add -am, otherwise Maven resolves
+  the other EvoSuite modules from ~/.m2 (possibly a stale version).
+- A full 'mvn install' rewrites tracked files under
+  plugins/build-support-test/projects/*/.m2. Restore them with
+  'git checkout plugins/build-support-test'.
+- The Maven plugin integration tests (plugins/maven-test) only run with
+  -Pmaven-plugin-its; '-Dits.groups=smoke' selects a smoke subset. The poms pass
+  -DevosuiteVersion to them automatically.
+
+The version of all modules is the 'revision' property in the root pom.xml
+(e.g. 1.2.1-SNAPSHOT); the modules use ${revision} as their version, and
+flatten-maven-plugin writes the resolved poms. Override it on the command
+line with -Drevision=X.Y.Z.
+
 
 
 ---------------------------------------------
 HOW TO MAKE A RELEASE
 
 To use the Maven plugin, and to link the "runtime" jar (plus dependencies)
-to a project, EvoSuite needs to be released and deployed on an accessible
-repository.
+to a project, EvoSuite needs to be released and deployed on Maven Central.
 
-Assume current EvoSuite version is x.y.z-SNAPSHOT. You need choose
-a new version number (x for major, y for minor, and z for patch).
+The version is the 'revision' property (see above); no other pom needs to
+change. Choose a version X.Y.Z (no SNAPSHOT).
 
-Once chosen a new version a.b.c (with *no* SNAPSHOT, and it is fine to
-have a.b.c == x.y.z), create a new Git branch with name equal to this
-new version number.
-Then, from command line execute:
+Preferred: the GitHub workflow .github/workflows/release.yml (Actions ->
+Release -> Run workflow). It is a workflow_dispatch workflow with one input,
+dry-run, which defaults to true. It builds whatever ref it is run from, so run
+it from a branch or tag on which the 'revision' property in the root pom.xml
+is X.Y.Z. With dry-run, it only builds the release artifacts (sources,
+javadoc) without signing or uploading. Untick dry-run to sign and deploy. It
+needs the repository secrets MAVEN_CENTRAL_USERNAME, MAVEN_CENTRAL_PASSWORD,
+GPG_PRIVATE_KEY and GPG_PASSPHRASE.
 
-  mvn versions:set -DnewVersion=a.b.c
+Locally, without changing the pom:
 
-This command will go through all the pom files in the project, and replace
-the version numbers there with the new one.
-Commit and push the changed pom files.
+  mvn -Prelease -Drevision=X.Y.Z deploy
 
-To deploy to Maven Central, execute:
+The 'release' profile attaches sources and javadoc jars, signs with GPG and
+uploads through central-publishing-maven-plugin. This requires a server with
+id 'central' in ~/.m2/settings.xml (a Central Portal user token) and a GPG
+key configured on your machine. The uploaded bundle is validated but not
+published automatically; publish it from the Central Portal.
 
-  mvn clean source:jar javadoc:jar gpg:sign -PsignJars,with-shaded -DskipTests deploy
-
-Note: this requires that you have configured GPG on your machine with the right
-valid keys.
-
-If the "Deploy" job ends correctly, then the new release has been deployed.
-It might take up to 2 hours before it will be visible on Maven Central.
-
-Now, on the Git master branch, need to set a new SNAPSHOT version:
-
-  mvn versions:set -DnewVersion=a.b.(c+1)-SNAPSHOT
-
-(eg, here we just incremented the patch number by one).
-Commit and push the modified pom files.
-
-
-
-
-
-
+After the release, set the 'revision' property in the root pom.xml to the
+next SNAPSHOT version and commit it.
