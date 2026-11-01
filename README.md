@@ -1,6 +1,15 @@
 # What is EvoSuite?
 
+[![CI](https://github.com/EvoSuite/evosuite/actions/workflows/ci.yml/badge.svg)](https://github.com/EvoSuite/evosuite/actions/workflows/ci.yml)
+
+
 EvoSuite automatically generates JUnit test suites for Java classes, targeting code coverage criteria such as branch coverage. It uses an evolutionary approach based on a genetic algorithm to derive test suites. To improve readability, the generated unit tests are minimized, and regression assertions that capture the current behavior of the tested classes are added to the tests.
+
+# Requirements
+
+- To run EvoSuite, use a JDK (not just a JRE), because generated tests are compiled.
+- To build EvoSuite, use JDK 17 (21 also works) and Maven 3.6.3 or later. All modules are compiled for Java 8 (`java.release` 8), and the `evosuite-runtime` module has to stay Java 8 compatible.
+- EvoSuite's sandbox needs a Java security manager. It is available on Java 8 to 17; on Java 18 to 23 only if the JVM is started with `-Djava.security.manager=allow`; Java 24 and later removed the security manager, and the sandbox is then switched off, with a warning.
 
 # Using EvoSuite
 
@@ -36,27 +45,25 @@ classpath syntax:
 ```-projectCP <classpath>```
 
 For more options, see the
-[Documentation](http://www.evosuite.org/documentation/commandline/)
+[Documentation](https://www.evosuite.org/documentation/commandline/)
 
 ```java -jar evosuite.jar -help```
 
-### EvoSuite on Docker Hub
+### EvoSuite on Docker
 
-EvoSuite has a container image available on [Docker Hub](https://hub.docker.com/r/evosuite/evosuite). You can get the container by either pulling the image:
-
-```docker pull evosuite/evosuite:<version>```
-
-or by manually building the image locally:
+The repository contains a `Dockerfile` that builds EvoSuite from the sources and runs it on a Temurin 17 JDK. Build the image locally:
 
 ```
 git clone https://github.com/EvoSuite/evosuite.git
 cd evosuite
-docker build -f Dockerfile.java11 . --tag evosuite/evosuite:latest-java-11
+docker build . --tag evosuite/evosuite:local
 ```
+
+(Tests are skipped in the image build; pass `--build-arg SKIP_TESTS=false` to run them.) There is also an [EvoSuite repository on Docker Hub](https://hub.docker.com/r/evosuite/evosuite); check which tags it offers before pulling.
 
 EvoSuite can be called as follows:
 
-```docker run -it -u ${UID} -v ${PWD}:/evosuite evosuite/evosuite:<version>-java-<java_version> <options>```
+```docker run -it -u ${UID} -v ${PWD}:/evosuite evosuite/evosuite:local <options>```
 
 It assumes that the project to be tested is located in the current directory the command is called from. The current directory, ```${PWD}```, is mapped to the ```/evosuite``` directory inside the container. This location is also the working directory of EvoSuite. All results will be mapped back to the directory on the host system. The ```-u ${UID}``` makes sure that the results have the same file ownership as the user initiating the command.
 
@@ -67,22 +74,18 @@ The ```<options>``` are the same as they would be when EvoSuite is called from t
 
 #### Large-scale experiment runner
 
-The docker image also provides a tag (```evosuite/evosuite:<version>-java-<java_version>-experiment```) to run large-scale experiments easily. You can get this image by pulling it from [Docker Hub](https://hub.docker.com/r/evosuite/evosuite):
-
-```docker pull evosuite/evosuite:<version>-experiment```
-
-or by manually building the image locally:
+The repository also contains `Dockerfile.experiment`, an image to run large-scale experiments easily. Build it locally:
 
 ```
 git clone https://github.com/EvoSuite/evosuite.git
 cd evosuite
-git checkout <version> # e.g. git checkout v1.1.0
-docker build -f Dockerfile.java11-experiment . --tag evosuite/evosuite:<version>-java-11-experiment
+git checkout <tag> # optional: build a specific release
+docker build -f Dockerfile.experiment . --tag evosuite/evosuite:experiment
 ```
 
 The experiment runner can be called as follows:
 
-```docker run -it -u ${UID} -v ${PWD}:/evosuite evosuite/evosuite:<version>-java-<java_version>-experiment [<options>] <configurations_file> <projects_file>```
+```docker run -it -u ${UID} -v ${PWD}:/evosuite evosuite/evosuite:experiment [<options>] <configurations_file> <projects_file>```
 
 and has the following options:
 ```
@@ -138,18 +141,32 @@ When EvoSuite needs to be run in the background, you can use ```-d``` instead of
 
 ### EvoSuite plugin for Eclipse
 
-There is an experimental Eclipse plugin available using the following
-update site: <http://www.evosuite.org/update>
-
-To see what the plugin does check out the [screencast](http://www.evosuite.org/documentation/eclipse-plugin/).
+The Eclipse plugin is built from [plugins/eclipse](plugins/eclipse/) as a standalone Tycho build, which runs EvoSuite in a separate process. See [plugins/eclipse/README.md](plugins/eclipse/README.md) for how to use it, how to build it, and how to install the resulting p2 update site.
 
 ### EvoSuite plugin for Maven
 
 EvoSuite has a Maven Plugin that can be used to generate new test cases as part of the build. This has at least the following advantages:
 
-1. Can run EvoSuite from Continuous Integration servers (eg Jenkins) with minimal configuration overheads
+1. Can run EvoSuite from Continuous Integration servers (eg a CI server) with minimal configuration overheads
 2. Generated tests can be put directly on the classpath of the system based on the pom.xml files
 3. No need to install EvoSuite on local machine (Maven will take care of it automatically)
+
+```xml
+<plugin>
+  <groupId>org.evosuite.plugins</groupId>
+  <artifactId>evosuite-maven-plugin</artifactId>
+  <version>${evosuite.version}</version>
+  <executions>
+    <execution>
+      <goals>
+        <goal>setup</goal>
+      </goals>
+    </execution>
+  </executions>
+</plugin>
+```
+
+Tests are then generated with `mvn evosuite:generate`. The project also needs `org.evosuite:evosuite-standalone-runtime` in the same version as a test dependency.
 
 Generated tests are written to `src/test/evosuite`, which the plugin adds to the build, and later runs only
 regenerate tests for classes that changed. See [plugins/maven/README.md](plugins/maven/README.md) for setup
@@ -157,7 +174,7 @@ and options.
 
 # Getting EvoSuite
 
-The current release of EvoSuite (main EvoSuite jar file and plugins) is available for download at <http://www.evosuite.org/downloads/>.
+The current release of EvoSuite (main EvoSuite jar file and plugins) is available for download at <https://www.evosuite.org/downloads/>.
 
 To access the source code, use the github repository:
 
@@ -168,24 +185,28 @@ To access the source code, use the github repository:
 
 EvoSuite uses [Maven](https://maven.apache.org/).
 
-To build EvoSuite on the command line, install maven and then call
+To build EvoSuite on the command line, install Maven (3.6.3 or later) and a JDK 17, and call
 
-```mvn compile```
+```mvn package -DskipTests```
 
-To create a binary distribution that includes all dependencies you can
-use Maven as well:
+This creates the executable jar with all dependencies at `master/target/evosuite-master-<version>.jar`. Run `mvn verify` to also run the tests. The build version is set by the `revision` property in the root `pom.xml`; a release build overrides it with `-Drevision=<version>`. See [IMPORTANT_README_FOR_DEVELOPERS.txt](IMPORTANT_README_FOR_DEVELOPERS.txt) for more build notes.
 
-```mvn package```
+To build EvoSuite in Eclipse, make sure you have the [M2Eclipse](https://eclipse.dev/m2e/) plugin installed, and import EvoSuite as Maven project. This will ensure that Eclipse uses Maven to build the project.
 
-To build EvoSuite in Eclipse, make sure you have the [M2Eclipse](http://www.eclipse.org/m2e/) plugin installed, and import EvoSuite as Maven project. This will ensure that Eclipse uses Maven to build the project.
 
+# LLM-based operators
+
+EvoSuite can use a large language model inside the search, as semantic mutation and crossover operators. They are off by default. Key properties, with their descriptions from `Properties.java` (group `LLM`, which lists the remaining `llm_*` properties):
+
+- `llm_operator_mode`: How LLM semantic operators take part in MOSA breeding: OFF uses the standard operators only; SYNC replaces standard mutation/crossover with a blocking LLM call on offspring whose parent was chosen by the operator target selector (subject to `llm_mutation_probability` / `llm_crossover_probability`); ASYNC submits selector targets to a background executor each generation and its results enter the next generation as external candidates.
+- `llm_operator_targeting`: How LLM operator targets are chosen: DIRECTED ranks (parent, goal) pairs by closeness to an uncovered goal; RANDOM pairs random individuals with random current goals as a control.
 
 # More Information
 
-Usage documentation can be found at <http://www.evosuite.org/documentation/>
+Usage documentation can be found at <https://www.evosuite.org/documentation/>
 
-The developers' mailing list is hosted at <https://groups.google.com/forum/#!forum/evosuite>
+The developers' mailing list is hosted at <https://groups.google.com/g/evosuite>
 
-EvoSuite has resulted in a number of publications, all of which are available at <http://www.evosuite.org/publications/>
+EvoSuite has resulted in a number of publications, all of which are available at <https://www.evosuite.org/publications/>
 
 
