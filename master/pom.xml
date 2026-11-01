@@ -46,7 +46,6 @@
             <!-- FindBugs Jsr305 -->
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
-            <version>3.0.2</version>
             <scope>test</scope>
         </dependency>
 
@@ -88,10 +87,6 @@
             <!-- GPL, but classpath exception -->
             <groupId>jakarta.xml.bind</groupId>
             <artifactId>jakarta.xml.bind-api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>javax.activation</groupId>
-            <artifactId>javax.activation-api</artifactId>
         </dependency>
     </dependencies>
 

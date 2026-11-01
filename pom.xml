@@ -5,22 +5,22 @@
     <groupId>org.evosuite</groupId>
     <artifactId>evosuite</artifactId>
     <name>EvoSuite</name>
-    <description>n/a</description>
+    <description>EvoSuite automatically generates JUnit test suites for Java classes using search-based techniques.</description>
     <version>${revision}</version>
     <packaging>pom</packaging>
-    <url>http://www.evosuite.org/</url>
+    <url>https://www.evosuite.org</url>
     <inceptionYear>2010</inceptionYear>
 
     <licenses>
         <license>
-            <name> GNU Lesser General Public License (LGPL), version 3</name>
-            <url>http://www.gnu.org/licenses/lgpl-3.0.en.html</url>
+            <name>GNU Lesser General Public License (LGPL), version 3</name>
+            <url>https://www.gnu.org/licenses/lgpl-3.0.en.html</url>
             <distribution>repo</distribution>
         </license>
     </licenses>
 
     <issueManagement>
-        <system>Github</system>
+        <system>GitHub</system>
         <url>https://github.com/EvoSuite/evosuite/issues</url>
     </issueManagement>
 
@@ -43,11 +43,9 @@
         <developer>
             <id>fraser</id>
             <name>Gordon Fraser</name>
-            <email>Gordon.Fraser@sheffield.ac.uk</email>
-            <url>http://staffwww.dcs.shef.ac.uk/people/G.Fraser</url>
             <organization>University of Sheffield</organization>
-            <organizationUrl>http://www.sheffield.ac.uk/dcs</organizationUrl>
-            <timezone>2</timezone>
+            <organizationUrl>https://www.sheffield.ac.uk/dcs</organizationUrl>
+            <timezone>+2</timezone>
             <roles>
                 <role>Developer</role>
             </roles>
@@ -56,8 +54,8 @@
             <id>arcuri</id>
             <name>Andrea Arcuri</name>
             <email>arcuri82@gmail.com</email>
-            <url>http://www.arcuriandrea.org</url>
-            <timezone>2</timezone>
+            <url>https://www.arcuriandrea.org</url>
+            <timezone>+2</timezone>
             <roles>
                 <role>Developer</role>
             </roles>
@@ -65,7 +63,7 @@
         <developer>
             <id>jmrojas</id>
             <name>Jose Miguel Rojas</name>
-            <timezone>2</timezone>
+            <timezone>+2</timezone>
             <roles>
                 <role>Developer</role>
             </roles>
@@ -75,19 +73,19 @@
     <scm>
         <connection>scm:git:https://github.com/EvoSuite/evosuite.git</connection>
         <developerConnection>scm:git:https://github.com/EvoSuite/evosuite.git</developerConnection>
-        <url>https://github.com/EvoSuite/evosuite/tree/master</url>
+        <url>https://github.com/EvoSuite/evosuite</url>
+        <tag>HEAD</tag>
     </scm>
 
     <organization>
         <name>EvoSuite</name>
-        <url>http://www.evosuite.org/</url>
+        <url>https://www.evosuite.org</url>
     </organization>
 
     <dependencies>
         <dependency>
             <groupId>org.hamcrest</groupId>
             <artifactId>hamcrest-junit</artifactId>
-            <version>2.0.0.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -100,14 +98,53 @@
 
     <profiles>
         <profile>
-            <!--  mvn source:jar javadoc:jar verify -PsignJars -DskipTests  -->
-            <id>signJars</id>
+            <!-- Release to Maven Central:
+                   mvn -Prelease -Drevision=2.0.0 clean deploy
+                 Attaches sources and javadoc, signs with GPG (loopback pinentry, so CI can pass
+                 the passphrase with -Dgpg.passphrase or MAVEN_GPG_PASSPHRASE) and uploads through the Central Publisher Portal
+                 (server id "central" in settings.xml). The bundle is validated but not published
+                 automatically; publish it from the portal. -->
+            <id>release</id>
             <build>
                 <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>attach-sources</id>
+                                <goals>
+                                    <goal>jar-no-fork</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <configuration>
+                            <doclint>none</doclint>
+                            <quiet>true</quiet>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-gpg-plugin</artifactId>
                         <version>3.2.8</version>
+                        <configuration>
+                            <gpgArguments>
+                                <arg>--pinentry-mode</arg>
+                                <arg>loopback</arg>
+                            </gpgArguments>
+                        </configuration>
                         <executions>
                             <execution>
                                 <id>sign-artifacts</id>
@@ -117,6 +154,17 @@
                                 </goals>
                             </execution>
                         </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>0.8.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <publishingServerId>central</publishingServerId>
+                            <autoPublish>false</autoPublish>
+                            <waitUntil>validated</waitUntil>
+                        </configuration>
                     </plugin>
                 </plugins>
             </build>
@@ -146,6 +194,38 @@
             you want to add, add a comment regarding its used license. -->
         <dependencies>
             <dependency>
+                <!-- EPL 2.0; manages jupiter, platform and vintage consistently -->
+                <groupId>org.junit</groupId>
+                <artifactId>junit-bom</artifactId>
+                <version>${junit.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <!-- BSD -->
+                <groupId>org.hamcrest</groupId>
+                <artifactId>hamcrest-junit</artifactId>
+                <version>2.0.0.0</version>
+            </dependency>
+            <dependency>
+                <!-- Apache 2 -->
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>2.16.1</version>
+            </dependency>
+            <dependency>
+                <!-- Apache 2 -->
+                <groupId>com.google.code.gson</groupId>
+                <artifactId>gson</artifactId>
+                <version>2.10.1</version>
+            </dependency>
+            <dependency>
+                <!-- Apache 2 -->
+                <groupId>com.google.code.findbugs</groupId>
+                <artifactId>jsr305</artifactId>
+                <version>3.0.2</version>
+            </dependency>
+            <dependency>
                 <groupId>org.glassfish.jaxb</groupId>
                 <artifactId>jaxb-runtime</artifactId>
                 <version>${jaxb.version}</version>
@@ -172,7 +252,7 @@
                 <!-- MIT -->
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-api</artifactId>
-                <version>2.0.16</version>
+                <version>${slf4j.version}</version>
             </dependency>
             <dependency>
                 <!-- EPL/LGPL -->
@@ -206,44 +286,34 @@
                 <version>4.13.2</version>
             </dependency>
             <dependency>
-                <groupId>org.junit.jupiter</groupId>
-                <artifactId>junit-jupiter-api</artifactId>
-                <version>5.14.3</version>
-            </dependency>
-            <dependency>
-                <groupId>org.junit.jupiter</groupId>
-                <artifactId>junit-jupiter</artifactId>
-                <version>5.14.3</version>
-            </dependency>
-            <dependency>
                 <!-- Adhoc license, copyright holder is INRIA -->
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm</artifactId>
-                <version>9.10.1</version>
+                <version>${asm.version}</version>
             </dependency>
             <dependency>
                 <!-- Adhoc license, copyright holder is INRIA -->
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm-commons</artifactId>
-                <version>9.10.1</version>
+                <version>${asm.version}</version>
             </dependency>
             <dependency>
                 <!-- Adhoc license, copyright holder is INRIA -->
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm-tree</artifactId>
-                <version>9.10.1</version>
+                <version>${asm.version}</version>
             </dependency>
             <dependency>
                 <!-- Adhoc license, copyright holder is INRIA -->
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm-analysis</artifactId>
-                <version>9.10.1</version>
+                <version>${asm.version}</version>
             </dependency>
             <dependency>
                 <!-- Adhoc license, copyright holder is INRIA -->
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm-util</artifactId>
-                <version>9.10.1</version>
+                <version>${asm.version}</version>
             </dependency>
             <dependency>
                 <!-- MIT License -->
@@ -308,7 +378,7 @@
                 <!-- Apache 2 -->
                 <groupId>org.apache.ant</groupId>
                 <artifactId>ant-junit</artifactId>
-                <version>1.10.17</version>
+                <version>${ant.version}</version>
                 <scope>provided</scope>
             </dependency>
             <dependency>
@@ -323,21 +393,6 @@
                 <version>1.3.5</version>
             </dependency>
             <dependency>
-                <groupId>org.junit.platform</groupId>
-                <artifactId>junit-platform-launcher</artifactId>
-                <version>1.14.4</version>
-            </dependency>
-            <dependency>
-                <groupId>org.junit.platform</groupId>
-                <artifactId>junit-platform-engine</artifactId>
-                <version>1.14.3</version>
-            </dependency>
-            <dependency>
-                <groupId>org.junit.vintage</groupId>
-                <artifactId>junit-vintage-engine</artifactId>
-                <version>5.14.3</version>
-            </dependency>
-            <dependency>
                 <groupId>javax.activation</groupId>
                 <artifactId>javax.activation-api</artifactId>
                 <version>${activation.version}</version>
@@ -350,19 +405,6 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
-
-
-    <distributionManagement>
-        <snapshotRepository>
-            <id>ossrh</id>
-            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-        </snapshotRepository>
-        <repository>
-            <id>ossrh</id>
-            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
-        </repository>
-    </distributionManagement>
-
 
 
     <build>
@@ -455,39 +497,41 @@
                 </executions>
             </plugin>
 
+            <!-- Licence headers. Opt-in: mvn license:check (or license:format to add missing headers) -->
             <plugin>
-                <groupId>com.mycila.maven-license-plugin</groupId>
-                <artifactId>maven-license-plugin</artifactId>
-                <version>1.10.b1</version>
+                <groupId>com.mycila</groupId>
+                <artifactId>license-maven-plugin</artifactId>
+                <version>5.0.0</version>
                 <configuration>
-                    <header>src/etc/header.txt</header>
+                    <licenseSets>
+                        <licenseSet>
+                            <header>src/etc/header.txt</header>
+                            <excludes>
+                                <exclude>DSC_LICENSE.txt</exclude>
+                                <exclude>LICENSE.txt</exclude>
+                                <exclude>IMPORTANT_README_FOR_DEVELOPERS.txt</exclude>
+                                <exclude>plugins/eclipse/README.md</exclude>
+                                <exclude>plugins/eclipse/mvnw*</exclude>
+                                <exclude>**/*.properties</exclude>
+                                <exclude>**/.idea/**</exclude>
+                                <exclude>**/*.js</exclude>
+                                <exclude>**/*.css</exclude>
+                                <exclude>release_results/**</exclude>
+                                <exclude>**/dk/brics/**</exclude>
+                                <exclude>**/readme.txt</exclude>
+                                <exclude>**/how_to.txt</exclude>
+                                <exclude>client/src/main/resources/jdkPureMethods.txt</exclude>
+                                <exclude>**/java9_invisible_packages.txt</exclude>
+                                <exclude>**/.hgignore</exclude>
+                                <exclude>README.md</exclude>
+                                <exclude>.m2/**</exclude>
+                                <exclude>*.txt</exclude>
+                            </excludes>
+                        </licenseSet>
+                    </licenseSets>
                     <properties>
                         <year>2010-2026</year>
                     </properties>
-                    <excludes>
-                        <exclude>DSC_LICENSE.txt</exclude>
-                        <exclude>LICENSE.txt</exclude>
-                        <exclude>IMPORTANT_README_FOR_DEVELOPERS.txt</exclude>
-                        <exclude>removed/readme.txt</exclude>
-                        <exclude>plugins/eclipse/README.md</exclude>
-                        <exclude>plugins/eclipse/mvnw*</exclude>
-                        <exclude>**/*.properties</exclude>
-                        <exclude>**/.idea/**</exclude>
-                        <exclude>**/*.js</exclude>
-                        <exclude>**/*.css</exclude>
-                        <exclude>release_results/**</exclude>
-                        <exclude>**/dk/brics/**</exclude>
-                        <exclude>**/readme.txt</exclude>
-                        <exclude>**/how_to.txt</exclude>
-                        <exclude>client/src/main/resources/jdkPureMethods.txt</exclude>
-                        <exclude>**/java9_invisible_packages.txt</exclude>
-                        <exclude>**/.hgignore</exclude>
-                        <exclude>README.md</exclude>
-                        <exclude>.m2/**</exclude>
-                        <exclude>*.txt</exclude>
-                        <exclude>removed/**</exclude>
-                        <exclude>llm_experiment/**</exclude>
-                    </excludes>
                     <mapping>
                         <java>SLASHSTAR_STYLE</java>
                     </mapping>
@@ -504,7 +548,7 @@
                     <execution>
                         <id>default-compile</id>
                         <configuration>
-                            <release>8</release>
+                            <release>${java.release}</release>
                         </configuration>
                     </execution>
                 </executions>
@@ -512,9 +556,9 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>3.12.0</version>
+                <version>${maven.javadoc.plugin.version}</version>
                 <configuration>
-                    <source>8</source>
+                    <source>${java.release}</source>
                     <additionalOptions>-Xdoclint:none</additionalOptions>
                 </configuration>
             </plugin>
@@ -542,7 +586,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.5.4</version>
+                <version>${surefire.version}</version>
                 <configuration>
                     <!-- EvoSuite tests modify global state (classloaders, static fields,
                          security managers) and cannot safely share a JVM. Each test class
@@ -570,7 +614,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
-                <version>3.5.4</version>
+                <version>${surefire.version}</version>
                 <configuration>
                     <!-- Same isolation as the unit tests: EvoSuite tests modify global state -->
                     <forkCount>1</forkCount>
@@ -754,6 +798,9 @@
     </build>
 
     <properties>
+        <!-- CI-friendly version: the one place the project version is set. Override with
+             -Drevision=... for a release; flatten-maven-plugin writes the resolved value into
+             the installed and deployed poms. -->
         <revision>1.2.1-SNAPSHOT</revision>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <!-- JVM arguments shared by the surefire and failsafe test forks -->
@@ -762,6 +809,17 @@
         <systemTests>**/*SystemTest.java</systemTests>
         <integrationTests>**/*IntTest.java</integrationTests>
 
+        <!-- Language level of the main sources. The engine and the runtime both currently target
+             Java 8 (release 8); the runtime must stay on 8 because it is linked into the
+             classpath of the code under test. -->
+        <java.release>8</java.release>
+
+        <asm.version>9.10.1</asm.version>
+        <slf4j.version>2.0.16</slf4j.version>
+        <ant.version>1.10.17</ant.version>
+        <junit.version>5.14.3</junit.version>
+        <surefire.version>3.5.4</surefire.version>
+        <maven.javadoc.plugin.version>3.12.0</maven.javadoc.plugin.version>
         <mockito.version>5.23.0</mockito.version>
         <!-- Byte Buddy 1.17.5+ required for Java 24/25 support -->
         <bytebuddy.version>1.18.11</bytebuddy.version>
