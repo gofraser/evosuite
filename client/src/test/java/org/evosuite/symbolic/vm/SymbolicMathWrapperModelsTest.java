@@ -39,7 +39,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -90,28 +89,23 @@ public class SymbolicMathWrapperModelsTest {
 
         String expected = readTranscript();
         String actual = String.join("\n", lines) + "\n";
-        if (!byValue(expected).equals(byValue(actual))) {
+        if (!withoutConcreteValues(expected).equals(withoutConcreteValues(actual))) {
             assertEquals(expected, actual);
         }
     }
 
-    private static final Pattern DECIMAL = Pattern.compile("-?\\d+\\.\\d+(?:E-?\\d+)?");
+    private static final Pattern CONCRETE_VALUE = Pattern.compile("(?m) -> .* \\[concrete\\]$");
 
     /**
-     * Replaces every decimal number by the bits of its double value. Since Java 19,
-     * Double.toString prints the shortest decimal that identifies a value, so the same double
-     * (eg Math.ulp(0.75f), 2^-24) is spelled 5.9604644775390625E-8 on Java 17 and
-     * 5.960464477539063E-8 on Java 21; the transcript compares values, not their spelling.
+     * Drops the value from the lines where a model kept the concrete result. That value is the
+     * JVM's own result of the Math method, which is not the model's doing and is not portable:
+     * Math (unlike StrictMath) may differ by an ulp between platforms (Math.log10(0.75) on
+     * x86-64 Linux against macOS), and since Java 19 Double.toString prints the shortest
+     * decimal, so the same Math.ulp(0.75f) is spelled differently on Java 17 and 21. That the
+     * model kept the concrete result is still compared.
      */
-    private static String byValue(String transcript) {
-        Matcher m = DECIMAL.matcher(transcript);
-        StringBuffer out = new StringBuffer();
-        while (m.find()) {
-            long bits = Double.doubleToLongBits(Double.parseDouble(m.group()));
-            m.appendReplacement(out, "#" + Long.toHexString(bits));
-        }
-        m.appendTail(out);
-        return out.toString();
+    private static String withoutConcreteValues(String transcript) {
+        return CONCRETE_VALUE.matcher(transcript).replaceAll(" -> [concrete]");
     }
 
     @SuppressWarnings("unchecked")
