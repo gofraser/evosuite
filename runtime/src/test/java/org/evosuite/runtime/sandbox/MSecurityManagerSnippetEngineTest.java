@@ -21,6 +21,7 @@ package org.evosuite.runtime.sandbox;
 
 import org.evosuite.testcase.execution.ExecutableSnippetEngine;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -44,6 +45,9 @@ public class MSecurityManagerSnippetEngineTest {
 
     @BeforeEach
     public void init() {
+        Assumptions.assumeTrue(Sandbox.isSecurityManagerSupported(),
+                "Security Manager cannot be installed in this JVM (Java 24+, or Java 18 to 23"
+                        + " without -Djava.security.manager=allow)");
         executor = Executors.newSingleThreadExecutor();
         securityManager = new MSecurityManager();
         securityManager.apply();
@@ -52,6 +56,9 @@ public class MSecurityManagerSnippetEngineTest {
 
     @AfterEach
     public void done() {
+        if (securityManager == null) {
+            return; // skipped by the assumption in init()
+        }
         securityManager.goingToEndTestCase();
         securityManager.restoreDefaultManager();
         executor.shutdownNow();
