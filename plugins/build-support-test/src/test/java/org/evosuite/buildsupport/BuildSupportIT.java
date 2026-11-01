@@ -175,7 +175,7 @@ public class BuildSupportIT {
 
             A possible solution would be to call an external Ant from a spawn
             process. Doable, but overcomplicated, as anyway having such test
-            in our Jenkins is not critical, ie breaking support for Ant
+            in the CI build is not critical, ie breaking support for Ant
             is not so critical as it would be for Maven and Gradle.
          */
 

@@ -49,7 +49,7 @@ import java.util.List;
  * experiment reasons, but its usage for practitioners
  * will be based on build environments like Maven/Ant
  * and continuous integration environments like
- * Jenkins/Hudson/Bamboo.
+ * CI servers.
  * </p>
  *
  * <p>
