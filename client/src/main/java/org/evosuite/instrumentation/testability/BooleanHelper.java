@@ -224,59 +224,6 @@ public class BooleanHelper {
         }
     }
 
-    @Deprecated
-    public static int fromDouble(double d) {
-        /*
-        if (d > Integer.MAX_VALUE)
-            return Integer.MAX_VALUE;
-        else if (d < Integer.MIN_VALUE)
-            return Integer.MIN_VALUE;
-        else
-        */
-        if (d == 0.0) {
-            return 0;
-        } else {
-            double d2 = Math.signum(d) * Math.abs(d) / (1.0 + Math.abs(d));
-            int d3 = (int) Math.round(Integer.MAX_VALUE * d2);
-            return d3;
-        }
-    }
-
-    @Deprecated
-    public static int fromFloat(float d) {
-        /*
-        if (d > Integer.MAX_VALUE)
-            return Integer.MAX_VALUE;
-        else if (d < Integer.MIN_VALUE)
-            return Integer.MIN_VALUE;
-        else */
-        if (d == 0.0f) {
-            return 0;
-        } else {
-            float d2 = Math.signum(d) * Math.abs(d) / (1f + Math.abs(d));
-            int d3 = Math.round(Integer.MAX_VALUE * d2);
-            return d3;
-        }
-    }
-
-    @Deprecated
-    public static int fromLong(long d) {
-        /*
-        if (d > Integer.MAX_VALUE)
-            return Integer.MAX_VALUE;
-        else if (d < Integer.MIN_VALUE)
-            return Integer.MIN_VALUE;
-            */
-        //else
-        //  return (int) d;
-        if (d == 0L) {
-            return 0;
-        }
-        double d2 = Math.signum(d) * Math.abs(d) / (1L + Math.abs(d));
-        int d3 = (int) Math.round(Integer.MAX_VALUE * d2);
-        return d3;
-    }
-
     public static int booleanToInt(boolean b) {
         if (b) {
             return TRUE;

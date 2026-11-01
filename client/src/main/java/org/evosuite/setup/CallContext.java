@@ -343,15 +343,6 @@ public class CallContext implements Serializable {
         return false;
     }
 
-    /**
-     * attach the className-methodname pair passed as parameter before the
-     * current context.
-     **/
-    @Deprecated
-    public CallContext getSuperContext(String className, String methodName) {
-        throw new IllegalStateException("YET TO IMPLEMENT, DEPRECATED");
-    }
-
     public String getRootClassName() {
         return calls().get(0).getClassName();
     }
