@@ -676,7 +676,8 @@ public class CoverageAnalysis {
             try {
                 Thread.sleep(100);
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                Thread.currentThread().interrupt();
+                logger.warn("Interrupted while waiting for the statistics to be transmitted", e);
             }
 
             // last element will be flush by master process

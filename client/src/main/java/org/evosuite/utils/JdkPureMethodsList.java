@@ -21,6 +21,7 @@ package org.evosuite.utils;
 
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.objectweb.asm.Type;
+import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.lang.reflect.Method;
@@ -67,8 +68,8 @@ public enum JdkPureMethodsList {
                 set.add(strLine);
             }
         } catch (IOException e) {
-            System.err.println("Wrong filename/path/file is missing");
-            e.printStackTrace();
+            // not a static field: loadInfo() runs from the enum constructor, before statics are set
+            LoggerFactory.getLogger(JdkPureMethodsList.class).error("Wrong filename/path/file is missing", e);
         }
         if (set.isEmpty()) {
             throw new IllegalStateException(

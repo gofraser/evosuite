@@ -27,6 +27,9 @@ import org.evosuite.testcase.statements.UninterpretedStatement;
 import org.evosuite.testcase.variable.ArrayReference;
 import org.evosuite.testcase.variable.VariableReference;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.lang.reflect.Array;
 import java.lang.reflect.Proxy;
 import java.lang.reflect.Type;
@@ -39,6 +42,8 @@ import java.util.Map.Entry;
  * @author Gordon Fraser
  */
 public class Scope {
+
+    private static final Logger logger = LoggerFactory.getLogger(Scope.class);
 
     /**
      * Map of variable references to their current values.
@@ -69,8 +74,7 @@ public class Scope {
         if (reference instanceof ArrayReference) {
             ArrayReference arrayRef = (ArrayReference) reference;
             if (o != null && !o.getClass().isArray()) {
-                System.out.println("Trying to access object of class " + o.getClass()
-                        + " as array: " + o);
+                logger.debug("Trying to access object of class {} as array: {}", o.getClass(), o);
             } else if (o != null) {
                 Object value = o;
                 List<Integer> lengths = new ArrayList<>();

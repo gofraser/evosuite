@@ -69,13 +69,9 @@ public class JUnitTheoryContract extends Contract {
             try {
                 theoryMethod.getMethod().invoke(theoryReceiver, object);
             } catch (IllegalAccessException e) {
-                // TODO Auto-generated catch block
-                logger.warn("Error while checking contract: " + e);
-                e.printStackTrace();
+                logger.warn("Error while checking contract: " + e, e);
             } catch (IllegalArgumentException e) {
-                // TODO Auto-generated catch block
-                logger.warn("Error while checking contract: " + e);
-                e.printStackTrace();
+                logger.warn("Error while checking contract: " + e, e);
             } catch (InvocationTargetException e) {
                 return new ContractViolation(this, statement, e.getCause(), var);
             } catch (Throwable t) {
@@ -107,14 +103,9 @@ public class JUnitTheoryContract extends Contract {
             st2.addComment("Violates theory: " + theoryMethod.getName());
 
         } catch (NoSuchMethodException e) {
-            // TODO Auto-generated catch block
-            logger.warn("Error while creating contract violation: " + e);
-
-            e.printStackTrace();
+            logger.warn("Error while creating contract violation: " + e, e);
         } catch (SecurityException e) {
-            // TODO Auto-generated catch block
-            logger.warn("Error while creating contract violation: " + e);
-            e.printStackTrace();
+            logger.warn("Error while creating contract violation: " + e, e);
         }
 
     }
@@ -126,11 +117,9 @@ public class JUnitTheoryContract extends Contract {
         try {
             theoryReceiver = theoryMethod.getDeclaringClass().newInstance();
         } catch (InstantiationException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            logger.warn("Cannot instantiate the theory class: " + e, e);
         } catch (IllegalAccessException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            logger.warn("Cannot instantiate the theory class: " + e, e);
         }
     }
 
