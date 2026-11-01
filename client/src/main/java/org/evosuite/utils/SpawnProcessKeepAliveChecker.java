@@ -51,6 +51,7 @@ public class SpawnProcessKeepAliveChecker {
     private static final ExecutorService executor = Executors.newCachedThreadPool();
     private static final String STILL_ALIVE = "still_alive";
     private static final int DELTA_MS = 5_000;
+    private static final int STOP_TIMEOUT_MS = 5_000;
 
     private volatile ServerSocket server;
     private volatile Thread serverThread;
@@ -126,9 +127,17 @@ public class SpawnProcessKeepAliveChecker {
             logger.error(e.toString());
         }
 
-        if (serverThread != null) {
-            serverThread.interrupt();
+        Thread thread = serverThread;
+        if (thread != null) {
+            thread.interrupt();
             serverThread = null;
+            // On Linux a thread blocked in accept() keeps the listening socket open, and JDK 17 releases it
+            // only once that thread wakes up: until then the port still accepts connections
+            try {
+                thread.join(STOP_TIMEOUT_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
 
         for (Socket socket : keepAliveSockets) {
