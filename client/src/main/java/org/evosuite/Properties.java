@@ -636,10 +636,6 @@ public class Properties {
             description = "Check length against length of parents")
     public static boolean CHECK_PARENTS_LENGTH = false; // note, based on STVR experiments
 
-    // @Parameter(key = "check_rank_length", group = "Search Algorithm", description = "Use length
-    // in rank selection")
-    // public static boolean CHECK_RANK_LENGTH = false;
-
     @Parameter(key = "parent_check", group = "Search Algorithm",
             description = "Check against parents in Mu+Lambda algorithm")
     public static boolean PARENT_CHECK = true;
@@ -1118,14 +1114,6 @@ public class Properties {
             description = "List of criteria which should be measured on the completed test suite")
     public static String ANALYSIS_CRITERIA = "";
 
-    @Parameter(key = "use_existing_coverage", group = "Experimental",
-            description = "Use the coverage of existing test cases")
-    public static boolean USE_EXISTING_COVERAGE = false;
-
-    @Parameter(key = "epson", group = "Experimental", description = "Epson")
-    @DoubleValue(min = 0.0, max = 1.0)
-    public static double EPSON = 0.01;
-
     // ---------------------------------------------------------------
     // Chemical Reaction Optimization Parameters
 
@@ -1503,14 +1491,6 @@ public class Properties {
             description = "If enabled, the list of all goals is written to a file")
     public static boolean WRITE_ALL_GOALS_FILE = false;
 
-    @Parameter(key = "print_current_goals", group = "Output",
-            description = "Print out current goal during test generation")
-    public static boolean PRINT_CURRENT_GOALS = true;
-
-    @Parameter(key = "print_covered_goals", group = "Output",
-            description = "Print out covered goals during test generation")
-    public static boolean PRINT_COVERED_GOALS = false;
-
     @Parameter(key = "print_missed_goals", group = "Output",
             description = "Print out missed goals at the end")
     public static boolean PRINT_MISSED_GOALS = false;
@@ -1586,10 +1566,6 @@ public class Properties {
     @Parameter(key = "double_precision", group = "Output",
             description = "Precision to use in double comparisons and assertions")
     public static double DOUBLE_PRECISION = 0.01;
-
-    // @Parameter(key = "old_statistics", group = "Output", description = "Use the old statistics
-    // backend on the master")
-    //public static boolean OLD_STATISTICS = false;
 
     @Parameter(key = "validate_runtime_variables", group = "Output",
             description = "Validate runtime values before writing statistics")
@@ -2983,9 +2959,6 @@ public class Properties {
     @Parameter(key = "archive_type", description = "Which type of archive to keep track of covered goals during search")
     public static ArchiveType ARCHIVE_TYPE = ArchiveType.COVERAGE;
 
-    @Parameter(key = "seed_probability", description = "Probability to seed on methods with randomness involved")
-    public static double SEED_PROBABILITY = 0.1;
-
     @Parameter(key = "selected_junit",
             description = "List of fully qualified class names (separated by ':') indicating which "
                     + "JUnit test suites the user has selected (e.g., for seeding)")
@@ -3342,7 +3315,7 @@ public class Properties {
             "connection_data", "constraint_solution_attempts", "cvc4_path", "dmon_only_target_class_constructor",
             "dmon_validate_promoted_once", "dse_keep_all_tests", "dse_module_version", "dse_negate_all_conditions",
             "dse_rank_branch_conditions", "dse_solver", "dynamic_seeding", "enable_alternative_fitness_calculation",
-            "epsilon", "evosuite_use_uispec", "handle_servlets", "hierarchy_data", "insertion_score_object",
+            "epsilon", "epson", "evosuite_use_uispec", "handle_servlets", "hierarchy_data", "insertion_score_object",
             "insertion_score_parameter", "insertion_score_uut", "jee", "jmc", "junit_check_on_separate_process",
             "junit_extend", "junit_strict", "junit_unstable_diagnostics", "kincompensation", "llm_blend_keep_raw",
             "llm_cluster_summary_absolute_override_chars", "llm_postprocessing_assertion_fallback_strategy",
@@ -3350,11 +3323,13 @@ public class Properties {
             "llm_repair_hints_cooldown_attempts", "llm_repair_hints_enabled", "llm_repair_hints_max_per_attempt",
             "llm_stagnation_mode", "llm_suite_injection_policy", "local_search_selective",
             "local_search_selective_primitives", "log_goals", "max_coverage_depth", "max_mutants", "minimize_old",
-            "minimize_strings", "mutation_generations", "new_object_selection", "num_tests", "plot", "random_tests",
+            "minimize_strings", "mutation_generations", "new_object_selection", "num_tests", "plot", "print_covered_goals",
+            "print_current_goals", "random_tests",
             "randomize_difficulty", "recycle_chromosomes", "remote_testing", "reuse_budget", "seed_file",
+            "seed_probability",
             "selected_dse_module_objects_model_version", "skip_covered", "sourcepath", "test_excludes",
             "test_includes", "testability_transformation", "track_boolean_branches",
-            "track_covered_gradient_branches", "usage_models", "usage_rate", "z3_path")));
+            "track_covered_gradient_branches", "usage_models", "usage_rate", "use_existing_coverage", "z3_path")));
 
     private static final Set<String> reportedRetiredKeys = ConcurrentHashMap.newKeySet();
 
