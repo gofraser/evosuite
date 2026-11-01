@@ -224,6 +224,12 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
 
     // functionality used to create ActualControlFlowGraph
 
+    /**
+     * Builds the basic block that contains the given instruction by extending it backwards and forwards along
+     * unambiguous control flow.
+     *
+     * @throws IllegalArgumentException if {@code instruction} is {@code null}
+     */
     public BasicBlock determineBasicBlockFor(BytecodeInstruction instruction) {
         if (instruction == null) {
             throw new IllegalArgumentException("null given");
@@ -467,6 +473,12 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
         return r;
     }
 
+    /**
+     * Returns whether there is a path from the given definition to the method exit that does not redefine the same
+     * variable. Local variable definitions never have such a path.
+     *
+     * @throws IllegalArgumentException if the definition is not part of this graph
+     */
     public boolean hasDefClearPathToMethodExit(Definition duVertex) {
         if (!graph.containsVertex(duVertex)) {
             throw new IllegalArgumentException("vertex not in graph");
@@ -479,6 +491,12 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
                 new HashSet<>());
     }
 
+    /**
+     * Returns whether there is a path from the method entry to the given use that does not redefine the same variable.
+     * Local variable uses never have such a path.
+     *
+     * @throws IllegalArgumentException if the use is not part of this graph
+     */
     public boolean hasDefClearPathFromMethodEntry(Use duVertex) {
         if (!graph.containsVertex(duVertex)) {
             throw new IllegalArgumentException("vertex not in graph");
@@ -688,6 +706,9 @@ public class RawControlFlowGraph extends ControlFlowGraph<BytecodeInstruction> {
                 .collect(toList());
     }
 
+    /**
+     * Returns the method call instructions of this graph that call a method of the class this graph belongs to.
+     */
     public List<BytecodeInstruction> determineMethodCallsToOwnClass() {
         List<BytecodeInstruction> calls = new ArrayList<>();
         for (BytecodeInstruction ins : determineMethodCalls()) {

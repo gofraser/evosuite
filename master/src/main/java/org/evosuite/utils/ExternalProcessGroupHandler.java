@@ -65,6 +65,9 @@ public class ExternalProcessGroupHandler {
         this(1);
     }
 
+    /**
+     * Creates a handler for a group of {@code nrOfProcesses} external client processes.
+     */
     public ExternalProcessGroupHandler(final int nrOfProcesses) {
         this.processGroup = new Process[nrOfProcesses];
 
@@ -370,6 +373,11 @@ public class ExternalProcessGroupHandler {
         return MasterServices.getInstance().getRegistryPort();
     }
 
+    /**
+     * Starts the RMI registry and registers the master services.
+     *
+     * @return the port of the server, or {@code -1} if it could not be started
+     */
     public int openServer() {
         boolean started = MasterServices.getInstance().startRegistry();
         if (!started) {
@@ -550,6 +558,10 @@ public class ExternalProcessGroupHandler {
         }
     }
 
+    /**
+     * Waits until the clients have connected and finished, for at most {@code timeout} milliseconds
+     * for the connection. Sets the client-failure flag if a client fails.
+     */
     public void waitForResult(int timeout) {
         clientFailureDetected = false;
         try {

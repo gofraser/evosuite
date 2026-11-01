@@ -115,6 +115,10 @@ public class MethodStatement extends EntityWithParametersStatement {
         init(method, callee);
     }
 
+    /**
+     * Checks whether {@code calleeType} can serve as the callee of the instance method {@code method}.
+     * Returns {@code false} if either argument is {@code null}.
+     */
     public static boolean isCompatibleCalleeType(GenericMethod method, java.lang.reflect.Type calleeType) {
         if (method == null || calleeType == null) {
             return false;
@@ -239,6 +243,11 @@ public class MethodStatement extends EntityWithParametersStatement {
         return callee;
     }
 
+    /**
+     * Sets the callee of this method call. Ignored for static methods.
+     *
+     * @throws IllegalArgumentException if the type of {@code callee} is not compatible with the method
+     */
     public void setCallee(VariableReference callee) {
         if (!isStatic()) {
             if (callee != null && !isCompatibleCalleeType(method, callee.getType())) {
@@ -875,6 +884,9 @@ public class MethodStatement extends EntityWithParametersStatement {
         return method.getName();
     }
 
+    /**
+     * Returns the names of the parameters of the called method, in declaration order.
+     */
     public List<String> obtainParameterNameListInOrder() {
         final Parameter[] parameters = this.method.getParameters();
         final List<String> names = new ArrayList<String>();

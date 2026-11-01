@@ -203,6 +203,9 @@ public class MersenneTwister extends java.util.Random implements Serializable, C
         return f;
     }
 
+    /**
+     * Checks whether {@code o} is a {@code MersenneTwister} with the same internal state as this one.
+     */
     public boolean stateEquals(Object o) {
         if (o == this) {
             return true;

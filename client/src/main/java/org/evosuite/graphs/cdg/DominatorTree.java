@@ -208,6 +208,11 @@ public class DominatorTree<V> extends EvoSuiteGraph<DominatorNode<V>, DefaultEdg
         return domNode.immediateDominator.node;
     }
 
+    /**
+     * Returns the dominance frontier of the given node, or an empty set if it has none.
+     *
+     * @throws IllegalStateException if the node is {@code null}
+     */
     public Set<V> getDominatingFrontiers(V v) {
         if (v == null) {
             throw new IllegalStateException("null given");

@@ -79,6 +79,9 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
     private Set<BytecodeInstruction> joins;
     private Set<BytecodeInstruction> joinSources;
 
+    /**
+     * Creates the actual control flow graph, whose vertices are basic blocks, from the given raw control flow graph.
+     */
     public ActualControlFlowGraph(RawControlFlowGraph rawGraph) {
         super(rawGraph.getClassName(), rawGraph.getMethodName(),
                 rawGraph.getMethodAccess());
@@ -408,6 +411,12 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
 
     // convenience methods to switch between BytecodeInstructons and BasicBlocks
 
+    /**
+     * Returns the basic block containing the given instruction, or {@code null} if it is unknown.
+     * Caches the block on the instruction when found.
+     *
+     * @throws IllegalArgumentException if the instruction is null
+     */
     public BasicBlock getBlockOf(BytecodeInstruction instruction) {
         if (instruction == null) {
             throw new IllegalArgumentException("null given");
@@ -428,6 +437,11 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
         return null;
     }
 
+    /**
+     * Returns {@code true} if the given instruction belongs to a basic block of this graph.
+     *
+     * @throws IllegalArgumentException if the instruction is null
+     */
     public boolean knowsInstruction(BytecodeInstruction instruction) {
         if (instruction == null) {
             throw new IllegalArgumentException("null given");
@@ -446,6 +460,11 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
         return false;
     }
 
+    /**
+     * Returns the distance in this graph between the basic blocks of the two given instructions.
+     *
+     * @throws IllegalArgumentException if either instruction is null or not contained in this graph
+     */
     public int getDistance(BytecodeInstruction v1, BytecodeInstruction v2) {
         if (v1 == null || v2 == null) {
             throw new IllegalArgumentException("null given");
@@ -465,6 +484,12 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
         return getDistance(b1, b2);
     }
 
+    /**
+     * Returns {@code true} if the basic block of the second instruction is a direct successor of the block of
+     * the first.
+     *
+     * @throws IllegalArgumentException if either instruction is null or not contained in this graph
+     */
     public boolean isDirectSuccessor(BytecodeInstruction v1, BytecodeInstruction v2) {
         if (v1 == null || v2 == null) {
             throw new IllegalArgumentException("null given");
@@ -486,6 +511,11 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
 
     // retrieve information about the CFG
 
+    /**
+     * Returns {@code true} if the given block is the entry point of this graph.
+     *
+     * @throws IllegalArgumentException if the block is null
+     */
     public boolean isEntryPoint(BasicBlock block) {
         if (block == null) {
             throw new IllegalArgumentException("null given");
@@ -501,6 +531,11 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
         return block.containsInstruction(entryPoint);
     }
 
+    /**
+     * Returns {@code true} if the given block contains one of the exit points of this graph.
+     *
+     * @throws IllegalArgumentException if the block is null
+     */
     public boolean isExitPoint(BasicBlock block) {
         if (block == null) {
             throw new IllegalArgumentException("null given");
@@ -515,6 +550,11 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
         return false;
     }
 
+    /**
+     * Returns {@code true} if the given instruction belongs to the class and method of this graph.
+     *
+     * @throws IllegalArgumentException if the instruction is null
+     */
     public boolean belongsToMethod(BytecodeInstruction instruction) {
         if (instruction == null) {
             throw new IllegalArgumentException("null given");
@@ -528,6 +568,12 @@ public class ActualControlFlowGraph extends ControlFlowGraph<BasicBlock> {
 
     // sanity checks
 
+    /**
+     * Checks that this graph is non-empty, knows every instruction it was built from, and puts each
+     * instruction of the underlying raw CFG into exactly one basic block.
+     *
+     * @throws IllegalStateException if an invariant is violated
+     */
     public void checkSanity() {
 
         logger.debug("checking sanity of CFG for " + methodName);

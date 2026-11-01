@@ -87,6 +87,10 @@ public final class LlmOperatorExecutor {
     private final AtomicLong failedCalls = new AtomicLong();
     private final AtomicLong inFlightGenerations = new AtomicLong();
 
+    /**
+     * Creates an executor running the given mutation and crossover operators on a pool of {@code maxInFlight} threads.
+     * Negative values of the budget guard are treated as 0, and in-flight and batch limits are at least 1.
+     */
     public LlmOperatorExecutor(LlmSemanticOperator mutation, LlmSemanticOperator crossover,
                                RepeatedInjectionMemory memory,
                                LongSupplier remainingSearchSecondsSupplier,

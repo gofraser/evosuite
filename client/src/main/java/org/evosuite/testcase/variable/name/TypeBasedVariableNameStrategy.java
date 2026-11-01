@@ -43,6 +43,10 @@ public class TypeBasedVariableNameStrategy extends AbstractVariableNameStrategy 
         return getIndexIncludingFirstAppearance(variableName);
     }
 
+    /**
+     * Returns the base name for {@code var}, derived from its simple class name with a lower-case first
+     * letter (and an {@code Array} suffix for arrays), before any uniqueness suffix is added.
+     */
     public String getPlainNameForVariable(VariableReference var) {
         String className = var.getSimpleClassName();
         if (className == null || className.isEmpty()) {

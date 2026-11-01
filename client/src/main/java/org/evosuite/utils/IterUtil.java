@@ -30,6 +30,9 @@ public class IterUtil {
      */
     public static final String DEFAULT_JOIN_SEPARATOR = ", ";
 
+    /**
+     * Joins the string representations of the items of {@code iter}, separated by {@code separator}.
+     */
     public static String join(Iterable<?> iter, String separator) {
         StringBuilder result = new StringBuilder();
         boolean isFirst = true;

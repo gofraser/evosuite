@@ -53,6 +53,11 @@ public final class CanonicalAssertionRenderer {
         return render(kind, expected, actual, delta, false);
     }
 
+    /**
+     * Renders an assertion of the given kind as a Java statement string.
+     * The {@code delta} is only valid for kinds that take one, and {@code arrayEquality} selects the array
+     * comparison form for equality assertions; unsupported combinations throw {@link IllegalStateException}.
+     */
     public String render(TemplateAssertionKind kind,
                          String expected,
                          String actual,

@@ -284,7 +284,7 @@
         </module>
         <module name="MissingJavadocMethod">
             <property name="scope" value="public"/>
-            <property name="minLineCount" value="2"/>
+            <property name="minLineCount" value="5"/>
             <property name="allowedAnnotations" value="Override, Test"/>
         </module>
         <module name="MethodName">

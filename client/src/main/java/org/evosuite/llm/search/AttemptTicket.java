@@ -134,6 +134,9 @@ public final class AttemptTicket {
         return memory != null;
     }
 
+    /**
+     * Returns the current state of this ticket.
+     */
     public State getState() {
         switch (state.get()) {
             case CLOSED:

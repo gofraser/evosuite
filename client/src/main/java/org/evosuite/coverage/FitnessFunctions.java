@@ -245,6 +245,10 @@ public class FitnessFunctions {
         ));
     }
 
+    /**
+     * Returns a new suite fitness function for the given criterion.
+     * Falls back to {@link BranchCoverageSuiteFitness} with a warning if the criterion is not registered.
+     */
     public static TestSuiteFitnessFunction getFitnessFunction(Criterion criterion) {
         FitnessRegistryEntry entry = registry.get(criterion);
         if (entry != null) {
@@ -264,6 +268,10 @@ public class FitnessFunctions {
         return FitnessFunctionsUtils.getFitnessFactories(Properties.CRITERION);
     }
 
+    /**
+     * Returns a new test fitness factory for the given criterion.
+     * Falls back to {@link BranchCoverageFactory} with a warning if the criterion is not registered.
+     */
     public static TestFitnessFactory<? extends TestFitnessFunction> getFitnessFactory(
             Criterion crit) {
         FitnessRegistryEntry entry = registry.get(crit);

@@ -54,6 +54,12 @@ public class AssignmentStatement extends AbstractStatement {
 
     protected VariableReference parameter;
 
+    /**
+     * Creates a statement that assigns {@code value} to the variable {@code var}.
+     *
+     * @throws IllegalArgumentException if {@code var} is a final field or {@code value} is {@code null}
+     *     for a primitive target
+     */
     public AssignmentStatement(TestCase tc, VariableReference var, VariableReference value) {
         super(tc, var);
         rejectFinalFieldTarget(var);

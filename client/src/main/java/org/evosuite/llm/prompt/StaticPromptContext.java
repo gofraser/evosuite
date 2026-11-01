@@ -112,6 +112,10 @@ public final class StaticPromptContext {
         private final PromptContextInfo info;
         private final Set<String> clusterClassNamesAtRender;
 
+        /**
+         * Creates an entry. The set of cluster class names seen at render time is copied, with {@code null} treated as
+         * empty.
+         */
         public DependencyEntry(String sectionText, PromptContextInfo info,
                                Set<String> clusterClassNamesAtRender) {
             this.sectionText = sectionText;

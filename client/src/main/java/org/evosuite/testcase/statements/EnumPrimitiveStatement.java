@@ -46,6 +46,9 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
 
     private transient Class<T> enumClass;
 
+    /**
+     * Creates a statement for the enum type {@code clazz}, initialised with its first constant.
+     */
     @SuppressWarnings("unchecked")
     public EnumPrimitiveStatement(TestCase tc, Class<T> clazz) {
         super(tc, clazz, null);

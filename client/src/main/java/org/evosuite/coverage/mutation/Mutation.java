@@ -54,6 +54,10 @@ public class Mutation implements Comparable<Mutation> {
 
     private final int lineNo;
 
+    /**
+     * Creates a mutation that replaces the original instruction with a single instruction node.
+     * {@code distance} holds the instructions that compute the infection distance.
+     */
     public Mutation(String className, String methodName, String mutationName, int id,
                     BytecodeInstruction original, AbstractInsnNode mutation, InsnList distance) {
         this.className = className;
@@ -67,6 +71,10 @@ public class Mutation implements Comparable<Mutation> {
         this.lineNo = original.getLineNumber();
     }
 
+    /**
+     * Creates a mutation that replaces the original instruction with the given instruction list.
+     * {@code distance} holds the instructions that compute the infection distance.
+     */
     public Mutation(String className, String methodName, String mutationName, int id,
                     BytecodeInstruction original, InsnList mutation, InsnList distance) {
         this.className = className;
@@ -108,6 +116,9 @@ public class Mutation implements Comparable<Mutation> {
         return mutationName + " (" + id + "): " + ", line " + original.getLineNumber();
     }
 
+    /**
+     * Returns the branch goals that the original instruction is control dependent on.
+     */
     public Set<BranchCoverageGoal> getControlDependencies() {
         Set<BranchCoverageGoal> goals = new HashSet<>();
         for (ControlDependency cd : original.getControlDependencies()) {

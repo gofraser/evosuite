@@ -72,6 +72,9 @@ public class LlmTraceRecorder {
         private final String parseStatus;
         private final String errorType;
 
+        /**
+         * Creates the outcome of a single model call. A {@code null} error type is stored as the empty string.
+         */
         public CallOutcome(String responseText, int inputTokens, int cachedInputTokens, int outputTokens,
                            long latencyMs, String parseStatus, String errorType) {
             this.responseText = responseText;

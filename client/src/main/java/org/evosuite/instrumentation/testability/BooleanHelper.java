@@ -197,6 +197,9 @@ public class BooleanHelper {
     }
 
 
+    /**
+     * Returns {@code a - b}, clamped to the range from {@code -K} to {@code K} so that the subtraction cannot overflow.
+     */
     public static int intSub(int a, int b) {
         long sub = (long) a - (long) b;
         if (sub < -K) {
@@ -263,6 +266,10 @@ public class BooleanHelper {
         }
     }
 
+    /**
+     * Returns the transformed integer result of a logical or: positive if either operand is positive, and
+     * non-positive otherwise.
+     */
     @SuppressWarnings("checkstyle:methodname")
     public static int IOR(int a, int b) {
         int ret = 0;
@@ -290,6 +297,10 @@ public class BooleanHelper {
         return Math.min(a, b);
     }
 
+    /**
+     * Returns the transformed integer result of a logical exclusive or: positive if exactly one operand is positive,
+     * and non-positive otherwise.
+     */
     @SuppressWarnings("checkstyle:methodname")
     public static int IXOR(int a, int b) {
         int ret = 0;
@@ -330,6 +341,10 @@ public class BooleanHelper {
         return result;
     }
 
+    /**
+     * Pops the topmost boolean parameter and returns it as an integer, {@code K} for {@code true} and {@code -K} for
+     * {@code false}.
+     */
     public static int popParameterIntFromBoolean() {
         boolean i = parametersBoolean.pop();
         if (i) {

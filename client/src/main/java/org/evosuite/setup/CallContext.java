@@ -61,6 +61,10 @@ public class CallContext implements Serializable {
         return size() == 0;
     }
 
+    /**
+     * Creates a call context from the given stack trace, ignoring leading and trailing frames of classes that are not
+     * part of the call context.
+     */
     public CallContext(StackTraceElement[] stackTrace) {
         int startPos = stackTrace.length - 1;
         int endPos = 0;

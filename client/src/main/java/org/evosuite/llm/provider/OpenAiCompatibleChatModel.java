@@ -51,6 +51,9 @@ public class OpenAiCompatibleChatModel implements LlmService.ChatLanguageModel {
     private final int timeoutSeconds;
     private final JsonHttpClient httpClient;
 
+    /**
+     * Creates a client for an OpenAI-compatible chat completion endpoint. A {@code null} API key is treated as empty.
+     */
     public OpenAiCompatibleChatModel(Properties.LlmProvider provider, String modelName, String apiKey,
                                      String baseUrl, double temperature, int maxTokens, int timeoutSeconds) {
         this.modelName = modelName;

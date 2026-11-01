@@ -46,6 +46,10 @@ public class ContainerTransformation {
         this.cn = cn;
     }
 
+    /**
+     * Transforms all methods of the class and returns the transformed class node. The maximum stack size of each
+     * changed method is increased by one.
+     */
     @SuppressWarnings("unchecked")
     public ClassNode transform() {
         List<MethodNode> methodNodes = cn.methods;

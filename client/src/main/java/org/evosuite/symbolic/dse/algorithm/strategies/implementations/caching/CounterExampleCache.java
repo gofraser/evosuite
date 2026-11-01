@@ -41,6 +41,10 @@ public class CounterExampleCache {
 
     private static final Logger logger = LoggerFactory.getLogger(CounterExampleCache.class);
 
+    /**
+     * Looks up the constraint set {@code query} in {@code queryCache} and reports the outcome in a
+     * {@link CacheQueryResult}. Records the query in the DSE statistics.
+     */
     public CacheQueryResult checkCache(Set<Constraint<?>> query, Map<Set<Constraint<?>>, SolverResult> queryCache) {
         // The statistics instance is replaced on every context reset, so it is read per query.
         final DSEStatistics statisticsLogger = DSEStatistics.getInstance();

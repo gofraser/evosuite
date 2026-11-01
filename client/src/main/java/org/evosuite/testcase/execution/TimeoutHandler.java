@@ -59,6 +59,14 @@ public class TimeoutHandler<T> {
         return task;
     }
 
+    /**
+     * Runs {@code testcase} on {@code executor} and waits at most {@code timeout} milliseconds for the
+     * result. Falls back to wall-clock time if CPU-time measurement is requested but not supported.
+     *
+     * @throws TimeoutException if the task does not finish in time
+     * @throws InterruptedException if the waiting thread is interrupted
+     * @throws ExecutionException if the task itself fails
+     */
     public T execute(final Callable<T> testcase, ExecutorService executor, long timeout,
                      boolean timeoutBasedOnCpu) throws TimeoutException, InterruptedException,
             ExecutionException {

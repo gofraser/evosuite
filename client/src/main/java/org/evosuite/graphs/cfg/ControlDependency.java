@@ -31,6 +31,11 @@ public class ControlDependency implements Serializable, Comparable<ControlDepend
     private final Branch branch;
     private final boolean branchExpressionValue;
 
+    /**
+     * Creates a control dependency on the given branch evaluating to the given value.
+     *
+     * @throws IllegalArgumentException if {@code branch} is {@code null}, since the root branch cannot be a dependency
+     */
     public ControlDependency(Branch branch, boolean branchExpressionValue) {
         if (branch == null) {
             throw new IllegalArgumentException(

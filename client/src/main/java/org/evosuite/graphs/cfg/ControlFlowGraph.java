@@ -91,6 +91,10 @@ public abstract class ControlFlowGraph<V> extends
         this.access = access;
     }
 
+    /**
+     * Returns whether the node {@code b} can be reached from the target of edge {@code e}, following edges in their
+     * direction.
+     */
     public boolean leadsToNode(ControlFlowEdge e, V b) {
 
         Set<V> handled = new HashSet<>();
@@ -188,6 +192,11 @@ public abstract class ControlFlowGraph<V> extends
         diameter = this.edgeCount();
     }
 
+    /**
+     * Returns the single entry point of this graph, that is the node without any parent.
+     *
+     * @throws IllegalStateException if there is more than one such node
+     */
     public V determineEntryPoint() {
         Set<V> candidates = determineEntryPoints();
 

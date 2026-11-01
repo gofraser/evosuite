@@ -40,6 +40,12 @@ import java.util.Queue;
  */
 public class SAGEExplorationAlgorithm extends ExplorationAlgorithm {
 
+    /**
+     * Creates a generational-search (SAGE-style) exploration algorithm.
+     *
+     * @param statistics the statistics collector for this exploration
+     * @param showProgress whether to report progress while exploring
+     */
     public SAGEExplorationAlgorithm(DSEStatistics statistics, boolean showProgress) {
         super(statistics, showProgress);
 

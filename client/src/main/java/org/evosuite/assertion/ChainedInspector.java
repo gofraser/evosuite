@@ -40,6 +40,10 @@ public class ChainedInspector extends Inspector {
     private transient Class<?> outerClass;
     private final Inspector innerInspector;
 
+    /**
+     * Creates an inspector that first calls {@code outerMethod} on the target object and then applies
+     * {@code innerInspector} to the result. Makes {@code outerMethod} accessible.
+     */
     public ChainedInspector(Class<?> clazz, Method outerMethod, Inspector innerInspector) {
         // Pass the outer class and outer method to the superclass.
         // We override getValue and getMethodCall to implement chaining.

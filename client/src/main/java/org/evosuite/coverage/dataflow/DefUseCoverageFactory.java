@@ -300,6 +300,9 @@ public class DefUseCoverageFactory extends
         return retrieveGoal(def, use);
     }
 
+    /**
+     * Returns the goal registered for the given definition-use pair, or {@code null} if there is none.
+     */
     public static DefUseCoverageTestFitness retrieveGoal(Definition def, Use use) {
         if (!goalMap.containsKey(def)) {
             return null;

@@ -139,6 +139,10 @@ public class DefUse extends BytecodeInstruction {
         return varName.equals(instruction.getVariableName());
     }
 
+    /**
+     * Returns a label for the kind of variable this def or use refers to: {@code "FieldMethodCall"},
+     * {@code "Field"}, {@code "Parameter"} or {@code "Local"}. Logs a warning and returns {@code "UNKNOWN"} otherwise.
+     */
     public String getDUVariableType() {
         // TODO remember that in a flag
         if (isMethodCallOfField()) {

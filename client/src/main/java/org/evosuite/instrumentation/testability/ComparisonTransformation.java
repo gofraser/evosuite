@@ -44,6 +44,10 @@ public class ComparisonTransformation {
         return cn;
     }
 
+    /**
+     * Replaces the long, float and double comparison instructions in the given method with calls that return a
+     * distance-based result, and records the transformations in the statistics.
+     */
     public void transformMethod(MethodNode mn) {
         AbstractInsnNode node = mn.instructions.getFirst();
         while (node != null) {

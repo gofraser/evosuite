@@ -96,6 +96,10 @@ public class PermissionStatistics {
         }
     }
 
+    /**
+     * Records that {@code permission} was allowed. Runs inside the security manager's permission check,
+     * so it must not use lambdas.
+     */
     public void permissionAllowed(Permission permission) {
         rememberRecentReadFilePermissions(permission);
         String name = permission.getClass().getName();
@@ -137,6 +141,9 @@ public class PermissionStatistics {
         return type;
     }
 
+    /**
+     * Records that {@code permission} was denied.
+     */
     public void permissionDenied(Permission permission) {
         incCurrentCount(permission.getClass());
         rememberRecentReadFilePermissions(permission);
@@ -238,6 +245,10 @@ public class PermissionStatistics {
         return getCurrentCount(javax.sound.sampled.AudioPermission.class);
     }
 
+    /**
+     * Returns the number of denied permissions in the current test that are not counted by any of the
+     * specific {@code getNum*Permission} methods.
+     */
     public int getNumOtherPermission() {
         int sum = getNumAllPermission() + getNumSecurityPermission()
                 + getNumUnresolvedPermission() + getNumAWTPermission()
@@ -260,6 +271,9 @@ public class PermissionStatistics {
         return !deniedCount.isEmpty();
     }
 
+    /**
+     * Prints the denied permissions, with their counts, to {@code inputLog}.
+     */
     public void printStatistics(Logger inputLog) {
         forcePermissionInit();
         if (hasDeniedPermissions()) {

@@ -46,6 +46,11 @@ public class ReferenceConstraint extends Constraint<Object> {
     private final Expression<Object> left;
     private final Expression<Object> right;
 
+    /**
+     * Creates the constraint {@code left cmp right} over reference expressions.
+     *
+     * @throws ConstraintTooLongException if the constraint is larger than {@code Properties.DSE_CONSTRAINT_LENGTH}
+     */
     public ReferenceConstraint(Expression<Object> left, Comparator cmp,
                                Expression<Object> right) {
         super();

@@ -53,6 +53,12 @@ public final class EvoTestCaseCodeGenerator {
         return testCase.size() > Properties.CHROMOSOME_LENGTH;
     }
 
+    /**
+     * Creates the statement for the method call recorded at {@code logRecNo} in {@code log}.
+     * Does nothing once the maximum test length has been reached.
+     *
+     * @throws IllegalArgumentException if {@code log} is {@code null} or {@code logRecNo} is negative
+     */
     public void createMethodCallStmt(final CaptureLog log, final int logRecNo) {
         if (log == null) {
             throw new IllegalArgumentException("captured log must not be null");
@@ -176,6 +182,10 @@ public final class EvoTestCaseCodeGenerator {
         return args;
     }
 
+    /**
+     * Creates the statement that initialises a plain (primitive or wrapper) object recorded at
+     * {@code logRecNo}. Does nothing if a variable for the recorded object already exists.
+     */
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void createPlainInitStmt(CaptureLog log, int logRecNo) {
         // NOTE: PLAIN INIT: has always one non-null param
@@ -209,6 +219,10 @@ public final class EvoTestCaseCodeGenerator {
         this.oidToVarRefMap.put(oid, varRef);
     }
 
+    /**
+     * Creates the statement that initialises an object whose construction was not observed, from the
+     * single value recorded at {@code logRecNo}.
+     */
     @SuppressWarnings({"rawtypes"})
     public void createUnobservedInitStmt(CaptureLog log, int logRecNo) {
 
@@ -232,6 +246,10 @@ public final class EvoTestCaseCodeGenerator {
         }
     }
 
+    /**
+     * Creates the statement for the field write recorded at {@code logRecNo}. Variables for all
+     * referenced objects must already exist.
+     */
     public void createFieldWriteAccessStmt(CaptureLog log, int logRecNo) {
         // assumption: all necessary statements are created and there is one variable for each referenced object
 
@@ -276,6 +294,10 @@ public final class EvoTestCaseCodeGenerator {
         }
     }
 
+    /**
+     * Creates the statement for the field read recorded at {@code logRecNo}. Variables for all
+     * referenced objects must already exist; a variable for the read value is reused if there is one.
+     */
     public void createFieldReadAccessStmt(CaptureLog log, int logRecNo) {
         // assumption: all necessary statements are created and there is one variable for reach referenced object
         final int oid = log.objectIds.get(logRecNo);
@@ -461,6 +483,9 @@ public final class EvoTestCaseCodeGenerator {
         }
     }
 
+    /**
+     * Creates the statements that instantiate and fill the array recorded at {@code logRecNo}.
+     */
     public void createArrayInitStmt(final CaptureLog log, final int logRecNo) {
         final int oid = log.objectIds.get(logRecNo);
 
@@ -518,6 +543,10 @@ public final class EvoTestCaseCodeGenerator {
         return false;
     }
 
+    /**
+     * Creates the statements that instantiate and fill the collection recorded at {@code logRecNo}.
+     * An alternative collection type is used if the recorded one is not public or has no default constructor.
+     */
     public void createCollectionInitStmt(final CaptureLog log, final int logRecNo) {
         try {
             final int oid = log.objectIds.get(logRecNo);
@@ -586,6 +615,10 @@ public final class EvoTestCaseCodeGenerator {
 
 
 
+    /**
+     * Creates the statements that instantiate and fill the map recorded at {@code logRecNo}.
+     * An alternative map type is used if the recorded one is not public or has no default constructor.
+     */
     public void createMapInitStmt(final CaptureLog log, final int logRecNo) {
         try {
             final int oid = log.objectIds.get(logRecNo);

@@ -46,6 +46,10 @@ public class FieldReference extends VariableReferenceImpl {
 
     private VariableReference source;
 
+    /**
+     * Creates a reference to {@code field} of {@code source}; {@code source} may be {@code null} only
+     * for static fields.
+     */
     public FieldReference(TestCase testCase, GenericField field, VariableReference source) {
         super(testCase, field.getFieldType());
         assert (source != null || field.isStatic()) : "No source object was supplied, "

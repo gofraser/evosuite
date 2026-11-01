@@ -34,6 +34,11 @@ public final class IntegerConstraint extends Constraint<Long> {
 
     private static final long serialVersionUID = 5345957507046422507L;
 
+    /**
+     * Creates the constraint {@code left cmp right} over integer expressions.
+     *
+     * @throws ConstraintTooLongException if the constraint is larger than {@code Properties.DSE_CONSTRAINT_LENGTH}
+     */
     public IntegerConstraint(Expression<Long> left, Comparator cmp,
                              Expression<Long> right) {
         super();

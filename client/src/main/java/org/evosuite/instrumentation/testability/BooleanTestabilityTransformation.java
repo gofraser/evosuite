@@ -154,6 +154,10 @@ public class BooleanTestabilityTransformation {
         }
     }
 
+    /**
+     * Returns the original name and original descriptor of the given method, before booleans were replaced by integers.
+     * If the method was not transformed, the name and descriptor are returned unchanged.
+     */
     public static String getOriginalNameDesc(String className, String methodName,
                                              String desc) {
         String key = className.replace('.', '/') + "/" + methodName + desc;
@@ -168,6 +172,10 @@ public class BooleanTestabilityTransformation {
         }
     }
 
+    /**
+     * Returns the descriptor the given method had before booleans were replaced by integers, or {@code desc} if it
+     * was not transformed.
+     */
     public static String getOriginalDesc(String className, String methodName, String desc) {
         String key = className.replace('.', '/') + "/" + methodName + desc;
         if (DescriptorMapping.getInstance().originalDesc.containsKey(key)) {
@@ -179,6 +187,9 @@ public class BooleanTestabilityTransformation {
         }
     }
 
+    /**
+     * Returns whether the original version of the given method had a boolean parameter.
+     */
     public static boolean hasTransformedParameters(String className, String methodName,
                                                    String desc) {
         String key = className.replace('.', '/') + "/" + methodName + desc;

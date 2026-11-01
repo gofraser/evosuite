@@ -353,6 +353,10 @@ public class BytecodeInstructionPool {
         return new LinkedHashSet<>(instructionMap.keySet());
     }
 
+    /**
+     * Returns a copy of the names of all methods of the given class for which instructions have been registered.
+     * The set is empty if the class is unknown.
+     */
     public synchronized Set<String> knownMethods(String className) {
         Set<String> r = new LinkedHashSet<>();
 
@@ -378,6 +382,10 @@ public class BytecodeInstructionPool {
         return false;
     }
 
+    /**
+     * Returns a copy of the registered instructions of the given method, or {@code null} if the class or method is
+     * unknown.
+     */
     public synchronized List<BytecodeInstruction> getInstructionsIn(String className, String methodName) {
         if (instructionMap.get(className) == null
                 || instructionMap.get(className).get(methodName) == null) {
@@ -409,6 +417,9 @@ public class BytecodeInstructionPool {
         return r;
     }
 
+    /**
+     * Logs, at debug level, all registered instructions of the given method.
+     */
     public synchronized void logInstructionsIn(String className, String methodName) {
 
         logger.debug("Printing instructions in " + className + "." + methodName + ":");
@@ -424,6 +435,10 @@ public class BytecodeInstructionPool {
 
     }
 
+    /**
+     * Creates a no-operation instruction at the end of the given method, with no line number, and registers it in this
+     * pool. The method must already have registered instructions.
+     */
     public synchronized BytecodeInstruction createFakeInstruction(String className, String methodName) {
 
         AbstractInsnNode fakeNode = new InsnNode(Opcodes.NOP);
@@ -494,6 +509,10 @@ public class BytecodeInstructionPool {
         }
     }
 
+    /**
+     * Removes the given instruction from the pool.
+     * Returns {@code true} if it was registered, {@code false} otherwise.
+     */
     public synchronized boolean forgetInstruction(BytecodeInstruction ins) {
         if (!instructionMap.containsKey(ins.getClassName())) {
             return false;

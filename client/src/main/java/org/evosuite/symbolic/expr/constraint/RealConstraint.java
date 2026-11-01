@@ -34,6 +34,11 @@ public final class RealConstraint extends Constraint<Double> {
 
     private static final long serialVersionUID = 6021027178547577289L;
 
+    /**
+     * Creates the constraint {@code left cmp right} over real-valued expressions.
+     *
+     * @throws ConstraintTooLongException if the constraint is larger than {@code Properties.DSE_CONSTRAINT_LENGTH}
+     */
     public RealConstraint(Expression<Double> left, Comparator cmp,
                           Expression<Double> right) {
         super();

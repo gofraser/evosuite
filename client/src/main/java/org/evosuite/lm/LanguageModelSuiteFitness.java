@@ -33,6 +33,11 @@ public class LanguageModelSuiteFitness extends TestSuiteFitnessFunction {
     private final LangModel languageModel;
 
 
+    /**
+     * Creates the fitness function, loading the language model from the configured source.
+     *
+     * @throws RuntimeException if the language model cannot be read
+     */
     public LanguageModelSuiteFitness() {
         backingFitness = new BranchCoverageSuiteFitness();
         try {

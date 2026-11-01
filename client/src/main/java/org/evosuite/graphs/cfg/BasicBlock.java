@@ -231,6 +231,9 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
         return instructions.contains(instruction);
     }
 
+    /**
+     * Returns {@code true} if this block contains the given ASM node.
+     */
     public boolean containsInstruction(AbstractInsnNode insnNode) {
         for (BytecodeInstruction instruction : instructions) {
             if (instruction.getASMNode().equals(insnNode)) {
@@ -254,6 +257,9 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
         return instructions.get(instructions.size() - 1);
     }
 
+    /**
+     * Returns the line number of the first instruction in this block that has one, or {@code -1} if none does.
+     */
     public int getFirstLine() {
         for (BytecodeInstruction ins : instructions) {
             if (ins.hasLineNumberSet()) {
@@ -264,6 +270,9 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
         return -1;
     }
 
+    /**
+     * Returns the line number of the last instruction in this block that has one, or {@code -1} if none does.
+     */
     public int getLastLine() {
 
         int r = -1;
@@ -289,6 +298,9 @@ public class BasicBlock implements Serializable, Iterable<BytecodeInstruction> {
         return methodName;
     }
 
+    /**
+     * Returns a multi-line description of this block listing its numbered instructions.
+     */
     public String explain() {
         StringBuilder r = new StringBuilder();
         r.append(getName()).append(":\n");

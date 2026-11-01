@@ -188,6 +188,10 @@ public class MethodCallReplacement {
         mv.visitLabel(afterOrigCallLabel);
     }
 
+    /**
+     * Emits bytecode that calls the replacement through {@code invokespecial} for a mocked superclass,
+     * packing the arguments on the stack into an {@code Object} array first.
+     */
     public void insertInvokeSpecialForMockedSuperclass(MethodCallReplacementMethodAdapter mv) {
         int numArguments = Type.getArgumentTypes(replacementDesc).length;
         mv.push(numArguments);
@@ -216,6 +220,10 @@ public class MethodCallReplacement {
 
     }
 
+    /**
+     * Emits bytecode that creates the object with the replacement constructor when mocking is enabled,
+     * and with the original constructor otherwise.
+     */
     public void insertConstructorCall(MethodCallReplacementMethodAdapter mv,
                                       MethodCallReplacement replacement, boolean isSelf) {
         Label origCallLabel = new Label();

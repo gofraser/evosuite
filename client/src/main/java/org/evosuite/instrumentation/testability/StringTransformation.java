@@ -52,6 +52,10 @@ public class StringTransformation {
         this.cn = cn;
     }
 
+    /**
+     * Transforms all methods of the class and returns the transformed class node. The maximum stack size of each
+     * changed method is increased by one.
+     */
     public ClassNode transform() {
         for (MethodNode mn : cn.methods) {
             if (transformMethod(mn)) {
@@ -166,6 +170,10 @@ public class StringTransformation {
         return false;
     }
 
+    /**
+     * Transforms the string operations in the given method and the boolean results that depend on them.
+     * Returns {@code true} if the method was changed.
+     */
     public boolean transformMethod(MethodNode mn) {
         boolean changed = transformStrings(mn);
         if (changed) {

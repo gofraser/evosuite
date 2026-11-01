@@ -1046,6 +1046,10 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         return new GenericClassImpl(rawClass);
     }
 
+    /**
+     * Returns the name of the raw class as it is written in generated code; member classes are rendered
+     * as {@code Outer.Inner}.
+     */
     public String getSimpleName() {
         // return raw_class.getSimpleName();
         // ClassUtils.getShortClassName converts every '$' to '.', treating it as
@@ -1085,6 +1089,9 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         return type;
     }
 
+    /**
+     * Returns the type name of this class including type arguments. The result is cached.
+     */
     public String getTypeName() {
         String cached = cachedTypeName;
         if (cached == null) {

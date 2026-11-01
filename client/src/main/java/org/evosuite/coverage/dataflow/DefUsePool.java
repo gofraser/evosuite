@@ -349,6 +349,11 @@ public class DefUsePool {
 
     // functionality to retrieve information from the pool
 
+    /**
+     * Returns {@code true} if a definition is known for the variable that the given def-use instruction refers to.
+     *
+     * @throws IllegalArgumentException if the instruction is not a definition or use
+     */
     public static boolean knowsDefinitionForVariableOf(BytecodeInstruction du) {
         if (!du.isDefUse()) {
             throw new IllegalArgumentException("defuse expected");

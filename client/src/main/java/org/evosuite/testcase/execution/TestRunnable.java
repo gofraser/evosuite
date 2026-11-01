@@ -122,6 +122,9 @@ public class TestRunnable implements Callable<ExecutionResult> {
 
     private final DmonEphemeralAssist dmonAssist;
 
+    /**
+     * Creates a runnable that executes {@code tc} in {@code scope}, notifying {@code observers}.
+     */
     public TestRunnable(TestCase tc, Scope scope, Set<ExecutionObserver> observers) {
         test = tc;
         this.scope = scope;
@@ -645,6 +648,10 @@ public class TestRunnable implements Callable<ExecutionResult> {
         return currentStatementIndex;
     }
 
+    /**
+     * Returns the code of the statement currently being executed, or {@code null} if there is none or
+     * its code cannot be rendered. Meant for describing timeouts.
+     */
     public String getCurrentStatementCode() {
         Statement s = currentStatement;
         if (s == null) {

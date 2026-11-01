@@ -548,6 +548,10 @@ public class DependencyAnalysis {
         }
     }
 
+    /**
+     * Logs a summary of the classpath analysis: the number of classpath entries and classes, and the
+     * analyzed classes, generators, modifiers, methods and branches of the test cluster.
+     */
     @SuppressWarnings("deprecation")
     public static void logClasspathAnalysisSummary(List<String> classPath) {
         long classpathEntries = classPath.stream().filter(entry -> entry != null && !entry.isEmpty()).count();

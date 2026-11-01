@@ -457,6 +457,11 @@ public class BranchPool {
         return registeredSwitches.containsKey(instruction);
     }
 
+    /**
+     * Returns the actual branch id registered for the given normal (non-switch) branch instruction.
+     *
+     * @throws IllegalArgumentException if the instruction is not registered as a normal branch
+     */
     public synchronized int getActualBranchIdForNormalBranchInstruction(BytecodeInstruction ins) {
         if (!isKnownAsNormalBranchInstruction(ins)) {
             throw new IllegalArgumentException(
@@ -471,6 +476,11 @@ public class BranchPool {
                 "expect registeredNormalBranches to contain a key for each known normal branch instruction");
     }
 
+    /**
+     * Returns the case branches registered for the given switch instruction.
+     *
+     * @throws IllegalArgumentException if the instruction is null, not a switch, or not registered
+     */
     public synchronized List<Branch> getCaseBranchesForSwitch(BytecodeInstruction instruction) {
         if (instruction == null) {
             throw new IllegalArgumentException("null given");
@@ -485,6 +495,11 @@ public class BranchPool {
         return new ArrayList<>(registeredSwitches.get(instruction));
     }
 
+    /**
+     * Returns the branch registered for the given normal branch instruction.
+     *
+     * @throws IllegalArgumentException if the instruction is null or not registered as a normal branch
+     */
     public synchronized Branch getBranchForInstruction(BytecodeInstruction instruction) {
         if (instruction == null) {
             throw new IllegalArgumentException("null given");
@@ -752,6 +767,11 @@ public class BranchPool {
         return r;
     }
 
+    /**
+     * Returns the default-case branch registered for the given switch instruction.
+     *
+     * @throws IllegalArgumentException if the instruction is not a registered switch or has no default branch
+     */
     public synchronized Branch getDefaultBranchForSwitch(BytecodeInstruction v) {
         if (!v.isSwitch()) {
             throw new IllegalArgumentException("switch instruction expected");

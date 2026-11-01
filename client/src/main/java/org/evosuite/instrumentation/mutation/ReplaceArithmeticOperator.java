@@ -145,6 +145,10 @@ public class ReplaceArithmeticOperator implements MutationOperator {
         return replacement;
     }
 
+    /**
+     * Builds instructions that compute the infection distance of replacing {@code opcodeOrig} with {@code opcodeNew},
+     * for the two operands on the stack. The distance is 0 if the mutant changes the result and 1 otherwise.
+     */
     public InsnList getInfectionDistance(int opcodeOrig, int opcodeNew, int localVar) {
         InsnList distance = new InsnList();
 
@@ -221,6 +225,11 @@ public class ReplaceArithmeticOperator implements MutationOperator {
         }
     }
 
+    /**
+     * Returns 0 if replacing {@code opcodeOrig} with {@code opcodeNew} changes the result for the given int operands,
+     * and 1 if the results are identical. A zero divisor counts as a change only if exactly one of the operators fails
+     * on division by zero.
+     */
     public static double getInfectionDistanceInt(int x, int y, int opcodeOrig,
                                                  int opcodeNew) {
         if (y == 0) {
@@ -231,6 +240,11 @@ public class ReplaceArithmeticOperator implements MutationOperator {
         return origValue == newValue ? 1.0 : 0.0;
     }
 
+    /**
+     * Returns 0 if replacing {@code opcodeOrig} with {@code opcodeNew} changes the result for the given long operands,
+     * and 1 if the results are identical. A zero divisor counts as a change only if exactly one of the operators fails
+     * on division by zero.
+     */
     public static double getInfectionDistanceLong(long x, long y, int opcodeOrig,
                                                   int opcodeNew) {
         if (y == 0L) {
@@ -241,6 +255,11 @@ public class ReplaceArithmeticOperator implements MutationOperator {
         return origValue == newValue ? 1.0 : 0.0;
     }
 
+    /**
+     * Returns 0 if replacing {@code opcodeOrig} with {@code opcodeNew} changes the result for the given float operands,
+     * and 1 if the results are identical. A zero divisor counts as a change only if exactly one of the operators fails
+     * on division by zero.
+     */
     public static double getInfectionDistanceFloat(float x, float y, int opcodeOrig,
                                                    int opcodeNew) {
         if (y == 0.0F) {
@@ -251,6 +270,11 @@ public class ReplaceArithmeticOperator implements MutationOperator {
         return origValue == newValue ? 1.0 : 0.0;
     }
 
+    /**
+     * Returns 0 if replacing {@code opcodeOrig} with {@code opcodeNew} changes the result for the given double
+     * operands, and 1 if the results are identical. A zero divisor counts as a change only if exactly one of the
+     * operators fails on division by zero.
+     */
     public static double getInfectionDistanceDouble(double x, double y, int opcodeOrig,
                                                     int opcodeNew) {
         if (y == 0.0) {
@@ -261,6 +285,9 @@ public class ReplaceArithmeticOperator implements MutationOperator {
         return origValue == newValue ? 1.0 : 0.0;
     }
 
+    /**
+     * Applies the arithmetic operator {@code opcode} to the int operands {@code x} and {@code y}.
+     */
     public static int calculate(int x, int y, int opcode) {
         switch (opcode) {
             case Opcodes.IADD:
@@ -279,6 +306,9 @@ public class ReplaceArithmeticOperator implements MutationOperator {
         throw new RuntimeException("Unknown integer opcode: " + opcode);
     }
 
+    /**
+     * Applies the arithmetic operator {@code opcode} to the long operands {@code x} and {@code y}.
+     */
     public static long calculate(long x, long y, int opcode) {
         switch (opcode) {
             case Opcodes.LADD:
@@ -297,6 +327,9 @@ public class ReplaceArithmeticOperator implements MutationOperator {
         throw new RuntimeException("Unknown long opcode: " + opcode);
     }
 
+    /**
+     * Applies the arithmetic operator {@code opcode} to the float operands {@code x} and {@code y}.
+     */
     public static float calculate(float x, float y, int opcode) {
         switch (opcode) {
             case Opcodes.FADD:
@@ -315,6 +348,9 @@ public class ReplaceArithmeticOperator implements MutationOperator {
         throw new RuntimeException("Unknown float opcode: " + opcode);
     }
 
+    /**
+     * Applies the arithmetic operator {@code opcode} to the double operands {@code x} and {@code y}.
+     */
     public static double calculate(double x, double y, int opcode) {
         switch (opcode) {
             case Opcodes.DADD:

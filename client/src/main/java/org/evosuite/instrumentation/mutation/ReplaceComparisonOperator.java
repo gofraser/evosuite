@@ -163,6 +163,10 @@ public class ReplaceComparisonOperator implements MutationOperator {
         return mutations;
     }
 
+    /**
+     * Builds instructions that compute the infection distance of replacing the comparison {@code opcodeOrig} with
+     * {@code opcodeNew}, for the operands on the stack.
+     */
     public InsnList getInfectionDistance(int opcodeOrig, int opcodeNew) {
         InsnList distance = new InsnList();
         switch (opcodeOrig) {

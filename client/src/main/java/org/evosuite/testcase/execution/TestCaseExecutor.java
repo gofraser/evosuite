@@ -358,6 +358,10 @@ public class TestCaseExecutor implements ThreadFactory {
         // start own thread
     }
 
+    /**
+     * Shuts down the executor service of the singleton instance, if there is one.
+     * The service is recreated by {@link #initExecutor()}.
+     */
     public static void pullDown() {
         if (instance != null) {
             synchronized (instance) {
@@ -381,6 +385,10 @@ public class TestCaseExecutor implements ThreadFactory {
         return snapshot != null && !snapshot.isShutdown() && !snapshot.isTerminated();
     }
 
+    /**
+     * Creates a new single-threaded executor service for the singleton instance, if there is one.
+     * Does nothing when no instance exists.
+     */
     public static void initExecutor() {
         if (instance != null) {
             synchronized (instance) {

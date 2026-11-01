@@ -57,6 +57,10 @@ public class ConcolicExecutorImpl implements ConcolicExecutor {
      */
     private final ConcolicInstrumentingClassLoader instrumentingClassLoader;
 
+    /**
+     * Creates an executor with a fresh instrumenting class loader and initialises the DSE configuration
+     * via {@code MainConfig.setInstance()}.
+     */
     public ConcolicExecutorImpl() {
         this.instrumentingClassLoader = new ConcolicInstrumentingClassLoader(new ConcolicBytecodeInstrumentation());
 

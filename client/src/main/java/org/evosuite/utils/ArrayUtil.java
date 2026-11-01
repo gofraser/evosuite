@@ -43,6 +43,9 @@ public abstract class ArrayUtil {
      */
     public static final String DEFAULT_JOIN_SEPARATOR = IterUtil.DEFAULT_JOIN_SEPARATOR;
 
+    /**
+     * Returns a boxed copy of {@code array}.
+     */
     public static Integer[] box(int[] array) {
         Integer[] result = new Integer[array.length];
 
@@ -54,6 +57,9 @@ public abstract class ArrayUtil {
         return result;
     }
 
+    /**
+     * Returns a boxed copy of {@code array}.
+     */
     public static Long[] box(long[] array) {
         Long[] result = new Long[array.length];
 
@@ -65,6 +71,9 @@ public abstract class ArrayUtil {
         return result;
     }
 
+    /**
+     * Returns a boxed copy of {@code array}.
+     */
     public static Byte[] box(byte[] array) {
         Byte[] result = new Byte[array.length];
 

@@ -380,6 +380,10 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      */
     private transient long orphanedOffspringDroppedTotal;
 
+    /**
+     * Creates the algorithm with the given chromosome factory, and sets up a suite fitness function for each
+     * configured criterion.
+     */
     public AbstractMOSA(ChromosomeFactory<TestChromosome> factory) {
         super(factory);
         setLlmInjectionAdapter(new TestChromosomeInjectionAdapter());

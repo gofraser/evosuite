@@ -115,6 +115,10 @@ public class BytecodeInstrumentation {
         return false;
     }
 
+    /**
+     * Returns whether testability transformation should be applied to the given class, according to the configured
+     * transformation scope. Returns {@code false} if testability transformation is disabled.
+     */
     public boolean shouldTransform(String className) {
         if (!config.ttEnabled()) {
             return false;

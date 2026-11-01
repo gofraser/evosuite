@@ -1267,6 +1267,9 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         return stoppingConditions.stream().anyMatch(StoppingCondition::isFinished);
     }
 
+    /**
+     * Adds the stopping condition unless one of the same class is already present.
+     */
     public void addStoppingCondition(StoppingCondition<T> condition) {
         final boolean contained = stoppingConditions.stream()
                 .anyMatch(obj -> obj.getClass().equals(condition.getClass()));
@@ -1292,6 +1295,10 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         addListener(condition);
     }
 
+    /**
+     * Removes the stopping condition of the same class as the given one, if present, and unregisters it as a
+     * listener.
+     */
     public void removeStoppingCondition(StoppingCondition<T> condition) {
         stoppingConditions.removeIf(sc -> {
             if (!sc.getClass().equals(condition.getClass())) {

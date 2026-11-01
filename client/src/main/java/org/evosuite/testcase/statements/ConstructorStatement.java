@@ -98,6 +98,10 @@ public class ConstructorStatement extends EntityWithParametersStatement {
         retval.setType(constructor.getReturnType());
     }
 
+    /**
+     * Returns the short name of {@code clazz} as used in generated code; the simple name for primitive
+     * classes.
+     */
     public static String getReturnType(Class<?> clazz) {
         String retVal = ClassUtils.getShortClassName(clazz);
         if (primitiveClasses.contains(retVal)) {

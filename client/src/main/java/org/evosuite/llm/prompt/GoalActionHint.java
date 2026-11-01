@@ -53,6 +53,9 @@ public final class GoalActionHint {
     private GoalActionHint() {
     }
 
+    /**
+     * Returns the action hint matching the kind of the given coverage goal (branch, line, method, and so on).
+     */
     public static String forGoal(TestFitnessFunction goal) {
         if (BranchGoalView.isBranchGoal(goal)) {
             return BRANCH;

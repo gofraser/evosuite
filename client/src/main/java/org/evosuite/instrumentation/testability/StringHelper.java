@@ -32,6 +32,10 @@ import java.util.regex.Pattern;
  */
 public class StringHelper {
 
+    /**
+     * Returns the Levenshtein edit distance between the two strings, that is the minimum number of single-character
+     * insertions, deletions and substitutions needed to turn one into the other.
+     */
     public static int editDistance(String s, String t) {
         /*
             The difference between this impl. and the previous is that, rather
@@ -101,6 +105,12 @@ public class StringHelper {
      * how different they are
      */
 
+    /**
+     * Returns a distance-based replacement for {@code first.equals(second)}: {@code K} if they are equal, and a
+     * non-positive value that is more negative the more different the strings are otherwise.
+     *
+     * @throws NullPointerException if {@code first} is {@code null}
+     */
     @SuppressWarnings("checkstyle:methodname")
     public static int StringEquals(String first, Object second) {
         if (first == null) {
@@ -291,6 +301,12 @@ public class StringHelper {
         }
     }
 
+    /**
+     * Returns a distance-based replacement for {@code first.equalsIgnoreCase(second)}: {@code K} if they are equal
+     * ignoring case, and a negative value otherwise.
+     *
+     * @throws NullPointerException if {@code first} is {@code null}
+     */
     @SuppressWarnings("checkstyle:methodname")
     public static int StringEqualsIgnoreCase(String first, String second) {
         if (first == null) {
@@ -324,6 +340,10 @@ public class StringHelper {
         return StringEquals(val1, suffix);
     }
 
+    /**
+     * Returns a distance-based replacement for {@code value.isEmpty()}: {@code K} if the string is empty and the
+     * negated length otherwise.
+     */
     @SuppressWarnings("checkstyle:methodname")
     public static int StringIsEmpty(String value) {
         int len = value.length();
@@ -334,6 +354,12 @@ public class StringHelper {
         }
     }
 
+    /**
+     * Returns a distance-based replacement for {@code value.regionMatches(ignoreCase, thisStart, string, start,
+     * length)}: positive if the regions match and negative otherwise.
+     *
+     * @throws NullPointerException if {@code value} or {@code string} is {@code null}
+     */
     @SuppressWarnings("checkstyle:methodname")
     public static int StringRegionMatches(String value, boolean ignoreCase,
                                           int thisStart, String string, int start, int length) {

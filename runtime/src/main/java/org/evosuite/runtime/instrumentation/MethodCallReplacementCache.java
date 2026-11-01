@@ -223,6 +223,9 @@ public class MethodCallReplacementCache {
 
     }
 
+    /**
+     * Returns the shared cache. A new cache replaces the old one if the mocking settings have changed.
+     */
     public static MethodCallReplacementCache getInstance() {
         int current = RuntimeSettings.mockingFingerprint();
         MethodCallReplacementCache cache = instance;

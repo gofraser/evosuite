@@ -46,6 +46,12 @@ import java.util.Queue;
  */
 public class DFSExplorationAlgorithm extends ExplorationAlgorithm {
 
+    /**
+     * Creates a depth-first exploration algorithm that expands paths in reverse order.
+     *
+     * @param statistics the statistics collector for this exploration
+     * @param showProgress whether to report progress while exploring
+     */
     public DFSExplorationAlgorithm(DSEStatistics statistics, boolean showProgress) {
         super(statistics, showProgress);
 

@@ -42,6 +42,9 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
     private final String className;
     private final String methodName;
 
+    /**
+     * Creates and computes the control dependence graph for the given control flow graph.
+     */
     public ControlDependenceGraph(ActualControlFlowGraph cfg) {
         super(ControlFlowEdge.class);
 
@@ -60,6 +63,9 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
         return cfg.knowsInstruction(ins);
     }
 
+    /**
+     * Returns the minimal distance from any entry point of this graph to the block of the dependence's branch.
+     */
     public int getControlDependenceDepth(ControlDependency dependence) {
         int min = Integer.MAX_VALUE;
         for (BasicBlock root : determineEntryPoints()) {
@@ -72,6 +78,10 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
         return min;
     }
 
+    /**
+     * Returns the blocks reachable from the branch block of {@code dependency} through its outgoing edges that
+     * carry a control dependency other than {@code dependency}; edges without one are not followed.
+     */
     public Set<BasicBlock> getAlternativeBlocks(ControlDependency dependency) {
         Set<BasicBlock> blocks = new LinkedHashSet<>();
         Branch branch = dependency.getBranch();
@@ -155,6 +165,10 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
         return r;
     }
 
+    /**
+     * Returns the actual branch ids of the branches the given block is control dependent on.
+     * Includes the root branch id if the block depends only on method entry.
+     */
     public Set<Integer> getControlDependentBranchIds(BasicBlock ins) {
 
         Set<ControlDependency> dependentBranches = getControlDependentBranches(ins);

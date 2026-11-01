@@ -352,6 +352,11 @@ public final class GeneratedTestAccess {
         return dollar > simpleNameStart;
     }
 
+    /**
+     * Checks whether a generated test in the given package can legally refer to {@code type}.
+     * Returns {@code false} for {@code null} and for types that javac would reject, such as public types in
+     * packages their module does not export.
+     */
     public static boolean isTypeAccessibleFromGeneratedTest(Class<?> type, String testPackageName) {
         if (type == null) {
             return false;
@@ -471,6 +476,11 @@ public final class GeneratedTestAccess {
         return classPrefix.trim();
     }
 
+    /**
+     * Checks whether {@code clazz} is declared in the package {@code packageName}.
+     * A {@code null} class is never in the package; a {@code null} package name or a class without package
+     * is treated as the default package.
+     */
     public static boolean isSamePackage(Class<?> clazz, String packageName) {
         if (clazz == null) {
             return false;

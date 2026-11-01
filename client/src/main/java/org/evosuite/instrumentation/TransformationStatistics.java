@@ -202,6 +202,10 @@ public class TransformationStatistics {
         stats.get().transformedBitwise++;
     }
 
+    /**
+     * Appends the statistics for the given class to {@code transformation.csv} in the report directory,
+     * writing the header first if the file does not exist yet.
+     */
     public static void writeStatistics(String className) {
         String filename = Properties.REPORT_DIR + "/transformation.csv";
         File logfile = new File(filename);

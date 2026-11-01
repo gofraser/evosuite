@@ -34,6 +34,10 @@ import java.util.ArrayList;
  * @author ignacio lebrero
  */
 public class DefaultTestCaseBuildingStrategy {
+    /**
+     * Builds the initial test case for {@code method} with default parameter values and an empty path
+     * condition, so that exploration starts by negating every branch condition.
+     */
     public DSETestCase buildInitialTestCase(Method method) {
         TestCase testCase = TestCaseUpdater.buildTestCaseWithDefaultValues(method);
         PathCondition emptyPathCondition = new PathCondition(new ArrayList());

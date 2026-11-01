@@ -108,6 +108,10 @@ public class EvoSuite {
         return !FileUtils.listFiles(directory, extensions, false).isEmpty();
     }
 
+    /**
+     * Entry point of the EvoSuite command line. Registers the RMI class loader and parses the
+     * arguments, reporting errors on the log.
+     */
     public static void main(String[] args) {
         if (System.getProperty("java.rmi.server.RMIClassLoaderSpi") == null) {
             System.setProperty("java.rmi.server.RMIClassLoaderSpi", EvoSuiteRMIClassLoaderSpi.class.getName());
@@ -180,6 +184,11 @@ public class EvoSuite {
         }
     }
 
+    /**
+     * Parses the command line {@code args} and runs the requested EvoSuite action.
+     *
+     * @return the result of the requested action
+     */
     public Object parseCommandLine(String[] args) {
         Options options = CommandLineParameters.getCommandLineOptions();
 

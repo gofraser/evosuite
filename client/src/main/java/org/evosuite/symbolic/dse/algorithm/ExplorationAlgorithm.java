@@ -137,6 +137,10 @@ public abstract class ExplorationAlgorithm extends ExplorationAlgorithmBase {
     private final transient ConcolicExecutor engine;
     private final transient Solver solver;
 
+    /**
+     * Creates an algorithm with default progress reporting, the shared {@link DSEStatistics} instance,
+     * a new concolic executor and a solver built by the {@link SolverFactory}.
+     */
     public ExplorationAlgorithm() {
         this(
                 SHOW_PROGRESS_DEFAULT_VALUE,

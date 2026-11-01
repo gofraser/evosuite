@@ -135,6 +135,11 @@ public class Branch implements Serializable, Comparable<Branch> {
         return isSwitch && targetCaseValue != null;
     }
 
+    /**
+     * Returns the case value this switch branch is taken for, or {@code null} for the default case.
+     *
+     * @throws IllegalStateException if this is not a switch branch
+     */
     public Integer getTargetCaseValue() {
         // in order to avoid confusion when targetCaseValue is null
         if (!isSwitch) {

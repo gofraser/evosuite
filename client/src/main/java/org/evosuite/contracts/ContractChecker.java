@@ -52,6 +52,10 @@ public class ContractChecker extends ExecutionObserver {
 
     private static boolean active = true;
 
+    /**
+     * Creates a checker that is populated with the default set of contracts (exception, null, equals, hashCode,
+     * toString and similar checks).
+     */
     public ContractChecker() {
         // Default from EvoSuite
         contracts.add(new UndeclaredExceptionContract());

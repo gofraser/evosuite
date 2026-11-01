@@ -77,6 +77,10 @@ public class DeleteField implements MutationOperator {
         return mutations;
     }
 
+    /**
+     * Builds instructions that compute the infection distance of deleting the field access, that is how far the
+     * original field value is from the replacement value computed by {@code mutant}.
+     */
     public InsnList getInfectionDistance(FieldInsnNode original, InsnList mutant) {
         InsnList distance = new InsnList();
 

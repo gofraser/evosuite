@@ -62,6 +62,10 @@ public class ErrorConditionChecker {
         return (int) (Math.ceil(max * (1.0 * value / (value + 1.0))));
     }
 
+    /**
+     * Returns a distance to an integer overflow for the arithmetic {@code opcode} applied to {@code op1} and {@code
+     * op2}. A negative result means the operation overflows, positive values measure how far it is from overflowing.
+     */
     public static int overflowDistance(int op1, int op2, int opcode) {
         switch (opcode) {
 

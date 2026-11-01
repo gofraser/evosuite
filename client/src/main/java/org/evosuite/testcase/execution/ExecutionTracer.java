@@ -172,6 +172,12 @@ public class ExecutionTracer {
         return !tracer.disabled;
     }
 
+    /**
+     * Sets the kill switch of the current tracer. While it is set, tracing calls abort the running test.
+     * Enabling it also resets the clinit and probe counters used to decide when to kill.
+     *
+     * @param value {@code true} to enable the kill switch, {@code false} to clear it
+     */
     public static void setKillSwitch(boolean value) {
         ExecutionTracer tracer = ExecutionTracer.getExecutionTracer();
         tracer.killSwitch = value;
@@ -851,6 +857,10 @@ public class ExecutionTracer {
         }
     }
 
+    /**
+     * Records that the mutation {@code mutationId} was reached with the given infection distance.
+     * Ignored if tracing is disabled or the caller is not the test thread.
+     */
     public static void passedMutation(double distance, int mutationId) {
         ExecutionTracer tracer = getExecutionTracer();
         if (tracer.disabled) {
@@ -866,6 +876,10 @@ public class ExecutionTracer {
         tracer.trace.mutationPassed(mutationId, distance);
     }
 
+    /**
+     * Records {@code exception} as an explicitly thrown exception of the current trace.
+     * Ignored if tracing is disabled or the caller is not the test thread.
+     */
     public static void exceptionThrown(Object exception, String className,
                                        String methodName) {
         ExecutionTracer tracer = getExecutionTracer();
@@ -883,6 +897,9 @@ public class ExecutionTracer {
 
     }
 
+    /**
+     * Counts one executed statement. Ignored if tracing is disabled or the caller is not the test thread.
+     */
     public static void statementExecuted() {
         ExecutionTracer tracer = getExecutionTracer();
         if (tracer.disabled) {

@@ -40,6 +40,10 @@ public class ExpandExecutionStrategy {
 
     Logger logger = LoggerFactory.getLogger(ExpandExecutionStrategy.class);
 
+    /**
+     * Generates the child path conditions of {@code currentPathConditionChild} by negating each of its
+     * branch conditions from the index it was generated from onwards.
+     */
     public List<GenerationalSearchPathCondition> generateChildren(
             GenerationalSearchPathCondition currentPathConditionChild) {
         List<GenerationalSearchPathCondition> generatedChildren = new ArrayList<>();

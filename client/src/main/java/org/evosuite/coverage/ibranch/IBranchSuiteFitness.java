@@ -76,6 +76,10 @@ public class IBranchSuiteFitness extends TestSuiteFitnessFunction {
      */
     private final Set<IBranchTestFitness> removedRootBranches = new LinkedHashSet<>();
 
+    /**
+     * Creates a suite fitness for all interprocedural branch goals of the target class, indexing the goals
+     * by branch and method.
+     */
     public IBranchSuiteFitness() {
         goalsMap = new LinkedHashMap<>();
         methodsMap = new LinkedHashMap<>();

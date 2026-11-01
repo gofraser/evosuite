@@ -227,6 +227,9 @@ public final class TestSuiteChromosome
         }
     }
 
+    /**
+     * Returns the union of the goals covered by the tests of this suite, in encounter order.
+     */
     public Set<TestFitnessFunction> getCoveredGoals() {
         Set<TestFitnessFunction> goals = new LinkedHashSet<>();
         for (TestChromosome t : tests) {

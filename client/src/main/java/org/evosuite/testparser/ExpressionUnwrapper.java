@@ -31,6 +31,9 @@ public final class ExpressionUnwrapper {
     private ExpressionUnwrapper() {
     }
 
+    /**
+     * Strips all enclosing casts and parentheses from {@code expression} and returns the innermost expression.
+     */
     public static Expression unwrapCastsAndParentheses(Expression expression) {
         Expression current = expression;
         while (current instanceof CastExpr || current instanceof EnclosedExpr) {

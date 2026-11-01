@@ -106,6 +106,9 @@ public abstract class StoppingConditionImpl<T extends Chromosome<T>> implements 
         return r.toString();
     }
 
+    /**
+     * Returns the simple class name of this stopping condition without the {@code StoppingCondition} suffix.
+     */
     public String getType() {
         String type = getClass().toString();
         try { // just to make sure

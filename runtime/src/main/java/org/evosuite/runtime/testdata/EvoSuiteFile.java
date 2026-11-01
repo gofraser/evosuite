@@ -35,6 +35,9 @@ public class EvoSuiteFile implements Serializable {
 
     private final String userDir = System.getProperty("user.dir");
 
+    /**
+     * Creates a file reference for {@code path}, stored as an absolute path; a {@code null} path stays {@code null}.
+     */
     public EvoSuiteFile(String path) {
 
         if (path == null) {

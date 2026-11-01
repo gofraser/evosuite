@@ -106,6 +106,13 @@ public class ClassPathHacker {
         addURL(f.toURI().toURL());
     }
 
+    /**
+     * Adds the given URL to the class path of the system class loader.
+     * Uses reflection on {@code URLClassLoader.addURL}, so it only works if the system class loader is a
+     * {@link URLClassLoader}.
+     *
+     * @throws IOException if the URL cannot be added
+     */
     public static void addURL(URL u) throws IOException {
         logger.info("Trying to add URL to class path: {}", u);
         ClassLoader sysloader = ClassLoader.getSystemClassLoader();

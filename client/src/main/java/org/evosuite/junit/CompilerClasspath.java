@@ -156,6 +156,11 @@ public final class CompilerClasspath {
         }
     }
 
+    /**
+     * Returns the classpath for compiling tests, as a string separated by the platform path separator. It combines the
+     * configured project classpath, the JVM classpath and the classpaths of the given class loader and the context
+     * class loader, normalised and without duplicates.
+     */
     public static String forClassLoader(ClassLoader parentLoader) {
         Set<String> entries = new LinkedHashSet<>();
         appendNormalizedClasspathEntries(Properties.CP, entries);

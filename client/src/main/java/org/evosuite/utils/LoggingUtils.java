@@ -115,6 +115,11 @@ public class LoggingUtils {
         getEvoLogger().error("* " + ClientProcess.getPrettyPrintIdentifier() + format, args);
     }
 
+    /**
+     * Starts the log server on a free port and accepts client log connections in the background.
+     *
+     * @return {@code true} if the server was started
+     */
     public boolean startLogServer() {
         try {
             serverSocket = new ServerSocket();
@@ -193,6 +198,9 @@ public class LoggingUtils {
         return serverSocket.getLocalPort();
     }
 
+    /**
+     * Closes the log server socket, if open. Safe to call repeatedly.
+     */
     public void closeLogServer() {
         if (serverSocket != null && !serverSocket.isClosed()) {
             try {

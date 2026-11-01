@@ -58,6 +58,9 @@ public class MutationInstrumentation implements MethodInstrumentation {
 
     private Frame[] frames = new Frame[0];
 
+    /**
+     * Creates a mutation instrumentation with the default set of mutation operators.
+     */
     public MutationInstrumentation() {
         mutationOperators = new ArrayList<>();
 

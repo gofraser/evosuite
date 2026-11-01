@@ -67,6 +67,10 @@ public class MethodCall implements Cloneable {
         }
     }
 
+    /**
+     * Creates an empty record of a call to the method {@code methodName} of {@code className}, with
+     * empty line, branch and distance traces.
+     */
     public MethodCall(String className, String methodName, int methodId,
                       int callingObjectId, int callDepth) {
         this.className = className;
@@ -105,6 +109,9 @@ public class MethodCall implements Cloneable {
         return ret.toString();
     }
 
+    /**
+     * Returns a multi-line, human-readable description of this call and its recorded traces.
+     */
     public String explain() {
         // TODO StringBuilder-explain() functions to construct string templates like explainList()
         StringBuffer r = new StringBuffer();

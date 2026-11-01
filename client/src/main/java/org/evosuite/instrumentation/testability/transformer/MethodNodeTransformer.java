@@ -28,6 +28,9 @@ import org.objectweb.asm.tree.*;
  */
 public class MethodNodeTransformer {
 
+    /**
+     * Transforms the instructions of the given method node. Methods without instructions are left unchanged.
+     */
     public void transform(MethodNode mn) {
         if (mn.instructions == null || mn.instructions.size() == 0) {
             return;

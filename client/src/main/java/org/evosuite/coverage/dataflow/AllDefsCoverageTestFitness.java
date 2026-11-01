@@ -53,6 +53,10 @@ public class AllDefsCoverageTestFitness extends TestFitnessFunction {
     private final TestFitnessFunction goalDefinitionFitness;
     private transient Map<Use, DefUseCoverageTestFitness> uses;
 
+    /**
+     * Creates a goal that is covered when the given definition is covered and reaches at least one of the
+     * given uses.
+     */
     public AllDefsCoverageTestFitness(Definition def,
                                       Map<Use, DefUseCoverageTestFitness> uses) {
         this.targetDef = def;

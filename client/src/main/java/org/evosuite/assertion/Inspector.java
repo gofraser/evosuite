@@ -63,6 +63,12 @@ public class Inspector implements Serializable {
         }
     }
 
+    /**
+     * Invokes the inspector method on the given object and returns its result.
+     * Switches the sandbox on for the duration of the call if SUT code is not already executing under it.
+     *
+     * @throws InvocationTargetException if the inspector method itself throws
+     */
     public Object getValue(Object object) throws IllegalArgumentException,
             IllegalAccessException, InvocationTargetException {
 

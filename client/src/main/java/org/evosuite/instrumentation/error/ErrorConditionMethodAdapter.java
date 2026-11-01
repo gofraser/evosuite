@@ -54,6 +54,10 @@ public class ErrorConditionMethodAdapter extends GeneratorAdapter {
     protected List<ErrorBranchInstrumenter> instrumentation;
 
 
+    /**
+     * Creates an adapter for the given method that inserts error condition checks and forwards the result to {@code
+     * mv}.
+     */
     public ErrorConditionMethodAdapter(MethodVisitor mv, String className,
                                        String methodName, int access, String desc) {
         super(Opcodes.ASM9,

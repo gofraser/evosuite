@@ -95,6 +95,10 @@ public class CFGMethodAdapter extends MethodVisitor {
      */
     private boolean excludeMethod = false;
 
+    /**
+     * Creates an adapter that collects the instructions of the given method into an annotated method node,
+     * and forwards the visited code to {@code mv}.
+     */
     public CFGMethodAdapter(ClassLoader classLoader, String className, int access,
                             String name, String desc, String signature, String[] exceptions,
                             MethodVisitor mv) {

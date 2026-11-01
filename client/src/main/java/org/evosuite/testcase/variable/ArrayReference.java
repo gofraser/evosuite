@@ -193,6 +193,9 @@ public class ArrayReference extends VariableReferenceImpl {
         return lengths.length;
     }
 
+    /**
+     * Sets the length of each dimension of this array from {@code lengths}.
+     */
     public void setLengths(List<Integer> lengths) {
         this.lengths = new int[lengths.size()];
         int idx = 0;

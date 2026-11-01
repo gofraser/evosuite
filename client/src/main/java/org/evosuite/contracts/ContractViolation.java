@@ -63,6 +63,11 @@ public class ContractViolation {
 
     private boolean isMinimized = false;
 
+    /**
+     * Records a violation of a contract at the given statement.
+     * Stores a copy of the test truncated right after the violating statement, marks it as failing, and copies
+     * the involved variables into that copy.
+     */
     public ContractViolation(Contract contract, Statement statement,
                              Throwable exception, VariableReference... variables) {
         this.contract = contract;

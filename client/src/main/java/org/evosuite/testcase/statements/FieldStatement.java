@@ -60,6 +60,10 @@ public class FieldStatement extends AbstractStatement {
     protected GenericField field;
     protected VariableReference source;
 
+    /**
+     * Creates a statement that reads {@code field} of {@code source}; {@code source} is {@code null} for
+     * static fields.
+     */
     public FieldStatement(TestCase tc, GenericField field, VariableReference source) {
         super(tc, new VariableReferenceImpl(tc, field.getFieldType()));
         this.field = field;

@@ -64,6 +64,10 @@ public class SimpleMutationAssertionGenerator extends AssertionGenerator {
 
     protected final Map<Integer, Mutation> mutants = new HashMap<>();
 
+    /**
+     * Creates a generator that collects all mutants from the {@link MutationPool} of the SUT class loader,
+     * indexed by id, and registers the execution observers needed for assertion generation.
+     */
     public SimpleMutationAssertionGenerator() {
         for (Mutation m : MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                 .getMutants()) {

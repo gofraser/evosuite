@@ -447,6 +447,10 @@ public class DefUseCoverageSuiteFitness extends TestSuiteFitnessFunction {
         }
     }
 
+    /**
+     * Prints the most covered goals per def-use pair type, and the time spent on covered-goal analysis, to the
+     * EvoSuite logger.
+     */
     public static void printCoverage() {
 
         LoggingUtils.getEvoLogger().info("* Time spent optimizing covered goals analysis: "

@@ -142,6 +142,10 @@ public class ReplaceBitwiseOperator implements MutationOperator {
         throw new RuntimeException("Unknown opcode: " + opcode);
     }
 
+    /**
+     * Builds instructions that compute the infection distance of replacing {@code opcodeOrig} with {@code opcodeNew},
+     * for the two operands on the stack. The distance is 0 if the mutant changes the result and 1 otherwise.
+     */
     public InsnList getInfectionDistance(int opcodeOrig, int opcodeNew, int numVariable) {
         InsnList distance = new InsnList();
 
@@ -191,6 +195,10 @@ public class ReplaceBitwiseOperator implements MutationOperator {
         return distance;
     }
 
+    /**
+     * Returns 0 if replacing {@code opcodeOrig} with {@code opcodeNew} changes the result for the given int operands,
+     * and 1 if the results are identical.
+     */
     public static double getInfectionDistanceInt(int x, int y, int opcodeOrig,
                                                  int opcodeNew) {
         if (opcodeOrig == Opcodes.ISHR && opcodeNew == Opcodes.IUSHR) {
@@ -210,6 +218,10 @@ public class ReplaceBitwiseOperator implements MutationOperator {
         return origValue == newValue ? 1.0 : 0.0;
     }
 
+    /**
+     * Returns 0 if replacing {@code opcodeOrig} with {@code opcodeNew} changes the result for the given long operand
+     * and int shift distance, and 1 if the results are identical.
+     */
     public static double getInfectionDistanceLong(long x, int y, int opcodeOrig,
                                                   int opcodeNew) {
         if (opcodeOrig == Opcodes.LSHR && opcodeNew == Opcodes.LUSHR) {
@@ -235,6 +247,9 @@ public class ReplaceBitwiseOperator implements MutationOperator {
         return origValue == newValue ? 1.0 : 0.0;
     }
 
+    /**
+     * Applies the bitwise operator {@code opcode} to the int operands {@code x} and {@code y}.
+     */
     public static int calculate(int x, int y, int opcode) {
         switch (opcode) {
             case Opcodes.IAND:
@@ -255,6 +270,9 @@ public class ReplaceBitwiseOperator implements MutationOperator {
         throw new RuntimeException("Unknown integer opcode: " + opcode);
     }
 
+    /**
+     * Applies the bitwise operator {@code opcode} to the long operands {@code x} and {@code y}.
+     */
     public static long calculate(long x, long y, int opcode) {
         switch (opcode) {
             case Opcodes.LAND:

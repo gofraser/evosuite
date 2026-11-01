@@ -200,6 +200,10 @@ public class DefUseCoverageTestFitness extends TestFitnessFunction {
 
     // debugging methods
 
+    /**
+     * Marks this goal as covered by the given individual through the object with the given id, and updates
+     * the individual accordingly.
+     */
     public void setCovered(TestChromosome individual, ExecutionTrace trace,
                            Integer objectId) {
         if (PRINT_DEBUG) {

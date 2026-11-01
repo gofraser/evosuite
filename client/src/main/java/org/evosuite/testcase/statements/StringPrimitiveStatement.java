@@ -119,6 +119,10 @@ public class StringPrimitiveStatement extends PrimitiveStatement<String> {
         value = s;
     }
 
+    /**
+     * Slightly changes the string value: randomises it if it is {@code null}, otherwise appends or
+     * replaces a random character.
+     */
     public void increment() {
         String s = value;
         if (s == null) {

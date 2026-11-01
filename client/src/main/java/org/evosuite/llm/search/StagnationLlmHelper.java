@@ -126,6 +126,10 @@ public final class StagnationLlmHelper {
                 r -> LlmPrivilegedThreads.newThread(r, "stagnation-async"));
     }
 
+    /**
+     * Returns the number of seconds before the end of the search after which no new stagnation prompts are started.
+     * This is the configured value if it is not negative, and a default otherwise.
+     */
     public static int resolveBudgetGuardSeconds() {
         int configured = Properties.LLM_STAGNATION_BUDGET_GUARD_SECONDS;
         if (configured >= 0) {

@@ -61,6 +61,10 @@ public class AnthropicChatModel implements LlmService.ChatLanguageModel {
     private final boolean cacheStaticContext;
     private final JsonHttpClient httpClient;
 
+    /**
+     * Creates a client for the Anthropic messages API. A {@code null} API key is treated as empty.
+     * If {@code cacheStaticContext} is set, the static prompt context is marked for provider-side caching.
+     */
     public AnthropicChatModel(String modelName, String apiKey, String baseUrl,
                               double temperature, int maxTokens, int timeoutSeconds,
                               boolean cacheStaticContext) {

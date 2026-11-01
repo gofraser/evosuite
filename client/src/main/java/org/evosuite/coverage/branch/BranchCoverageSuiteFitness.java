@@ -82,6 +82,10 @@ public class BranchCoverageSuiteFitness extends TestSuiteFitnessFunction {
         this(TestGenerationContext.getInstance().getClassLoaderForSUT());
     }
 
+    /**
+     * Creates a suite fitness for the branches of the target class (or all classes with the target class prefix,
+     * if one is set), looked up in the given class loader.
+     */
     public BranchCoverageSuiteFitness(ClassLoader classLoader) {
         String prefix = Properties.TARGET_CLASS_PREFIX;
 

@@ -241,6 +241,12 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
         return parameters.size();
     }
 
+    /**
+     * Replaces the parameter at index {@code numParameter} with {@code var}.
+     *
+     * @throws IllegalArgumentException if the index is out of range or {@code var} is not assignable
+     *     to the parameter type
+     */
     public void replaceParameterReference(VariableReference var, int numParameter) throws IllegalArgumentException {
         Inputs.checkNull(var);
         if (numParameter < 0 || numParameter >= parameters.size()) {

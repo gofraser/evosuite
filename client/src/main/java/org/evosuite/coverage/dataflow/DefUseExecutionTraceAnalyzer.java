@@ -242,6 +242,9 @@ public abstract class DefUseExecutionTraceAnalyzer {
         return lastDef;
     }
 
+    /**
+     * Returns the def-use goals covered by any of the given execution results.
+     */
     public static Set<DefUseCoverageTestFitness> getCoveredGoals(
             List<ExecutionResult> results) {
 
@@ -307,6 +310,9 @@ public abstract class DefUseExecutionTraceAnalyzer {
         return r;
     }
 
+    /**
+     * Returns the def-use goals covered by the trace of the given execution result.
+     */
     public static Set<DefUseCoverageTestFitness> getCoveredGoals(ExecutionResult result) {
 
         Set<DefUseCoverageTestFitness> r = new HashSet<>();

@@ -119,6 +119,10 @@ public class ReplaceVariable implements MutationOperator {
         }
     }
 
+    /**
+     * Builds instructions that compute the infection distance of replacing the variable access {@code original} with
+     * the value computed by {@code mutant}.
+     */
     public InsnList getInfectionDistance(Type type, AbstractInsnNode original,
                                          InsnList mutant) {
         // TODO: Treat reference types different!

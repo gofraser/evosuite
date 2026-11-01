@@ -55,6 +55,10 @@ public class NumberFormatter {
         return value instanceof Enum;
     }
 
+    /**
+     * Returns {@code value} as a Java literal for generated test code, e.g. a quoted and escaped
+     * character or string, or {@code "null"} for {@code null}.
+     */
     public static String getNumberString(Object value, TestCodeVisitor visitor) {
         if (value == null) {
             return "null";
@@ -198,6 +202,9 @@ public class NumberFormatter {
         }
     }
 
+    /**
+     * Returns the name of the primitive type corresponding to the wrapper class of {@code value}.
+     */
     public static String getBoxedClassName(Object value) {
         if (value.getClass().equals(Double.class)) {
             return "double";

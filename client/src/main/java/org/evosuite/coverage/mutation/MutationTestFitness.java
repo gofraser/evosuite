@@ -64,6 +64,10 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
 
     protected final int diameter;
 
+    /**
+     * Creates a fitness function for killing the given mutation, copying its identity and control
+     * dependencies.
+     */
     public MutationTestFitness(Mutation mutation) {
         this.mutation = mutation;
         this.mutantId = mutation.getId();
@@ -87,6 +91,10 @@ public abstract class MutationTestFitness extends TestFitnessFunction {
         return runTest(test, null);
     }
 
+    /**
+     * Executes the test with the given mutant active, or without any mutant if {@code mutant} is {@code null},
+     * and returns the execution result.
+     */
     public static ExecutionResult runTest(TestCase test, Mutation mutant) {
 
         ExecutionResult result = new ExecutionResult(test, mutant);

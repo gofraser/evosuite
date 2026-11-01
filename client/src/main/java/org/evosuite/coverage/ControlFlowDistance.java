@@ -77,6 +77,11 @@ public class ControlFlowDistance implements Comparable<ControlFlowDistance> {
         return approachLevel;
     }
 
+    /**
+     * Sets the approach level, i.e. the number of control dependencies between the covered and the target branch.
+     *
+     * @throws IllegalArgumentException if the approach level is negative
+     */
     public void setApproachLevel(int approachLevel) {
         if (approachLevel < 0) {
             throw new IllegalArgumentException(

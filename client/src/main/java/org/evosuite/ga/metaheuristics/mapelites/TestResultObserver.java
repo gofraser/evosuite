@@ -43,6 +43,10 @@ public class TestResultObserver extends ExecutionObserver implements Serializabl
 
     private final Class<?> targetClass;
 
+    /**
+     * Creates an observer using the inspectors of the initialized target class, sorted by method call so that
+     * feature vectors have a consistent order.
+     */
     public TestResultObserver() {
         this.targetClass = Properties.getInitializedTargetClass();
 

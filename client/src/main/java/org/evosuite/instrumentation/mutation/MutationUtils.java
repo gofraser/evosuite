@@ -172,6 +172,10 @@ public class MutationUtils {
         return index;
     }
 
+    /**
+     * Returns a deep copy of the given instruction list, in which variable, field, method, type, constant and jump
+     * instructions are recreated rather than shared.
+     */
     public static InsnList copy(InsnList orig) {
         Iterator<?> it = orig.iterator();
         InsnList copy = new InsnList();
@@ -266,6 +270,10 @@ public class MutationUtils {
         }
     }
 
+    /**
+     * Appends to {@code distance} instructions that compute the distance between the primitive value of the given
+     * type on the stack and the value computed by {@code mutant}.
+     */
     public static void addPrimitiveDistanceCheck(InsnList distance, Type type,
                                                  InsnList mutant) {
         distance.add(cast(type, Type.DOUBLE_TYPE));

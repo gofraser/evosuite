@@ -56,6 +56,9 @@ public class DefUseFitnessCalculator {
     private final String defVariable;
     private final String useVariable;
 
+    /**
+     * Creates a calculator for the given goal, evaluated on the given individual and its execution result.
+     */
     public DefUseFitnessCalculator(DefUseCoverageTestFitness goal,
                                    TestChromosome individual, ExecutionResult result) {
         this.goal = goal;
@@ -535,6 +538,9 @@ public class DefUseFitnessCalculator {
         return value / (1.0 + value);
     }
 
+    /**
+     * Returns {@code true} if the list contains an entry smaller than {@code border}.
+     */
     public static boolean hasEntryLowerThan(List<Integer> list, Integer border) {
         for (Integer pos : list) {
             if (pos < border) {
@@ -544,6 +550,9 @@ public class DefUseFitnessCalculator {
         return false;
     }
 
+    /**
+     * Returns {@code true} if the list contains an entry strictly between {@code start} and {@code end}.
+     */
     public static boolean hasEntryInBetween(List<Integer> list, Integer start, Integer end) {
         for (Integer pos : list) {
             if (start < pos && pos < end) {
@@ -553,6 +562,9 @@ public class DefUseFitnessCalculator {
         return false;
     }
 
+    /**
+     * Returns the largest entry of the list that is smaller than {@code border}, or {@code -1} if there is none.
+     */
     public static Integer getMaxEntryLowerThan(List<Integer> list, Integer border) {
         int lastPos = -1;
         for (Integer defPos : list) {
@@ -563,6 +575,10 @@ public class DefUseFitnessCalculator {
         return lastPos;
     }
 
+    /**
+     * Returns {@code true} if any object in the map has an entry for the given target id.
+     * A {@code null} map yields {@code false}.
+     */
     public static boolean hasEntriesForId(
             Map<Integer, HashMap<Integer, Integer>> objectDUMap, int targetId) {
         if (objectDUMap == null) {
@@ -577,6 +593,10 @@ public class DefUseFitnessCalculator {
         return false;
     }
 
+    /**
+     * Returns {@code true} if the given object has an entry for the given target id.
+     * A {@code null} map or an unknown object yields {@code false}.
+     */
     public static boolean hasEntriesForId(
             Map<Integer, HashMap<Integer, Integer>> objectDUMap, Integer objectId,
             int targetId) {

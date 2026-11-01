@@ -50,6 +50,11 @@ public abstract class StatementLocalSearch {
     public abstract boolean doSearch(TestChromosome test, int statement,
                                      LocalSearchObjective<TestChromosome> objective);
 
+    /**
+     * Applies local search to each of the statements at the given positions of {@code test}.
+     *
+     * @return {@code true} if the search succeeded for at least one statement
+     */
     public boolean doSearch(TestChromosome test, Set<Integer> statements,
                             LocalSearchObjective<TestChromosome> objective) {
         boolean success = false;
@@ -72,6 +77,10 @@ public abstract class StatementLocalSearch {
         return 0;
     }
 
+    /**
+     * Returns the local search suitable for {@code statement}, or {@code null} if the statement type
+     * has none or the corresponding local search is disabled in the properties.
+     */
     public static StatementLocalSearch getLocalSearchFor(Statement statement) {
 
         StatementLocalSearch search = null;

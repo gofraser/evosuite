@@ -48,6 +48,10 @@ public class LoopCounter {
      */
     private java.lang.reflect.Method delegateCheckLoop;
 
+    /**
+     * Sets the object whose {@code checkLoop(int)} method is consulted on loop iterations.
+     * A {@code null} delegate, or one without that method, is never consulted.
+     */
     public void setDelegate(Object delegate) {
         java.lang.reflect.Method checkLoop = null;
         if (delegate != null) {

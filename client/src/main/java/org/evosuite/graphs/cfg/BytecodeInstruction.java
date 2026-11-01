@@ -248,6 +248,11 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
         return lineNumber;
     }
 
+    /**
+     * Sets the line number of this instruction. Does nothing for labels.
+     *
+     * @throws IllegalArgumentException if the line number is not positive
+     */
     public void setLineNumber(int lineNumber) {
         if (lineNumber <= 0) {
             throw new IllegalArgumentException(
@@ -475,6 +480,12 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
         return getBranchExpressionValue(b);
     }
 
+    /**
+     * Returns the value the branch expression must have for this instruction to be reached, or {@code true}
+     * for the root branch ({@code null}).
+     *
+     * @throws IllegalArgumentException if this instruction is not directly control dependent on the branch
+     */
     public boolean getBranchExpressionValue(Branch b) {
         if (!isDirectlyControlDependentOn(b)) {
             throw new IllegalArgumentException(
@@ -512,6 +523,11 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
         return false;
     }
 
+    /**
+     * Returns the control dependency of this instruction on the given branch.
+     *
+     * @throws IllegalArgumentException if this instruction is not directly control dependent on the branch
+     */
     public ControlDependency getControlDependency(Branch branch) {
         if (!isDirectlyControlDependentOn(branch)) {
             throw new IllegalArgumentException(
@@ -529,6 +545,10 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
                         + "isDirectlyControlDependentOn() returns true on");
     }
 
+    /**
+     * Returns the minimal control dependence depth over all control dependencies of this instruction, or 1 if it
+     * has none.
+     */
     public int getCDGDepth() {
         int min = Integer.MAX_VALUE;
         Set<ControlDependency> dependencies = getControlDependencies();
@@ -546,6 +566,10 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
 
     // String methods
 
+    /**
+     * Returns a human-readable description of this instruction, including branch or definition-use information
+     * where available.
+     */
     public String explain() {
         if (isBranch()) {
             if (BranchPool.getInstance(classLoader).isKnownAsBranch(this)) {
@@ -566,6 +590,9 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
         return getASMNodeString();
     }
 
+    /**
+     * Returns a description of the ASM node, including its type, opcode and the stack contents of its frame.
+     */
     public String getASMNodeString() {
         String type = getType();
         String opcode = getInstructionType();
@@ -639,6 +666,9 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
         }
     }
 
+    /**
+     * Logs the stack and local variable contents of this instruction's frame at info level.
+     */
     public void printFrameInformation() {
         logger.info("Frame STACK:");
         for (int i = 0; i < frame.getStackSize(); i++) {
@@ -706,6 +736,10 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
         }
     }
 
+    /**
+     * Returns {@code true} if this instruction comes before a constructor invocation on the same object in the
+     * raw CFG of its method.
+     */
     public boolean proceedsOwnConstructorInvocation() {
 
         RawControlFlowGraph cfg = getRawCFG();
@@ -963,6 +997,9 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
         return DefUsePool.isKnownAsUse(this);
     }
 
+    /**
+     * Returns {@code true} if this is a method call whose called CFG is known and the called method is public.
+     */
     public boolean isCallToPublicMethod() {
         if (!isMethodCall()) {
             return false;
@@ -977,6 +1014,9 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
         return getCalledCFG().isPublicMethod();
     }
 
+    /**
+     * Returns {@code true} if this is a method call whose called CFG is known and the called method is static.
+     */
     public boolean isCallToStaticMethod() {
         if (!isMethodCall()) {
             return false;

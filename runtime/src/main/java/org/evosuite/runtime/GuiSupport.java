@@ -985,6 +985,9 @@ public class GuiSupport {
         return true;
     }
 
+    /**
+     * Returns whether the JVM is headless, treating a failing environment lookup as headless.
+     */
     public static boolean isHeadlessSafely() {
         try {
             return GraphicsEnvironment.isHeadless();

@@ -67,6 +67,10 @@ public class DescriptorMapping {
 
     private final Map<String, String> nameMapping = new HashMap<>();
 
+    /**
+     * Returns whether the given class, given in either dot or slash notation, is in the configured transformation
+     * scope.
+     */
     public static boolean shouldTransform(String classNameUnknown) {
         String className = classNameUnknown.replace('/', '.');
         switch (Properties.TT_SCOPE) {
@@ -103,6 +107,9 @@ public class DescriptorMapping {
                 + fieldName + desc);
     }
 
+    /**
+     * Returns whether the method was already transformed or has a boolean parameter, and thus needs to be transformed.
+     */
     public boolean isTransformedOrBooleanMethod(String className, String methodName,
                                                 String desc) {
         logger.info("Checking method: " + className + "." + methodName + desc);
@@ -115,6 +122,9 @@ public class DescriptorMapping {
         return originalDesc.containsKey(name) || isBooleanMethod(desc);
     }
 
+    /**
+     * Returns whether the original version of the method returns a boolean.
+     */
     public boolean isTransformedOrBooleanReturnMethod(String className,
                                                       String methodName, String desc) {
         logger.info("Checking method: " + className + "." + methodName + desc);
@@ -128,6 +138,9 @@ public class DescriptorMapping {
         }
     }
 
+    /**
+     * Returns whether the field was already transformed or is a boolean field.
+     */
     public boolean isTransformedOrBooleanField(String className, String fieldName,
                                                String desc) {
         logger.info("Checking field: " + className + "." + fieldName + desc);
@@ -140,6 +153,9 @@ public class DescriptorMapping {
         return originalDesc.containsKey(name) || isBooleanField(desc);
     }
 
+    /**
+     * Returns whether the method descriptor has a boolean or boolean array parameter.
+     */
     public boolean isBooleanMethod(String desc) {
         Type[] types = Type.getArgumentTypes(desc);
         for (Type type : types) {
@@ -158,6 +174,9 @@ public class DescriptorMapping {
         }
     }
 
+    /**
+     * Returns whether the method descriptor has a boolean parameter. Boolean arrays do not count.
+     */
     public boolean hasBooleanParameters(String desc) {
         for (Type t : Type.getArgumentTypes(desc)) {
             if (t.equals(Type.BOOLEAN_TYPE)) {
@@ -419,6 +438,10 @@ public class DescriptorMapping {
         }
     }
 
+    /**
+     * Returns the name of the transformed version of the given method, or {@code methodName} if the class is outside
+     * the transformation scope or the method has no boolean parameters.
+     */
     public String getMethodName(String className, String methodName, String desc) {
         if (!shouldTransform(className)) {
             return methodName;
@@ -438,6 +461,11 @@ public class DescriptorMapping {
         }
     }
 
+    /**
+     * Returns the descriptor of the transformed version of the given method, with boolean parameters replaced by
+     * integers. The descriptor is returned unchanged if the class is outside the transformation scope or the method has
+     * no boolean parameters.
+     */
     public String getMethodDesc(String className, String methodName, String desc) {
         if (!shouldTransform(className)) {
             return desc;
@@ -482,6 +510,10 @@ public class DescriptorMapping {
         }
     }
 
+    /**
+     * Returns the descriptor of the transformed version of the given field, with boolean replaced by integer. The
+     * descriptor is returned unchanged if the class is outside the transformation scope or the field is not boolean.
+     */
     public String getFieldDesc(String className, String fieldName, String desc) {
         if (!shouldTransform(className)) {
             return desc;
@@ -504,6 +536,10 @@ public class DescriptorMapping {
         }
     }
 
+    /**
+     * Returns the name the given transformed method had originally, or {@code methodName} if it is not known to
+     * have been transformed.
+     */
     public String getOriginalName(String className, String methodName, String desc) {
         String key = className.replace('.', '/') + "/" + methodName + desc;
         if (originalName.containsKey(key)) {

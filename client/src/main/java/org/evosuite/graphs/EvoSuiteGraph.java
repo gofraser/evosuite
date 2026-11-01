@@ -129,6 +129,10 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
         return new LinkedHashSet<>(graph.incomingEdgesOf(node));
     }
 
+    /**
+     * Returns the direct successors of the given node, or {@code null} (with a warning) if the node is not in
+     * the graph.
+     */
     public Set<V> getChildren(V node) {
         if (!containsVertex(node)) {
             logger.warn("getChildren call requests a node not contained in the current graph. Node: " + node);
@@ -148,6 +152,11 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
         return r;
     }
 
+    /**
+     * Returns the direct predecessors of the given node.
+     *
+     * @throws IllegalArgumentException if the node is not in the graph
+     */
     public Set<V> getParents(V node) {
         if (!containsVertex(node)) { // should this just return null?
             throw new IllegalArgumentException(
@@ -444,6 +453,10 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     // utilities
 
+    /**
+     * Returns some vertex of this graph, or {@code null} if the graph is empty. The choice is not random: it is
+     * the first vertex in iteration order.
+     */
     public V getRandomVertex() {
         // TODO that's not really random
         for (V v : graph.vertexSet()) {
@@ -515,6 +528,9 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     // visualizing the graph TODO clean up!
 
+    /**
+     * Writes this graph as a DOT file into the graph directory and creates a script to convert it to PNG.
+     */
     public void toDot() {
 
         createGraphDirectory();

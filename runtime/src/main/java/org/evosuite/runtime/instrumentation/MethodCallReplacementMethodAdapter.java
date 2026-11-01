@@ -110,6 +110,11 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
         this(mv, className, superClassName, methodName, access, desc, true);
     }
 
+    /**
+     * Creates an adapter that rewrites calls in a method of {@code className}.
+     *
+     * @param canChangeSuperclass whether the superclass of the class may be replaced by a mock
+     */
     public MethodCallReplacementMethodAdapter(MethodVisitor mv, String className,
                                               String superClassName, String methodName, int access, String desc,
                                               boolean canChangeSuperclass) {

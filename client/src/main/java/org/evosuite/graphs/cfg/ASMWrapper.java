@@ -64,6 +64,10 @@ public abstract class ASMWrapper {
         return asmNode;
     }
 
+    /**
+     * Returns the ASM opcode name of the wrapped instruction, or a descriptive label for line numbers, labels
+     * and frames.
+     */
     public String getInstructionType() {
 
         if (asmNode.getOpcode() >= 0 && asmNode.getOpcode() < Printer.OPCODES.length) {
@@ -90,6 +94,9 @@ public abstract class ASMWrapper {
         return meth.desc;
     }
 
+    /**
+     * Returns the ASM node type name of the wrapped instruction, or an empty string if the type is unknown.
+     */
     public String getType() {
         // TODO explain
         String type = "";
@@ -124,6 +131,9 @@ public abstract class ASMWrapper {
         return isReturn() || isThrow();
     }
 
+    /**
+     * Returns {@code true} if the wrapped instruction is a return instruction.
+     */
     public boolean isReturn() {
         switch (asmNode.getOpcode()) {
             case Opcodes.RETURN:
@@ -264,6 +274,9 @@ public abstract class ASMWrapper {
         return asmNode.getOpcode() == Opcodes.LDC;
     }
 
+    /**
+     * Returns {@code true} if the wrapped instruction loads a constant.
+     */
     public boolean isConstant() {
         switch (asmNode.getOpcode()) {
             case Opcodes.LDC:
@@ -352,6 +365,10 @@ public abstract class ASMWrapper {
 
     // retrieving information about variable names from ASM
 
+    /**
+     * Returns the name of the variable this instruction accesses (array, local, field or field method call),
+     * as determined by the instruction kind.
+     */
     public String getVariableName() {
         if (isArrayStoreInstruction()) {
             return getArrayVariableName();
@@ -390,6 +407,10 @@ public abstract class ASMWrapper {
 
     // TODO unsafe
 
+    /**
+     * Returns the local variable slot of the wrapped instruction, or {@code -1} if it does not access a local
+     * variable slot.
+     */
     public int getLocalVariableSlot() {
         if (asmNode instanceof VarInsnNode) {
             return ((VarInsnNode) asmNode).var;
@@ -400,6 +421,10 @@ public abstract class ASMWrapper {
         }
     }
 
+    /**
+     * Returns {@code true} if the wrapped instruction stores to a local variable (including {@code IINC} and local
+     * array definitions).
+     */
     public boolean isLocalVariableDefinition() {
         return asmNode.getOpcode() == Opcodes.ISTORE
                 || asmNode.getOpcode() == Opcodes.LSTORE
@@ -409,6 +434,10 @@ public abstract class ASMWrapper {
                 || asmNode.getOpcode() == Opcodes.IINC || isLocalArrayDefinition();
     }
 
+    /**
+     * Returns {@code true} if the wrapped instruction reads a local variable (including {@code IINC}), excluding
+     * loads of {@code this}.
+     */
     public boolean isLocalVariableUse() {
         return asmNode.getOpcode() == Opcodes.ILOAD
                 || asmNode.getOpcode() == Opcodes.LLOAD
