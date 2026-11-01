@@ -45,8 +45,24 @@ import java.util.function.Consumer;
 public final class ProjectSetupService {
     private ProjectSetupService() {}
 
+    /** Canonical owner for settings/history/builds; test classpaths still use testModule. */
+    public static Module productionModule(Module module) {
+        return com.intellij.openapi.application.ReadAction.compute(
+                () -> productionModuleInReadAction(module));
+    }
+
+    private static Module productionModuleInReadAction(Module module) {
+        Module production = TestModuleProperties.getInstance(module).getProductionModule();
+        return production == null ? module : production;
+    }
+
     /** A source-set import keeps test roots and test dependencies in a separate module. */
     public static Module testModule(Module module) {
+        return com.intellij.openapi.application.ReadAction.compute(
+                () -> testModuleInReadAction(module));
+    }
+
+    private static Module testModuleInReadAction(Module module) {
         if (TestModuleProperties.getInstance(module).getProductionModule() != null) return module;
         List<Module> tests =
                 Arrays.stream(ModuleManager.getInstance(module.getProject()).getModules())
@@ -66,6 +82,11 @@ public final class ProjectSetupService {
     }
 
     public static Path baseDir(Module module) {
+        return com.intellij.openapi.application.ReadAction.compute(
+                () -> baseDirInReadAction(module));
+    }
+
+    private static Path baseDirInReadAction(Module module) {
         MavenIntegration maven = MavenBridge.get(module.getProject());
         Path mavenDir = maven == null ? null : maven.directory(module);
         if (mavenDir != null) return mavenDir;
@@ -196,21 +217,23 @@ public final class ProjectSetupService {
                     IdeThread.edt(
                             () ->
                                     Messages.showDialog(
-                                                    project,
-                                                    "Add "
-                                                            + dependencies
-                                                            + " as test dependencies for "
-                                                            + module.getName()
-                                                            + "?"
-                                                            + (imported
-                                                                    ? " IntelliJ will update its"
-                                                                            + " build file."
-                                                                    : " IntelliJ will add a module"
-                                                                            + " library."),
-                                                    "EvoSuite Dependencies",
-                                                    new String[] {"Add Dependencies", "Skip Setup", "Cancel"},
-                                                    0,
-                                                    Messages.getQuestionIcon()));
+                                            project,
+                                            "Add "
+                                                    + dependencies
+                                                    + " as test dependencies for "
+                                                    + module.getName()
+                                                    + "?"
+                                                    + (imported
+                                                            ? " IntelliJ will update its"
+                                                                    + " build file."
+                                                            : " IntelliJ will add a module"
+                                                                    + " library."),
+                                            "EvoSuite Dependencies",
+                                            new String[] {
+                                                "Add Dependencies", "Skip Setup", "Cancel"
+                                            },
+                                            0,
+                                            Messages.getQuestionIcon()));
             if (choice < 0 || choice == 2) throw new com.intellij.openapi.progress.ProcessCanceledException();
             if (choice == 0) {
                 if (!junit)
@@ -219,8 +242,7 @@ public final class ProjectSetupService {
                             options.testFormat.equals(GenerationOptions.JUNIT4)
                                     ? JUnitExternalLibraryDescriptor.JUNIT4
                                     : JUnitExternalLibraryDescriptor.JUNIT5,
-                            indicator,
-                            console);
+                            indicator);
                 if (!runtime && imported)
                     add(
                             testModule,
@@ -230,8 +252,7 @@ public final class ProjectSetupService {
                                     EngineJars.VERSION,
                                     EngineJars.VERSION,
                                     EngineJars.VERSION),
-                            indicator,
-                            console);
+                            indicator);
             } else {
                 console.accept(
                         "Setup was skipped. Add JUnit and the EvoSuite runtime and mark the"
@@ -357,32 +378,7 @@ public final class ProjectSetupService {
     private static void add(
             Module module,
             ExternalLibraryDescriptor dependency,
-            ProgressIndicator indicator,
-            Consumer<String> console) {
-        if (GradleDependencySetup.applies(module)) {
-            GradleDependencySetup.add(module, dependency, indicator, console);
-            return;
-        }
-        var maven = MavenBridge.get(module.getProject());
-        if (maven != null && maven.directory(module) != null) {
-            String version = dependency.getPreferredVersion();
-            if (version == null || version.isBlank()) version = dependency.getMinVersion();
-            String exactVersion = version;
-            String artifact =
-                    "org.junit.jupiter".equals(dependency.getLibraryGroupId())
-                            ? "junit-jupiter"
-                            : dependency.getLibraryArtifactId();
-            IdeThread.await(
-                    IdeThread.edt(
-                            () ->
-                                    maven.addTestDependency(
-                                            module,
-                                            dependency.getLibraryGroupId(),
-                                            artifact,
-                                            exactVersion)),
-                    indicator);
-            return;
-        }
+            ProgressIndicator indicator) {
         var promise =
                 IdeThread.edt(
                         () ->

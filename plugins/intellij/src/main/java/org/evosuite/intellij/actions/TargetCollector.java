@@ -31,7 +31,7 @@ import org.evosuite.ide.GenerationTarget;
 
 import java.util.*;
 
-/** PSI/VFS selection resolver. Must run in a read action; no PSI is retained by a launch. */
+/** PSI/VFS selection resolver. Must run in a read action; no raw PSI is retained by a launch. */
 public final class TargetCollector {
     public enum Mode {
         CLASSES,
@@ -40,8 +40,40 @@ public final class TargetCollector {
         COVERAGE
     }
 
-    public record Selection(
-            List<PsiElement> elements, List<VirtualFile> files, List<Module> modules) {}
+    /** Stable handles survive document saves and PSI reparsing before background collection. */
+    public static final class Selection {
+        private final List<SmartPsiElementPointer<PsiElement>> pointers;
+        private final List<VirtualFile> files;
+        private final List<Module> modules;
+
+        public Selection(List<PsiElement> elements, List<VirtualFile> files, List<Module> modules) {
+            pointers =
+                    elements.stream()
+                            .filter(PsiElement::isValid)
+                            .map(
+                                    element ->
+                                            SmartPointerManager.getInstance(element.getProject())
+                                                    .createSmartPsiElementPointer(element))
+                            .toList();
+            this.files = List.copyOf(files);
+            this.modules = List.copyOf(modules);
+        }
+
+        public List<PsiElement> elements() {
+            return pointers.stream()
+                    .map(SmartPsiElementPointer::getElement)
+                    .filter(Objects::nonNull)
+                    .toList();
+        }
+
+        public List<VirtualFile> files() {
+            return files;
+        }
+
+        public List<Module> modules() {
+            return modules;
+        }
+    }
 
     public record TestClass(Module module, String name, VirtualFile root) {}
 
@@ -50,13 +82,23 @@ public final class TargetCollector {
     private TargetCollector() {}
 
     public static Selection snapshot(AnActionEvent event) {
+        return snapshot(event, Mode.METHODS);
+    }
+
+    public static Selection snapshot(AnActionEvent event, Mode mode) {
         PsiElement[] array = event.getData(LangDataKeys.PSI_ELEMENT_ARRAY);
         List<PsiElement> elements =
                 array == null ? new ArrayList<>() : new ArrayList<>(Arrays.asList(array));
-        if (elements.isEmpty()) {
-            var editor = event.getData(CommonDataKeys.EDITOR);
-            PsiFile file = event.getData(CommonDataKeys.PSI_FILE);
-            if (editor != null && file != null) {
+        var editor = event.getData(CommonDataKeys.EDITOR);
+        PsiFile file = event.getData(CommonDataKeys.PSI_FILE);
+        boolean editorContext =
+                editor != null
+                        && file != null
+                        && !ActionPlaces.PROJECT_VIEW_POPUP.equals(event.getPlace())
+                        && !event.getPlace().contains("Structure");
+        if (editorContext) {
+            elements.clear();
+            if (mode == Mode.METHODS) {
                 PsiElement at =
                         file.findElementAt(
                                 Math.min(
@@ -64,10 +106,10 @@ public final class TargetCollector {
                                         Math.max(0, file.getTextLength() - 1)));
                 PsiMethod method = PsiTreeUtil.getParentOfType(at, PsiMethod.class, false);
                 elements.add(method != null ? method : file);
-            } else {
-                PsiElement element = event.getData(CommonDataKeys.PSI_ELEMENT);
-                if (element != null) elements.add(element);
-            }
+            } else elements.add(file);
+        } else if (elements.isEmpty()) {
+            PsiElement element = event.getData(CommonDataKeys.PSI_ELEMENT);
+            if (element != null) elements.add(element);
         }
         VirtualFile[] files = event.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY);
         Module[] modules = event.getData(LangDataKeys.MODULE_CONTEXT_ARRAY);
@@ -75,6 +117,7 @@ public final class TargetCollector {
             Module module = event.getData(LangDataKeys.MODULE_CONTEXT);
             modules = module == null ? new Module[0] : new Module[] {module};
         }
+        if (editorContext) modules = new Module[0];
         return new Selection(
                 List.copyOf(elements),
                 files == null ? List.of() : List.of(files),
@@ -123,6 +166,7 @@ public final class TargetCollector {
                                 : PsiTreeUtil.getParentOfType(element, PsiMethod.class, false);
                 if (method != null
                         && MethodRules.whyNotTestable(method) == null
+                        && MethodRules.descriptorOrNull(method) != null
                         && eligibleClass(project, method.getContainingClass(), mode)) return true;
             } else if (element instanceof PsiJavaFile file) {
                 for (var type : file.getClasses())
@@ -228,11 +272,13 @@ public final class TargetCollector {
                         || generated(type)) continue;
                 Module module = index.getModuleForFile(file);
                 if (module == null) continue;
+                String descriptor = MethodRules.descriptorOrNull(method);
+                if (descriptor == null) continue;
                 var targets = byModule.computeIfAbsent(module, ignored -> new LinkedHashMap<>());
                 var old = targets.get(type.getQualifiedName());
                 Set<String> descriptors =
                         new LinkedHashSet<>(old == null ? List.of() : old.methods());
-                descriptors.add(MethodRules.descriptor(method));
+                descriptors.add(descriptor);
                 targets.put(
                         type.getQualifiedName(),
                         new GenerationTarget(type.getQualifiedName(), List.copyOf(descriptors)));

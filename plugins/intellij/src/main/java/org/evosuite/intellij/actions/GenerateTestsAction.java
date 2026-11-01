@@ -42,7 +42,7 @@ public class GenerateTestsAction extends DumbAwareAction {
         boolean indexing =
                 project != null
                         && com.intellij.openapi.project.DumbService.isDumb(project);
-        var selection = TargetCollector.snapshot(event);
+        var selection = TargetCollector.snapshot(event, mode());
         boolean enabled =
                 project != null
                         && !indexing
@@ -95,6 +95,6 @@ public class GenerateTestsAction extends DumbAwareAction {
     public void actionPerformed(@NotNull AnActionEvent event) {
         if (event.getProject() != null)
             GenerationService.getInstance()
-                    .submit(event.getProject(), TargetCollector.snapshot(event), mode());
+                    .submit(event.getProject(), TargetCollector.snapshot(event, mode()), mode());
     }
 }

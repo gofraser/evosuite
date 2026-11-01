@@ -35,6 +35,10 @@ public final class SettingsResolver {
     private SettingsResolver() {}
 
     public static GenerationOptions resolve(Module module) {
+        return IdeThread.smartRead(module.getProject(), () -> resolveInReadAction(module));
+    }
+
+    private static GenerationOptions resolveInReadAction(Module module) {
         Project project = module.getProject();
         EvoSuiteProjectSettings settings = EvoSuiteProjectSettings.getInstance(project);
         settings.migrate(project);

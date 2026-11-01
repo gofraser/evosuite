@@ -216,22 +216,26 @@ lists the applied overrides. Without an imported Maven model, regular module set
 `llmApiKeyServerId` selects a server password from the configured Maven user settings. Plaintext,
 environment placeholders and Maven 3 decorated encryption are supported. Unsupported encryption
 or a missing server produces a diagnostic and falls back to PasswordSafe/environment; ciphertext
-is never passed as a key.
+is never passed as a key. Maven's master secret stays at `~/.m2/settings-security.xml` independently
+of a custom user settings file; `settings.security` can override it. Local relocation supports
+home-relative and security-file-relative paths and rejects cycles.
 
 When build-path configuration is enabled, the generated folder is registered as a test root.
 Missing JUnit/runtime dependencies are offered after confirmation. Maven gets exact, test-scoped
-POM dependencies and waits for reimport; Gradle uses the build-file dependency modifier and waits
-for re-sync. Maven dependency edits update an existing declaration rather than duplicating it,
-and retain explicitly configured existing scopes. Gradle
+POM dependencies and waits for reimport; Gradle edits the selected subproject script in one
+undoable change and waits for re-sync. Maven dependency edits update an existing declaration
+rather than duplicating it, and retain explicitly configured existing scopes. Gradle
 source-set imports persist generated roots in a managed build-script block and inspect test
 dependencies in the test module linked to the selected production module. A single Configure Gradle
 prompt covers missing dependencies, the generated source root and JUnit Platform when needed,
 followed by one awaited sync. Repeated setup is idempotent; changing the output folder updates the
 managed block. Skip Setup leaves the build script unchanged. JUnit 5 additions include the Jupiter engine and
-matching Platform launcher. If a Gradle build cannot be modified, the console prints exact
-dependency declarations to add manually. Plain modules use the bundled runtime as a test-scoped
-module library. Missing bundled-library paths are repaired after
-plugin upgrades. Legacy production roots are converted to test roots without duplicate entries.
+matching Platform launcher. JUnit 4 setup explicitly selects `useJUnit()` for its test task,
+including projects whose root previously selected JUnit Platform. Subprojects without a build
+script inherit the surrounding Kotlin/Groovy DSL. If a Gradle build cannot be modified, the
+console prints exact dependency declarations to add manually. Plain modules use the bundled
+runtime as a test-scoped module library. Missing bundled-library paths are repaired after plugin
+upgrades. Legacy production roots are converted to test roots without duplicate entries.
 The dependency version is generated from the same build metadata as the bundled engine.
 Imported projects using a snapshot runtime need
 that artifact available in their Maven repositories (for a development build, install the reactor).

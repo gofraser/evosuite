@@ -27,6 +27,73 @@ import org.evosuite.intellij.actions.*;
 import java.util.*;
 
 public class SelectionTest extends LightJavaCodeInsightFixtureTestCase {
+    public void testEditorReferenceNeverChangesTheEditedClassOrMethod() {
+        PsiClass helper =
+                myFixture.addClass(
+                        "package demo; public class Helper { public static void work(){} }");
+        myFixture.configureByText(
+                "Subject.java",
+                "package demo; class Subject { void edited() { Helper.<caret>work(); } } class"
+                    + " Other {} ");
+        var context =
+                com.intellij
+                        .openapi
+                        .actionSystem
+                        .impl
+                        .SimpleDataContext
+                        .builder()
+                        .add(com.intellij.openapi.actionSystem.CommonDataKeys.PROJECT, getProject())
+                        .add(
+                                com.intellij.openapi.actionSystem.CommonDataKeys.EDITOR,
+                                myFixture.getEditor())
+                        .add(
+                                com.intellij.openapi.actionSystem.CommonDataKeys.PSI_FILE,
+                                myFixture.getFile())
+                        .add(
+                                com.intellij.openapi.actionSystem.LangDataKeys.PSI_ELEMENT_ARRAY,
+                                new PsiElement[] {helper.getMethods()[0]})
+                        .build();
+        var event =
+                com.intellij.openapi.actionSystem.AnActionEvent.createFromDataContext(
+                        com.intellij.openapi.actionSystem.ActionPlaces.EDITOR_POPUP, null, context);
+        var classes =
+                TargetCollector.collect(
+                        getProject(),
+                        TargetCollector.snapshot(event, TargetCollector.Mode.CLASSES),
+                        TargetCollector.Mode.CLASSES);
+        assertEquals(
+                List.of("demo.Subject", "demo.Other"),
+                classes.targets().get(getModule()).stream().map(t -> t.className()).toList());
+        var selection = TargetCollector.snapshot(event, TargetCollector.Mode.METHODS);
+        com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(
+                getProject(),
+                () -> {
+                    var document = myFixture.getEditor().getDocument();
+                    document.insertString(0, "// reparse after the save dialog\n");
+                    PsiDocumentManager.getInstance(getProject()).commitDocument(document);
+                });
+        var methods =
+                TargetCollector.collect(getProject(), selection, TargetCollector.Mode.METHODS);
+        assertEquals(List.of("edited()V"), methods.targets().get(getModule()).getFirst().methods());
+    }
+
+    public void testUnresolvedMethodDoesNotDiscardOtherSelectedMethods() {
+        var file =
+                (PsiJavaFile)
+                        myFixture.addFileToProject(
+                                "demo/Unresolved.java",
+                                "package demo; class Unresolved { void bad(MissingType p) {} void"
+                                    + " good(int p) {} }");
+        var collected =
+                TargetCollector.collect(
+                        getProject(),
+                        new TargetCollector.Selection(
+                                List.of(file.getClasses()[0].getMethods()), List.of(), List.of()),
+                        TargetCollector.Mode.METHODS);
+        assertEquals(
+                List.of("good(I)V"), collected.targets().get(getModule()).getFirst().methods());
+    }
+
     public void testClassSelectionAndSkipRules() {
         PsiJavaFile file =
                 (PsiJavaFile)

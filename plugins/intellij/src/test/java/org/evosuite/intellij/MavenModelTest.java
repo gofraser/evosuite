@@ -42,7 +42,15 @@ public class MavenModelTest extends LightJavaCodeInsightFixtureTestCase {
         MavenModel effective = new MavenModel();
         effective.setMavenId(new MavenId("demo", "demo", "1"));
         effective.setPackaging("jar");
-        effective.setProperties(Map.of("budget", "90s", "folder", "src/test/generated"));
+        effective.setProperties(
+                Map.of("budget", "90s", "folder", "${project.build.directory}/generated"));
+        var build = effective.getBuild();
+        build.setDirectory(pom.getParent().getPath() + "/custom-target");
+        build.setTestSources(List.of(pom.getParent().getPath() + "/custom-tests"));
+        build.setSources(List.of(pom.getParent().getPath() + "/custom-main"));
+        build.setOutputDirectory(pom.getParent().getPath() + "/custom-target/classes");
+        build.setTestOutputDirectory(pom.getParent().getPath() + "/custom-target/test-classes");
+        build.setFinalName("demo-1");
         Element config =
                 new Element("configuration")
                         .addContent(new Element("timePerClass").setText("${budget}"));
@@ -72,19 +80,26 @@ public class MavenModelTest extends LightJavaCodeInsightFixtureTestCase {
                         effective, Map.of(), MavenExplicitProfiles.NONE, List.of()),
                 Path.of(System.getProperty("java.io.tmpdir")),
                 false);
+        assertEquals(
+                "demo/demo/1",
+                MavenSupport.interpolate(
+                        "${project.groupId}/${project.artifactId}/${project.version}", model));
+        assertEquals(
+                pom.getParent().getPath() + "/custom-tests",
+                MavenSupport.interpolate("${project.build.testSourceDirectory}", model));
         GenerationOptions options = new GenerationOptions();
         assertNotNull(MavenSupport.read(model));
-        MavenSupport.read(model).applyTo(options, null);
+        MavenSupport.read(model).applyTo(options, Path.of(model.getDirectory()).toFile());
         assertEquals(90, options.searchBudget);
         assertEquals("BRANCH", options.criterion);
-        assertEquals("src/test/generated", options.testFolder);
+        assertEquals("custom-target/generated", options.testFolder);
         var folders = new EvoSuiteMavenFolders().getAdditionalFolders(() -> model).toList();
         assertEquals(1, folders.size());
         assertEquals(
                 MavenWorkspaceConfigurator.FolderType.TEST_SOURCE, folders.getFirst().getType());
         assertTrue(
                 folders.getFirst().getPath(),
-                folders.getFirst().getPath().endsWith("src/test/generated"));
+                folders.getFirst().getPath().endsWith("custom-target/generated"));
     }
 
     public void testMavenServerPasswordDoesNotReturnEncryptedTextOrLoadExternalEntities()

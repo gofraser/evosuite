@@ -48,10 +48,16 @@ public final class MavenServerPassword {
                     throw new IllegalArgumentException("Maven server has no password");
                 if (!password.contains("{")) return password.trim();
                 Path security =
-                        Path.of(System.getProperty("user.home"), ".m2", "settings-security.xml");
-                Element config = xml(security).getDocumentElement();
-                String relocation = text(config, "relocation");
-                if (!relocation.isBlank()) config = xml(Path.of(relocation)).getDocumentElement();
+                        securityPath(
+                                System.getProperty(
+                                        "settings.security",
+                                        Path.of(
+                                                        System.getProperty("user.home"),
+                                                        ".m2",
+                                                        "settings-security.xml")
+                                                .toString()),
+                                null);
+                Element config = securityConfig(security);
                 DefaultPlexusCipher cipher = new DefaultPlexusCipher();
                 String master =
                         cipher.decryptDecorated(text(config, "master"), "settings.security");
@@ -65,6 +71,26 @@ public final class MavenServerPassword {
                             + ". Using the EvoSuite secure key instead.");
             return "";
         }
+    }
+
+    static Path securityPath(String value, Path relativeTo) {
+        if (value.startsWith("~/") || value.startsWith("~\\"))
+            return Path.of(System.getProperty("user.home")).resolve(value.substring(2)).normalize();
+        Path path = Path.of(value);
+        return !path.isAbsolute() && relativeTo != null
+                ? relativeTo.resolve(path).normalize()
+                : path.toAbsolutePath().normalize();
+    }
+
+    private static Element securityConfig(Path security) throws Exception {
+        java.util.Set<Path> seen = new java.util.HashSet<>();
+        for (int depth = 0; depth < 10 && seen.add(security); depth++) {
+            Element config = xml(security).getDocumentElement();
+            String relocation = text(config, "relocation");
+            if (relocation.isBlank()) return config;
+            security = securityPath(relocation, security.getParent());
+        }
+        throw new IllegalArgumentException("Cyclic or excessive Maven security relocation");
     }
 
     private static Document xml(Path path) throws Exception {

@@ -40,6 +40,15 @@ public final class MethodRules {
         return null;
     }
 
+    /** Unresolved source types cannot safely be guessed for a JVM method descriptor. */
+    public static String descriptorOrNull(PsiMethod method) {
+        try {
+            return descriptor(method);
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }
+
     public static String descriptor(PsiMethod method) {
         StringBuilder out =
                 new StringBuilder(method.isConstructor() ? "<init>" : method.getName()).append('(');

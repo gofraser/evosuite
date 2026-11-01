@@ -34,6 +34,7 @@ public final class ClasspathResolver {
     private ClasspathResolver() {}
 
     public static List<String> resolve(Module module, boolean extension) {
+        if (extension) module = org.evosuite.intellij.setup.ProjectSetupService.testModule(module);
         OrderEnumerator entries =
                 OrderEnumerator.orderEntries(module).recursively().runtimeOnly().withoutSdk();
         if (!extension) entries.productionOnly();
@@ -53,6 +54,35 @@ public final class ClasspathResolver {
                         })
                 .distinct()
                 .toList();
+    }
+
+    /**
+     * Test roots may belong to integrationTest/testFixtures rather than the ordinary test module.
+     */
+    public static List<Module> seedModules(Module production, List<GenerationTarget> targets) {
+        Set<Module> modules = new LinkedHashSet<>();
+        var index =
+                com.intellij.openapi.roots.ProjectFileIndex.getInstance(production.getProject());
+        for (var target : targets)
+            for (var seed : target.seeds()) {
+                var root =
+                        com.intellij.openapi.vfs.LocalFileSystem.getInstance()
+                                .findFileByNioFile(seed.sourceRoot().toPath());
+                Module module = root == null ? null : index.getModuleForFile(root);
+                if (module != null) modules.add(module);
+            }
+        if (modules.isEmpty() && targets.stream().anyMatch(GenerationTarget::extendsTests))
+            modules.add(org.evosuite.intellij.setup.ProjectSetupService.testModule(production));
+        return List.copyOf(modules);
+    }
+
+    public static List<String> resolve(Module production, GenerationTarget target) {
+        if (!target.extendsTests()) return resolve(production, false);
+        Set<String> paths = new LinkedHashSet<>();
+        for (Module module : seedModules(production, List.of(target)))
+            paths.addAll(resolve(module, true));
+        paths.addAll(resolve(production, false));
+        return List.copyOf(paths);
     }
 
     public static JavaInstallation java(Module module, GenerationOptions options)

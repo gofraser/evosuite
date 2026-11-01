@@ -47,7 +47,8 @@ public final class MavenSupport implements MavenIntegration {
     }
 
     private MavenProject model(Module module) {
-        return MavenProjectsManager.getInstance(project).findProject(module);
+        return ReadAction.compute(
+                () -> MavenProjectsManager.getInstance(project).findProject(module));
     }
 
     @Override
@@ -106,15 +107,61 @@ public final class MavenSupport implements MavenIntegration {
         return values;
     }
 
-    static String interpolate(String text, MavenProject model) {
-        String value =
-                text.replace("${project.basedir}", model.getDirectory())
-                        .replace("${basedir}", model.getDirectory());
+    public static String interpolate(String text, MavenProject model) {
+        Map<String, String> properties = new HashMap<>();
+        model.getProperties()
+                .forEach((key, value) -> properties.put(key.toString(), value.toString()));
+        model.getModelMap()
+                .forEach(
+                        (key, value) -> {
+                            properties.putIfAbsent(key, value);
+                            if (!key.startsWith("project.") && !key.startsWith("pom.")) {
+                                properties.put("project." + key, value);
+                                properties.put("pom." + key, value);
+                            }
+                        });
+        Map<String, java.util.function.Supplier<String>> builtins = new HashMap<>();
+        builtins.put("basedir", () -> model.getDirectory());
+        builtins.put("build.directory", () -> model.getBuildDirectory());
+        builtins.put("build.outputDirectory", () -> model.getOutputDirectory());
+        builtins.put("build.testOutputDirectory", () -> model.getTestOutputDirectory());
+        builtins.put("build.finalName", () -> model.getFinalName());
+        builtins.put(
+                "build.sourceDirectory",
+                () ->
+                        model.getSources().stream()
+                                .findFirst()
+                                .orElse(model.getDirectory() + "/src/main/java"));
+        builtins.put(
+                "build.testSourceDirectory",
+                () ->
+                        model.getTestSources().stream()
+                                .findFirst()
+                                .orElse(model.getDirectory() + "/src/test/java"));
+        builtins.put("groupId", () -> model.getMavenId().getGroupId());
+        builtins.put("artifactId", () -> model.getMavenId().getArtifactId());
+        builtins.put("version", () -> model.getMavenId().getVersion());
+        properties.put("basedir", model.getDirectory());
+        String value = text;
         for (int pass = 0; pass < 10 && value.contains("${"); pass++) {
-            String before = value;
-            for (String key : model.getProperties().stringPropertyNames())
-                value = value.replace("${" + key + "}", model.getProperties().getProperty(key));
-            if (value.equals(before)) break;
+            var matcher = java.util.regex.Pattern.compile("\\$\\{([^}]+)}").matcher(value);
+            StringBuffer resolved = new StringBuffer();
+            while (matcher.find()) {
+                String key = matcher.group(1);
+                String builtin =
+                        key.startsWith("project.")
+                                ? key.substring(8)
+                                : key.startsWith("pom.") ? key.substring(4) : "";
+                var supplier = builtins.get(builtin);
+                String replacement = supplier == null ? properties.get(key) : supplier.get();
+                matcher.appendReplacement(
+                        resolved,
+                        java.util.regex.Matcher.quoteReplacement(
+                                replacement == null ? matcher.group() : replacement));
+            }
+            matcher.appendTail(resolved);
+            if (resolved.toString().equals(value)) break;
+            value = resolved.toString();
         }
         return value;
     }
@@ -189,7 +236,10 @@ public final class MavenSupport implements MavenIntegration {
         boolean configureExecution = !configured && choice == 0;
         PsiFile file = PsiManager.getInstance(project).findFile(model.getFile());
         if (!(file instanceof XmlFile xml) || xml.getRootTag() == null)
-            throw new IllegalStateException("Cannot update " + model.getPath() + ". Check that the pom is valid and writable.");
+            throw new IllegalStateException(
+                    "Cannot update "
+                            + model.getPath()
+                            + ". Check that the pom is valid and writable.");
         String executionId = setup == null ? "evosuite-setup" : setup.getExecutionId();
         if (executionId == null || executionId.isBlank()) executionId = "default";
         String id = executionId;

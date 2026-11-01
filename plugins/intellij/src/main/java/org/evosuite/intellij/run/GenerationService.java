@@ -194,8 +194,11 @@ public final class GenerationService implements Disposable {
                     Map<Module, List<GenerationTarget>> targets;
                     if (replay != null) {
                         Module module =
-                                com.intellij.openapi.module.ModuleManager.getInstance(project)
-                                        .findModuleByName(replay.module);
+                                ReadAction.compute(
+                                        () ->
+                                                com.intellij.openapi.module.ModuleManager
+                                                        .getInstance(project)
+                                                        .findModuleByName(replay.module));
                         if (module == null)
                             throw new IllegalArgumentException(
                                     "Module no longer exists: " + replay.module);
@@ -658,6 +661,12 @@ public final class GenerationService implements Disposable {
                                                 options,
                                                 environment,
                                                 indicator);
+                                suites.addAll(
+                                        refreshDelegatedOutputs(
+                                                project,
+                                                request.testDir(),
+                                                request.targets(),
+                                                options));
                                 if (!delegatedOk) counts[1]++;
                                 else counts[2] += request.targets().size();
                                 request.historyIndices()
@@ -687,7 +696,12 @@ public final class GenerationService implements Disposable {
                                             IdeThread.edt(
                                                     () ->
                                                             ProjectTaskManager.getInstance(project)
-                                                                    .build(request.module())),
+                                                                    .build(
+                                                                            buildModules(
+                                                                                    request
+                                                                                            .module(),
+                                                                                    request
+                                                                                            .targets()))),
                                             indicator);
                             if (build.isAborted() || build.hasErrors()) {
                                 console.println(
@@ -719,8 +733,7 @@ public final class GenerationService implements Disposable {
                                         ReadAction.compute(
                                                 () ->
                                                         ClasspathResolver.resolve(
-                                                                request.module(),
-                                                                target.extendsTests()));
+                                                                request.module(), target));
                                 if (cp.isEmpty())
                                     throw new IllegalArgumentException(
                                             "No production classpath for "
@@ -1094,8 +1107,52 @@ public final class GenerationService implements Disposable {
         indicator.checkCanceled();
     }
 
-    private static String mask(String text) {
-        return text.replaceAll("(-Dllm_api_key=).*", "$1****");
+    public static String mask(String text) {
+        // Cover quoted values as one credential without consuming following diagnostic flags.
+        return text.replaceAll("(-Dllm_api_key=)(\"[^\"]*\"|'[^']*'|[^\\s]+)", "$1****");
+    }
+
+    public static Module[] buildModules(Module production, List<GenerationTarget> targets) {
+        if (targets.stream().noneMatch(GenerationTarget::extendsTests))
+            return new Module[] {production};
+        Set<Module> modules = new LinkedHashSet<>();
+        modules.add(production);
+        modules.add(ProjectSetupService.testModule(production));
+        modules.addAll(ClasspathResolver.seedModules(production, targets));
+        return modules.toArray(Module[]::new);
+    }
+
+    /** Refresh external Maven writes before resolving editor/run actions through the VFS. */
+    public static List<VirtualFile> refreshDelegatedOutputs(
+            Project project,
+            Path folder,
+            List<GenerationTarget> targets,
+            GenerationOptions options) {
+        return IdeThread.edt(
+                () -> {
+                    var fs = com.intellij.openapi.vfs.LocalFileSystem.getInstance();
+                    var root = fs.refreshAndFindFileByNioFile(folder);
+                    if (root != null)
+                        com.intellij.openapi.vfs.VfsUtil.markDirtyAndRefresh(
+                                false, true, true, root);
+                    List<VirtualFile> outputs = new ArrayList<>();
+                    for (var target : targets) {
+                        Path path =
+                                EvoSuiteCommand.suiteFile(
+                                                folder.toFile(),
+                                                target.className(),
+                                                options.testSuffix)
+                                        .toPath();
+                        var file = fs.refreshAndFindFileByNioFile(path);
+                        if (file != null && !file.isDirectory()) {
+                            org.evosuite.intellij.settings.GeneratedSuiteRegistry.getInstance(
+                                            project)
+                                    .record(path, false);
+                            outputs.add(file);
+                        }
+                    }
+                    return List.copyOf(outputs);
+                });
     }
 
     private static void showNotification(Project project, NotificationType type, String text) {
@@ -1147,7 +1204,10 @@ public final class GenerationService implements Disposable {
             Project project, List<TargetCollector.TestClass> tests) {
         Map<Module, Map<String, List<GenerationTarget.Seed>>> grouped = new LinkedHashMap<>();
         for (var test : tests) {
-            GenerationOptions options = SettingsResolver.resolve(test.module());
+            Module owner =
+                    IdeThread.smartRead(
+                            project, () -> ProjectSetupService.productionModule(test.module()));
+            GenerationOptions options = SettingsResolver.resolve(owner);
             var inference =
                     IdeThread.smartRead(
                             project,
@@ -1157,7 +1217,7 @@ public final class GenerationService implements Disposable {
                     candidates.size() == 1
                             ? candidates.getFirst()
                             : ExtensionTargetDialog.choose(project, test, inference);
-            grouped.computeIfAbsent(test.module(), ignored -> new LinkedHashMap<>())
+            grouped.computeIfAbsent(owner, ignored -> new LinkedHashMap<>())
                     .computeIfAbsent(cut.trim(), ignored -> new ArrayList<>())
                     .add(new GenerationTarget.Seed(test.name(), test.root().toNioPath().toFile()));
         }

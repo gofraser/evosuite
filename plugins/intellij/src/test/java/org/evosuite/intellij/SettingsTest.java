@@ -53,8 +53,11 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
                     configurable.reset();
                     assertTrue(values.isSelected());
                     tests.doClick();
-                    assertFalse("Value minimization requires test minimization", values.isEnabled());
-                    assertTrue("Disabling the parent preserves the user's choice", values.isSelected());
+                    assertFalse(
+                            "Value minimization requires test minimization", values.isEnabled());
+                    assertTrue(
+                            "Disabling the parent preserves the user's choice",
+                            values.isSelected());
                     configurable.apply();
                     assertFalse(SettingsResolver.resolve(getModule()).minimize);
                     assertTrue(SettingsResolver.resolve(getModule()).minimizeValues);
@@ -250,9 +253,15 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
     }
 
     public void testLogoIsAvailableAtPluginAndActionSizes() {
-        var logo = com.intellij.openapi.util.IconLoader.getIcon("/META-INF/pluginIcon.svg", getClass());
+        var logo =
+                com.intellij.openapi.util.IconLoader.getIcon(
+                        "/META-INF/pluginIcon.svg", getClass());
         assertEquals(com.intellij.util.ui.JBUI.scale(40), logo.getIconWidth());
-        for (String action : List.of("EvoSuite.GenerateTests", "EvoSuite.GenerateMethodTests", "EvoSuite.ExtendTests")) {
+        for (String action :
+                List.of(
+                        "EvoSuite.GenerateTests",
+                        "EvoSuite.GenerateMethodTests",
+                        "EvoSuite.ExtendTests")) {
             var icon = com.intellij.openapi.actionSystem.ActionManager.getInstance().getAction(action)
                     .getTemplatePresentation().getIcon();
             assertNotNull(action, icon);
@@ -274,7 +283,11 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
                     var label = (javax.swing.JLabel) combo.getRenderer().getListCellRendererComponent(
                             new javax.swing.JList(), combo.getSelectedItem(), -1, false, false);
                     assertFalse(name, label.getText().isBlank());
-                    assertTrue(name, label.getText().startsWith(name.equals("testFormat") ? "Automatic" : "Default"));
+                    assertTrue(
+                            name,
+                            label.getText()
+                                    .startsWith(
+                                            name.equals("testFormat") ? "Automatic" : "Default"));
                 } else if (field instanceof javax.swing.JTextField text) {
                     assertFalse(name + " must show a value", text.getText().isBlank());
                     var description = (javax.swing.JTextArea) findField(ui, name + ".default");
@@ -285,7 +298,9 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
             assertFalse(configurable.isModified());
             configurable.apply();
             assertFalse(configurable.isModified());
-            assertFalse("Automatic JUnit detection must remain unset", state.values.containsKey("testFormat"));
+            assertFalse(
+                    "Automatic JUnit detection must remain unset",
+                    state.values.containsKey("testFormat"));
             ((javax.swing.JComboBox) findField(ui, "testFormat")).setSelectedItem("JUNIT4");
             configurable.apply();
             assertEquals("JUNIT4", state.values.get("testFormat"));
@@ -308,7 +323,9 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
             var budget = (javax.swing.JTextField) findField(ui, "searchBudget");
             assertEquals("60", budget.getText());
             assertEquals("3000", ((javax.swing.JTextField) findField(ui, "testTimeout")).getText());
-            assertEquals("src/test/evosuite", ((javax.swing.JTextField) findField(ui, "testFolder")).getText());
+            assertEquals(
+                    "src/test/evosuite",
+                    ((javax.swing.JTextField) findField(ui, "testFolder")).getText());
             configurable.apply();
             assertFalse(state.values.containsKey("searchBudget"));
             assertFalse(state.values.containsKey("testTimeout"));
@@ -324,7 +341,10 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
             state.values.put("searchBudget", "60");
             configurable.reset();
             configurable.apply();
-            assertEquals("Explicit stored defaults remain explicit", "60", state.values.get("searchBudget"));
+            assertEquals(
+                    "Explicit stored defaults remain explicit",
+                    "60",
+                    state.values.get("searchBudget"));
             var arguments = (javax.swing.JTextField) findField(ui, "extraArguments");
             var automatic = (javax.swing.JCheckBox) findField(ui, "extraArguments.automatic");
             assertTrue(automatic.isSelected());
@@ -356,7 +376,9 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
         var configurable = new EvoSuiteProjectConfigurable(getProject());
         try {
             app.values.clear(); app.values.put("searchBudget", "180");
-            local.values.clear(); local.values.put("searchBudget", "90"); local.useProjectSettings = false;
+            local.values.clear();
+            local.values.put("searchBudget", "90");
+            local.useProjectSettings = false;
             local.delegateToMaven = true;
             var ui = configurable.createComponent();
             var budget = (javax.swing.JTextField) findField(ui, "searchBudget");
@@ -369,7 +391,8 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
             scope.doClick(); assertEquals("180", budget.getText());
             scope.doClick(); assertEquals("75", budget.getText());
             ((javax.swing.JButton) findField(ui, "copyIdeDefaults")).doClick();
-            assertEquals("180", budget.getText()); assertEquals("90", local.values.get("searchBudget"));
+            assertEquals("180", budget.getText());
+            assertEquals("90", local.values.get("searchBudget"));
             configurable.apply(); assertEquals("180", local.values.get("searchBudget"));
             ((javax.swing.JButton) findField(ui, "restoreDefaults")).doClick();
             assertEquals("60", budget.getText());
@@ -386,9 +409,13 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
         var previous = new TreeMap<>(state.values);
         var configurable = new EvoSuiteApplicationConfigurable();
         try {
-            state.values.clear(); state.values.put("searchBudget", "0"); state.values.put("testNaming", "LEGACY_VALUE");
+            state.values.clear();
+            state.values.put("searchBudget", "0");
+            state.values.put("testNaming", "LEGACY_VALUE");
             var ui = configurable.createComponent();
-            assertEquals("LEGACY_VALUE", ((javax.swing.JComboBox) findField(ui, "testNaming")).getSelectedItem());
+            assertEquals(
+                    "LEGACY_VALUE",
+                    ((javax.swing.JComboBox) findField(ui, "testNaming")).getSelectedItem());
             assertFalse(configurable.isModified());
             assertInvalid(configurable, "Search budget per class");
             ((javax.swing.JTextField) findField(ui, "searchBudget")).setText("60");
@@ -398,7 +425,8 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
             ((javax.swing.JCheckBox) findField(ui, "llmBaseUrl.automatic")).setSelected(false);
             ((javax.swing.JTextField) findField(ui, "llmBaseUrl")).setText("localhost:11434");
             assertInvalid(configurable, "HTTP(S)");
-            ((javax.swing.JTextField) findField(ui, "llmBaseUrl")).setText("HTTPS://example.test/v1");
+            ((javax.swing.JTextField) findField(ui, "llmBaseUrl"))
+                    .setText("HTTPS://example.test/v1");
             configurable.apply(); assertFalse(configurable.isModified());
             var naming = (javax.swing.JComboBox) findField(ui, "testNaming");
             for (int i = 0; i < naming.getItemCount(); i++) assertFalse("LEGACY_VALUE".equals(naming.getItemAt(i)));
@@ -410,9 +438,13 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
         var previous = new TreeMap<>(state.values);
         var configurable = new EvoSuiteApplicationConfigurable();
         try {
-            state.values.clear(); state.values.put("criterion", String.join(":", GenerationOptions.DEFAULT_CRITERIA));
+            state.values.clear();
+            state.values.put("criterion", String.join(":", GenerationOptions.DEFAULT_CRITERIA));
             configurable.createComponent(); assertFalse(configurable.isModified());
-            configurable.apply(); assertEquals(String.join(":", GenerationOptions.DEFAULT_CRITERIA), state.values.get("criterion"));
+            configurable.apply();
+            assertEquals(
+                    String.join(":", GenerationOptions.DEFAULT_CRITERIA),
+                    state.values.get("criterion"));
             state.values.put("criterion", "BRANCH:LINE:INPUT");
             configurable.reset(); assertFalse(configurable.isModified());
             configurable.apply(); assertEquals("BRANCH:LINE:INPUT", state.values.get("criterion"));
@@ -429,7 +461,9 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
             @Override protected void storeApiKey(String value) { saved[0] = value; }
         };
         try {
-            state.values.clear(); state.values.put("llmProvider", "OPENAI"); state.values.put("llmApproach", "SEARCH_ONLY");
+            state.values.clear();
+            state.values.put("llmProvider", "OPENAI");
+            state.values.put("llmApproach", "SEARCH_ONLY");
             var ui = configurable.createComponent();
             assertEquals(0, reads[0]);
             ((javax.swing.JButton) findField(ui, "loadApiKey")).doClick();
@@ -453,11 +487,17 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
         try {
             state.values.clear();
             var ui = configurable.createComponent(); assertEquals(0, reads[0]);
-            ((javax.swing.JComboBox) findField(ui, "llmProvider")).setSelectedItem("OLLAMA"); assertEquals(0, reads[0]);
+            ((javax.swing.JComboBox) findField(ui, "llmProvider")).setSelectedItem("OLLAMA");
+            assertEquals(0, reads[0]);
             ((javax.swing.JComboBox) findField(ui, "llmProvider")).setSelectedItem("OPENAI");
             awaitEnabled(findField(ui, "llmApiKey")); assertEquals(1, reads[0]);
-            assertTrue(((javax.swing.JTextArea) findField(ui, "apiKeyStatus")).getText().contains("Enter a cloud API key"));
-            assertEquals("Cloud API key", findField(ui, "llmApiKey").getAccessibleContext().getAccessibleName());
+            assertTrue(
+                    ((javax.swing.JTextArea) findField(ui, "apiKeyStatus"))
+                            .getText()
+                            .contains("Enter a cloud API key"));
+            assertEquals(
+                    "Cloud API key",
+                    findField(ui, "llmApiKey").getAccessibleContext().getAccessibleName());
         } finally {
             configurable.disposeUIResources();
             state.values = previous;
@@ -465,14 +505,22 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
     }
 
     public void testEmptyLegacyImportKeepsTheCurrentProviderDraft() throws Exception {
-        var configurable=new EvoSuiteConfigurable(null){ @Override protected String loadLegacyApiKey(){return "";} };
+        var configurable =
+                new EvoSuiteConfigurable(null) {
+                    @Override
+                    protected String loadLegacyApiKey() {
+                        return "";
+                    }
+                };
         try {
             var ui=configurable.createComponent();
-            var key=(javax.swing.JPasswordField)findField(ui,"llmApiKey");key.setText("current-provider-draft");
+            var key = (javax.swing.JPasswordField) findField(ui, "llmApiKey");
+            key.setText("current-provider-draft");
             ((javax.swing.JButton)findField(ui,"importLegacyApiKey")).doClick();
             var status=(javax.swing.JTextArea)findField(ui,"apiKeyStatus");
             long until=System.nanoTime()+java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
-            while(!status.getText().startsWith("No legacy") && System.nanoTime()<until){com.intellij.util.ui.UIUtil.dispatchAllInvocationEvents();Thread.sleep(10);}
+            while (!status.getText().startsWith("No legacy") && System.nanoTime() < until) {
+                com.intellij.util.ui.UIUtil.dispatchAllInvocationEvents();Thread.sleep(10);}
             assertTrue(status.getText(),status.getText().startsWith("No legacy"));
             assertEquals("current-provider-draft",String.valueOf(key.getPassword()));
         } finally {configurable.disposeUIResources();}
@@ -550,7 +598,9 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
     }
 
     private static void assertInvalid(EvoSuiteConfigurable configurable, String text) throws Exception {
-        try { ((com.intellij.openapi.options.Configurable) configurable).apply(); fail("Expected validation: " + text); }
+        try { ((com.intellij.openapi.options.Configurable) configurable).apply();
+            fail("Expected validation: " + text);
+        }
         catch (com.intellij.openapi.options.ConfigurationException expected) { assertTrue(expected.getMessage(), expected.getMessage().contains(text)); }
     }
     private static void awaitEnabled(java.awt.Component component) throws Exception {
@@ -580,8 +630,18 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
                     var image = new java.awt.image.BufferedImage(ui.getWidth(), ui.getHeight(), java.awt.image.BufferedImage.TYPE_INT_RGB);
                     var graphics = image.createGraphics();
                     try { ui.printAll(graphics); } finally { graphics.dispose(); }
-                    var capture = java.nio.file.Path.of(System.getProperty("java.io.tmpdir"), "evosuite-settings-"
-                            + (configurable instanceof EvoSuiteApplicationConfigurable ? "application" : "project") + "-" + index + ".png");
+                    var capture =
+                            java.nio.file.Path.of(
+                                    System.getProperty("java.io.tmpdir"),
+                                    "evosuite-settings-"
+                                            + (configurable
+                                                            instanceof
+                                                            EvoSuiteApplicationConfigurable
+                                                    ? "application"
+                                                    : "project")
+                                            + "-"
+                                            + index
+                                            + ".png");
                     javax.imageio.ImageIO.write(image, "png", capture.toFile());
                 }
             } finally { configurable.disposeUIResources(); }
@@ -589,17 +649,25 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
     }
 
     private static void assertFieldHintsFit(java.awt.Component component) {
-        if (component instanceof javax.swing.JTextArea hint && hint.getName() != null && hint.getName().endsWith(".default")) {
+        if (component instanceof javax.swing.JTextArea hint
+                && hint.getName() != null
+                && hint.getName().endsWith(".default")) {
             var parent = hint.getParent();
             assertTrue(hint.getName(), hint.getY() >= 0);
             assertTrue(hint.getName(), hint.getHeight() > 0);
             assertTrue(hint.getName(), hint.getY() + hint.getHeight() <= parent.getHeight());
             for (var child : parent.getComponents())
                 if (child instanceof javax.swing.JTextField)
-                    assertTrue(hint.getName() + " overlaps its field", hint.getY() >= child.getY() + child.getHeight());
+                    assertTrue(
+                            hint.getName() + " overlaps its field",
+                            hint.getY() >= child.getY() + child.getHeight());
         }
-        if (component instanceof javax.swing.JCheckBox box && box.getName() != null && GenerationOptions.DEFAULT_CRITERIA.contains(box.getName()))
-            assertTrue(box.getText() + " must not be truncated", box.getWidth() >= box.getPreferredSize().width);
+        if (component instanceof javax.swing.JCheckBox box
+                && box.getName() != null
+                && GenerationOptions.DEFAULT_CRITERIA.contains(box.getName()))
+            assertTrue(
+                    box.getText() + " must not be truncated",
+                    box.getWidth() >= box.getPreferredSize().width);
         if (component instanceof java.awt.Container parent)
             for (var child : parent.getComponents()) assertFieldHintsFit(child);
     }
@@ -641,6 +709,27 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
             }
         }
         return null;
+    }
+
+    public void testEmptyExplicitAutomaticOverrideIsRejected() throws Exception {
+        var configurable = new EvoSuiteProjectConfigurable(getProject());
+        var state = EvoSuiteProjectSettings.getInstance(getProject()).getState();
+        boolean previous = state.useProjectSettings;
+        state.useProjectSettings = true;
+        try {
+            var ui = configurable.createComponent();
+            ((javax.swing.JCheckBox) findField(ui, "extraArguments.automatic")).doClick();
+            ((javax.swing.JTextField) findField(ui, "extraArguments")).setText("");
+            try {
+                ((com.intellij.openapi.options.Configurable) configurable).apply();
+                fail("An explicit empty override must not silently revert to Automatic");
+            } catch (com.intellij.openapi.options.ConfigurationException expected) {
+                assertTrue(expected.getMessage().contains("automatic option"));
+            }
+        } finally {
+            configurable.disposeUIResources();
+            state.useProjectSettings = previous;
+        }
     }
 
     public void testConfigurableResetApplyAndModified() throws Exception {

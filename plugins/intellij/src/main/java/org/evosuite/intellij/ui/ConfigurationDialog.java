@@ -54,7 +54,8 @@ public final class ConfigurationDialog {
         new Task.Backgroundable(project, "EvoSuite: check configuration", true) {
             public void run(@NotNull ProgressIndicator indicator) {
                 List<String[]> rows = new ArrayList<>();
-                for (Module module : ModuleManager.getInstance(project).getModules()) {
+                for (Module module :
+                        ReadAction.compute(() -> ModuleManager.getInstance(project).getModules())) {
                     indicator.checkCanceled();
                     if (!ReadAction.compute(
                             () ->

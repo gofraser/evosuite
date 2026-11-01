@@ -280,13 +280,16 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
         changed();
     }
 
+    private static final java.util.regex.Pattern RANDOM_SEED =
+            java.util.regex.Pattern.compile("-Drandom_seed=(-?\\d+)");
+    private static final java.util.regex.Pattern TOTAL_COVERAGE =
+            java.util.regex.Pattern.compile("Total coverage:\\s*([0-9]+(?:[.,][0-9]+)?)\\s*%");
+
     public synchronized void line(String id, int index, String line) {
         Target t = find(id).targets.get(index);
-        var seed = java.util.regex.Pattern.compile("-Drandom_seed=(-?\\d+)").matcher(line);
+        var seed = RANDOM_SEED.matcher(line);
         while (seed.find()) t.seed = seed.group(1);
-        var totalCoverage =
-                java.util.regex.Pattern.compile("Total coverage:\\s*([0-9]+(?:[.,][0-9]+)?)\\s*%")
-                        .matcher(line);
+        var totalCoverage = TOTAL_COVERAGE.matcher(line);
         if (totalCoverage.find()) {
             t.coverage =
                     (int) Math.round(Double.parseDouble(totalCoverage.group(1).replace(',', '.')));

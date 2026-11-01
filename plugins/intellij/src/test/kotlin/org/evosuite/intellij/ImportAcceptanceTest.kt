@@ -298,8 +298,7 @@ class ImportAcceptanceTest : JavaCodeInsightFixtureTestCase() {
                         EngineJars.VERSION +
                         "'",
                     "",
-                )
-                .replace("useJUnitPlatform()", "useJUnit()"),
+                ),
         )
         Files.writeString(
             root.resolve("app/src/test/java/demo/VaultTest.java"),
@@ -350,6 +349,10 @@ class ImportAcceptanceTest : JavaCodeInsightFixtureTestCase() {
             root.resolve(file)
         )
         fixture("gradle-kotlin")
+        // The root supplies Java/dependencies, but the subproject has no script until setup.
+        Files.delete(root.resolve("app/build.gradle.kts"))
+        Files.writeString(root.resolve("build.gradle.kts"), Files.readString(root.resolve("build.gradle.kts"))
+                + "\nproject(\":app\") { dependencies { add(\"implementation\", project(\":library\")) } }\n")
         LocalFileSystem.getInstance().refreshAndFindFileByNioFile(root)!!.refresh(false, true)
         linkGradle()
         importGradle()
@@ -373,6 +376,7 @@ class ImportAcceptanceTest : JavaCodeInsightFixtureTestCase() {
             }
         )
         assertTrue(background { ProjectSetupService.hasClass(tests, "org.junit.jupiter.api.Test") })
+        assertFalse(Files.exists(root.resolve("app/build.gradle")))
         val updated = Files.readString(root.resolve("app/build.gradle.kts"))
         assertTrue(
             updated,
@@ -390,6 +394,10 @@ class ImportAcceptanceTest : JavaCodeInsightFixtureTestCase() {
         fixture("gradle")
         for (file in listOf("settings.gradle", "build.gradle", "app/build.gradle")) Files.delete(root.resolve(file))
         fixture("gradle-kotlin")
+        // The root supplies Java/dependencies, but the subproject has no script until setup.
+        Files.delete(root.resolve("app/build.gradle.kts"))
+        Files.writeString(root.resolve("build.gradle.kts"), Files.readString(root.resolve("build.gradle.kts"))
+                + "\nproject(\":app\") { dependencies { add(\"implementation\", project(\":library\")) } }\n")
         LocalFileSystem.getInstance().refreshAndFindFileByNioFile(root)!!.refresh(false, true)
         linkGradle(); importGradle()
         val main = moduleFor("app/src/main/java/demo/Vault.java")
@@ -523,7 +531,10 @@ class ImportAcceptanceTest : JavaCodeInsightFixtureTestCase() {
         val original = Files.readString(seedRoot.resolve("demo/VaultTest.java"))
         val extensionCp =
             ReadAction.compute<List<String>, RuntimeException> {
-                ClasspathResolver.resolve(testModule, true)
+                ClasspathResolver.resolve(main, GenerationTarget.extending("demo.Vault", listOf(GenerationTarget.Seed("demo.VaultTest", seedRoot.toFile())))).also {
+                    assertEquals(main, ProjectSetupService.productionModule(testModule))
+                    assertTrue(org.evosuite.intellij.run.GenerationService.buildModules(main, listOf(GenerationTarget.extending("demo.Vault", listOf(GenerationTarget.Seed("demo.VaultTest", seedRoot.toFile()))))).contains(testModule))
+                }
             }
         options.searchBudget = 10
         options.extraArguments = "-Dsandbox=false -Dminimization_timeout=10 -Dassertion_timeout=5"

@@ -28,11 +28,13 @@ import java.util.*;
 
 /** A real engine/JDK boundary test, independent of mocked platform processes. */
 public class EngineSmokeTest extends TestCase {
+    private static Path engineJavaHome() {
+        String configured = System.getProperty("evosuite.it.javaHome", "");
+        return Path.of(configured.isBlank() ? System.getProperty("java.home") : configured);
+    }
+
     public void testMeasureExistingCoverageWritesReportWithoutGeneratingTests() throws Exception {
-        Path home =
-                Path.of(
-                        System.getProperty(
-                                "evosuite.it.javaHome", System.getProperty("java.home")));
+        Path home = engineJavaHome();
         Path root = Files.createTempDirectory("evosuite-coverage-");
         try {
             Files.createDirectories(root.resolve("demo"));
@@ -117,10 +119,7 @@ public class EngineSmokeTest extends TestCase {
     }
 
     private void assertRuntimeFreeOutput(String productionSource) throws Exception {
-        Path home =
-                Path.of(
-                        System.getProperty(
-                                "evosuite.it.javaHome", System.getProperty("java.home")));
+        Path home = engineJavaHome();
         if (!Files.isDirectory(home.resolve("bin")))
             home = Path.of(System.getProperty("java.home"));
         Path root = Files.createTempDirectory("evosuite-runtime-free-");

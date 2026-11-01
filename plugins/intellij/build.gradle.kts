@@ -1,4 +1,5 @@
 import java.util.zip.ZipFile
+import javax.xml.parsers.DocumentBuilderFactory
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 
@@ -8,7 +9,15 @@ plugins {
     id("org.jetbrains.intellij.platform") version "2.19.0"
 }
 group = "org.evosuite.plugins"
-val engineVersion = Regex("<version>([^<]+)</version>").find(file("../../pom.xml").readText())!!.groupValues[1]
+val engineRoot = providers.gradleProperty("evosuite.root").map { file(it) }.getOrElse(file("../.."))
+val enginePom = engineRoot.resolve("pom.xml")
+val engineVersion = DocumentBuilderFactory.newInstance().apply {
+    setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
+}.newDocumentBuilder().parse(enginePom).documentElement.let { root ->
+    (0 until root.childNodes.length).map { root.childNodes.item(it) }
+        .firstOrNull { it.nodeName == "version" }?.textContent?.trim()
+        ?: error("No project version in $enginePom")
+}
 version = engineVersion
 repositories { mavenCentral(); intellijPlatform { defaultRepositories() } }
 java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
@@ -62,7 +71,6 @@ tasks.processResources {
     dependsOn(generateEngineMetadata)
     from(engineMetadata)
 }
-val engineRoot = providers.gradleProperty("evosuite.root").map { file(it) }.getOrElse(file("../.."))
 val engineJar = engineRoot.resolve("master/target/evosuite-master-$engineVersion.jar")
 val runtimeJar = engineRoot.resolve("standalone_runtime/target/evosuite-standalone-runtime-$engineVersion.jar")
 val engineFiles = tasks.register<Sync>("copyEngineJars") {

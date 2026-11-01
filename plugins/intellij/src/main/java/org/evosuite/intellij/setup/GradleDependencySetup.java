@@ -20,7 +20,6 @@
 package org.evosuite.intellij.setup;
 
 import com.intellij.buildsystem.model.unified.UnifiedDependency;
-import com.intellij.externalSystem.DependencyModifierService;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.externalSystem.ExternalSystemModulePropertyManager;
@@ -58,6 +57,11 @@ final class GradleDependencySetup {
     }
 
     static String sourceSet(Module module) {
+        return com.intellij.openapi.application.ReadAction.compute(
+                () -> sourceSetInReadAction(module));
+    }
+
+    private static String sourceSetInReadAction(Module module) {
         String id = ExternalSystemApiUtil.getExternalProjectId(module);
         if (TestModuleProperties.getInstance(module).getProductionModule() != null && id != null) {
             String name = id.substring(id.lastIndexOf(':') + 1);
@@ -80,17 +84,17 @@ final class GradleDependencySetup {
                         + "\") { java.srcDir(\""
                         + path
                         + "\") }\n";
-        if (jupiter)
-            text +=
-                    kotlin
-                            ? "tasks.withType<org.gradle.api.tasks.testing.Test>().matching {"
-                                    + " it.name == \""
-                                    + sourceSet
-                                    + "\" }.configureEach { useJUnitPlatform() }\n"
-                            : "tasks.withType(org.gradle.api.tasks.testing.Test).matching { it.name"
-                                    + " == \""
-                                    + sourceSet
-                                    + "\" }.configureEach { useJUnitPlatform() }\n";
+        String testTasks =
+                kotlin
+                        ? "tasks.withType<org.gradle.api.tasks.testing.Test>()"
+                        : "tasks.withType(org.gradle.api.tasks.testing.Test)";
+        text +=
+                testTasks
+                        + ".matching { it.name == \""
+                        + sourceSet
+                        + "\" }.configureEach { "
+                        + (jupiter ? "useJUnitPlatform()" : "useJUnit()")
+                        + " }\n";
         return text + END;
     }
 
@@ -101,6 +105,58 @@ final class GradleDependencySetup {
         return original.stripTrailing() + "\n\n" + block + "\n";
     }
 
+    /** Keep a build without a subproject script in its surrounding Kotlin/Groovy DSL. */
+    static Path buildFile(Path base) {
+        if (Files.isRegularFile(base.resolve("build.gradle.kts")))
+            return base.resolve("build.gradle.kts");
+        if (Files.isRegularFile(base.resolve("build.gradle"))) return base.resolve("build.gradle");
+        for (Path parent = base.getParent(); parent != null; parent = parent.getParent()) {
+            if (Files.isRegularFile(parent.resolve("build.gradle.kts"))
+                    || Files.isRegularFile(parent.resolve("settings.gradle.kts")))
+                return base.resolve("build.gradle.kts");
+            if (Files.isRegularFile(parent.resolve("build.gradle"))
+                    || Files.isRegularFile(parent.resolve("settings.gradle"))) break;
+        }
+        return base.resolve("build.gradle");
+    }
+
+    /** Only edit the selected script; never let a module-level modifier choose another file. */
+    static String updateDependencies(String original, List<UnifiedDependency> dependencies) {
+        String start = "// EvoSuite managed test dependencies: start";
+        String end = "// EvoSuite managed test dependencies: end";
+        int from = original.indexOf(start), to = original.indexOf(end);
+        String previous = from >= 0 && to > from ? original.substring(from, to + end.length()) : "";
+        List<String> additions = new ArrayList<>();
+        for (UnifiedDependency dependency : dependencies) {
+            var coordinate = dependency.getCoordinates();
+            String group = coordinate.getGroupId(),
+                    artifact = coordinate.getArtifactId(),
+                    version = coordinate.getVersion();
+            // Existing declarations (including a managed block retained across source-root updates)
+            // win.
+            if (original.contains(group + ":" + artifact + ":")) continue;
+            additions.add(
+                    "    "
+                            + dependency.getScope()
+                            + "(\""
+                            + group
+                            + ":"
+                            + artifact
+                            + ":"
+                            + version
+                            + "\")");
+        }
+        if (additions.isEmpty()) return original;
+        String block =
+                previous.isEmpty()
+                        ? start + "\ndependencies {\n"
+                        : previous.substring(0, previous.lastIndexOf('}'));
+        block += String.join("\n", additions) + "\n}\n" + end;
+        return previous.isEmpty()
+                ? original.stripTrailing() + "\n\n" + block + "\n"
+                : original.substring(0, from) + block + original.substring(to + end.length());
+    }
+
     static boolean prepare(
             Module production,
             Module testModule,
@@ -109,10 +165,7 @@ final class GradleDependencySetup {
             ProgressIndicator indicator,
             Consumer<String> console) {
         Path base = ProjectSetupService.baseDir(production);
-        Path build =
-                Files.isRegularFile(base.resolve("build.gradle.kts"))
-                        ? base.resolve("build.gradle.kts")
-                        : base.resolve("build.gradle");
+        Path build = buildFile(base);
         // A subproject may inherit all configuration from its root and have no own script.
         boolean kotlin = build.toString().endsWith(".kts");
         String block =
@@ -201,12 +254,6 @@ final class GradleDependencySetup {
                     Map<Document, Long> before = new IdentityHashMap<>();
                     for (var doc : manager.getUnsavedDocuments())
                         before.put(doc, doc.getModificationStamp());
-                    var modifier = DependencyModifierService.getInstance(production.getProject());
-                    if (!dependencies.isEmpty() && !modifier.supports(testModule))
-                        throw new IllegalStateException(
-                                "IntelliJ cannot edit this Gradle module's dependencies. Configure "
-                                        + build
-                                        + " manually.");
                     WriteCommandAction.runWriteCommandAction(
                             production.getProject(),
                             "EvoSuite: configure Gradle tests",
@@ -225,15 +272,13 @@ final class GradleDependencySetup {
                                     Document doc = manager.getDocument(file);
                                     if (doc == null)
                                         throw new IllegalStateException("Cannot edit " + build);
-                                    doc.setText(update(doc.getText(), block));
+                                    doc.setText(
+                                            updateDependencies(
+                                                    update(doc.getText(), block), dependencies));
                                     var psi =
                                             com.intellij.psi.PsiDocumentManager.getInstance(
                                                     production.getProject());
                                     psi.commitDocument(doc);
-                                    for (var dependency : dependencies) {
-                                        modifier.addDependency(testModule, dependency);
-                                        psi.commitAllDocuments();
-                                    }
                                 } catch (java.io.IOException ex) {
                                     throw new IllegalStateException("Cannot update " + build, ex);
                                 }
@@ -266,14 +311,5 @@ final class GradleDependencySetup {
         IdeThread.await(sync, indicator);
         console.accept("Configured Gradle test sources and dependencies: " + build);
         return true;
-    }
-
-    // Legacy callers are routed through the combined setup by ProjectSetupService.
-    static void add(
-            Module module,
-            ExternalLibraryDescriptor dependency,
-            ProgressIndicator indicator,
-            Consumer<String> console) {
-        prepare(module, module, new GenerationOptions(), List.of(dependency), indicator, console);
     }
 }
