@@ -52,7 +52,7 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Phase 6 tests for LLMSTRATEGY iteration, provenance tracking, and metrics.
+ * Tests for LLMSTRATEGY iteration, provenance tracking, and metrics.
  */
 class LlmStrategyBehaviorTest {
 
@@ -758,7 +758,7 @@ class LlmStrategyBehaviorTest {
                 1,
                 false,
                 Paths.get("target/llm-test-traces"),
-                "phase6-test");
+                "strategy-behavior-test");
         return new LlmService(model,
                 LlmBudgetCoordinator.of(budget),
                 configuration,

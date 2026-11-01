@@ -34,7 +34,7 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Focused tests for operator disruption analysis (Phase 8b).
+ * Focused tests for operator disruption analysis.
  *
  * <p>Test categories:
  * 1) Disabled mode => no recorder activity, no sidecar file

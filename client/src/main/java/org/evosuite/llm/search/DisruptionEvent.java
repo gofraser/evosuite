@@ -22,7 +22,7 @@ package org.evosuite.llm.search;
 import org.evosuite.utils.SidecarCsv;
 
 /**
- * Immutable record of a single operator disruption event for Phase 8b analysis.
+ * Immutable record of a single operator disruption event for operator disruption analysis.
  * One event is emitted per operator application attempt (mutation or crossover),
  * including fallback attempts.
  */

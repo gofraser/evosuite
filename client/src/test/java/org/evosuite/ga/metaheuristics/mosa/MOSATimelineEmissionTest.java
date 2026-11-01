@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Verifies that DiversityTimeline values are compatible with the
  * {@link DirectSequenceOutputVariableFactory} registered in SearchStatistics.
  *
- * <p>Regression test for Phase 8: MOSA/DynaMOSA must emit per-generation Double
+ * <p>Regression test: MOSA/DynaMOSA must emit per-generation Double
  * values (not semicolon-separated Strings) for DiversityTimeline.
  */
 class MOSATimelineEmissionTest {

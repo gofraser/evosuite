@@ -46,13 +46,13 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests for Phase 2c review-fix pass:
+ * Tests for the prompt context handling of the LLM queries:
  * A) end-to-end trace propagation
  * B) shared caching across PromptBuilder instances
  * C) fallback failure semantics
  * D) safe property defaults
  */
-class Phase2cReviewFixTest {
+class PromptContextPropagationAndCachingTest {
 
     private LlmSutContextMode originalMode;
     private boolean originalFallback;

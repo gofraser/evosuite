@@ -27,9 +27,9 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests for Phase 5 property defaults and enum values.
+ * Tests for the LLM operator and speciation property defaults and enum values.
  */
-class Phase5PropertyDefaultsTest {
+class LlmOperatorAndSpeciationDefaultsTest {
 
     @Test
     void llmOperatorDefaultsAreCorrect() {

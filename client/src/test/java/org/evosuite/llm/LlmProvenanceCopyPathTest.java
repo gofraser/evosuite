@@ -51,7 +51,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Phase 6b regression tests: verifies that direct {@code copy(TestCase, int)}
+ * Regression tests: verifies that direct {@code copy(TestCase, int)}
  * calls preserve {@code parsedFromLlm} provenance across all statement types.
  * <p>
  * These tests call {@code copy()} directly (not via {@code clone()}) to ensure

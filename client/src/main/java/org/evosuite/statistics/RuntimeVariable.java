@@ -942,7 +942,7 @@ public enum RuntimeVariable {
      */
     LLM_All_Candidates_Dropped_Execution,
 
-    // ---- Phase 5: Operator & Diversity ----
+    // ---- Operator & Diversity ----
 
     /**
      * Number of LLM semantic mutations applied.
@@ -1676,7 +1676,7 @@ public enum RuntimeVariable {
      */
     Species_Sharing_Adjusted_Timeline,
 
-    // ---- Phase 6: Parsed-Statement Provenance ----
+    // ---- Parsed-Statement Provenance ----
 
     /**
      * Ratio of LLM-parsed statements to total statements in the final population.
@@ -1830,7 +1830,7 @@ public enum RuntimeVariable {
     /** Number of unified LLM post-processing assertions shipped in the final generated suite. */
     LLM_PostProcessing_Assertions_Shipped,
 
-    // ---- Phase 8: Diversity Observability ----
+    // ---- Diversity Observability ----
 
     /**
      * Per-generation number of ranking fronts in MOSA/DynaMOSA.

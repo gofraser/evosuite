@@ -207,7 +207,7 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
      *   <li>{@code getLastObject(T)} must succeed (mirrors ObjectPool retrieval)</li>
      * </ol>
      * This avoids polluting the pool with incidental helper types while preserving
-     * Phase 3c's intent of keying by the actual produced type, not always the CUT.
+     * the intent of keying by the actual produced type, not always the CUT.
      */
     TypeKeyInsertionResult addSequenceToPoolByProducedTypes(TestCase testCase,
                                                             Set<String> targetTypeNames) {

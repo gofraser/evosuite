@@ -320,7 +320,7 @@ class StagnationLlmHelperTest {
 
     @Test
     void budgetGuardSkip_doesNotConsumeStagnationWindow() throws Exception {
-        // Phase 3 T1.1: a skipped submission (here: budget guard) must leave the
+        // A skipped submission (here: budget guard) must leave the
         // detector window intact, so the *next* generation still observes
         // stagnation and can fire once the guard relaxes. Pre-fix behavior
         // reset the window on every checkStagnation()==true, even when skipped.
@@ -460,7 +460,7 @@ class StagnationLlmHelperTest {
 
     @Test
     void asyncMode_submitAfterShutdown_isBenignNoOp() {
-        // Phase 3 T2.2 (smoke test): maybeSubmit() and drain() called after
+        // Smoke test: maybeSubmit() and drain() called after
         // shutdown() must complete cleanly. The true race scenario
         // (RejectedExecutionException between the shutdown-flag check and
         // worker.submit) is not deterministically reachable through the

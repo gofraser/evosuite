@@ -130,7 +130,7 @@ class LlmWaitBudgetTest {
     }
 
     @Test
-    void phase3ConfigurationProducesNinetySeconds() {
+    void timeoutAndRepairConfigurationProducesNinetySeconds() {
         Properties.LLM_TIMEOUT_SECONDS = 30;
         Properties.LLM_REPAIR_ATTEMPTS = 2;
         assertEquals(90L, LlmWaitBudget.repairAwareWaitSeconds());

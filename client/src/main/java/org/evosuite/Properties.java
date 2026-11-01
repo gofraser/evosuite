@@ -2750,7 +2750,7 @@ public class Properties {
     @DoubleValue(min = 0.0, max = 1.0)
     public static double SPECIATION_EMPTY_PROFILE_DISTANCE = 0.0;
 
-    // ---- Diversity tracking (Phase 8) ----
+    // ---- Diversity tracking ----
 
     @Parameter(key = "diversity_sample_size", group = "Speciation",
             description = "Maximum number of pairs to sample for diversity computation (0 = all pairs)")
@@ -2768,7 +2768,7 @@ public class Properties {
     @DoubleValue(min = 0.0, max = 1.0)
     public static double STF_JACCARD_WEIGHT = 0.0;
 
-    // ---- Search Process Visualization (Phase 9) ----
+    // ---- Search Process Visualization ----
 
     @Parameter(key = "objective_coverage_timeline_enabled", group = "Visualization",
             description = "If true, write per-generation best (minimum) fitness per coverage "
@@ -2843,7 +2843,7 @@ public class Properties {
                     + "card-resolution analysis (scripts/analyze_card_resolution.py).")
     public static boolean PROBLEM_CARD_LOG_ENABLED = false;
 
-    // ---- Operator Disruption Analysis (Phase 8b) ----
+    // ---- Operator Disruption Analysis ----
 
     @Parameter(key = "llm_operator_disruption_analysis_enabled", group = "LLM",
             description = "Enable per-operator disruption event recording for standard vs semantic operators")
