@@ -898,10 +898,12 @@ public class MavenPluginIT {
     private Verifier getVerifier(Path targetProject) throws Exception{
         Verifier verifier  = new Verifier(targetProject.toAbsolutePath().toString());
         Properties props = new Properties(System.getProperties());
-        // Prefer explicit override, then Maven project version, then current snapshot.
-        props.put("evosuiteVersion",
-                System.getProperty("evosuiteVersion",
-                        System.getProperty("project.version", "1.2.1-SNAPSHOT")));
+        // Set by the failsafe configuration in pom.xml; pass -DevosuiteVersion=... from an IDE.
+        String version = System.getProperty("evosuiteVersion");
+        if (version == null) {
+            throw new IllegalStateException("System property evosuiteVersion is not set; run through Maven or pass -DevosuiteVersion=<version>");
+        }
+        props.put("evosuiteVersion", version);
         verifier.setSystemProperties(props);
         return verifier;
     }

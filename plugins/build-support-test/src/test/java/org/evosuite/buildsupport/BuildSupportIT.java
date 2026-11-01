@@ -55,8 +55,12 @@ public class BuildSupportIT {
     private final Path extension = Paths.get("projects","extension");
 
     private String getEvoSuiteVersion(){
-        //update version if run from IDE instead of Maven
-        return System.getProperty("evosuiteVersion","1.2.1-SNAPSHOT");
+        //set by the failsafe configuration in pom.xml; pass -DevosuiteVersion=... when running from an IDE
+        String version = System.getProperty("evosuiteVersion");
+        if (version == null) {
+            throw new IllegalStateException("System property evosuiteVersion is not set; run through Maven or pass -DevosuiteVersion=<version>");
+        }
+        return version;
     }
 
     /** Repository shared by both fixtures, populated once per IT execution. */

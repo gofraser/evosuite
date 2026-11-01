@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.evosuite.plugins</groupId>
         <artifactId>evosuite-plugins</artifactId>
-        <version>1.2.1-SNAPSHOT</version>
+        <version>${revision}</version>
     </parent>
 
     <!-- Module used to test the Maven Plugin. Has to be called _after_ "install" has been executed
@@ -21,12 +21,6 @@
             <artifactId>evosuite-maven-plugin</artifactId>
             <version>${project.version}</version>
         </dependency>
-  <dependency>
-   <groupId>org.hamcrest</groupId>
-   <artifactId>hamcrest-junit</artifactId>
-   <version>2.0.0.0</version>
-   <scope>test</scope>
-  </dependency>
         <dependency>
             <groupId>org.apache.maven.shared</groupId>
             <artifactId>maven-verifier</artifactId>
@@ -37,6 +31,8 @@
         <evosuiteVersion>${project.version}</evosuiteVersion>
         <!-- JUnit 5 tags to run, eg "smoke"; all tests if empty -->
         <its.groups></its.groups>
+        <!-- Test module, not an artifact: leave it out of the Central bundle -->
+        <skipPublishing>true</skipPublishing>
     </properties>
 
     <build>
