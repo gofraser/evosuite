@@ -39,6 +39,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -86,7 +88,30 @@ public class SymbolicMathWrapperModelsTest {
         }
         lines.addAll(driveWrappers(table));
 
-        assertEquals(readTranscript(), String.join("\n", lines) + "\n");
+        String expected = readTranscript();
+        String actual = String.join("\n", lines) + "\n";
+        if (!byValue(expected).equals(byValue(actual))) {
+            assertEquals(expected, actual);
+        }
+    }
+
+    private static final Pattern DECIMAL = Pattern.compile("-?\\d+\\.\\d+(?:E-?\\d+)?");
+
+    /**
+     * Replaces every decimal number by the bits of its double value. Since Java 19,
+     * Double.toString prints the shortest decimal that identifies a value, so the same double
+     * (eg Math.ulp(0.75f), 2^-24) is spelled 5.9604644775390625E-8 on Java 17 and
+     * 5.960464477539063E-8 on Java 21; the transcript compares values, not their spelling.
+     */
+    private static String byValue(String transcript) {
+        Matcher m = DECIMAL.matcher(transcript);
+        StringBuffer out = new StringBuffer();
+        while (m.find()) {
+            long bits = Double.doubleToLongBits(Double.parseDouble(m.group()));
+            m.appendReplacement(out, "#" + Long.toHexString(bits));
+        }
+        m.appendTail(out);
+        return out.toString();
     }
 
     @SuppressWarnings("unchecked")
