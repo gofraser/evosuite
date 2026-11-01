@@ -207,7 +207,7 @@ public class ModernMocksTest {
         Path a = dir.resolve("a.txt");
         Path b = dir.resolve("b.log");
 
-        new java.io.File(dir.toString()).mkdirs();
+        new org.evosuite.runtime.mock.java.io.MockFile(dir.toString()).mkdirs();
         mockFiles.getMethod("writeString", Path.class, CharSequence.class, java.nio.file.OpenOption[].class)
                 .invoke(null, c, "c", (Object) new java.nio.file.OpenOption[0]);
         mockFiles.getMethod("writeString", Path.class, CharSequence.class, java.nio.file.OpenOption[].class)
@@ -252,8 +252,8 @@ public class ModernMocksTest {
         Path dirA = root.resolve("a");
         Path dirB = root.resolve("b");
 
-        new java.io.File(dirA.toString()).mkdirs();
-        new java.io.File(dirB.toString()).mkdirs();
+        new org.evosuite.runtime.mock.java.io.MockFile(dirA.toString()).mkdirs();
+        new org.evosuite.runtime.mock.java.io.MockFile(dirB.toString()).mkdirs();
 
         Path f2 = dirB.resolve("2.txt");
         Path f1 = dirA.resolve("1.txt");
@@ -295,8 +295,8 @@ public class ModernMocksTest {
         Path root = Paths.get("modern-find-root");
         Path dirA = root.resolve("a");
         Path dirB = root.resolve("b");
-        new java.io.File(dirA.toString()).mkdirs();
-        new java.io.File(dirB.toString()).mkdirs();
+        new org.evosuite.runtime.mock.java.io.MockFile(dirA.toString()).mkdirs();
+        new org.evosuite.runtime.mock.java.io.MockFile(dirB.toString()).mkdirs();
 
         Path top = root.resolve("top.txt");
         Path nestedTxt = dirA.resolve("nested.txt");
@@ -342,8 +342,8 @@ public class ModernMocksTest {
         Path root = Paths.get("walk-tree-root");
         Path dirA = root.resolve("a");
         Path dirB = root.resolve("b");
-        new java.io.File(dirA.toString()).mkdirs();
-        new java.io.File(dirB.toString()).mkdirs();
+        new org.evosuite.runtime.mock.java.io.MockFile(dirA.toString()).mkdirs();
+        new org.evosuite.runtime.mock.java.io.MockFile(dirB.toString()).mkdirs();
         mockFiles.getMethod("writeString", Path.class, CharSequence.class, java.nio.file.OpenOption[].class)
                 .invoke(null, dirA.resolve("1.txt"), "1", (Object) new java.nio.file.OpenOption[0]);
         mockFiles.getMethod("writeString", Path.class, CharSequence.class, java.nio.file.OpenOption[].class)
@@ -406,8 +406,8 @@ public class ModernMocksTest {
         Path root = Paths.get("walk-tree-skip-root");
         Path dirA = root.resolve("a");
         Path dirB = root.resolve("b");
-        new java.io.File(dirA.toString()).mkdirs();
-        new java.io.File(dirB.toString()).mkdirs();
+        new org.evosuite.runtime.mock.java.io.MockFile(dirA.toString()).mkdirs();
+        new org.evosuite.runtime.mock.java.io.MockFile(dirB.toString()).mkdirs();
         mockFiles.getMethod("writeString", Path.class, CharSequence.class, java.nio.file.OpenOption[].class)
                 .invoke(null, dirA.resolve("skip.txt"), "x", (Object) new java.nio.file.OpenOption[0]);
         mockFiles.getMethod("writeString", Path.class, CharSequence.class, java.nio.file.OpenOption[].class)
@@ -463,8 +463,8 @@ public class ModernMocksTest {
 
         Class<?> mockFiles = Class.forName("org.evosuite.runtime.mock.java.nio.file.MockFiles");
         Path root = Paths.get("walk-tree-terminate-root");
-        new java.io.File(root.resolve("a").toString()).mkdirs();
-        new java.io.File(root.resolve("b").toString()).mkdirs();
+        new org.evosuite.runtime.mock.java.io.MockFile(root.resolve("a").toString()).mkdirs();
+        new org.evosuite.runtime.mock.java.io.MockFile(root.resolve("b").toString()).mkdirs();
         mockFiles.getMethod("writeString", Path.class, CharSequence.class, java.nio.file.OpenOption[].class)
                 .invoke(null, root.resolve("a/1.txt"), "1", (Object) new java.nio.file.OpenOption[0]);
         mockFiles.getMethod("writeString", Path.class, CharSequence.class, java.nio.file.OpenOption[].class)
@@ -637,7 +637,7 @@ public class ModernMocksTest {
 
         Class<?> mockFiles = Class.forName("org.evosuite.runtime.mock.java.nio.file.MockFiles");
         Path root = Paths.get("follow-links-policy-root");
-        new java.io.File(root.toString()).mkdirs();
+        new org.evosuite.runtime.mock.java.io.MockFile(root.toString()).mkdirs();
         mockFiles.getMethod("writeString", Path.class, CharSequence.class, java.nio.file.OpenOption[].class)
                 .invoke(null, root.resolve("x.txt"), "x", (Object) new java.nio.file.OpenOption[0]);
 
