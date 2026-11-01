@@ -27,6 +27,7 @@ import com.examples.with.different.packagename.sandbox.OpenStream;
 import com.examples.with.different.packagename.test.DowncastExample;
 import org.apache.commons.io.FileUtils;
 import org.evosuite.Properties;
+import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.graphs.GraphPool;
@@ -58,6 +59,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
@@ -506,10 +508,19 @@ public class JUnitAnalyzerTest {
         Assertions.assertEquals(instructionPools, poolCount(BytecodeInstructionPool.class));
     }
 
+    /**
+     * Counts the pools of class loaders other than the context's own SUT loader. That loader is
+     * never released, and writing the first suite creates its (empty) branch pool, so whether it
+     * has one before the checks depends on what ran earlier in the JVM.
+     */
     private static int poolCount(Class<?> pool) throws Exception {
         java.lang.reflect.Field field = pool.getDeclaredField("pools");
         field.setAccessible(true);
-        return ((PerClassLoader<?>) field.get(null)).values().size();
+        java.lang.reflect.Field values = PerClassLoader.class.getDeclaredField("values");
+        values.setAccessible(true);
+        Map<?, ?> byLoader = (Map<?, ?>) values.get(field.get(null));
+        ClassLoader contextLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
+        return (int) byLoader.keySet().stream().filter(loader -> loader != contextLoader).count();
     }
 
     @Test
