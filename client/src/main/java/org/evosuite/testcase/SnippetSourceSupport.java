@@ -112,7 +112,8 @@ class SnippetSourceSupport {
                     stripBlockBraces(block.toString()),
                     returnExpression,
                     declaredNames);
-        } catch (ParseProblemException ignored) {
+        } catch (ParseProblemException | StackOverflowError ignored) {
+            // A snippet nested too deeply for JavaParser's recursion is emitted unchanged too.
             return new SnippetLocalNameNormalization(code, returnExpression, Collections.<String>emptySet());
         }
     }

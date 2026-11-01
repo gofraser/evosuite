@@ -44,7 +44,9 @@ public final class CodeEmissionUtils {
      * @return the rewritten source, or {@code code} unchanged if it has another shape or cannot be parsed
      */
     public static String renderCompilableSource(String code) {
-        if (code == null || code.isEmpty()) {
+        if (code == null || !code.contains("assertDoesNotThrow")) {
+            // Only that call is rewritten; skipping the parse for everything else also keeps a
+            // deeply nested statement (eg raw LLM source) from recursing through JavaParser.
             return code;
         }
         try {
@@ -79,7 +81,7 @@ public final class CodeEmissionUtils {
             lambda.setEnclosingParameters(true);
             call.setArgument(0, lambda);
             return statement.toString();
-        } catch (Exception ignored) {
+        } catch (Exception | StackOverflowError ignored) {
             return code;
         }
     }

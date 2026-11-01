@@ -36,6 +36,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -69,10 +70,53 @@ public class TestMethodParser {
      */
     public CompilationUnit parseSource(String sourceCode) {
         String cleaned = sanitizeAliasImports(sourceCode);
-        ParserConfiguration config = new ParserConfiguration().setAttributeComments(false);
-        com.github.javaparser.ParseResult<CompilationUnit> parsed = new JavaParser(config).parse(cleaned);
+        com.github.javaparser.ParseResult<CompilationUnit> parsed = parseWithFixedStack(cleaned);
         return parsed.getResult()
                 .orElseThrow(() -> new ParseProblemException(parsed.getProblems()));
+    }
+
+    /**
+     * Stack size of the thread that runs JavaParser. Its generated parser recurses once per
+     * nesting level in lookahead, so a deeply nested expression (say, 200 nested casts in an LLM
+     * response) needs more than the default thread stack on some platforms (1 MB on Linux x64)
+     * but not on others; a fixed stack makes the outcome the same everywhere.
+     */
+    static final long PARSER_STACK_BYTES = 16L * 1024 * 1024;
+
+    private static com.github.javaparser.ParseResult<CompilationUnit> parseWithFixedStack(String source) {
+        ParserConfiguration config = new ParserConfiguration().setAttributeComments(false);
+        AtomicReference<com.github.javaparser.ParseResult<CompilationUnit>> result = new AtomicReference<>();
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        Thread parserThread = new Thread(null, () -> {
+            try {
+                result.set(new JavaParser(config).parse(source));
+            } catch (Throwable t) {
+                failure.set(t);
+            }
+        }, "evosuite-java-parser", PARSER_STACK_BYTES);
+        parserThread.setDaemon(true);
+        parserThread.start();
+        try {
+            parserThread.join();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ParseProblemException(e);
+        }
+        Throwable t = failure.get();
+        if (t instanceof StackOverflowError) {
+            // Nested beyond even the fixed stack: report it as unparseable source.
+            throw new ParseProblemException(t);
+        }
+        if (t instanceof RuntimeException) {
+            throw (RuntimeException) t;
+        }
+        if (t instanceof Error) {
+            throw (Error) t;
+        }
+        if (t != null) {
+            throw new ParseProblemException(t);
+        }
+        return result.get();
     }
 
     /**
