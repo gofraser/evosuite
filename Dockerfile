@@ -1,6 +1,5 @@
 # Container image for building the project
-FROM maven:3-openjdk-11 as build
-LABEL maintainer="Mitchell Olsthoorn"
+FROM maven:3.9-eclipse-temurin-17 AS build
 
 # Parameter for skipping the tests in the build process
 ARG SKIP_TESTS=true
@@ -25,7 +24,10 @@ RUN mvn -e -B package -DskipTests=${SKIP_TESTS} && \
     mv master/target/evosuite-master-*.jar bin/evosuite.jar
 
 # Container image for running EvoSuite
-FROM openjdk:11-jdk
+FROM eclipse-temurin:17-jdk
+
+LABEL org.opencontainers.image.source="https://github.com/EvoSuite/evosuite"
+LABEL org.opencontainers.image.licenses="LGPL-3.0-or-later"
 
 WORKDIR /evosuite
 VOLUME /evosuite
@@ -33,13 +35,10 @@ VOLUME /evosuite
 # Copy the evosuite jar from the builder to this container
 COPY --from=build /build/bin /evosuite-bin
 
-# Copy the EvoSuite experiment scripts to this container
-COPY scripts /evosuite-scripts
-
 # The executable is evosuite
-ENTRYPOINT ["/evosuite-scripts/experiment_runner"]
+ENTRYPOINT ["java", "-jar", "/evosuite-bin/evosuite.jar"]
 
 # The default argument is the help menu
 # This can be overidden on the command line
-CMD ["-h"]
+CMD ["-help"]
 

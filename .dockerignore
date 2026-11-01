@@ -1,7 +1,11 @@
-# The following files and directories will be ignored
-# when copying the project to the container
-
+# Files and directories left out of the build context
 .git
 .github
-*.md
-
+.claude
+.idea
+**/target
+**/*.md
+experiments
+release_results
+plugins/eclipse
+plugins/maven-test
