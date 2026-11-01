@@ -19,7 +19,6 @@
  */
 package org.evosuite.setup;
 
-import org.evosuite.runtime.Reflection;
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.TestGenerationContext;
@@ -27,6 +26,7 @@ import org.evosuite.TimeController;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.runtime.PrivateAccess;
+import org.evosuite.runtime.Reflection;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.runtime.util.Inputs;
 import org.evosuite.seeding.CastClassAnalyzer;

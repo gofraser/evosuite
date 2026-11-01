@@ -19,28 +19,30 @@
  */
 package org.evosuite.setup;
 
-import org.evosuite.runtime.Reflection;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.TimeController;
-import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.ga.archive.Archive;
 import org.evosuite.ga.operators.selection.RankSelection;
+import org.evosuite.runtime.Reflection;
 import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.runtime.util.Inputs;
 import org.evosuite.seeding.CastClassManager;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.utils.ListUtil;
 import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Type;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
+
 import static java.util.stream.Collectors.toCollection;
 
 /**

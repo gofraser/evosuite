@@ -19,9 +19,9 @@
  */
 package org.evosuite.testcase.factories;
 
-import org.evosuite.testcase.synthesizer.TargetContext;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.synthesizer.TargetContext;
 
 /**
  * Result of executing a synthesized template.

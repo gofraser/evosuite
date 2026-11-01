@@ -26,7 +26,6 @@ import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.statements.UninterpretedStatement;
 import org.evosuite.testcase.variable.ArrayReference;
 import org.evosuite.testcase.variable.VariableReference;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

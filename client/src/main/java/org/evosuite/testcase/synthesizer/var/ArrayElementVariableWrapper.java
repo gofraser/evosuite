@@ -22,7 +22,6 @@ package org.evosuite.testcase.synthesizer.var;
 
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.branch.Branch;
-import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.graphs.GraphPool;
 import org.evosuite.graphs.cfg.ActualControlFlowGraph;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
@@ -49,6 +48,7 @@ import org.evosuite.testcase.synthesizer.VariableInTest;
 import org.evosuite.testcase.variable.ArrayIndex;
 import org.evosuite.testcase.variable.ArrayReference;
 import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.utils.MethodUtil;
 import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.GenericConstructor;

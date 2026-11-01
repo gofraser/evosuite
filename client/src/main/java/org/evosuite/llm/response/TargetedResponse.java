@@ -25,10 +25,10 @@ import org.evosuite.testparser.ParseResult;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.TreeMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 
 /**
  * Maps the parsed tests of a targeted prompt back to their targets by the

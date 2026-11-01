@@ -21,7 +21,6 @@ package org.evosuite.testcase.dmon;
 
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
-import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.GenerationContext;
@@ -40,6 +39,7 @@ import org.evosuite.testcase.statements.reflection.PrivateFieldStatement;
 import org.evosuite.testcase.variable.ConstantValue;
 import org.evosuite.testcase.variable.FieldReference;
 import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.utils.generic.GenericField;
 import org.evosuite.utils.generic.GenericMethod;
 import org.slf4j.Logger;

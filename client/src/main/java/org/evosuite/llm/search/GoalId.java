@@ -30,8 +30,8 @@ import org.evosuite.coverage.method.MethodTraceCoverageTestFitness;
 import org.evosuite.coverage.mutation.Mutation;
 import org.evosuite.coverage.mutation.MutationTestFitness;
 import org.evosuite.coverage.statement.StatementCoverageTestFitness;
-import org.evosuite.llm.prompt.BranchGoalView;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
+import org.evosuite.llm.prompt.BranchGoalView;
 import org.evosuite.setup.CallContext;
 import org.evosuite.testcase.TestFitnessFunction;
 

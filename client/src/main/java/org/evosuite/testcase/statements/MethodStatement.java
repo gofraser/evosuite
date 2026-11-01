@@ -45,8 +45,8 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.util.*;
-import java.util.stream.Collectors;
 import java.util.function.BiPredicate;
+import java.util.stream.Collectors;
 
 /**
  * Method statements invoke methods on objects or call static methods. Value and type of a

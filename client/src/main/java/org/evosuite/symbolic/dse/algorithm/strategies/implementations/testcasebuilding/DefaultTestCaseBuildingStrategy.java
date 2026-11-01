@@ -20,10 +20,10 @@
 package org.evosuite.symbolic.dse.algorithm.strategies.implementations.testcasebuilding;
 
 import org.evosuite.symbolic.PathCondition;
+import org.evosuite.symbolic.TestCaseUpdater;
 import org.evosuite.symbolic.dse.DSETestCase;
 import org.evosuite.symbolic.dse.algorithm.GenerationalSearchPathCondition;
 import org.evosuite.testcase.TestCase;
-import org.evosuite.symbolic.TestCaseUpdater;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;

@@ -21,7 +21,6 @@ package org.evosuite.coverage;
 
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
-import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.coverage.branch.*;
 import org.evosuite.coverage.cbranch.CBranchFitnessFactory;
 import org.evosuite.coverage.cbranch.CBranchSuiteFitness;
@@ -46,6 +45,7 @@ import org.evosuite.coverage.mutation.*;
 import org.evosuite.coverage.statement.StatementCoverageFactory;
 import org.evosuite.coverage.statement.StatementCoverageSuiteFitness;
 import org.evosuite.coverage.statement.StatementCoverageTestFitness;
+import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.EvosuiteError;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;

@@ -20,11 +20,9 @@
 package org.evosuite.ga.metaheuristics.mosa;
 
 import org.evosuite.Properties;
-import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.search.AttemptTicket;
 import org.evosuite.llm.search.AttributedCandidate;
-import org.evosuite.testcase.BlendChannel;
 import org.evosuite.llm.search.CoveredGoals;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
 import org.evosuite.llm.search.ProblemCardLogRecorder;
@@ -32,6 +30,7 @@ import org.evosuite.llm.search.ProblemCardType;
 import org.evosuite.llm.search.operator.OperatorAttemptLog;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.statistics.RuntimeVariable;
+import org.evosuite.testcase.BlendChannel;
 import org.evosuite.testcase.InjectionSource;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
@@ -42,6 +41,7 @@ import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.utils.ConstructionFailedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

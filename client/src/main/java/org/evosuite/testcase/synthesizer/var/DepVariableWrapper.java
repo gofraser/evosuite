@@ -32,8 +32,8 @@ import org.objectweb.asm.tree.VarInsnNode;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Wraps a dependency variable together with its position in the dependency tree used for test synthesis.

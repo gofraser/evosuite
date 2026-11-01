@@ -20,11 +20,11 @@
 package org.evosuite.utils.generic;
 
 import org.evosuite.TestGenerationContext;
-import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.setup.TestClusterUtils;
 import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.MasterClassLoaderBridge;
 import org.slf4j.Logger;

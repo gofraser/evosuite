@@ -19,9 +19,9 @@
  */
 package org.evosuite.coverage;
 
+import org.evosuite.ContextResetter;
 import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
-import org.evosuite.ContextResetter;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.TimeController;
 import org.evosuite.rmi.ClientServices;

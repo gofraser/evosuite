@@ -24,14 +24,13 @@ import org.evosuite.assertion.Assertion;
 import org.evosuite.assertion.InspectorAssertion;
 import org.evosuite.assertion.PrimitiveFieldAssertion;
 import org.evosuite.contracts.ContractViolation;
-import org.evosuite.utils.ConstructionFailedException;
-// Presentation metadata is stored natively on the test case.
 import org.evosuite.runtime.util.Inputs;
 import org.evosuite.setup.TestClusterUtils;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.statements.environment.AccessedEnvironment;
 import org.evosuite.testcase.variable.*;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.utils.ListenableList;
 import org.evosuite.utils.Listener;
 import org.evosuite.utils.Randomness;

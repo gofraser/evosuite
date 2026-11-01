@@ -20,12 +20,12 @@
 
 package org.evosuite.testcase.synthesizer.var;
 
-import org.evosuite.testcase.synthesizer.TargetContext;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.MethodStatement;
+import org.evosuite.testcase.synthesizer.TargetContext;
 import org.evosuite.testcase.synthesizer.VariableInTest;
 import org.evosuite.testcase.variable.VariableReference;
 

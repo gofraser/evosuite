@@ -19,9 +19,9 @@
  */
 package org.evosuite.strategy;
 
-import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.Properties;
 import org.evosuite.TimeController;
+import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.coverage.TestFitnessFactory;
 import org.evosuite.ga.stoppingconditions.MaxFitnessEvaluationsStoppingCondition;
 import org.evosuite.ga.stoppingconditions.MaxGenerationStoppingCondition;

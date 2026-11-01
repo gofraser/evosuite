@@ -20,7 +20,6 @@
 
 package org.evosuite.testcase.synthesizer.var;
 
-import org.evosuite.testcase.synthesizer.TargetContext;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.assertion.CheapPurityAnalyzer;
 import org.evosuite.coverage.branch.Branch;
@@ -35,6 +34,7 @@ import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.NullStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.statements.StringPrimitiveStatement;
+import org.evosuite.testcase.synthesizer.TargetContext;
 import org.evosuite.testcase.synthesizer.VariableInTest;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericMethod;
@@ -49,8 +49,8 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayDeque;
-import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;

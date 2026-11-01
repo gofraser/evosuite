@@ -20,7 +20,6 @@
 package org.evosuite.llm.response;
 
 import org.apache.commons.io.FileUtils;
-import org.evosuite.llm.search.LlmPrivilegedThreads;
 import org.evosuite.Properties;
 import org.evosuite.junit.CompilerClasspath;
 import org.evosuite.junit.GeneratedTestCompiler;
@@ -36,6 +35,7 @@ import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.prompt.PromptSettings;
 import org.evosuite.llm.prompt.SystemPromptProvider;
 import org.evosuite.llm.prompt.TestClusterSummarizer;
+import org.evosuite.llm.search.LlmPrivilegedThreads;
 import org.evosuite.runtime.GuiSupport;
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.mock.MockFramework;
@@ -54,6 +54,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
+
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;

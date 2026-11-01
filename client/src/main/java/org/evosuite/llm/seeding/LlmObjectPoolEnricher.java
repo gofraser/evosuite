@@ -20,7 +20,6 @@
 package org.evosuite.llm.seeding;
 
 import org.evosuite.Properties;
-import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmRequest;
 import org.evosuite.llm.LlmService;
@@ -38,6 +37,7 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testparser.ParseResult;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
 

@@ -19,9 +19,9 @@
  */
 package org.evosuite.ga;
 
-import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.Properties;
 import org.evosuite.ga.localsearch.LocalSearchObjective;
+import org.evosuite.utils.ConstructionFailedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

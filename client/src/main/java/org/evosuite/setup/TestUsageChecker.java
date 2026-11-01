@@ -20,12 +20,12 @@
 package org.evosuite.setup;
 
 import org.apache.commons.lang3.ClassUtils;
-import org.evosuite.runtime.Reflection;
 import org.evosuite.Properties;
 import org.evosuite.annotations.EvoSuiteTest;
 import org.evosuite.coverage.MethodNameMatcher;
 import org.evosuite.graphs.GraphPool;
 import org.evosuite.instrumentation.OriginalFieldVisibility;
+import org.evosuite.runtime.Reflection;
 import org.evosuite.runtime.annotation.EvoSuiteExclude;
 import org.evosuite.runtime.classhandling.ClassResetter;
 import org.evosuite.runtime.mock.MockList;

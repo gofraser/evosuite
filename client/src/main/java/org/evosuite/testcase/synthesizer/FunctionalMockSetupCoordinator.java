@@ -20,7 +20,6 @@
 package org.evosuite.testcase.synthesizer;
 
 import org.evosuite.Properties;
-import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.testcase.GenerationContext;
 import org.evosuite.testcase.StatementCheckpoint;
 import org.evosuite.testcase.TestCase;
@@ -35,12 +34,14 @@ import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.statements.numeric.BooleanPrimitiveStatement;
 import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.utils.ParameterizedTypeImpl;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;

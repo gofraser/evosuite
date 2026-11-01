@@ -21,13 +21,13 @@ package org.evosuite.testcase;
 
 import org.evosuite.Properties;
 import org.evosuite.TimeController;
-import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.mutation.RandomInsertion;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.statements.reflection.ReflectionFactory;
 import org.evosuite.testcase.variable.*;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.*;
 import org.slf4j.Logger;

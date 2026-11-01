@@ -19,7 +19,6 @@
  */
 package org.evosuite.strategy;
 
-import org.evosuite.runtime.Reflection;
 import org.evosuite.ProgressMonitor;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
@@ -35,6 +34,7 @@ import org.evosuite.ga.stoppingconditions.StoppingConditionFactory;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.result.TestGenerationResultBuilder;
 import org.evosuite.rmi.ClientServices;
+import org.evosuite.runtime.Reflection;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.statistics.RuntimeVariable;

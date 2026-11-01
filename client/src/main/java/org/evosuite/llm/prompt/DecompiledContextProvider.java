@@ -19,12 +19,12 @@
  */
 package org.evosuite.llm.prompt;
 
-import org.evosuite.llm.search.LlmPrivilegedThreads;
 import org.benf.cfr.reader.api.CfrDriver;
 import org.benf.cfr.reader.api.ClassFileSource;
 import org.benf.cfr.reader.api.OutputSinkFactory;
 import org.benf.cfr.reader.bytecode.analysis.parse.utils.Pair;
 import org.evosuite.classpath.ResourceList;
+import org.evosuite.llm.search.LlmPrivilegedThreads;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.utils.ReplaceableWorker;
 import org.slf4j.Logger;

@@ -19,8 +19,6 @@
  */
 package org.evosuite.testcase.factories;
 
-import org.evosuite.testcase.synthesizer.TargetContext;
-import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.GenerationContext;
 import org.evosuite.testcase.StatementCheckpoint;
@@ -39,7 +37,9 @@ import org.evosuite.testcase.statements.NullStatement;
 import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.synthesizer.PartialGraph;
+import org.evosuite.testcase.synthesizer.TargetContext;
 import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.utils.ParameterizedTypeImpl;
 import org.evosuite.utils.generic.GenericAccessibleObject;
 import org.evosuite.utils.generic.GenericClass;
@@ -49,6 +49,7 @@ import org.evosuite.utils.generic.GenericField;
 import org.evosuite.utils.generic.GenericMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;

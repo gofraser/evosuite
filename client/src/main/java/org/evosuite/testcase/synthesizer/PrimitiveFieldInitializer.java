@@ -20,7 +20,6 @@
 
 package org.evosuite.testcase.synthesizer;
 
-import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.statements.PrimitiveStatement;
@@ -35,6 +34,7 @@ import org.evosuite.testcase.statements.numeric.NumericalPrimitiveStatement;
 import org.evosuite.testcase.statements.numeric.ShortPrimitiveStatement;
 import org.evosuite.testcase.variable.FieldReference;
 import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.utils.generic.GenericField;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

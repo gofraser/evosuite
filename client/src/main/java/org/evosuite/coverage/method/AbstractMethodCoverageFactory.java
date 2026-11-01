@@ -19,9 +19,9 @@
  */
 package org.evosuite.coverage.method;
 
-import org.evosuite.runtime.Reflection;
 import org.evosuite.Properties;
 import org.evosuite.coverage.MethodNameMatcher;
+import org.evosuite.runtime.Reflection;
 import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testsuite.AbstractFitnessFactory;
 import org.objectweb.asm.Type;

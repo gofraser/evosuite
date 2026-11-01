@@ -26,8 +26,8 @@ import org.evosuite.Properties;
 import org.evosuite.classpath.ClassPathHacker;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.continuous.ContinuousTestGeneration;
-import org.evosuite.continuous.CtgException;
 import org.evosuite.continuous.CtgConfiguration;
+import org.evosuite.continuous.CtgException;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.SpawnProcessKeepAliveChecker;
 

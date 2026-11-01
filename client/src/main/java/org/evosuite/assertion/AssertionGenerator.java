@@ -19,8 +19,8 @@
  */
 package org.evosuite.assertion;
 
-import org.evosuite.Properties;
 import org.evosuite.ContextResetter;
+import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.TimeController;
 import org.evosuite.coverage.mutation.MutationPool;

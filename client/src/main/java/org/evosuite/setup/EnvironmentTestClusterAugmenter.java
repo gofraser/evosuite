@@ -19,10 +19,10 @@
  */
 package org.evosuite.setup;
 
-import org.evosuite.runtime.Reflection;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.runtime.Random;
+import org.evosuite.runtime.Reflection;
 import org.evosuite.runtime.System;
 import org.evosuite.runtime.annotation.EvoSuiteAssertionOnly;
 import org.evosuite.runtime.annotation.EvoSuiteClassExclude;

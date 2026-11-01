@@ -19,13 +19,13 @@
  */
 package org.evosuite.setup;
 
-import java.util.Set;
-
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.junit.CoverageAnalysis;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Set;
 
 /**
  * The two answers to "is this class under test": {@link #isCut(String)} is the narrow rule

@@ -30,9 +30,9 @@ import org.evosuite.junit.naming.methods.NumberedTestNameGenerationStrategy;
 import org.evosuite.junit.naming.methods.PresentationMetadataTestNameStrategy;
 import org.evosuite.junit.naming.methods.TestNameGenerationStrategy;
 import org.evosuite.result.TestGenerationResultBuilder;
+import org.evosuite.runtime.*;
 import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.runtime.annotation.EvoSuiteEndsOnResourceLimit;
-import org.evosuite.runtime.*;
 import org.evosuite.runtime.testdata.EnvironmentDataList;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
@@ -54,6 +54,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
+
 import java.io.File;
 import java.io.PrintStream;
 import java.util.*;

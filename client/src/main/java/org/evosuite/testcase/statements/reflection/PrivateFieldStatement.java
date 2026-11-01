@@ -19,7 +19,6 @@
  */
 package org.evosuite.testcase.statements.reflection;
 
-import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.runtime.PrivateAccess;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
@@ -29,6 +28,7 @@ import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.ConstantValue;
 import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericMethod;

@@ -19,7 +19,22 @@
  */
 package org.evosuite.testcase.synthesizer.var;
 
+import org.evosuite.setup.TestUsageChecker;
+import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.EntityWithParametersStatement;
+import org.evosuite.testcase.statements.MethodStatement;
+import org.evosuite.testcase.statements.NullStatement;
+import org.evosuite.testcase.statements.PrimitiveStatement;
+import org.evosuite.testcase.statements.StringPrimitiveStatement;
 import org.evosuite.testcase.synthesizer.TargetContext;
+import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.utils.ConstructionFailedException;
+import org.evosuite.utils.generic.GenericClass;
+import org.evosuite.utils.generic.GenericClassFactory;
+import org.evosuite.utils.generic.GenericConstructor;
+import org.evosuite.utils.generic.GenericMethod;
+
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -31,21 +46,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
-
-import org.evosuite.utils.ConstructionFailedException;
-import org.evosuite.setup.TestUsageChecker;
-import org.evosuite.testcase.TestCase;
-import org.evosuite.testcase.statements.ConstructorStatement;
-import org.evosuite.testcase.statements.EntityWithParametersStatement;
-import org.evosuite.testcase.statements.MethodStatement;
-import org.evosuite.testcase.statements.NullStatement;
-import org.evosuite.testcase.statements.PrimitiveStatement;
-import org.evosuite.testcase.statements.StringPrimitiveStatement;
-import org.evosuite.testcase.variable.VariableReference;
-import org.evosuite.utils.generic.GenericClass;
-import org.evosuite.utils.generic.GenericClassFactory;
-import org.evosuite.utils.generic.GenericConstructor;
-import org.evosuite.utils.generic.GenericMethod;
 
 /**
  * Populates containers with the smallest state a query needs. The synthesizer asks a container

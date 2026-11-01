@@ -20,11 +20,9 @@
 
 package org.evosuite.testcase.synthesizer.var;
 
-import org.evosuite.testcase.synthesizer.TargetContext;
 import org.apache.commons.lang3.ClassUtils;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.branch.Branch;
-import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.graphs.GraphPool;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.BytecodeInstructionPool;
@@ -48,10 +46,12 @@ import org.evosuite.testcase.synthesizer.FieldInitializer;
 import org.evosuite.testcase.synthesizer.NonPrimitiveFieldInitializer;
 import org.evosuite.testcase.synthesizer.PrimitiveFieldInitializer;
 import org.evosuite.testcase.synthesizer.ReflectionUtil;
+import org.evosuite.testcase.synthesizer.TargetContext;
 import org.evosuite.testcase.synthesizer.UsedReferenceSearcher;
 import org.evosuite.testcase.synthesizer.ValueSettings;
 import org.evosuite.testcase.variable.FieldReference;
 import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericField;

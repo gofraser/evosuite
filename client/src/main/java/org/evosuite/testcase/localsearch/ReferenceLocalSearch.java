@@ -20,13 +20,13 @@
 package org.evosuite.testcase.localsearch;
 
 import org.evosuite.Properties;
-import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.ga.localsearch.LocalSearchBudget;
 import org.evosuite.ga.localsearch.LocalSearchObjective;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.GenericClassUtils;
 import org.slf4j.Logger;

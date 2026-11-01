@@ -20,8 +20,8 @@
 package org.evosuite.assertion;
 
 import org.apache.commons.lang3.ClassUtils;
-import org.evosuite.runtime.Reflection;
 import org.evosuite.Properties;
+import org.evosuite.runtime.Reflection;
 import org.evosuite.runtime.mock.MockList;
 import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.utils.JdkPureMethodsList;

@@ -25,13 +25,13 @@ import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
-import org.evosuite.utils.ConstructionFailedException;
-import org.evosuite.utils.RecursiveConstructionFailedException;
 import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.seeding.CastClassManager;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.MasterClassLoaderBridge;
 import org.evosuite.utils.ParameterizedTypeImpl;
+import org.evosuite.utils.RecursiveConstructionFailedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

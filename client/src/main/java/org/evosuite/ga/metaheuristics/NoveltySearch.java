@@ -21,12 +21,12 @@ package org.evosuite.ga.metaheuristics;
 
 import org.evosuite.Properties;
 import org.evosuite.ga.ChromosomeFactory;
-import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.NoveltyFunction;
 import org.evosuite.ga.archive.Archive;
 import org.evosuite.novelty.BranchNoveltyFunction;
 import org.evosuite.testcase.TestChromosome;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -20,11 +20,9 @@
 
 package org.evosuite.testcase.synthesizer.var;
 
-import org.evosuite.testcase.synthesizer.TargetContext;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.branch.Branch;
-import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.graphs.cfg.ActualControlFlowGraph;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
@@ -35,8 +33,10 @@ import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.NullStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.synthesizer.ConstructionReferenceUtil;
+import org.evosuite.testcase.synthesizer.TargetContext;
 import org.evosuite.testcase.synthesizer.VariableInTest;
 import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.utils.ConstructionFailedException;
 import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;

@@ -21,8 +21,8 @@ package org.evosuite.assertion;
 
 import org.evosuite.instrumentation.BytecodeInstrumentation;
 import org.evosuite.runtime.mock.MockList;
-import org.evosuite.setup.InheritanceTree;
 import org.evosuite.setup.DependencyAnalysis;
+import org.evosuite.setup.InheritanceTree;
 import org.evosuite.utils.JdkPureMethodsList;
 import org.objectweb.asm.Type;
 import org.slf4j.Logger;
