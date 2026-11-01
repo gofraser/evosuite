@@ -29,6 +29,9 @@ jobs:
           distribution: temurin
           java-version: ${{ matrix.java }}
           cache: maven
+      - name: Check licence headers
+        if: matrix.java == 17
+        run: mvn -B -ntp license:check
       # verify, not test: some runtime tests need the packaged runtime jar.
       - name: Build and test
         run: mvn -B -ntp verify -Djava.awt.headless=true

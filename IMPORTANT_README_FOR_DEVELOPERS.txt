@@ -153,6 +153,14 @@ IntelliJ are in eclipse-java-google-style.xml and intellij-java-google-style.xml
 in the repository root, and checkstyle-evosuite.xml (with
 checkstyle-suppressions.xml) holds the checkstyle rules.
 
+Every source file, pom and script carries the licence header in
+src/etc/header.txt; CI runs "mvn license:check". "mvn license:format" adds
+missing headers, but review its diff: where an old header is a one-line
+comment, or the package declaration follows "*/" on the same line, it
+deletes the code after the header as well. Classes under test in
+src/test/java/com/examples and the other fixture folders excluded in the
+root pom keep no header, because tests depend on their line numbers.
+
 
 
 ---------------------------------------------
