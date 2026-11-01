@@ -52,15 +52,22 @@ public class TestClusterGeneratorRankSelectionTest {
     private static final int DRAWS = 50_000;
 
     private double originalBias;
+    private String originalTargetClass;
 
     @AfterEach
     public void tearDown() {
         Properties.GENERATOR_RANK_BIAS = originalBias;
+        Properties.TARGET_CLASS = originalTargetClass;
+        Properties.resetTargetClass();
         TestCluster.reset();
     }
 
     private TestCluster clusterWithEquallyScoredGenerators() throws Exception {
         originalBias = Properties.GENERATOR_RANK_BIAS;
+        originalTargetClass = Properties.TARGET_CLASS;
+        // Each draw looks up the class under test; without one, every draw failed to load it,
+        // reset the runtime and logged a warning (100,000 per run, flooding the CI log).
+        Properties.TARGET_CLASS = GeneratorRankSelectionFixture.class.getCanonicalName();
         TestCluster.reset();
         TestCluster cluster = TestCluster.getInstance();
         GenericClass<?> targetType = GenericClassFactory.get(Target.class);
