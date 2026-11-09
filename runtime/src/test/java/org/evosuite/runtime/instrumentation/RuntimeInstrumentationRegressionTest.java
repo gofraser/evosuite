@@ -24,6 +24,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import org.evosuite.PackageInfo;
 import org.evosuite.runtime.RuntimeSettings;
+import org.evosuite.runtime.agent.TransformerForTests;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -66,6 +67,19 @@ public class RuntimeInstrumentationRegressionTest {
         RuntimeSettings.useVNET = false;
         RuntimeInstrumentation.setAvoidInstrumentingShadedClasses(false);
         RuntimeInstrumentation.setTargetClassPrefix(null);
+    }
+
+    @Test
+    public void testAgentOnlyInstrumentsTheApplicationCopyOfAClass() throws Exception {
+        String name = "example/AgentHelper";
+        byte[] original = createSimpleClassBytes(name);
+        TransformerForTests transformer = new TransformerForTests();
+        transformer.activate();
+
+        Assertions.assertSame(original, transformer.transform(null, name, null, null, original));
+        Assertions.assertFalse(transformer.isClassAlreadyTransformed("example.AgentHelper"));
+        Assertions.assertNotSame(original,
+                transformer.transform(getClass().getClassLoader(), name, null, null, original));
     }
 
     @Test
