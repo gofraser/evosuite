@@ -49,20 +49,12 @@ public final class EvoSuiteConsole implements Disposable {
         return view;
     }
 
-    public boolean hasOutput() {
-        return hasOutput;
-    }
-
-    public void onOutput(Runnable listener) {
+    void onOutput(Disposable parent, Runnable listener) {
         outputListener = listener;
-        if (hasOutput) notifyOutput();
-    }
-
-    private void notifyOutput() {
-        ApplicationManager.getApplication().invokeLater(() -> {
-            var listener = outputListener;
-            if (!project.isDisposed() && listener != null) listener.run();
+        Disposer.register(parent, () -> {
+            if (outputListener == listener) outputListener = null;
         });
+        if (hasOutput) listener.run();
     }
 
     public void println(String line) {
@@ -119,7 +111,10 @@ public final class EvoSuiteConsole implements Disposable {
             }
             if (!hasOutput) {
                 hasOutput = true;
-                notifyOutput();
+                ApplicationManager.getApplication().invokeLater(() -> {
+                    var listener = outputListener;
+                    if (!project.isDisposed() && listener != null) listener.run();
+                });
             }
         }
     }

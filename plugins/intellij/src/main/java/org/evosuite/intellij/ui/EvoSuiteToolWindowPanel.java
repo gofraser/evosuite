@@ -26,9 +26,11 @@ import com.intellij.openapi.actionSystem.impl.SimpleDataContext;
 import com.intellij.openapi.options.ShowSettingsUtil;
 import com.intellij.openapi.project.DumbAwareAction;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.Disposer;
 import com.intellij.util.ui.JBUI;
 
 import org.evosuite.intellij.run.GenerationService;
+import org.evosuite.intellij.run.RunHistory;
 import org.evosuite.intellij.settings.EvoSuiteProjectConfigurable;
 import org.jetbrains.annotations.NotNull;
 
@@ -40,6 +42,7 @@ public final class EvoSuiteToolWindowPanel extends JPanel
         implements com.intellij.openapi.Disposable {
     private final JTabbedPane sections = new JTabbedPane();
     private final RunResultsPanel results;
+    private String latestRunId = "";
 
     public EvoSuiteToolWindowPanel(Project project) {
         super(new BorderLayout());
@@ -140,29 +143,26 @@ public final class EvoSuiteToolWindowPanel extends JPanel
         body.add(console.getComponent(), "console");
         sections.addTab("Console", body);
         results = new RunResultsPanel(project);
-        com.intellij.openapi.util.Disposer.register(this, results);
+        Disposer.register(this, results);
         sections.addTab("Runs", results);
         add(sections, BorderLayout.CENTER);
-        com.intellij.openapi.util.Disposer.register(project, this);
-        var history = org.evosuite.intellij.run.RunHistory.getInstance(project);
-        final String[] latest = {history.latestId()};
-        if (!latest[0].isBlank()) sections.setSelectedComponent(results);
-        history.listen(
-                this,
-                () -> {
-                    String newest = history.latestId();
-                    if (!newest.isBlank() && !newest.equals(latest[0])) {
-                        latest[0] = newest;
-                        sections.setSelectedComponent(results);
-                    }
-                });
-        cards.show(body, output.hasOutput() ? "console" : "welcome");
-        output.onOutput(() -> cards.show(body, "console"));
+        Disposer.register(project, this);
+        var history = RunHistory.getInstance(project);
+        showLatestRun(history);
+        history.listen(this, () -> showLatestRun(history));
+        output.onOutput(this, () -> cards.show(body, "console"));
+    }
+
+    private void showLatestRun(RunHistory history) {
+        String newest = history.latestId();
+        if (newest.isBlank() || newest.equals(latestRunId)) return;
+        latestRunId = newest;
+        sections.setSelectedComponent(results);
     }
 
     void showRun(String id) {
         sections.setSelectedComponent(results);
-        results.selectRun(id);
+        results.refresh(id);
     }
 
     @Override

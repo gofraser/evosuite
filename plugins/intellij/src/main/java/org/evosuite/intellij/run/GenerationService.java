@@ -504,14 +504,18 @@ public final class GenerationService implements Disposable {
                 }
                 boolean ok = maven.delegate(plan.module(), plan.generationTargets(), export, environment, indicator);
                 checkCancelled();
-                if (!ok) warnings++;
+                done += plan.targets().size();
+                if (!ok) {
+                    warnings++;
+                    plan.targets().forEach(target -> outcome(target, "Maven failed", "See Maven output", -1));
+                    return;
+                }
                 for (PlannedTarget target : plan.targets()) {
-                    done++;
-                    GenerationRun.Result result = GenerationRun.output(ok ? 0 : 1, export,
+                    GenerationRun.Result result = GenerationRun.output(0, export,
                             target.target(), plan.options().testSuffix, null);
-                    if (!ok || !result.produced()) {
-                        if (ok) warnings++;
-                        outcome(target, ok ? "No tests exported" : "Maven failed", "See Maven output", -1);
+                    if (!result.produced()) {
+                        warnings++;
+                        outcome(target, "No tests exported", "See Maven output", -1);
                         continue;
                     }
                     try {

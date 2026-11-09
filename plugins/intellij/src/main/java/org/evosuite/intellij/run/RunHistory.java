@@ -29,6 +29,7 @@ import com.intellij.openapi.vfs.*;
 
 import org.evosuite.ide.*;
 import org.evosuite.intellij.settings.EffectiveConfiguration;
+import org.evosuite.intellij.settings.GeneratedSuiteRegistry;
 import org.evosuite.intellij.ui.SuiteComparison;
 import org.jetbrains.annotations.NotNull;
 
@@ -38,6 +39,7 @@ import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /** Machine-local, redacted run records. Generated comparison sources stay outside project files. */
 @Service(Service.Level.PROJECT)
@@ -72,6 +74,12 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
 
         public boolean canReplay() {
             return replayUnavailable.isBlank() && !mavenOutcome(status);
+        }
+
+        private void start(String status, Path staging) {
+            this.status = status;
+            started = System.currentTimeMillis();
+            reports = staging.resolve("reports").toString();
         }
 
         Target copy() {
@@ -134,7 +142,7 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
             r.targets =
                     targets.stream()
                             .map(Target::copy)
-                            .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+                            .collect(Collectors.toCollection(ArrayList::new));
             return r;
         }
     }
@@ -162,7 +170,7 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
         copy.runs =
                 state.runs.stream()
                         .map(Run::copy)
-                        .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+                        .collect(Collectors.toCollection(ArrayList::new));
         return copy;
     }
 
@@ -286,18 +294,14 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
     public synchronized void beginTarget(String id, int index, Path staging) {
         Run run = find(id);
         Target t = run.targets.get(index);
-        t.status = run.mode.equals("COVERAGE") ? "Measuring coverage" : "Searching";
-        t.started = System.currentTimeMillis();
-        t.reports = staging.resolve("reports").toString();
+        t.start(run.mode.equals("COVERAGE") ? "Measuring coverage" : "Searching", staging);
         run.phase = t.status + ": " + t.className;
         changed();
     }
 
     public synchronized void delegated(String id, int index, Path staging) {
         Target target = find(id).targets.get(index);
-        target.status = "Running Maven";
-        target.started = System.currentTimeMillis();
-        target.reports = staging.resolve("reports").toString();
+        target.start("Running Maven", staging);
         target.replayUnavailable = MAVEN_REPLAY;
         changed();
     }
@@ -366,7 +370,9 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
     }
 
     public void comparisons(String id, int index, List<SuiteComparison.Pair> pairs, Path staging)
-            throws java.io.IOException {
+            throws IOException {
+        if (pairs.isEmpty()) return;
+        Path directory = Files.createDirectories(staging.resolve("comparisons"));
         List<Comparison> saved = new ArrayList<>();
         int number = 0;
         for (var pair : pairs) {
@@ -375,15 +381,13 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
                     pair.destination() != null
                             ? pair.destination()
                             : file == null ? Path.of(pair.name()) : file.toNioPath();
-            Path path = staging.resolve("comparisons/" + number++ + ".java");
-            Files.createDirectories(path.getParent());
+            Path path = directory.resolve(number++ + ".java");
             Files.writeString(path, pair.generated());
             Comparison c = new Comparison();
             c.destination = destination.toString();
             c.generated = path.toString();
             saved.add(c);
         }
-        if (saved.isEmpty()) return;
         synchronized (this) {
             find(id).targets.get(index).comparisons = saved;
             changed();
@@ -402,26 +406,26 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
                     pairs.add(new SuiteComparison.Pair(destination.toString(), doc, source));
                 else if (!source.isEmpty() || !c.destination.endsWith("_scaffolding.java"))
                     pairs.add(SuiteComparison.pending(destination, source));
-            } catch (java.io.IOException ignored) {
+            } catch (IOException ignored) {
             }
         }
         return pairs;
     }
 
     public synchronized void reviewed(String id, int index) {
-        Target target = find(id).targets.get(index);
+        Run run = find(id);
+        Target target = run.targets.get(index);
+        var registry = GeneratedSuiteRegistry.getInstance(project);
         for (var comparison : target.comparisons) {
             try {
-                org.evosuite.intellij.settings.GeneratedSuiteRegistry.getInstance(project)
-                        .recordAccepted(
+                registry.recordAccepted(
                                 Path.of(comparison.destination),
                                 Files.readString(Path.of(comparison.generated)));
-            } catch (java.io.IOException ignored) {
+            } catch (IOException ignored) {
             }
         }
         target.comparisons.clear();
-        Run run = find(id);
-        if (!run.active() && run.targets.stream().allMatch(t -> t.comparisons.isEmpty()))
+        if (run.canClear())
             run.phase = "Review complete";
         if (target.status.equals("Pending comparison")) {
             target.status = "Review closed";
@@ -449,9 +453,9 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
                         if (remove) removed.add(r);
                         return remove;
                     });
+            if (removed.isEmpty()) return;
             changed();
         }
-        if (removed.isEmpty()) return;
         ApplicationManager.getApplication().executeOnPooledThread(() -> {
             Path managed = stagingRoot();
             removed.stream().flatMap(run -> run.targets.stream())
@@ -472,6 +476,10 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
 
     static Path stagingRoot() {
         return Path.of(PathManager.getSystemPath(), "evosuite", "runs").toAbsolutePath().normalize();
+    }
+
+    public synchronized int retentionDays() {
+        return state.retentionDays;
     }
 
     public synchronized void retention(int days) {

@@ -55,46 +55,40 @@ public final class ProjectSetupService {
     }
 
     public static Module testModule(Module module) {
-        return ReadAction.compute(
-                () -> testModuleInReadAction(module));
-    }
-
-    private static Module testModuleInReadAction(Module module) {
-        if (TestModuleProperties.getInstance(module).getProductionModule() != null) return module;
-        List<Module> tests =
-                Arrays.stream(ModuleManager.getInstance(module.getProject()).getModules())
-                        .filter(
-                                candidate ->
-                                        module.equals(
-                                                TestModuleProperties.getInstance(candidate)
-                                                        .getProductionModule()))
-                        .toList();
-        if (tests.size() == 1) return tests.getFirst();
-        // Prefer Gradle's ordinary test source set over fixtures and integration tests.
-        return tests.stream()
-                .filter(candidate -> candidate.getName().endsWith(".test"))
-                .findFirst()
-                .orElse(module);
+        return ReadAction.compute(() -> {
+            if (TestModuleProperties.getInstance(module).getProductionModule() != null) return module;
+            List<Module> tests =
+                    Arrays.stream(ModuleManager.getInstance(module.getProject()).getModules())
+                            .filter(
+                                    candidate ->
+                                            module.equals(
+                                                    TestModuleProperties.getInstance(candidate)
+                                                            .getProductionModule()))
+                            .toList();
+            if (tests.size() == 1) return tests.getFirst();
+            // Prefer Gradle's ordinary test source set over fixtures and integration tests.
+            return tests.stream()
+                    .filter(candidate -> candidate.getName().endsWith(".test"))
+                    .findFirst()
+                    .orElse(module);
+        });
     }
 
     public static Path baseDir(Module module) {
-        return ReadAction.compute(
-                () -> baseDirInReadAction(module));
-    }
-
-    private static Path baseDirInReadAction(Module module) {
-        MavenIntegration maven = MavenBridge.get(module.getProject());
-        Path mavenDir = maven == null ? null : maven.directory(module);
-        if (mavenDir != null) return mavenDir;
-        String external = ExternalSystemApiUtil.getExternalProjectPath(module);
-        if (external != null && !external.isBlank()) return Path.of(external);
-        VirtualFile[] roots = ModuleRootManager.getInstance(module).getContentRoots();
-        if (roots.length > 0) return roots[0].toNioPath();
-        String base = module.getProject().getBasePath();
-        if (base == null)
-            throw new IllegalArgumentException(
-                    "Module has no content directory: " + module.getName());
-        return Path.of(base);
+        return ReadAction.compute(() -> {
+            MavenIntegration maven = MavenBridge.get(module.getProject());
+            Path mavenDir = maven == null ? null : maven.directory(module);
+            if (mavenDir != null) return mavenDir;
+            String external = ExternalSystemApiUtil.getExternalProjectPath(module);
+            if (external != null && !external.isBlank()) return Path.of(external);
+            VirtualFile[] roots = ModuleRootManager.getInstance(module).getContentRoots();
+            if (roots.length > 0) return roots[0].toNioPath();
+            String base = module.getProject().getBasePath();
+            if (base == null)
+                throw new IllegalArgumentException(
+                        "Module has no content directory: " + module.getName());
+            return Path.of(base);
+        });
     }
 
     public static Path testFolder(Module module, GenerationOptions options) {

@@ -144,7 +144,7 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
                     "llmContextMode" -> "Advanced model controls"
                     else -> null
                 }
-                if (group != null) panel.add(JLabel(group).apply { font = font.deriveFont(Font.BOLD) }, constraints(0, row++, 1.0).apply { gridwidth = 2 })
+                if (group != null) panel.add(JLabel(group).apply { font = font.deriveFont(Font.BOLD) }, constraints(0, row++, 1.0, span = 2))
                 val default = SettingKeys.defaultValue(name)
                 val choices = choices(name)
                 val editor: JComponent = if (name == "criterion") CriteriaEditor() else if (default == "true" || default == "false") JCheckBox() else if (choices != null) ComboBox(arrayOf("", *choices)).apply {
@@ -163,7 +163,7 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
                 editor.accessibleContext.accessibleName = label
                 if (editor !is JCheckBox)
                     panel.add(JLabel(label).apply { labelFor = editor; this.name = "$name.label" }, constraints(0, row, 0.0))
-                val cell = if (editor is JTextField) JPanel(BorderLayout(0, 2)).apply {
+                val cell = if (editor is SettingTextField) JPanel(BorderLayout(0, 2)).apply {
                     val input = JPanel(BorderLayout(4, 0)).apply {
                         add(editor, BorderLayout.CENTER)
                         if (name == "javaHome") add(JButton("Choose…").apply {
@@ -172,14 +172,14 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
                             addActionListener {
                                 val descriptor = com.intellij.openapi.fileChooser.FileChooserDescriptorFactory.createSingleFolderDescriptor()
                                 com.intellij.openapi.fileChooser.FileChooser.chooseFile(descriptor, project, null) { file ->
-                                    (editor as? SettingTextField)?.automatic?.isSelected = false
+                                    editor.automatic?.isSelected = false
                                     editor.isEditable = true; editor.text = file.path
                                 }
                             }
                         }, BorderLayout.EAST)
                     }
                     add(input, BorderLayout.NORTH)
-                    (editor as? SettingTextField)?.automatic?.let {
+                    editor.automatic?.let {
                         it.name = "$name.automatic"
                         add(it, BorderLayout.CENTER)
                     }
@@ -187,13 +187,15 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
                 } else editor
                 if (editor is JCheckBox) {
                     editor.text = label
-                    panel.add(editor, constraints(0, row++, 1.0).apply { gridwidth = 2 })
+                    panel.add(editor, constraints(0, row++, 1.0, span = 2))
                 } else panel.add(cell, constraints(1, row++, 1.0))
-                if (editor is JCheckBox) editor.addActionListener { enableFields() }
-                if (editor is JComboBox<*>) editor.addActionListener { enableFields() }
-                if (name == "minimizeValues") panel.add(note("Simplify constants while preserving coverage. Off by default; requires test minimization above.", 2).apply { this.name = "minimizeValues.help" }, constraints(0, row++, 1.0).apply { gridwidth = 2 })
-                if (name == "searchBudget") panel.add(note("Search time excludes building, minimization and test validation.", 2), constraints(0, row++, 1.0).apply { gridwidth = 2 })
-                if (name == "noRuntimeDependency") panel.add(note("JUnit is still required. Runtime isolation helpers are omitted; existing dependencies remain for older tests.", 2), constraints(0, row++, 1.0).apply { gridwidth = 2 })
+                when (editor) {
+                    is JCheckBox -> editor.addActionListener { enableFields() }
+                    is JComboBox<*> -> editor.addActionListener { enableFields() }
+                }
+                if (name == "minimizeValues") panel.add(note("Simplify constants while preserving coverage. Off by default; requires test minimization above.", 2).apply { this.name = "minimizeValues.help" }, constraints(0, row++, 1.0, span = 2))
+                if (name == "searchBudget") panel.add(note("Search time excludes building, minimization and test validation.", 2), constraints(0, row++, 1.0, span = 2))
+                if (name == "noRuntimeDependency") panel.add(note("JUnit is still required. Runtime isolation helpers are omitted; existing dependencies remain for older tests.", 2), constraints(0, row++, 1.0, span = 2))
                 if (name == "llmProvider") row = addCredentials(panel, row)
                 if (name == "llmBaseUrl") {
                     panel.add(JButton("Test connection (metadata only)…").apply {
@@ -210,23 +212,23 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
                                 else credentialDrafts[provider]?.text.orEmpty()
                             org.evosuite.intellij.run.LlmConnectionCheck.show(project, draft, providerKey)
                         }
-                    }, constraints(0, row++, 1.0).apply { gridwidth = 2 })
+                    }, constraints(0, row++, 1.0, span = 2))
                 }
             }
             if (title == "Large Language Model") {
-                panel.add(note("Search only keeps LLM features off, including overrides from Maven or additional arguments. Provider defaults and EVOSUITE_LLM_MODEL are supported.", 3), constraints(0, row++, 1.0).apply { gridwidth = 2 })
+                panel.add(note("Search only keeps LLM features off, including overrides from Maven or additional arguments. Provider defaults and EVOSUITE_LLM_MODEL are supported.", 3), constraints(0, row++, 1.0, span = 2))
 
             }
             if (title == "Advanced") {
                 if (project != null) {
-                    panel.add(delegate, constraints(0, row++, 1.0).apply { gridwidth = 2 })
-                    panel.add(note("Maven can generate whole-class suites for new destinations. IntelliJ reviews any conflicts before placing them."), constraints(0, row++, 1.0).apply { gridwidth = 2 })
-                    panel.add(JScrollPane(pomNote), constraints(0, row++, 1.0).apply { gridwidth = 2 })
+                    panel.add(delegate, constraints(0, row++, 1.0, span = 2))
+                    panel.add(note("Maven can generate whole-class suites for new destinations. IntelliJ reviews any conflicts before placing them."), constraints(0, row++, 1.0, span = 2))
+                    panel.add(JScrollPane(pomNote), constraints(0, row++, 1.0, span = 2))
                 }
-                panel.add(note("pom.xml settings take precedence when enabled. The run console lists each override."), constraints(0, row++, 1.0).apply { gridwidth = 2 })
-                panel.add(note("Configure Gradle persists generated test roots and JUnit setup in the build script."), constraints(0, row++, 1.0).apply { gridwidth = 2 })
+                panel.add(note("pom.xml settings take precedence when enabled. The run console lists each override."), constraints(0, row++, 1.0, span = 2))
+                panel.add(note("Configure Gradle persists generated test roots and JUnit setup in the build script."), constraints(0, row++, 1.0, span = 2))
             }
-            panel.add(JPanel(), constraints(0, row, 1.0).apply { weighty = 1.0; gridwidth = 2 })
+            panel.add(JPanel(), constraints(0, row, 1.0, span = 2).apply { weighty = 1.0 })
             tabs.addTab(title, JScrollPane(panel))
         }
         root.add(tabs)
@@ -244,7 +246,6 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
         is JCheckBox -> field.isSelected.toString()
         is JComboBox<*> -> field.selectedItem?.toString() ?: ""
         is SettingTextField -> field.value()
-        is JTextField -> field.text.trim()
         else -> ""
     } }.filterValues { it.isNotEmpty() }
     @Suppress("UNCHECKED_CAST")
@@ -260,7 +261,6 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
                 combo.selectedItem = value
             }
             is SettingTextField -> field.load(value)
-            is JTextField -> field.text = value
         } } } finally { loadingEditors = false }
     }
     override fun reset() {
@@ -269,7 +269,7 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
             projectSwitch.isSelected = EvoSuiteProjectSettings.getInstance(project).state!!.useProjectSettings
             delegate.isSelected = EvoSuiteProjectSettings.getInstance(project).state!!.delegateToMaven
         }
-        loadEditors(if (inherited) EvoSuiteAppSettings.getInstance().state!!.values else values())
+        loadEditors(if (inherited) EvoSuiteAppSettings.getInstance().state!!.values else projectDraft)
         if (project == null) {
             credentialDrafts.values.forEach {
                 it.text = it.original
@@ -302,11 +302,12 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
         return projectSwitch.isSelected != state.useProjectSettings || delegate.isSelected != state.delegateToMaven
     }
     override fun apply() {
-        if (project == null || projectSwitch.isSelected) {
+        val updated = current()
+        if (!inherited) {
             if ((fields["criterion"] as? CriteriaEditor)?.hasSelection() == false)
                 throw ConfigurationException("Select at least one coverage criterion.")
             validateEditors()
-            try { SettingKeys.resolve(current()) } catch (e: IllegalArgumentException) { throw ConfigurationException(e.message ?: "Invalid settings") }
+            try { SettingKeys.resolve(updated) } catch (e: IllegalArgumentException) { throw ConfigurationException(e.message ?: "Invalid settings") }
         }
         if (project == null) {
             credential.text = String(key.password)
@@ -321,10 +322,17 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
                 draft.touched = false
             }
         }
-        if (project == null) EvoSuiteAppSettings.getInstance().state!!.values = java.util.TreeMap(current())
-        else EvoSuiteProjectSettings.getInstance(project).state!!.apply { values = java.util.TreeMap(current()); useProjectSettings = projectSwitch.isSelected; delegateToMaven = delegate.isSelected }
+        if (project == null) {
+            EvoSuiteAppSettings.getInstance().state!!.values = java.util.TreeMap(updated)
+        } else {
+            EvoSuiteProjectSettings.getInstance(project).state!!.apply {
+                values = java.util.TreeMap(updated)
+                useProjectSettings = projectSwitch.isSelected
+                delegateToMaven = delegate.isSelected
+            }
+        }
         projectDraft = values().toMap()
-        loadEditors(if (inherited) EvoSuiteAppSettings.getInstance().state!!.values else values())
+        loadEditors(if (inherited) EvoSuiteAppSettings.getInstance().state!!.values else projectDraft)
         enableFields()
     }
     private fun addCredentials(parent: JPanel, firstRow: Int): Int {
@@ -334,8 +342,8 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
         credentialExpander = expand; credentialsPanel = panel
         panel.isVisible = expand.isSelected
         expand.addActionListener { panel.isVisible = expand.isSelected; parent.revalidate() }
-        parent.add(expand, constraints(0, firstRow, 1.0).apply { gridwidth = 2 })
-        parent.add(panel, constraints(0, firstRow + 1, 1.0).apply { gridwidth = 2 })
+        parent.add(expand, constraints(0, firstRow, 1.0, span = 2))
+        parent.add(panel, constraints(0, firstRow + 1, 1.0, span = 2))
         if (project == null) {
             panel.add(JLabel("Stored key provider").apply { labelFor = credentialChoice }, constraints(0, row, 0.0))
             panel.add(credentialChoice, constraints(1, row++, 1.0))
@@ -346,13 +354,13 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
                 name = "importLegacyApiKey"
                 addActionListener { importLegacyKey() }
             }, constraints(1, row++, 1.0))
-            panel.add(keyStatus, constraints(0, row++, 1.0).apply { gridwidth = 2 })
+            panel.add(keyStatus, constraints(0, row++, 1.0, span = 2))
         } else {
             panel.add(JButton("Manage shared API key…").apply {
                 name = "manageApiKey"
                 addActionListener { ShowSettingsUtil.getInstance().showSettingsDialog(project, EvoSuiteApplicationConfigurable::class.java) { it.selectProviderCredentials(effectiveChoice("llmProvider")) } }
             }, constraints(1, row++, 1.0))
-            panel.add(note("Cloud API keys are shared across projects and stored in the IDE's secure storage. EVOSUITE_LLM_API_KEY is also supported.", 3), constraints(0, row++, 1.0).apply { gridwidth = 2 })
+            panel.add(note("Cloud API keys are shared across projects and stored in the IDE's secure storage. EVOSUITE_LLM_API_KEY is also supported.", 3), constraints(0, row++, 1.0, span = 2))
         }
         return firstRow + 2
     }
@@ -601,7 +609,15 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
         showKey("")
         credentialDrafts.clear()
     }
-    private fun constraints(x: Int, y: Int, weight: Double) = GridBagConstraints().apply { gridx=x; gridy=y; weightx=weight; fill=GridBagConstraints.HORIZONTAL; anchor=GridBagConstraints.NORTHWEST; insets=Insets(4, 8, 4, 8) }
+    private fun constraints(x: Int, y: Int, weight: Double, span: Int = 1) = GridBagConstraints().apply {
+        gridx = x
+        gridy = y
+        gridwidth = span
+        weightx = weight
+        fill = GridBagConstraints.HORIZONTAL
+        anchor = GridBagConstraints.NORTHWEST
+        insets = Insets(4, 8, 4, 8)
+    }
     private fun setEnabled(component: JComponent, enabled: Boolean) {
         component.isEnabled = enabled
         component.components.filterIsInstance<JComponent>().forEach { setEnabled(it, enabled) }
