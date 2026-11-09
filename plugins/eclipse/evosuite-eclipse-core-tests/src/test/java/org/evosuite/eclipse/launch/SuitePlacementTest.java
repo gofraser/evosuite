@@ -142,6 +142,33 @@ public class SuitePlacementTest {
     private static final GenerationTarget ONE_METHOD = new GenerationTarget("demo.Calculator", List.of("max(II)I"));
 
     @Test
+    public void runnerNameInACommentDoesNotAuthorizeReplacement() throws Exception {
+        String handwritten = "// No @EvoRunnerParameters here.\npackage demo; public class Calculator_ESTest {}\n";
+        write(suite, handwritten);
+        IStatus result = run(job(WHOLE_CLASS, SuiteAction.REPLACE));
+
+        assertEquals(IStatus.WARNING, result.getSeverity(), result::toString);
+        assertEquals(handwritten, read(suite));
+        assertTrue(runs.isEmpty());
+    }
+
+    @Test
+    public void orphanScaffoldingIsReviewedBeforeWritingANewSuite() throws Exception {
+        preferences.put(EvoSuitePreferences.EXTRA_ARGUMENTS, "-Dtest_scaffolding=true");
+        String original = SCAFFOLDING.replace("demo.Calculator", "my handwritten helper");
+        write(scaffolding, original);
+        TestGenerationJob job = job(WHOLE_CLASS, SuiteAction.REPLACE);
+
+        IStatus result = run(job);
+
+        assertEquals(IStatus.OK, result.getSeverity(), result::toString);
+        assertEquals(original, read(scaffolding));
+        assertFalse(suite.exists());
+        assertEquals(List.of(new SuiteComparison.Pair(scaffolding, SCAFFOLDING),
+                new SuiteComparison.Pair(suite, GENERATED)), job.getComparisons());
+    }
+
+    @Test
     public void replacingKeepsThePreviousSuiteInTheLocalHistory() throws Exception {
         write(suite, EXISTING);
         TestGenerationJob job = job(WHOLE_CLASS, SuiteAction.REPLACE);

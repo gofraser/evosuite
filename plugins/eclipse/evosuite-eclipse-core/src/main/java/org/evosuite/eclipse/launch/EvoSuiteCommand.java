@@ -23,6 +23,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.nio.charset.MalformedInputException;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -339,8 +340,15 @@ public final class EvoSuiteCommand {
      */
     public static boolean isEvoSuiteSuite(File suite) {
         try {
-            // Also matches the qualified @org.evosuite.runtime.EvoRunnerParameters.
-            return Files.readString(suite.toPath(), StandardCharsets.ISO_8859_1).contains("EvoRunnerParameters");
+            String name = suite.getName();
+            if (!name.endsWith(".java")) return false;
+            String source;
+            try {
+                source = Files.readString(suite.toPath());
+            } catch (MalformedInputException e) {
+                source = Files.readString(suite.toPath(), StandardCharsets.ISO_8859_1);
+            }
+            return SuiteMerger.isGeneratedSuite(source, name.substring(0, name.length() - ".java".length()));
         } catch (IOException e) {
             return false;
         }

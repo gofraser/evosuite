@@ -602,6 +602,12 @@ public class TestGenerationJob extends Job {
         boolean newScaffolding = scaffoldingSource != null
                 && !(scaffolding.exists() && scaffoldingSource.equals(contents(scaffolding)));
         if (!existing.exists()) {
+            if (newScaffolding && scaffolding.exists()) {
+                comparisons.add(new SuiteComparison.Pair(scaffolding, scaffoldingSource));
+                comparisons.add(new SuiteComparison.Pair(existing, source));
+                outcomes.add(existing.getName() + ": review the existing scaffolding before accepting the new suite.");
+                return;
+            }
             write(existing, staged);
             if (newScaffolding) {
                 write(scaffolding, stagedScaffolding);
@@ -716,7 +722,7 @@ public class TestGenerationJob extends Job {
                 target.setContents(in, IResource.FORCE | IResource.KEEP_HISTORY, null);
             } else {
                 ProjectSetup.createFolders(target.getParent());
-                target.create(in, IResource.FORCE, null);
+                target.create(in, IResource.NONE, null);
             }
         } catch (IOException e) {
             throw new CoreException(Activator.error("Cannot copy " + source + " to " + target.getFullPath(), e));

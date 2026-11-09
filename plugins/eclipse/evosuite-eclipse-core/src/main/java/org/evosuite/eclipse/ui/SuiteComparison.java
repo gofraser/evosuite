@@ -250,7 +250,7 @@ public class SuiteComparison extends CompareEditorInput {
             }
             if (content == null) {
                 stamp = file.getModificationStamp();
-                try (InputStream in = file.getContents(true)) {
+                try (InputStream in = file.exists() ? file.getContents(true) : InputStream.nullInputStream()) {
                     content = in.readAllBytes();
                 } catch (IOException e) {
                     throw new CoreException(Activator.error("Cannot read " + file.getFullPath(), e));
@@ -316,7 +316,12 @@ public class SuiteComparison extends CompareEditorInput {
                 throw new OperationCanceledException();
             }
             boolean saveNeededBefore = isSaveNeeded();
-            file.setContents(new ByteArrayInputStream(content), IResource.KEEP_HISTORY, monitor);
+            var source = new ByteArrayInputStream(content);
+            if (file.exists()) {
+                file.setContents(source, IResource.KEEP_HISTORY, monitor);
+            } else {
+                file.create(source, IResource.NONE, monitor);
+            }
             stamp = file.getModificationStamp();
             changed = false;
             sideChanged(saveNeededBefore);
