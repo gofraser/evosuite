@@ -151,10 +151,13 @@ disabled but keep their values.
 | Setting | Default | |
 |---|---|---|
 | Search budget per class | 60 s | `-Dsearch_budget` |
+| Random seed | fresh seed recorded for each run | `-Drandom_seed` |
 | Coverage criteria | EvoSuite's default: all eight boxes ticked | `-criterion`, e.g. `LINE:BRANCH`; criteria without a box that were entered before, such as `STRONGMUTATION`, are kept |
 | Generate assertions / minimize tests | on | `-Dassertions`, `-Dminimize` |
 | Assertions kept | those that detect faults | `-Dassertion_strategy` (MUTATION, or ALL observed values) |
-| Test format | JUnit 5 | `-Dtest_format` |
+| Minimize values | off | `-Dminimize_values` |
+| Test format | automatic | JUnit 4 when it is the only detected version, JUnit 5 otherwise |
+| Generate without the EvoSuite runtime | off | ordinary JUnit tests without the bundled runtime |
 | Test source folder | `src/test/evosuite` | `-Dtest_dir` |
 | Test class suffix | `_ESTest` | `-Djunit_suffix` |
 | Test names | numbered (`test0`, ...) | `-Dtest_naming_strategy` (COVERAGE: descriptive, from what each test covers) |
@@ -185,13 +188,14 @@ and the LLM-only approaches disable the settings that only apply to the search:
 | Provider | None, OpenAI (or any OpenAI-compatible server, via the base URL), Anthropic, Ollama |
 | Model | required except for OpenAI, whose default EvoSuite knows; the hint suggests one for the provider |
 | Base URL | empty for the provider's endpoint; Ollama defaults to `http://localhost:11434` |
-| API key | OpenAI and Anthropic; workspace preferences only, kept in Eclipse's secure storage |
+| API key | separate workspace keys for OpenAI and Anthropic, kept in Eclipse secure storage |
 | Approach | search only (the LLM is off, the settings are kept), search assisted by the LLM, or LLM-only generation with one prompt or iterating on uncovered goals (`-Dstrategy=LLMSTRATEGY`) |
 | Seed the search | `llm_seeding_profile`: off, minimal, standard or full; search approach only |
 | When the search stagnates | `llm_on_stagnation`; search approach only |
-| Mutation and crossover | `llm_operator_enabled`; search approach only |
+| Mutation and crossover | `llm_operator_mode=SYNC`; search approach only |
 | Improve names, comments and assertions | `llm_postprocessing_enabled` |
-| LLM calls per class | `llm_max_calls`; empty for no limit |
+| LLM calls per class | `llm_max_calls`, empty for no limit |
+| LLM requests | Class context, token limit, HTTP timeout, retries and temperature |
 
 *Search only* is absolute: it also overrides an LLM that the pom or the additional arguments
 switch on, so it can be relied on to keep the project's code from being sent to a model.
@@ -199,8 +203,8 @@ switch on, so it can be relied on to keep the project's code from being sent to 
 The API key never goes into the project's `.settings` file, onto the command line, or into
 the console. EvoSuite receives it as the `EVOSUITE_LLM_API_KEY` environment variable. If no key
 is stored, an `EVOSUITE_LLM_API_KEY` set in the environment Eclipse starts in still works.
-Without any key, EvoSuite runs without the LLM, and the console says so. The remaining `llm_*`
-options can go into *Advanced > Additional arguments*.
+If a cloud key is missing, choose **Configure key**, **Run Search Only**, or **Cancel**.
+**Test connection** requests provider metadata without sending source code or prompts.
 
 To remove the key, clear the field; *Restore Defaults* leaves it alone. If secure storage cannot
 be read when the page opens, for example because its password prompt was cancelled, the field
@@ -250,21 +254,38 @@ whole-module runs (`timeInMinutesPerProject`, `schedule`, `cuts`, class filters)
 single classes. To use the Eclipse settings anyway, clear *Advanced > Take settings from the
 EvoSuite Maven plugin in pom.xml*. Without m2e installed, the plugin works as for any other project.
 
-m2e and Buildship regenerate the build path from the build file and drop entries that the plugin
-adds. To keep the generated tests compiling, declare the dependencies in the build file:
+With build path setup enabled, EvoSuite offers to update the build file and waits for Eclipse
+to refresh the project. Maven setup can add test dependencies and an EvoSuite `setup` execution
+for the generated source folder. **Dependencies Only** leaves the execution configuration
+unchanged. Gradle setup adds a managed block for test dependencies, the generated test source
+folder and the JUnit test task. **Skip Setup** continues with the existing build file and
+**Cancel** stops generation. Projects using a snapshot EvoSuite artifact need that artifact
+in the local Maven repository or an accessible snapshot repository.
 
-```xml
-<dependency>
-  <groupId>org.evosuite</groupId>
-  <artifactId>evosuite-standalone-runtime</artifactId>
-  <version>${evosuite.version}</version>
-  <scope>test</scope>
-</dependency>
-```
+The **Run eligible whole-class requests through Maven** setting delegates to m2e's Maven
+launcher. It runs `compile` and `evosuite:generate` and stages the export before checking
+each selected destination. The bundled engine handles existing suites, method runs, extension,
+coverage, fixed seeds and runtime-free output.
 
-Also register `src/test/evosuite` as a test source root, for example with the
-`build-helper-maven-plugin`. When the plugin edits the build path of such a project, the console
-repeats this advice.
+## Coverage and saved runs
+
+Choose **Measure Coverage with EvoSuite** from the Java Source menu or the context menu of
+a test class, package or test source folder. It runs the selected tests and opens **EvoSuite
+Runs** with the measured coverage. It leaves source files and the build path alone.
+
+Open **Window > Show View > Other > EvoSuite > EvoSuite Runs** to revisit generation and
+coverage results. Select a run to open its suites or reports, launch its tests in Eclipse's JUnit
+view, rerun with the saved seed and settings, or copy its summary. Maven-delegated runs use
+the Maven console. **Clear completed** removes completed records and their reports. It preserves
+test files and runs awaiting review.
+
+Comparisons can be reopened after Eclipse restarts. Copy the changes you want to the left
+side and save them, then choose **Finish review**. If the accepted suite is runtime-free, this
+can remove its unchanged generated scaffolding. Eclipse recognizes runtime-free suites it
+generated in the current workspace, including for Add and Replace.
+
+Use **Source > Check EvoSuite Project Setup** on a Java selection to see the effective JDK,
+output location, test format, dependency checks and Maven overrides.
 
 ## Building
 
@@ -273,7 +294,7 @@ It bundles the engine jars that the reactor builds:
 
 ```sh
 # repository root, JDK 17
-mvn -pl master,standalone_runtime -am package -DskipTests
+mvn -pl master,standalone_runtime,plugins/ide-core -am package -DskipTests
 
 # plugins/eclipse, JDK 21 or newer
 ./mvnw verify

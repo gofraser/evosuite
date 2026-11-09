@@ -18,6 +18,7 @@
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.eclipse.handlers;
+import org.evosuite.ide.ExistingSuitesQuestion;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -48,8 +49,8 @@ import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.dialogs.SelectionDialog;
 import org.eclipse.ui.handlers.HandlerUtil;
-import org.evosuite.eclipse.launch.GenerationOptions;
-import org.evosuite.eclipse.launch.GenerationTarget;
+import org.evosuite.ide.GenerationOptions;
+import org.evosuite.ide.GenerationTarget;
 
 /**
  * Extend Tests with EvoSuite: for the test classes selected in a view, or the one open in the
@@ -73,16 +74,24 @@ public class ExtendTestsHandler extends AbstractHandler {
     @Override
     public Object execute(ExecutionEvent event) throws ExecutionException {
         try {
-            extend(HandlerUtil.getActiveShell(event), GenerateTestsHandler.selectedElements(event));
+            run(HandlerUtil.getActiveShell(event), GenerateTestsHandler.selectedElements(event), coverageOnly());
         } catch (JavaModelException e) {
             throw new ExecutionException("Cannot read the selected Java elements", e);
         }
         return null;
     }
 
+    protected boolean coverageOnly() {
+        return false;
+    }
+
     /** Extends the tests of the test classes among {@code selection}. */
     static void extend(Shell shell, Iterable<?> selection) throws JavaModelException {
-        List<IType> tests = TestClassSelection.collect(selection);
+        run(shell, selection, false);
+    }
+
+    private static void run(Shell shell, Iterable<?> selection, boolean coverageOnly) throws JavaModelException {
+        List<IType> tests = TestClassSelection.collect(selection, coverageOnly);
         if (tests.isEmpty()) {
             GenerateTestsHandler.informer.accept(shell, "Select a test class in a test source folder, such as "
                     + "FooTest or Foo_ESTest, or open one in the Java editor.");
@@ -96,7 +105,12 @@ public class ExtendTestsHandler extends AbstractHandler {
                     + "are left out:\n\n") + String.join("\n", skipped));
         }
         if (!requests.isEmpty() && GenerateTestsHandler.saveEditors(files(requests))) {
-            GenerateTestsHandler.launch(shell, requests, options, ExistingSuitesQuestion.Scope.EXTENSION);
+            if (coverageOnly) {
+                requests.forEach((project, targets) -> new org.evosuite.eclipse.launch.TestGenerationJob(
+                        project, targets, options.get(project), org.evosuite.ide.SuiteAction.COMPARE, true).schedule());
+            } else {
+                GenerateTestsHandler.launch(shell, requests, options, ExistingSuitesQuestion.Scope.EXTENSION);
+            }
         }
     }
 
@@ -104,7 +118,7 @@ public class ExtendTestsHandler extends AbstractHandler {
      * The files a run reads: EvoSuite parses the test classes from their saved sources, runs
      * them compiled and generates tests for the compiled class under test.
      */
-    private static Set<IResource> files(Map<IJavaProject, List<GenerationTarget>> requests)
+    static Set<IResource> files(Map<IJavaProject, List<GenerationTarget>> requests)
             throws JavaModelException {
         Set<IResource> files = new LinkedHashSet<>();
         IWorkspaceRoot root = ResourcesPlugin.getWorkspace().getRoot();

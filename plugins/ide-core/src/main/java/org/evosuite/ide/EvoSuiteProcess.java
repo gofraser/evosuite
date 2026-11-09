@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
-package org.evosuite.eclipse.launch;
+package org.evosuite.ide;
 
 import java.io.File;
 import java.io.IOException;
@@ -29,6 +29,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 
@@ -42,6 +46,15 @@ public final class EvoSuiteProcess {
     public static final int CANCELLED = Integer.MIN_VALUE;
 
     private static final long POLL_MILLIS = 200;
+    // Native process enumeration can block indefinitely (including on macOS). Confine it to
+    // one daemon; timed-out queued requests are purged so a stuck OS call cannot accumulate work.
+    private static final ThreadPoolExecutor PROCESS_SCANNER = new ThreadPoolExecutor(
+            1, 1, 30, TimeUnit.SECONDS, new LinkedBlockingQueue<>(), runnable -> {
+                Thread thread = new Thread(runnable, "EvoSuite process inspection");
+                thread.setDaemon(true);
+                return thread;
+            });
+    static { PROCESS_SCANNER.allowCoreThreadTimeOut(true); }
 
     private EvoSuiteProcess() {
     }
@@ -69,20 +82,34 @@ public final class EvoSuiteProcess {
         Set<ProcessHandle> children = new HashSet<>();
         try {
             while (!process.waitFor(POLL_MILLIS, TimeUnit.MILLISECONDS)) {
-                process.descendants().forEach(children::add);
+                discoverChildren(process, children);
                 if (cancelled.getAsBoolean()) {
                     destroy(process, children);
                     pump.join(TimeUnit.SECONDS.toMillis(2));
                     return CANCELLED;
                 }
             }
-        } catch (InterruptedException e) {
+        } catch (InterruptedException | RuntimeException e) {
             destroy(process, children);
             throw e;
         }
         destroy(process, children);
         pump.join(TimeUnit.SECONDS.toMillis(5));
         return process.exitValue();
+    }
+
+    private static void discoverChildren(Process process, Set<ProcessHandle> children)
+            throws InterruptedException {
+        var scan = PROCESS_SCANNER.submit(() -> process.descendants().collect(Collectors.toList()));
+        try {
+            children.addAll(scan.get(POLL_MILLIS, TimeUnit.MILLISECONDS));
+        } catch (TimeoutException | ExecutionException ignored) {
+            // Keep the previous snapshot. In particular, do not block cancellation or the
+            // normal completion of a master that has already stopped all its clients.
+        } finally {
+            scan.cancel(true);
+            PROCESS_SCANNER.purge();
+        }
     }
 
     private static void pump(Process process, ProgressParser.Listener listener) {
@@ -104,7 +131,7 @@ public final class EvoSuiteProcess {
      * JVM of its own, which would otherwise outlive a cancelled master.
      */
     static void destroy(Process process, Set<ProcessHandle> knownChildren) throws InterruptedException {
-        process.descendants().forEach(knownChildren::add);
+        discoverChildren(process, knownChildren);
         List<ProcessHandle> alive = knownChildren.stream().filter(ProcessHandle::isAlive).collect(Collectors.toList());
         alive.forEach(ProcessHandle::destroy);
         if (process.isAlive()) {

@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
-package org.evosuite.eclipse.launch;
+package org.evosuite.ide;
 
 import java.util.List;
 import java.util.Map;
@@ -57,9 +57,47 @@ public final class GenerationOptions {
     public String criterion = "";
     public boolean assertions = true;
     public boolean minimize = true;
-    /** EvoSuite's {@code assertion_strategy}: MUTATION keeps those that detect faults, ALL keeps all. */
+    /** Simplify constants during test minimization; EvoSuite leaves this off by default. */
+    public boolean minimizeValues = false;
+
+    /** Export ordinary JUnit tests without the EvoSuite runtime. */
+    public boolean noRuntimeDependency = false;
+
+    /** Empty selects a fresh engine seed. */
+    public String randomSeed = "";
+
+    public String llmContextMode = "SIGNATURE_ONLY";
+
+    /** Filled from the IDE's actual source file, not a source-layout convention. */
+    public String llmSourcePath = "";
+
+    public GenerationOptions copy() {
+        GenerationOptions copy = new GenerationOptions();
+        try {
+            for (var field : GenerationOptions.class.getFields())
+                if (!java.lang.reflect.Modifier.isStatic(field.getModifiers()))
+                    field.set(copy, field.get(this));
+        } catch (IllegalAccessException ex) {
+            throw new IllegalStateException(ex);
+        }
+        return copy;
+    }
+
+    public int llmMaxTokens = 32768;
+    public int llmTimeoutSeconds = 60;
+    public int llmRetryMaxAttempts = 2;
+    public String llmTemperature = "0.7";
+
+    /**
+     * EvoSuite's {@code assertion_strategy}: MUTATION keeps those that detect faults, ALL keeps
+     * all.
+     */
     public String assertionStrategy = "MUTATION";
-    /** EvoSuite's {@code test_naming_strategy}: NUMBERED (test0, ...) or COVERAGE (from what a test covers). */
+
+    /**
+     * EvoSuite's {@code test_naming_strategy}: NUMBERED (test0, ...) or COVERAGE (from what a test
+     * covers).
+     */
     public String testNaming = "NUMBERED";
     /** EvoSuite's {@code variable_naming_strategy}: TYPE_BASED (int0, ...) or HEURISTICS_BASED. */
     public String variableNaming = "TYPE_BASED";
@@ -83,9 +121,13 @@ public final class GenerationOptions {
     public boolean configureBuildPath = true;
     /** Let the EvoSuite Maven plug-in's configuration in the pom override these settings. */
     public boolean usePomSettings = true;
+    public boolean delegateToMaven = false;
     /** Not a setting: which values came from the pom, one line each, for the user. */
     public List<String> fromPom = List.of();
-    /** From the pom's {@code evosuiteProperties}: EvoSuite properties, values may contain spaces. */
+
+    /**
+     * From the pom's {@code evosuiteProperties}: EvoSuite properties, values may contain spaces.
+     */
     public Map<String, String> pomProperties = Map.of();
     /** From the pom's {@code extraArgs}; they win over everything else, as with Maven. */
     public String pomExtraArguments = "";
@@ -122,9 +164,9 @@ public final class GenerationOptions {
     }
 
     /**
-     * Whether the approach is search only: the LLM stays off whatever else is configured, the
-     * pom and the additional arguments included, so that the switch can be relied on to keep
-     * the project's code from being sent to a model. The LLM settings themselves are kept.
+     * Whether the approach is search only: the LLM stays off whatever else is configured, the pom
+     * and the additional arguments included, so that the switch can be relied on to keep the
+     * project's code from being sent to a model. The LLM settings themselves are kept.
      */
     public boolean llmSwitchedOff() {
         return APPROACH_SEARCH_ONLY.equals(llmApproach);
@@ -144,6 +186,38 @@ public final class GenerationOptions {
     /** The model EvoSuite will use, decided like {@link #effectiveLlmProvider}. */
     public String effectiveLlmModel() {
         return effective("llm_model", llmModel);
+    }
+
+    /** An explicit legacy argument key is transported through the environment, never argv. */
+    public String effectiveSearchBudget() {
+        return effective("search_budget", Integer.toString(searchBudget));
+    }
+
+    public String effectiveRandomSeed() {
+        return effective("random_seed", randomSeed);
+    }
+
+    public String effectiveLlmMaxCalls() {
+        return effective("llm_max_calls", Integer.toString(llmMaxCalls));
+    }
+
+    public String effectiveStrategy() {
+        return effective("strategy", "MOSUITE");
+    }
+
+    public String effectiveLlmBaseUrl() {
+        return effective("llm_base_url", llmBaseUrl);
+    }
+
+    public String effectiveLlmApiKey() { return effective("llm_api_key", "");
+    }
+
+    public boolean effectiveNoRuntimeDependency() {
+        return Boolean.parseBoolean(
+                effective("no_runtime_dependency", Boolean.toString(noRuntimeDependency))); }
+
+    public String effectiveTestFormat() {
+        return effective("test_format", testFormat).toUpperCase(java.util.Locale.ROOT);
     }
 
     /** The value EvoSuite ends up with for {@code property}, in command-line order. */

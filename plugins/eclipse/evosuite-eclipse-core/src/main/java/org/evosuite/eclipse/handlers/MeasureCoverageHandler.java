@@ -17,23 +17,11 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
-package org.evosuite.eclipse.launch;
+package org.evosuite.eclipse.handlers;
 
-/** What a run does with a test suite that already exists for a class. */
-public enum SuiteAction {
-
-    /** EvoSuite writes the new suite over the existing one. */
-    REPLACE,
-
-    /**
-     * The tests of the new suite that the existing one lacks are added to it; the existing tests
-     * stay as they are. Falls back to {@link #COMPARE} when the suites cannot be merged.
-     */
-    ADD,
-
-    /**
-     * The existing suite and the new one open side by side in a compare editor, where the user
-     * takes over what they want; the existing file changes only when they save.
-     */
-    COMPARE
+public final class MeasureCoverageHandler extends ExtendTestsHandler {
+    @Override
+    protected boolean coverageOnly() {
+        return true;
+    }
 }

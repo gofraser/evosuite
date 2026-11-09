@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
-package org.evosuite.eclipse.launch;
+package org.evosuite.ide;
 
 import java.io.File;
 import java.util.List;
@@ -41,13 +41,12 @@ public record GenerationTarget(String className, List<String> methods, List<Seed
      * An existing test class, which EvoSuite parses from its source and runs compiled.
      *
      * @param className  the test class's binary name
-     * @param sourceRoot the source folder that contains it, in the file system
+     * @param sourceRoot the source folder that contains it
+     * @param sourceFile the actual source file, including roots with a package prefix
      */
-    public record Seed(String className, File sourceRoot) {
-
-        /** The test class's source file. */
-        public File sourceFile() {
-            return new File(sourceRoot, className.replace('.', File.separatorChar) + ".java");
+    public record Seed(String className, File sourceRoot, File sourceFile) {
+        public Seed(String className, File sourceRoot) {
+            this(className, sourceRoot, new File(sourceRoot, className.replace('.', File.separatorChar) + ".java"));
         }
 
         public String simpleName() {

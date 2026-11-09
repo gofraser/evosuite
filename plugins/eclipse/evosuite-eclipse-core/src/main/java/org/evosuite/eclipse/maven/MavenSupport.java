@@ -18,6 +18,7 @@
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.eclipse.maven;
+import org.evosuite.ide.PomSettings;
 
 import java.util.function.BooleanSupplier;
 
@@ -32,6 +33,13 @@ public final class MavenSupport {
 
     static final String M2E_BUNDLE = "org.eclipse.m2e.core";
     static final String MAVEN_NATURE = "org.eclipse.m2e.core.maven2Nature";
+
+    public static void refresh(IProject project, IProgressMonitor monitor) throws CoreException {
+        if (!m2eInstalled.getAsBoolean()) {
+            throw new CoreException(Activator.error("m2e is required to refresh " + project.getName() + "."));
+        }
+        M2eReader.refresh(project, monitor);
+    }
 
     /** Whether m2e is installed; tests replace it to see the plug-in work without m2e. */
     static BooleanSupplier m2eInstalled = () -> Platform.getBundle(M2E_BUNDLE) != null;

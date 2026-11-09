@@ -15,6 +15,9 @@ Require-Bundle: org.eclipse.core.runtime;bundle-version="3.29.0",
  org.eclipse.jdt.core,
  org.eclipse.jdt.launching,
  org.eclipse.jdt.junit.core,
+ org.eclipse.jdt.junit,
+ org.eclipse.debug.core,
+ org.eclipse.debug.ui,
  org.eclipse.jdt.ui,
  org.eclipse.jface,
  org.eclipse.jface.text,
@@ -28,7 +31,11 @@ Require-Bundle: org.eclipse.core.runtime;bundle-version="3.29.0",
  org.eclipse.m2e.maven.runtime;resolution:=optional
 Bundle-RequiredExecutionEnvironment: JavaSE-21
 Bundle-ActivationPolicy: lazy
-Export-Package: org.evosuite.eclipse,
+Import-Package: javax.xml,javax.xml.parsers,javax.xml.transform,javax.xml.transform.dom,
+ javax.xml.transform.stream,org.w3c.dom,org.xml.sax
+Bundle-ClassPath: .,lib/evosuite-ide-core.jar
+Export-Package: org.evosuite.ide,
+ org.evosuite.eclipse,
  org.evosuite.eclipse.classpath,
  org.evosuite.eclipse.handlers,
  org.evosuite.eclipse.launch,

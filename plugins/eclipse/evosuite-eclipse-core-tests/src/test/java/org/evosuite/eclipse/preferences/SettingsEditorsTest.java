@@ -39,7 +39,7 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Link;
 import org.eclipse.swt.widgets.Text;
-import org.evosuite.eclipse.launch.GenerationOptions;
+import org.evosuite.ide.GenerationOptions;
 import org.evosuite.eclipse.preferences.SettingsFields.Section;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;

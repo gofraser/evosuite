@@ -18,6 +18,9 @@
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.eclipse.launch;
+import org.evosuite.ide.SuiteAction;
+import org.evosuite.ide.GenerationTarget;
+import org.evosuite.ide.GenerationOptions;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -32,6 +35,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CompletableFuture;
+import java.nio.file.Files;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -47,6 +52,16 @@ import org.eclipse.core.runtime.preferences.IEclipsePreferences;
 import org.eclipse.core.runtime.preferences.InstanceScope;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.junit.JUnitCore;
+import org.eclipse.jdt.junit.TestRunListener;
+import org.eclipse.jdt.junit.model.ITestElement.Result;
+import org.eclipse.jdt.junit.model.ITestRunSession;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Event;
+import org.eclipse.ui.PlatformUI;
+import org.evosuite.eclipse.UiThread;
+import org.evosuite.eclipse.ui.RunsView;
 import org.evosuite.eclipse.Activator;
 import org.evosuite.eclipse.TestProjects;
 import org.evosuite.eclipse.classpath.EvoSuiteClasspathContainer;
@@ -182,6 +197,101 @@ public class TestGenerationJobTest {
         assertTrue(TestProjects.hasEntry(project, EvoSuiteClasspathContainer.PATH), "EvoSuite runtime not added");
         // EvoSuite wrote its statistics to the plug-in's state area, not into the project.
         assertFalse(project.getProject().getFolder("evosuite-report").exists(), "report folder in the project");
+    }
+
+    @Test
+    public void priceCalculatorRunsFromTheRunsViewAndCoverageIsRetained() throws Exception {
+        preferences.putInt(EvoSuitePreferences.SEARCH_BUDGET, 5);
+        preferences.putBoolean(EvoSuitePreferences.OPEN_GENERATED_TESTS, false);
+        IJavaProject project = TestProjects.create("price-calculator-runs", "src/main/java", null);
+        TestProjects.addSource(project, "src/main/java", "demo.PriceCalculator",
+                CALCULATOR.replace("Calculator", "PriceCalculator"));
+        TestProjects.build(project);
+        var job = new TestGenerationJob(project, List.of("demo.PriceCalculator"));
+        assertTrue(job.run(new NullProgressMonitor()).isOK());
+        TestProjects.build(project);
+        var saved = latest(project);
+        assertEquals(RunHistory.State.COMPLETED, saved.state());
+        assertFalse(saved.options().effectiveRandomSeed().isBlank());
+        assertEquals(job.getGeneratedSuites(), saved.suites());
+
+        var finished = new CompletableFuture<ITestRunSession>();
+        TestRunListener listener = new TestRunListener() {
+            @Override
+            public void sessionFinished(ITestRunSession session) {
+                if (project.equals(session.getLaunchedProject())) finished.complete(session);
+            }
+        };
+        JUnitCore.addTestRunListener(listener);
+        try {
+            UiThread.run(() -> {
+                var page = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
+                var view = (RunsView) page.showView(RunsView.ID);
+                Button run = findButton(view.getSite().getShell(), "Run tests");
+                assertTrue(run != null && run.isEnabled(), "Run tests is disabled");
+                run.notifyListeners(SWT.Selection, new Event());
+            });
+            ITestRunSession session = finished.get(60, TimeUnit.SECONDS);
+            assertEquals(Result.OK, session.getTestResult(true));
+            assertTrue(session.getChildren().length > 0, "Eclipse did not run any tests");
+        } finally {
+            JUnitCore.removeTestRunListener(listener);
+        }
+
+        IFile suite = saved.suites().getFirst();
+        String original = read(suite);
+        var target = GenerationTarget.extending("demo.PriceCalculator", List.of(new GenerationTarget.Seed(
+                "demo.PriceCalculator_ESTest", project.getProject().getFolder("src/test/evosuite").getLocation().toFile())));
+        var coverage = new TestGenerationJob(project, List.of(target), saved.options(), SuiteAction.COMPARE, true);
+        var status = coverage.run(new NullProgressMonitor());
+        assertTrue(status.isOK(), status::toString);
+        assertEquals(original, read(suite));
+        assertTrue(coverage.getGeneratedSuites().isEmpty());
+        var measured = latest(project);
+        assertTrue(measured.coverageOnly());
+        assertTrue(measured.summary().contains("coverage ") && measured.summary().contains("%"), measured::summary);
+        try (var reports = Files.walk(measured.reports())) {
+            assertTrue(reports.anyMatch(path -> path.getFileName().toString().equals("statistics.csv")));
+        }
+    }
+
+    @Test
+    public void runtimeFreeSuiteCanBeRegeneratedWithoutAddingRuntime() throws Exception {
+        preferences.putInt(EvoSuitePreferences.SEARCH_BUDGET, 4);
+        preferences.putBoolean(EvoSuitePreferences.NO_RUNTIME, true);
+        preferences.putBoolean(EvoSuitePreferences.OPEN_GENERATED_TESTS, false);
+        IJavaProject project = TestProjects.create("runtime-free", "src/main/java", null);
+        TestProjects.addSource(project, "src/main/java", "demo.Calculator", CALCULATOR);
+        TestProjects.build(project);
+        var job = new TestGenerationJob(project, List.of("demo.Calculator"));
+        var status = job.run(new NullProgressMonitor());
+        assertTrue(status.isOK(), status::toString);
+        IFile suite = job.getGeneratedSuites().getFirst();
+        assertTrue(SuiteOwnership.generated(suite));
+        assertFalse(read(suite).contains("org.evosuite.runtime"));
+        assertFalse(TestProjects.hasEntry(project, EvoSuiteClasspathContainer.PATH));
+        var replacement = new TestGenerationJob(project, List.of("demo.Calculator"));
+        status = replacement.run(new NullProgressMonitor());
+        assertTrue(status.isOK(), status::toString);
+        assertEquals(List.of(suite), replacement.getGeneratedSuites());
+        TestProjects.build(project);
+        assertEquals(List.of(), TestProjects.compileErrors(project));
+    }
+
+    private static RunHistory.Run latest(IJavaProject project) {
+        return RunHistory.runs().stream().filter(run -> run.project().equals(project.getElementName()))
+                .findFirst().orElseThrow();
+    }
+
+    private static Button findButton(Composite parent, String label) {
+        for (var child : parent.getChildren()) {
+            if (child instanceof Button button && button.getText().equals(label)) return button;
+            if (child instanceof Composite composite) {
+                Button button = findButton(composite, label);
+                if (button != null) return button;
+            }
+        }
+        return null;
     }
 
     /**
@@ -440,7 +550,7 @@ public class TestGenerationJobTest {
             preferences.put(EvoSuitePreferences.LLM_BASE_URL,
                     "http://127.0.0.1:" + server.getAddress().getPort() + "/v1");
             preferences.put(EvoSuitePreferences.LLM_SEEDING, "FULL");
-            TestGenerationJob.apiKeySource = () -> "test-key";
+            TestGenerationJob.apiKeySource = provider -> "test-key";
             IJavaProject project = TestProjects.create("llm", "src/main/java", null);
             TestProjects.addSource(project, "src/main/java", "demo.Calculator", CALCULATOR);
             TestProjects.build(project);

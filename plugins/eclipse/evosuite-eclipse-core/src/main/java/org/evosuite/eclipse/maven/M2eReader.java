@@ -18,6 +18,7 @@
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.eclipse.maven;
+import org.evosuite.ide.PomSettings;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -49,6 +50,10 @@ final class M2eReader {
 
     /** The id of the execution that runs a goal invoked from the command line. */
     static final String DEFAULT_CLI = "default-cli";
+
+    static void refresh(IProject project, IProgressMonitor monitor) throws CoreException {
+        MavenPlugin.getProjectConfigurationManager().updateProjectConfiguration(project, monitor);
+    }
 
     private M2eReader() {
     }

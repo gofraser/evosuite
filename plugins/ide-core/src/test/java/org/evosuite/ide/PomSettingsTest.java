@@ -17,7 +17,8 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
-package org.evosuite.eclipse.maven;
+package org.evosuite.ide;
+import org.evosuite.ide.PomSettings;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -26,7 +27,7 @@ import java.io.File;
 import java.util.List;
 import java.util.Map;
 
-import org.evosuite.eclipse.launch.GenerationOptions;
+import org.evosuite.ide.GenerationOptions;
 import org.junit.jupiter.api.Test;
 
 public class PomSettingsTest {

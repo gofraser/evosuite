@@ -18,10 +18,11 @@
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.eclipse.handlers;
+import org.evosuite.ide.ExistingSuitesQuestion;
 
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.widgets.Shell;
-import org.evosuite.eclipse.launch.SuiteAction;
+import org.evosuite.ide.SuiteAction;
 
 /** Asks an {@link ExistingSuitesQuestion}. */
 public class ExistingSuitesDialog extends MessageDialog {

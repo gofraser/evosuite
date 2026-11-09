@@ -23,6 +23,13 @@
 <?eclipse version="3.4"?>
 <plugin>
 
+   <extension point="org.eclipse.ui.views">
+      <category id="org.evosuite.eclipse.views" name="EvoSuite"/>
+      <view id="org.evosuite.eclipse.runs" name="EvoSuite Runs"
+            category="org.evosuite.eclipse.views" class="org.evosuite.eclipse.ui.RunsView"
+            icon="icons/evosuite.gif" restorable="true"/>
+   </extension>
+
    <extension point="org.eclipse.ui.commands">
       <command
             id="org.evosuite.eclipse.generateTests"
@@ -42,6 +49,12 @@
             description="Generate tests with EvoSuite that cover what the selected test classes leave uncovered, starting from their tests"
             categoryId="org.eclipse.jdt.ui.category.source">
       </command>
+      <command id="org.evosuite.eclipse.measureCoverage" name="Measure Coverage with EvoSuite"
+            description="Measure the coverage of existing tests without generating new tests"
+            categoryId="org.eclipse.jdt.ui.category.source"/>
+      <command id="org.evosuite.eclipse.checkProjectSetup" name="Check EvoSuite Project Setup"
+            description="Show effective EvoSuite settings and project readiness"
+            categoryId="org.eclipse.jdt.ui.category.source"/>
    </extension>
 
    <extension point="org.eclipse.ui.commandImages">
@@ -51,6 +64,8 @@
    </extension>
 
    <extension point="org.eclipse.ui.handlers">
+      <handler class="org.evosuite.eclipse.handlers.MeasureCoverageHandler"
+            commandId="org.evosuite.eclipse.measureCoverage"/>
       <handler
             class="org.evosuite.eclipse.handlers.GenerateTestsHandler"
             commandId="org.evosuite.eclipse.generateTests">
@@ -63,6 +78,8 @@
             class="org.evosuite.eclipse.handlers.ExtendTestsHandler"
             commandId="org.evosuite.eclipse.extendTests">
       </handler>
+      <handler class="org.evosuite.eclipse.handlers.ProjectReadinessHandler"
+            commandId="org.evosuite.eclipse.checkProjectSetup"/>
    </extension>
 
    <extension point="org.eclipse.ui.menus">
@@ -109,6 +126,17 @@
                </with>
             </visibleWhen>
          </command>
+         <command commandId="org.evosuite.eclipse.measureCoverage" style="push">
+            <visibleWhen checkEnabled="false">
+               <with variable="activeMenuSelection">
+                  <iterate ifEmpty="false" operator="and">
+                     <adapt type="org.eclipse.jdt.core.IJavaElement">
+                        <test property="org.evosuite.eclipse.coverageSelection" forcePluginActivation="true"/>
+                     </adapt>
+                  </iterate>
+               </with>
+            </visibleWhen>
+         </command>
       </menuContribution>
       <!--
         The Java editor's context menu; the method command while the caret is in a method, the
@@ -130,9 +158,17 @@
                </with>
             </visibleWhen>
          </command>
+         <command commandId="org.evosuite.eclipse.measureCoverage" style="push">
+            <visibleWhen checkEnabled="false">
+               <with variable="activePart">
+                  <test property="org.evosuite.eclipse.editsTestClass" forcePluginActivation="true"/>
+               </with>
+            </visibleWhen>
+         </command>
       </menuContribution>
       <!-- The main Source menu, for keyboard users. -->
       <menuContribution locationURI="menu:org.eclipse.jdt.ui.source.menu?after=generateGroup">
+         <command commandId="org.evosuite.eclipse.checkProjectSetup" style="push"/>
          <command commandId="org.evosuite.eclipse.generateTests" style="push"/>
          <command commandId="org.evosuite.eclipse.generateMethodTests" style="push">
             <visibleWhen checkEnabled="false">
@@ -172,6 +208,25 @@
                </or>
             </visibleWhen>
          </command>
+         <command commandId="org.evosuite.eclipse.measureCoverage" style="push">
+            <visibleWhen checkEnabled="false">
+               <or>
+                  <with variable="activePart">
+                     <test property="org.evosuite.eclipse.editsTestClass" forcePluginActivation="true"/>
+                  </with>
+                  <with variable="selection">
+                     <and>
+                        <instanceof value="org.eclipse.jface.viewers.IStructuredSelection"/>
+                        <iterate ifEmpty="false" operator="and">
+                           <adapt type="org.eclipse.jdt.core.IJavaElement">
+                              <test property="org.evosuite.eclipse.coverageSelection" forcePluginActivation="true"/>
+                           </adapt>
+                        </iterate>
+                     </and>
+                  </with>
+               </or>
+            </visibleWhen>
+         </command>
       </menuContribution>
    </extension>
 
@@ -194,7 +249,7 @@
             id="org.evosuite.eclipse.testClassTester"
             type="org.eclipse.jdt.core.IJavaElement"
             namespace="org.evosuite.eclipse"
-            properties="testClass"
+            properties="testClass,coverageSelection"
             class="org.evosuite.eclipse.handlers.TestClassPropertyTester">
       </propertyTester>
       <propertyTester

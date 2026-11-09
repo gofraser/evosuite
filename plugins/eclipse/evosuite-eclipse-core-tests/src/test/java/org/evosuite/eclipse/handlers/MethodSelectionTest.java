@@ -36,7 +36,7 @@ import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.texteditor.ITextEditor;
 import org.evosuite.eclipse.TestProjects;
 import org.evosuite.eclipse.UiThread;
-import org.evosuite.eclipse.launch.GenerationTarget;
+import org.evosuite.ide.GenerationTarget;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 

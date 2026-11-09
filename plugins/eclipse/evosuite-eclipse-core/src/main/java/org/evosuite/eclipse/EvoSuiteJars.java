@@ -51,6 +51,23 @@ public final class EvoSuiteJars {
         return locate(RUNTIME_JAR);
     }
 
+    public static String version() throws CoreException {
+        try (var jar = new java.util.jar.JarFile(runtime())) {
+            var entry = jar.getJarEntry("META-INF/maven/org.evosuite/evosuite-standalone-runtime/pom.properties");
+            if (entry != null) {
+                var properties = new java.util.Properties();
+                try (var stream = jar.getInputStream(entry)) {
+                    properties.load(stream);
+                }
+                String version = properties.getProperty("version");
+                if (version != null && !version.isBlank()) return version;
+            }
+        } catch (IOException e) {
+            throw new CoreException(Activator.error("Cannot read the bundled EvoSuite version.", e));
+        }
+        throw new CoreException(Activator.error("The bundled EvoSuite runtime has no version metadata."));
+    }
+
     private static File locate(String path) throws CoreException {
         Bundle bundle = Platform.getBundle(ENGINE_BUNDLE);
         if (bundle == null) {

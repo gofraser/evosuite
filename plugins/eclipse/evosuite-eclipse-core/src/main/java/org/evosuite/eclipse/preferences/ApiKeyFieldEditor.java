@@ -37,16 +37,18 @@ class ApiKeyFieldEditor extends StringFieldEditor {
 
     /** The key as stored when the page opened, or {@code null} if it could not be read. */
     private String stored;
+    private final String provider;
 
-    ApiKeyFieldEditor(String label, Composite parent) {
-        super("llmApiKey.secure", label, parent);
+    ApiKeyFieldEditor(String provider, String label, Composite parent) {
+        super("llmApiKey.secure." + provider, label, parent);
+        this.provider = provider;
         getTextControl(parent).setEchoChar('•');
     }
 
     @Override
     protected void doLoad() {
         try {
-            stored = LlmApiKey.read();
+            stored = LlmApiKey.read(provider);
         } catch (StorageException e) {
             Activator.logError("Cannot read the LLM API key from secure storage", e);
             stored = null;
@@ -73,7 +75,7 @@ class ApiKeyFieldEditor extends StringFieldEditor {
             return;
         }
         try {
-            LlmApiKey.set(key);
+            LlmApiKey.set(provider, key);
             stored = key;
         } catch (StorageException e) {
             Activator.logError("Cannot store the LLM API key in secure storage", e);

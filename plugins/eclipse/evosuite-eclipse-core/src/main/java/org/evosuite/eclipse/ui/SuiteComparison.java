@@ -57,6 +57,8 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.texteditor.IDocumentProvider;
 import org.evosuite.eclipse.Activator;
+import org.evosuite.eclipse.launch.ProjectSetup;
+import org.evosuite.eclipse.launch.SuiteOwnership;
 
 /**
  * Shows existing test suites next to the suites EvoSuite has just generated for the same
@@ -73,7 +75,10 @@ import org.evosuite.eclipse.Activator;
 public class SuiteComparison extends CompareEditorInput {
 
     /** An existing suite and the source of the new one. */
-    public record Pair(IFile existing, String generatedSource) {
+    public record Pair(IFile existing, String generatedSource, String obsoleteSource) {
+        public Pair(IFile existing, String generatedSource) {
+            this(existing, generatedSource, null);
+        }
     }
 
     private final List<Pair> pairs;
@@ -115,7 +120,7 @@ public class SuiteComparison extends CompareEditorInput {
     }
 
     private DiffNode node(DiffNode parent, Pair pair) {
-        WorkspaceSide left = new WorkspaceSide(pair.existing());
+        WorkspaceSide left = new WorkspaceSide(pair);
         sides.add(left);
         GeneratedSide right = new GeneratedSide(pair.existing().getName(), pair.generatedSource(),
                 left.getCharset());
@@ -128,6 +133,7 @@ public class SuiteComparison extends CompareEditorInput {
         super.saveChanges(monitor);
         for (WorkspaceSide side : sides) {
             side.commit(monitor);
+            if (side.file.exists()) SuiteOwnership.remember(side.file, side.offered);
         }
     }
 
@@ -206,8 +212,11 @@ public class SuiteComparison extends CompareEditorInput {
         /** Whether {@link #content} holds edits that are not written. */
         private boolean changed;
 
-        WorkspaceSide(IFile file) {
-            this.file = file;
+        private final String offered;
+
+        WorkspaceSide(Pair pair) {
+            file = pair.existing();
+            offered = pair.generatedSource();
         }
 
         @Override
@@ -320,6 +329,7 @@ public class SuiteComparison extends CompareEditorInput {
             if (file.exists()) {
                 file.setContents(source, IResource.KEEP_HISTORY, monitor);
             } else {
+                ProjectSetup.createFolders(file.getParent());
                 file.create(source, IResource.NONE, monitor);
             }
             stamp = file.getModificationStamp();

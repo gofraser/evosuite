@@ -26,8 +26,11 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IProject;
@@ -41,9 +44,11 @@ import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.m2e.core.MavenPlugin;
 import org.eclipse.m2e.core.project.ResolverConfiguration;
 import org.evosuite.eclipse.TestProjects;
-import org.evosuite.eclipse.launch.GenerationOptions;
+import org.evosuite.ide.GenerationOptions;
 import org.evosuite.eclipse.launch.ProjectSetup;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The EvoSuite Maven plug-in's m2e lifecycle mapping: m2e runs its setup goal when it configures
@@ -101,6 +106,34 @@ public class MavenPluginLifecycleMappingTest {
         GenerationOptions options = new GenerationOptions();
         ProjectSetup.prepareTestFolder(javaProject, options, null);
         assertEquals(stamp, project.getFile(".classpath").getModificationStamp());
+    }
+
+    @Test
+    @Timeout(180)
+    public void m2eDelegatesGenerationIntoStaging(@TempDir Path staging) throws Exception {
+        String settings = System.getProperty("evosuite.it.mavenSettings", "");
+        assumeTrue(!settings.isBlank() && !"null".equals(settings), "no Maven settings for the m2e test");
+        MavenPlugin.getMavenConfiguration().setUserSettingsFile(settings);
+        IProject project = ResourcesPlugin.getWorkspace().getRoot().getProject("delegated-generation");
+        if (project.exists()) project.delete(true, true, null);
+        project.create(null);
+        project.open(null);
+        TestProjects.folder(project, "src/main/java");
+        String pom = POM.replace("<artifactId>wired</artifactId>", "<artifactId>delegated-generation</artifactId>")
+                .replace("<executions>", "<configuration><timePerClass>60s</timePerClass>"
+                        + "<numberOfCores>1</numberOfCores></configuration><executions>");
+        project.getFile("pom.xml").create(new ByteArrayInputStream(pom.getBytes(StandardCharsets.UTF_8)), true, null);
+        MavenPlugin.getProjectConfigurationManager().enableMavenNature(project, new ResolverConfiguration(),
+                new NullProgressMonitor());
+        IJavaProject java = JavaCore.create(project);
+        TestProjects.addSource(java, "src/main/java", "demo.Value",
+                "package demo; public class Value { public int get() { return 42; } }");
+        var options = new GenerationOptions();
+        assertTrue(MavenGeneration.canRun(java, options), "m2e's Maven launch configuration type is missing");
+        int result = MavenGeneration.run(java, "demo.Value", staging, Map.of(), new NullProgressMonitor());
+        assertEquals(0, result);
+        assertTrue(Files.isRegularFile(staging.resolve("demo/Value_ESTest.java")));
+        assertTrue(!project.getFile("src/test/evosuite/demo/Value_ESTest.java").exists());
     }
 
     private static void assertWired(IProject project) throws Exception {

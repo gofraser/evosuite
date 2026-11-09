@@ -27,10 +27,16 @@ import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.preferences.DefaultScope;
 import org.eclipse.core.runtime.preferences.IEclipsePreferences;
 import org.eclipse.core.runtime.preferences.InstanceScope;
+import org.eclipse.jdt.core.IJavaProject;
+import org.eclipse.jdt.core.JavaCore;
+import org.eclipse.jdt.core.JavaModelException;
+import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.dialogs.PreferencesUtil;
 import org.evosuite.eclipse.Activator;
-import org.evosuite.eclipse.launch.GenerationOptions;
+import org.evosuite.ide.GenerationOptions;
+import org.evosuite.ide.SettingKeys;
 import org.evosuite.eclipse.maven.MavenSupport;
-import org.evosuite.eclipse.maven.PomSettings;
+import org.evosuite.ide.PomSettings;
 
 /**
  * Preference keys, and how a project's settings are resolved.
@@ -43,70 +49,66 @@ public final class EvoSuitePreferences {
 
     public static final String QUALIFIER = Activator.PLUGIN_ID;
 
-    public static final String USE_PROJECT_SETTINGS = "useProjectSettings";
-    public static final String SEARCH_BUDGET = "searchBudget";
-    public static final String CRITERION = "criterion";
-    public static final String ASSERTIONS = "assertions";
-    public static final String MINIMIZE = "minimize";
-    public static final String ASSERTION_STRATEGY = "assertionStrategy";
-    public static final String TEST_NAMING = "testNaming";
-    public static final String VARIABLE_NAMING = "variableNaming";
-    public static final String TEST_COMMENTS = "testComments";
-    public static final String TEST_TIMEOUT = "testTimeout";
-    public static final String TEST_FORMAT = "testFormat";
-    public static final String TEST_SUFFIX = "testSuffix";
-    public static final String TEST_FOLDER = "testFolder";
-    public static final String CLIENT_MEMORY = "clientMemory";
-    public static final String EXTRA_ARGUMENTS = "extraArguments";
-    public static final String JAVA_HOME = "javaHome";
-    public static final String OPEN_GENERATED_TESTS = "openGeneratedTests";
-    public static final String CONFIGURE_BUILD_PATH = "configureBuildPath";
-    public static final String USE_POM_SETTINGS = "usePomSettings";
-    public static final String LLM_PROVIDER = "llmProvider";
-    public static final String LLM_MODEL = "llmModel";
-    public static final String LLM_BASE_URL = "llmBaseUrl";
-    public static final String LLM_APPROACH = "llmApproach";
-    public static final String LLM_SEEDING = "llmSeeding";
-    public static final String LLM_ON_STAGNATION = "llmOnStagnation";
-    public static final String LLM_OPERATORS = "llmOperators";
-    public static final String LLM_POSTPROCESSING = "llmPostprocessing";
-    public static final String LLM_MAX_CALLS = "llmMaxCalls";
+    public static final String USE_PROJECT_SETTINGS = SettingKeys.USE_PROJECT_SETTINGS;
+    public static final String SEARCH_BUDGET = SettingKeys.SEARCH_BUDGET;
+    public static final String CRITERION = SettingKeys.CRITERION;
+    public static final String ASSERTIONS = SettingKeys.ASSERTIONS;
+    public static final String MINIMIZE = SettingKeys.MINIMIZE;
+    public static final String ASSERTION_STRATEGY = SettingKeys.ASSERTION_STRATEGY;
+    public static final String TEST_NAMING = SettingKeys.TEST_NAMING;
+    public static final String VARIABLE_NAMING = SettingKeys.VARIABLE_NAMING;
+    public static final String TEST_COMMENTS = SettingKeys.TEST_COMMENTS;
+    public static final String TEST_TIMEOUT = SettingKeys.TEST_TIMEOUT;
+    public static final String TEST_FORMAT = SettingKeys.TEST_FORMAT;
+    public static final String TEST_SUFFIX = SettingKeys.TEST_SUFFIX;
+    public static final String TEST_FOLDER = SettingKeys.TEST_FOLDER;
+    public static final String CLIENT_MEMORY = SettingKeys.CLIENT_MEMORY;
+    public static final String EXTRA_ARGUMENTS = SettingKeys.EXTRA_ARGUMENTS;
+    public static final String JAVA_HOME = SettingKeys.JAVA_HOME;
+    public static final String OPEN_GENERATED_TESTS = SettingKeys.OPEN_GENERATED_TESTS;
+    public static final String CONFIGURE_BUILD_PATH = SettingKeys.CONFIGURE_BUILD_PATH;
+    public static final String USE_POM_SETTINGS = SettingKeys.USE_POM_SETTINGS;
+    public static final String LLM_PROVIDER = SettingKeys.LLM_PROVIDER;
+    public static final String LLM_MODEL = SettingKeys.LLM_MODEL;
+    public static final String LLM_BASE_URL = SettingKeys.LLM_BASE_URL;
+    public static final String LLM_APPROACH = SettingKeys.LLM_APPROACH;
+    public static final String LLM_SEEDING = SettingKeys.LLM_SEEDING;
+    public static final String LLM_ON_STAGNATION = SettingKeys.LLM_ON_STAGNATION;
+    public static final String LLM_OPERATORS = SettingKeys.LLM_OPERATORS;
+    public static final String LLM_POSTPROCESSING = SettingKeys.LLM_POSTPROCESSING;
+    public static final String LLM_MAX_CALLS = SettingKeys.LLM_MAX_CALLS;
+
+    public static final String AUTO_JUNIT = "AUTO";
+    public static final String RANDOM_SEED = "randomSeed";
+    public static final String MINIMIZE_VALUES = SettingKeys.MINIMIZE_VALUES;
+    public static final String NO_RUNTIME = "noRuntimeDependency";
+    public static final String LLM_CONTEXT = "llmContextMode";
+    public static final String LLM_TOKENS = "llmMaxTokens";
+    public static final String LLM_TIMEOUT = "llmTimeoutSeconds";
+    public static final String LLM_RETRIES = "llmRetryMaxAttempts";
+    public static final String LLM_TEMPERATURE = "llmTemperature";
 
     private EvoSuitePreferences() {
     }
 
+    public static void openLlmSettings() {
+        if (!PlatformUI.isWorkbenchRunning()) return;
+        var workbench = PlatformUI.getWorkbench();
+        workbench.getDisplay().asyncExec(() -> {
+            var window = workbench.getActiveWorkbenchWindow();
+            if (window != null) PreferencesUtil.createPreferenceDialogOn(window.getShell(),
+                    SettingsFields.Section.LLM.preferencePageId, SettingsFields.Section.preferencePageIds(), null).open();
+        });
+    }
+
     /** Writes {@link GenerationOptions}' defaults into the default scope. */
     static void initializeDefaults() {
-        GenerationOptions d = new GenerationOptions();
         IEclipsePreferences node = DefaultScope.INSTANCE.getNode(QUALIFIER);
         node.putBoolean(USE_PROJECT_SETTINGS, false);
-        node.putInt(SEARCH_BUDGET, d.searchBudget);
-        node.put(CRITERION, d.criterion);
-        node.putBoolean(ASSERTIONS, d.assertions);
-        node.putBoolean(MINIMIZE, d.minimize);
-        node.put(ASSERTION_STRATEGY, d.assertionStrategy);
-        node.put(TEST_NAMING, d.testNaming);
-        node.put(VARIABLE_NAMING, d.variableNaming);
-        node.putBoolean(TEST_COMMENTS, d.testComments);
-        node.putInt(TEST_TIMEOUT, d.testTimeout);
-        node.put(TEST_FORMAT, d.testFormat);
-        node.put(TEST_SUFFIX, d.testSuffix);
-        node.put(TEST_FOLDER, d.testFolder);
-        node.putInt(CLIENT_MEMORY, d.clientMemory);
-        node.put(EXTRA_ARGUMENTS, d.extraArguments);
-        node.put(JAVA_HOME, d.javaHome);
-        node.putBoolean(OPEN_GENERATED_TESTS, d.openGeneratedTests);
-        node.putBoolean(CONFIGURE_BUILD_PATH, d.configureBuildPath);
-        node.putBoolean(USE_POM_SETTINGS, d.usePomSettings);
-        node.put(LLM_PROVIDER, d.llmProvider);
-        node.put(LLM_MODEL, d.llmModel);
-        node.put(LLM_BASE_URL, d.llmBaseUrl);
-        node.put(LLM_APPROACH, d.llmApproach);
-        node.put(LLM_SEEDING, d.llmSeeding);
-        node.putBoolean(LLM_ON_STAGNATION, d.llmOnStagnation);
-        node.putBoolean(LLM_OPERATORS, d.llmOperators);
-        node.putBoolean(LLM_POSTPROCESSING, d.llmPostprocessing);
-        node.putInt(LLM_MAX_CALLS, d.llmMaxCalls);
+        GenerationOptions defaults = defaults();
+        for (String key : SettingKeys.all()) {
+            node.put(key, SettingKeys.value(defaults, key));
+        }
     }
 
     public static boolean usesProjectSettings(IProject project) {
@@ -124,6 +126,18 @@ public final class EvoSuitePreferences {
             PomSettings pom = MavenSupport.pomSettings(project, monitor);
             if (pom != null) {
                 applyPom(pom, options, project);
+            }
+        }
+        if (AUTO_JUNIT.equals(options.testFormat)) {
+            IJavaProject java = JavaCore.create(project);
+            options.testFormat = GenerationOptions.JUNIT5;
+            try {
+                if (java.exists()) {
+                    options.testFormat = SettingKeys.junitFormat(java.findType("org.junit.Test") != null,
+                            java.findType("org.junit.jupiter.api.Test") != null);
+                }
+            } catch (JavaModelException e) {
+                Activator.log(e.getStatus());
             }
         }
         return options;
@@ -153,83 +167,22 @@ public final class EvoSuitePreferences {
                 + "precedence over the settings below: " + String.join("; ", options.fromPom) + ".";
     }
 
-    /** The first of a list of preference nodes that has a value for a key. */
-    private static final class Lookup {
-        private final IEclipsePreferences[] nodes;
-
-        Lookup(IEclipsePreferences... nodes) {
-            this.nodes = nodes;
-        }
-
-        String getString(String key, String fallback) {
-            for (IEclipsePreferences node : nodes) {
-                String value = node.get(key, null);
-                if (value != null) {
-                    return value;
-                }
-            }
-            return fallback;
-        }
-
-        int getInt(String key, int fallback) {
-            try {
-                return Integer.parseInt(getString(key, Integer.toString(fallback)).trim());
-            } catch (NumberFormatException e) {
-                return fallback;
-            }
-        }
-
-        boolean getBoolean(String key, boolean fallback) {
-            return Boolean.parseBoolean(getString(key, Boolean.toString(fallback)).trim());
-        }
+    private static GenerationOptions defaults() {
+        GenerationOptions options = new GenerationOptions();
+        options.testFormat = AUTO_JUNIT;
+        return options;
     }
 
-    /**
-     * The settings that apply to a generation request in {@code project}. Project-specific
-     * settings fall back to the defaults, not to the workspace: a preference store drops a value
-     * equal to its default, so a project that sets the default explicitly must not silently pick
-     * up a different workspace value instead.
-     */
+    /** Project preferences inherit EvoSuite defaults. Workspace values apply only in workspace mode. */
     public static GenerationOptions load(IProject project) {
-        // Explicit nodes rather than IPreferencesService, which goes on to the remaining scopes
-        // of its default order, the workspace among them, after the contexts it is given.
-        Lookup prefs = usesProjectSettings(project)
-                ? new Lookup(new ProjectScope(project).getNode(QUALIFIER), DefaultScope.INSTANCE.getNode(QUALIFIER))
-                : new Lookup(InstanceScope.INSTANCE.getNode(QUALIFIER), DefaultScope.INSTANCE.getNode(QUALIFIER));
-        GenerationOptions d = new GenerationOptions();
-        GenerationOptions o = new GenerationOptions();
-        o.searchBudget = prefs.getInt(SEARCH_BUDGET, d.searchBudget);
-        o.criterion = prefs.getString(CRITERION, d.criterion);
-        o.assertions = prefs.getBoolean(ASSERTIONS, d.assertions);
-        o.minimize = prefs.getBoolean(MINIMIZE, d.minimize);
-        o.assertionStrategy = prefs.getString(ASSERTION_STRATEGY, d.assertionStrategy);
-        o.testNaming = prefs.getString(TEST_NAMING, d.testNaming);
-        o.variableNaming = prefs.getString(VARIABLE_NAMING, d.variableNaming);
-        o.testComments = prefs.getBoolean(TEST_COMMENTS, d.testComments);
-        o.testTimeout = prefs.getInt(TEST_TIMEOUT, d.testTimeout);
-        o.testFormat = prefs.getString(TEST_FORMAT, d.testFormat);
-        o.testSuffix = prefs.getString(TEST_SUFFIX, d.testSuffix);
-        o.testFolder = prefs.getString(TEST_FOLDER, d.testFolder);
-        o.clientMemory = prefs.getInt(CLIENT_MEMORY, d.clientMemory);
-        o.extraArguments = prefs.getString(EXTRA_ARGUMENTS, d.extraArguments);
-        o.javaHome = prefs.getString(JAVA_HOME, d.javaHome);
-        o.openGeneratedTests = prefs.getBoolean(OPEN_GENERATED_TESTS, d.openGeneratedTests);
-        o.configureBuildPath = prefs.getBoolean(CONFIGURE_BUILD_PATH, d.configureBuildPath);
-        o.usePomSettings = prefs.getBoolean(USE_POM_SETTINGS, d.usePomSettings);
-        o.llmProvider = prefs.getString(LLM_PROVIDER, d.llmProvider);
-        o.llmModel = prefs.getString(LLM_MODEL, d.llmModel).trim();
-        o.llmBaseUrl = prefs.getString(LLM_BASE_URL, d.llmBaseUrl).trim();
-        o.llmApproach = prefs.getString(LLM_APPROACH, d.llmApproach);
-        o.llmSeeding = prefs.getString(LLM_SEEDING, d.llmSeeding);
-        o.llmOnStagnation = prefs.getBoolean(LLM_ON_STAGNATION, d.llmOnStagnation);
-        o.llmOperators = prefs.getBoolean(LLM_OPERATORS, d.llmOperators);
-        o.llmPostprocessing = prefs.getBoolean(LLM_POSTPROCESSING, d.llmPostprocessing);
-        o.llmMaxCalls = prefs.getInt(LLM_MAX_CALLS, d.llmMaxCalls);
-        // Trimmed once here, so that every user of a setting sees the same value.
-        o.criterion = o.criterion.trim();
-        o.testSuffix = o.testSuffix.isBlank() ? d.testSuffix : o.testSuffix.trim();
-        o.testFolder = o.testFolder.isBlank() ? d.testFolder : o.testFolder.trim();
-        o.javaHome = o.javaHome.trim();
-        return o;
+        IEclipsePreferences preferences = usesProjectSettings(project)
+                ? new ProjectScope(project).getNode(QUALIFIER) : InstanceScope.INSTANCE.getNode(QUALIFIER);
+        GenerationOptions defaults = defaults();
+        IEclipsePreferences defaultPreferences = DefaultScope.INSTANCE.getNode(QUALIFIER);
+        GenerationOptions options = SettingKeys.read(defaults.copy(),
+                key -> preferences.get(key, defaultPreferences.get(key, null)));
+        if (options.testSuffix.isBlank()) options.testSuffix = defaults.testSuffix;
+        if (options.testFolder.isBlank()) options.testFolder = defaults.testFolder;
+        return options;
     }
 }

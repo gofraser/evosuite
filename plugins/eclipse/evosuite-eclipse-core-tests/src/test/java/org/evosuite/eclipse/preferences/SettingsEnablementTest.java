@@ -44,7 +44,7 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Link;
 import org.eclipse.swt.widgets.Text;
 import org.evosuite.eclipse.TestProjects;
-import org.evosuite.eclipse.launch.GenerationOptions;
+import org.evosuite.ide.GenerationOptions;
 import org.evosuite.eclipse.preferences.SettingsFields.Section;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -59,14 +59,15 @@ public class SettingsEnablementTest {
     private static final String PROVIDER = "Provider";
     private static final String APPROACH = "Approach";
     private static final String MODEL = "Model";
-    private static final String KEY = "API key";
+    private static final String KEY = "OpenAI API key";
+    private static final String ANTHROPIC_KEY = "Anthropic API key";
     private static final String SEEDING = "Seed the search";
     private static final String STAGNATION = "Ask the LLM for tests when the search stagnates";
     private static final String OPERATORS = "Use LLM-based mutation and crossover";
     private static final String POSTPROCESSING = "Improve test names, comments and assertions with the LLM";
     private static final String CALLS = "LLM calls per class";
 
-    private static final List<String> BEYOND_PROVIDER = List.of(APPROACH, MODEL, "Base URL", KEY, SEEDING,
+    private static final List<String> BEYOND_PROVIDER = List.of(APPROACH, MODEL, "Base URL", KEY, ANTHROPIC_KEY, SEEDING,
             STAGNATION, OPERATORS, POSTPROCESSING, CALLS);
     private static final List<String> SEARCH_INTEGRATION = List.of(SEEDING, STAGNATION, OPERATORS);
 
@@ -87,7 +88,8 @@ public class SettingsEnablementTest {
                 assertEnabled(page, false, BEYOND_PROVIDER);
 
                 select(page, PROVIDER, "Anthropic");
-                assertEnabled(page, true, BEYOND_PROVIDER);
+                assertEnabled(page, true, without(BEYOND_PROVIDER, KEY));
+                assertEnabled(page, false, KEY);
                 ((Text) control(page, MODEL)).setText("claude-sonnet-5-5");
 
                 select(page, PROVIDER, "None (no LLM)");
@@ -149,7 +151,8 @@ public class SettingsEnablementTest {
                 expected.put("None (no LLM)", false);
                 expected.forEach((provider, takesKey) -> {
                     select(page, PROVIDER, provider);
-                    assertEnabled(page, takesKey, KEY);
+                    assertEnabled(page, takesKey && provider.equals("OpenAI"), KEY);
+                    assertEnabled(page, takesKey && provider.equals("Anthropic"), ANTHROPIC_KEY);
                 });
             } finally {
                 dialog.close();

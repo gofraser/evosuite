@@ -17,7 +17,8 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
-package org.evosuite.eclipse.launch;
+package org.evosuite.ide;
+import org.evosuite.ide.ProgressParser;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 

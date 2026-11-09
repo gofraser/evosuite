@@ -18,6 +18,7 @@
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.eclipse.handlers;
+import org.evosuite.ide.ExistingSuitesQuestion;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -39,8 +40,8 @@ import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.handlers.HandlerUtil;
-import org.evosuite.eclipse.launch.GenerationOptions;
-import org.evosuite.eclipse.launch.GenerationTarget;
+import org.evosuite.ide.GenerationOptions;
+import org.evosuite.ide.GenerationTarget;
 
 /**
  * Generate Tests for Method with EvoSuite: for the methods selected in a view, or the method the

@@ -17,19 +17,19 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
-package org.evosuite.eclipse.launch;
+package org.evosuite.ide;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
 import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 public class EvoSuiteCommandTest {
 
@@ -48,6 +48,30 @@ public class EvoSuiteCommandTest {
         assertTrue(args.contains("-Dtest_dir=" + new File("/p/src/test/evosuite").getAbsolutePath()));
         assertTrue(args.contains("-Dreport_dir=" + new File("/state/reports").getAbsolutePath()));
         assertTrue(args.contains("-Dshow_progress=true"));
+    }
+
+    @Test
+    public void sandboxOptInFollowsTheSelectedJdkAndPrecedesTheJar() throws Exception {
+        var command = new EvoSuiteCommand("/jdk/bin/java", "/plugin/evosuite.jar", "demo.Calculator",
+                List.of("/p/bin"), new File("/p"), new File("/out"), new File("/reports"), new GenerationOptions());
+        for (int version : List.of(8, 11, 17, 18, 21, 23, 24, 25, 27)) {
+            var args = command.toArguments(version);
+            int flag = args.indexOf("-Djava.security.manager=allow");
+            assertEquals(version >= 18 && version < 24, flag >= 0, "JDK " + version);
+            if (flag >= 0) assertTrue(flag < args.indexOf("-jar"), "Must be a JVM option, not an EvoSuite property");
+        }
+    }
+
+    @Test
+    public void eclipseStyleLaunchDetectsTheSelectedJavaHome(@TempDir Path root) throws Exception {
+        java.nio.file.Files.createDirectories(root.resolve("bin"));
+        java.nio.file.Files.writeString(root.resolve("bin/java"), "");
+        java.nio.file.Files.writeString(root.resolve("release"), "JAVA_VERSION=\"21.0.1\"\n");
+        var command = new EvoSuiteCommand(root.resolve("bin/java").toString(), "/plugin/evosuite.jar", "demo.Calculator",
+                List.of("/p/bin"), new File("/p"), new File("/out"), new File("/reports"), new GenerationOptions());
+        assertTrue(command.toArguments().contains("-Djava.security.manager=allow"));
+        java.nio.file.Files.writeString(root.resolve("release"), "JAVA_VERSION=\"24\"\n");
+        assertFalse(command.toArguments().contains("-Djava.security.manager=allow"));
     }
 
     @Test
@@ -95,8 +119,8 @@ public class EvoSuiteCommandTest {
     }
 
     /**
-     * The criteria whose goals EvoSuite does not credit to the existing tests are left out, as
-     * they would keep copies of those tests; other criteria, including unknown ones, stay.
+     * The criteria whose goals EvoSuite does not credit to the existing tests are left out, as they
+     * would keep copies of those tests; other criteria, including unknown ones, stay.
      */
     @Test
     public void extendingLeavesOutTheCriteriaThatWouldRepeatTheTests() {
@@ -115,6 +139,22 @@ public class EvoSuiteCommandTest {
 
         // Ordinary runs keep EvoSuite's default.
         assertFalse(arguments(new GenerationOptions()).contains("-criterion"));
+    }
+
+    @Test
+    public void valueMinimizationUsesSavedSettingsAndRetainsArgumentAndPomPrecedence() {
+        var options = SettingKeys.resolve(Map.of("minimizeValues", "true"));
+        assertTrue(options.minimizeValues);
+        assertTrue(arguments(options).contains("-Dminimize_values=true"));
+        assertTrue(arguments(new GenerationOptions()).contains("-Dminimize_values=false"));
+        options.extraArguments = "-Dminimize_values=false";
+        var args = arguments(options);
+        assertTrue(args.indexOf("-Dminimize_values=true") < args.lastIndexOf("-Dminimize_values=false"));
+        options.extraArguments = "";
+        new PomSettings(Map.of(PomSettings.PROPERTY_PREFIX + "minimize_values", "false"))
+                .applyTo(options, new File("/p"));
+        args = arguments(options);
+        assertTrue(args.indexOf("-Dminimize_values=true") < args.lastIndexOf("-Dminimize_values=false"));
     }
 
     @Test
@@ -198,8 +238,51 @@ public class EvoSuiteCommandTest {
         options.llmOnStagnation = true;
         // Only the trace folder, which keeps traces out of the project should the LLM be switched
         // on some other way.
-        assertFalse(arguments(options).stream().anyMatch(a -> (a.contains("llm") && !a.startsWith("-Dllm_trace_dir="))
+        assertFalse(arguments(options).stream().anyMatch(a -> (a.contains("llm") && !a.startsWith("-Dllm_trace_dir=")
+                                                        && !a.equals("-Dllm_provider=NONE"))
                 || a.contains("strategy")));
+    }
+
+    @Test
+    public void searchOnlyAlsoDisablesLlmOnlyStrategiesAndCoverageDoesNotSeedSearch() {
+        GenerationOptions options = new GenerationOptions();
+        options.llmApproach = GenerationOptions.APPROACH_SEARCH_ONLY;
+        options.extraArguments = "-Dstrategy=LLMSTRATEGY -generateLlmSuite";
+        var args = arguments(options);
+        assertFalse(args.contains("-generateLlmSuite"));
+        assertEquals(
+                "-Dstrategy=MOSUITE",
+                args.stream()
+                        .filter(a -> a.startsWith("-Dstrategy="))
+                        .reduce((a, b) -> b)
+                        .orElseThrow());
+        options.noRuntimeDependency = true;
+        options.randomSeed = "-17";
+        options.llmSourcePath = "/custom sources/Target.java";
+        var coverage =
+                new EvoSuiteCommand(
+                                "java",
+                                "engine",
+                                "Target",
+                                List.of(),
+                                new java.io.File("."),
+                                new java.io.File("tests"),
+                                new java.io.File("reports"),
+                                options)
+                        .seededBy(List.of("TargetTest"), new java.io.File("sources"))
+                        .measureCoverage()
+                        .toArguments(17);
+        assertTrue(coverage.contains("-measureCoverage"));
+        assertTrue(coverage.contains("-Djunit=TargetTest"));
+        assertTrue(coverage.contains("-Dno_runtime_dependency=true"));
+        assertTrue(coverage.contains("-Drandom_seed=-17"));
+        assertTrue(coverage.contains("-Dllm_source_path=/custom sources/Target.java"));
+        assertFalse(
+                coverage.stream()
+                        .anyMatch(
+                                a ->
+                                        a.startsWith("-Dselected_junit=")
+                                                || a.startsWith("-Dtest_factory=")));
     }
 
     @Test
@@ -214,7 +297,7 @@ public class EvoSuiteCommandTest {
         options.llmMaxCalls = 25;
         List<String> args = arguments(options);
         assertTrue(args.containsAll(List.of("-Dllm_provider=ANTHROPIC", "-Dllm_model=claude-sonnet-5-5",
-                "-Dllm_seeding_profile=STANDARD", "-Dllm_on_stagnation=true", "-Dllm_operator_enabled=true",
+                "-Dllm_seeding_profile=STANDARD", "-Dllm_on_stagnation=true", "-Dllm_operator_mode=SYNC",
                 "-Dllm_postprocessing_enabled=true", "-Dllm_max_calls=25")), args.toString());
         assertFalse(args.stream().anyMatch(a -> a.contains("llm_base_url") || a.contains("strategy")
                 || a.contains("api_key")), args.toString());
@@ -243,7 +326,10 @@ public class EvoSuiteCommandTest {
         assertFalse(options.usesLlm());
         assertEquals("NONE", options.effectiveLlmProvider());
         assertFalse(args.contains("-Dllm_provider=ANTHROPIC") || args.contains("-Dllm_on_stagnation=true"));
-        assertEquals("-Dllm_provider=NONE", args.get(args.size() - 1), "the last word on the provider");
+        assertEquals("-Dllm_provider=NONE", args.stream()
+                        .filter(a -> a.startsWith("-Dllm_provider="))
+                        .reduce((a, b) -> b)
+                        .orElseThrow(), "the last word on the provider");
         // The settings themselves are untouched, ready for when the LLM is switched back on.
         assertEquals("claude-sonnet-5-5", options.llmModel);
     }

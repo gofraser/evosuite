@@ -71,22 +71,54 @@ public final class TestClassSelection {
 
     /** The top-level test classes among the selected elements, without duplicates. */
     public static List<IType> collect(Iterable<?> selection) throws JavaModelException {
+        return collect(selection, false);
+    }
+
+    static List<IType> collect(Iterable<?> selection, boolean includeFolders) throws JavaModelException {
         Set<IType> tests = new LinkedHashSet<>();
         for (Object item : selection) {
             IJavaElement element = Adapters.adapt(item, IJavaElement.class);
             if (element == null || !element.exists()) {
                 continue;
             }
-            if (element instanceof ICompilationUnit unit) {
-                IType type = unit.findPrimaryType();
-                if (type != null && isTestClass(type)) {
-                    tests.add(type);
-                }
-            } else if (element instanceof IType type && isTestClass(type)) {
-                tests.add(type);
-            }
+            collect(element, includeFolders, tests);
         }
         return new ArrayList<>(tests);
+    }
+
+    private static void collect(IJavaElement element, boolean includeFolders, Set<IType> tests)
+            throws JavaModelException {
+        if (element instanceof ICompilationUnit unit) {
+            IType type = unit.findPrimaryType();
+            if (type != null && isTestClass(type) && (!includeFolders || looksLikeTest(type))) tests.add(type);
+        } else if (element instanceof IType type && isTestClass(type)) {
+            tests.add(type);
+        } else if (includeFolders && isTestFolder(element)) {
+            for (IJavaElement child : ((org.eclipse.jdt.core.IParent) element).getChildren()) {
+                collect(child, true, tests);
+            }
+        }
+    }
+
+    private static boolean looksLikeTest(IType type) throws JavaModelException {
+        for (var method : type.getMethods()) {
+            if (method.getElementName().startsWith("test")) return true;
+            for (var annotation : method.getAnnotations()) {
+                String name = annotation.getElementName();
+                name = name.substring(name.lastIndexOf('.') + 1);
+                if (List.of("Test", "ParameterizedTest", "RepeatedTest", "TestFactory", "TestTemplate").contains(name)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    static boolean isTestFolder(IJavaElement element) throws JavaModelException {
+        IPackageFragmentRoot root = element instanceof IPackageFragmentRoot selected ? selected
+                : element instanceof IPackageFragment pkg ? (IPackageFragmentRoot) pkg.getParent() : null;
+        return root != null && root.exists() && root.getKind() == IPackageFragmentRoot.K_SOURCE
+                && root.getRawClasspathEntry() != null && root.getRawClasspathEntry().isTest();
     }
 
     /** Whether {@code element}, a compilation unit or a type, is or contains a test class. */

@@ -37,7 +37,8 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Group;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Text;
-import org.evosuite.eclipse.launch.GenerationOptions;
+import org.evosuite.ide.GenerationOptions;
+import org.evosuite.ide.SettingKeys;
 
 /**
  * The editors of one settings page, shared by the workspace preference pages and the project
@@ -100,6 +101,7 @@ final class SettingsFields {
     private ChoiceFieldEditor approach;
     private Text modelName;
     private Text baseUrl;
+    private org.eclipse.swt.widgets.Button connectionCheck;
 
     private SettingsFields() {
     }
@@ -147,6 +149,7 @@ final class SettingsFields {
             field.editor.setEnabled(pageEnabled && field.applies.getAsBoolean(), field.parent);
         }
         if (provider != null) {
+            connectionCheck.setEnabled(pageEnabled && llmOn());
             modelName.setMessage(switch (provider.getValue()) {
                 case GenerationOptions.LLM_OPENAI -> "gpt-4o (EvoSuite default)";
                 case GenerationOptions.LLM_ANTHROPIC -> "e.g. claude-sonnet-5-5";
@@ -191,12 +194,22 @@ final class SettingsFields {
         add(new ChoiceFieldEditor(EvoSuitePreferences.ASSERTION_STRATEGY, "Assertions &kept:",
                 new String[][]{{"Those that detect faults (fewer)", "MUTATION"},
                         {"All observed values (more)", "ALL"}}, search), search, assertions::getBooleanValue);
-        add(new BooleanFieldEditor(EvoSuitePreferences.MINIMIZE, "&Minimize tests", search), search);
+        BooleanFieldEditor minimize = new BooleanFieldEditor(EvoSuitePreferences.MINIMIZE, "&Minimize tests", search);
+        add(minimize, search);
+        add(new BooleanFieldEditor(EvoSuitePreferences.MINIMIZE_VALUES, "Minimize values", search), search,
+                minimize::getBooleanValue);
+        add(validated(EvoSuitePreferences.RANDOM_SEED, "Random seed:", search, "Enter a signed 64-bit integer.",
+                value -> {
+                    if (!value.isBlank()) Long.parseLong(value.trim());
+                    return true;
+                }), search);
 
         Composite output = group(parent, "Generated tests");
         add(new ChoiceFieldEditor(EvoSuitePreferences.TEST_FORMAT, "Test &format:",
-                new String[][]{{"JUnit 5", GenerationOptions.JUNIT5}, {"JUnit 4", GenerationOptions.JUNIT4}},
+                new String[][]{{"Automatic", EvoSuitePreferences.AUTO_JUNIT}, {"JUnit 5", GenerationOptions.JUNIT5}, {"JUnit 4", GenerationOptions.JUNIT4}},
                 output), output);
+        add(new BooleanFieldEditor(EvoSuitePreferences.NO_RUNTIME,
+                "Generate without the EvoSuite runtime dependency", output), output);
         add(new StringFieldEditor(EvoSuitePreferences.TEST_FOLDER,
                 "Test &source folder (project-relative):", output), output);
         add(new StringFieldEditor(EvoSuitePreferences.TEST_SUFFIX, "Test class s&uffix:", output), output);
@@ -228,11 +241,20 @@ final class SettingsFields {
         StringFieldEditor baseUrlEditor = new StringFieldEditor(EvoSuitePreferences.LLM_BASE_URL, "Base &URL:", model);
         baseUrl = baseUrlEditor.getTextControl(model);
         add(baseUrlEditor, model, this::llmOn);
-        if (workspace) {
-            ApiKeyFieldEditor key = new ApiKeyFieldEditor("API &key:", model);
-            key.getTextControl(model).setMessage("Kept in secure storage");
-            add(key, model, this::llmNeedsKey);
-        }
+        ApiKeyFieldEditor openAi = workspace ? key(model, GenerationOptions.LLM_OPENAI, "OpenAI API key:") : null;
+        ApiKeyFieldEditor anthropic = workspace ? key(model, GenerationOptions.LLM_ANTHROPIC, "Anthropic API key:") : null;
+        connectionCheck = new org.eclipse.swt.widgets.Button(model, SWT.PUSH);
+        connectionCheck.setText("Test connection");
+        connectionCheck.setLayoutData(new GridData(SWT.LEFT, SWT.CENTER, false, false, COLUMNS, 1));
+        connectionCheck.addListener(SWT.Selection, event -> {
+            GenerationOptions draft = new GenerationOptions();
+            draft.llmProvider = provider.getValue();
+            draft.llmApproach = approach.getValue();
+            draft.llmModel = modelName.getText().trim();
+            draft.llmBaseUrl = baseUrl.getText().trim();
+            ApiKeyFieldEditor key = GenerationOptions.LLM_OPENAI.equals(draft.llmProvider) ? openAi : anthropic;
+            LlmConnectionCheck.show(connectionCheck.getShell(), draft, key == null ? "" : key.getStringValue().trim());
+        });
 
         Composite use = group(parent, "Test generation");
         approach = new ChoiceFieldEditor(EvoSuitePreferences.LLM_APPROACH, "Appro&ach:",
@@ -255,9 +277,51 @@ final class SettingsFields {
                 "Improve test names, comments and assertions &with the LLM", use), use, this::llmOn);
         add(new OptionalIntegerFieldEditor(EvoSuitePreferences.LLM_MAX_CALLS, "LLM ca&lls per class:", use,
                 1_000_000, "EvoSuite default (no limit)"), use, this::llmOn);
+        Composite requests = group(parent, "LLM requests");
+        add(new ChoiceFieldEditor(EvoSuitePreferences.LLM_CONTEXT, "Class context:",
+                new String[][]{{"Signatures", "SIGNATURE_ONLY"}, {"Source code", "SOURCE_CODE"},
+                        {"Decompiled source", "DECOMPILED_SOURCE"}, {"Disassembled bytecode", "BYTECODE_DISASSEMBLED"}},
+                requests), requests, this::llmOn);
+        addInteger(EvoSuitePreferences.LLM_TOKENS, "Token limit:", 1, requests);
+        addInteger(EvoSuitePreferences.LLM_TIMEOUT, "HTTP timeout (seconds):", 1, requests);
+        addInteger(EvoSuitePreferences.LLM_RETRIES, "Retry attempts:", 0, requests);
+        add(validated(EvoSuitePreferences.LLM_TEMPERATURE, "Temperature:", requests,
+                "Enter a number between 0 and 2.", value -> {
+                    double temperature = Double.parseDouble(value);
+                    return temperature >= 0 && temperature <= 2;
+                }), requests, this::llmOn);
         note(parent, workspace ? "More llm_* options can go into the additional arguments under Advanced."
                 : "More llm_* options can go into the additional arguments under Advanced. The API key "
                         + "is a workspace setting.");
+    }
+
+    private ApiKeyFieldEditor key(Composite model, String providerName, String label) {
+        ApiKeyFieldEditor key = new ApiKeyFieldEditor(providerName, label, model);
+        key.getTextControl(model).setMessage("Kept in secure storage");
+        add(key, model, () -> llmNeedsKey() && providerName.equals(provider.getValue()));
+        return key;
+    }
+
+    private void addInteger(String name, String label, int minimum, Composite parent) {
+        IntegerFieldEditor editor = new IntegerFieldEditor(name, label, parent);
+        editor.setValidRange(minimum, Integer.MAX_VALUE);
+        add(editor, parent, this::llmOn);
+    }
+
+    private static StringFieldEditor validated(String name, String label, Composite parent, String error,
+                                                java.util.function.Predicate<String> check) {
+        StringFieldEditor editor = new StringFieldEditor(name, label, parent) {
+            @Override
+            protected boolean doCheckState() {
+                try {
+                    return check.test(getStringValue());
+                } catch (NumberFormatException e) {
+                    return false;
+                }
+            }
+        };
+        editor.setErrorMessage(error);
+        return editor;
     }
 
     private void advanced(Composite parent) {
@@ -277,6 +341,7 @@ final class SettingsFields {
         Composite project = group(parent, "Project setup");
         add(new BooleanFieldEditor(EvoSuitePreferences.USE_POM_SETTINGS,
                 "Take settings from the EvoSuite Maven plugin in pom.&xml", project), project);
+        add(new BooleanFieldEditor(SettingKeys.DELEGATE_TO_MAVEN, "Run eligible whole-class requests through Maven", project), project);
         add(new BooleanFieldEditor(EvoSuitePreferences.CONFIGURE_BUILD_PATH,
                 "Add the test folder, JUnit and the EvoSuite runtime to the build &path", project), project);
     }

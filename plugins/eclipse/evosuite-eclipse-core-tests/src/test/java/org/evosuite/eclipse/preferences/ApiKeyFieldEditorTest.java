@@ -49,7 +49,7 @@ public class ApiKeyFieldEditorTest {
         final List<String> writes = new ArrayList<>();
 
         @Override
-        public String read() throws StorageException {
+        public String read(String provider) throws StorageException {
             if (unreadable) {
                 throw new StorageException(StorageException.NO_PASSWORD, "cancelled");
             }
@@ -57,7 +57,7 @@ public class ApiKeyFieldEditorTest {
         }
 
         @Override
-        public void write(String key) {
+        public void write(String provider, String key) {
             writes.add(key);
             this.key = key;
         }
@@ -94,7 +94,7 @@ public class ApiKeyFieldEditorTest {
     }
 
     private static Text key(PreferenceDialog dialog) {
-        return (Text) control(page(dialog), "API key");
+        return (Text) control(page(dialog), "OpenAI API key");
     }
 
     @Test

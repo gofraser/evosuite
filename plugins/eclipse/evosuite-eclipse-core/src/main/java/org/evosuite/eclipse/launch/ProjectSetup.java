@@ -18,6 +18,7 @@
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.eclipse.launch;
+import org.evosuite.ide.GenerationOptions;
 
 import java.io.File;
 import java.io.IOException;
@@ -222,6 +223,9 @@ public final class ProjectSetup {
 
     /** The folder that receives the generated tests; it need not exist yet. */
     public static IFolder testFolder(IProject project, GenerationOptions options) throws CoreException {
+        if (!options.testSuffix.matches("[A-Za-z_$][A-Za-z0-9_$]*")) {
+            throw new CoreException(Activator.error("The generated test suffix must be a Java identifier."));
+        }
         IPath path = IPath.fromPortableString(options.testFolder);
         List<String> segments = Arrays.asList(path.segments());
         if (path.isAbsolute() || path.getDevice() != null || path.isEmpty()
@@ -250,7 +254,7 @@ public final class ProjectSetup {
     }
 
     /** Creates {@code container} and its missing parents, if it is a folder. */
-    static void createFolders(IContainer container) throws CoreException {
+    public static void createFolders(IContainer container) throws CoreException {
         create(container, null);
     }
 
@@ -355,7 +359,7 @@ public final class ProjectSetup {
                                                    IProgressMonitor monitor) throws CoreException {
         List<IClasspathEntry> additions = new ArrayList<>();
         List<String> names = new ArrayList<>();
-        if (GenerationOptions.JUNIT4.equals(options.testFormat)) {
+        if (GenerationOptions.JUNIT4.equals(options.effectiveTestFormat())) {
             if (project.findType("org.junit.Test") == null) {
                 additions.add(JavaCore.newContainerEntry(JUnitCore.JUNIT4_CONTAINER_PATH, null, testAttribute(project), false));
                 names.add("JUnit 4");
@@ -364,7 +368,7 @@ public final class ProjectSetup {
             additions.add(JavaCore.newContainerEntry(JUnitCore.JUNIT5_CONTAINER_PATH, null, testAttribute(project), false));
             names.add("JUnit 5");
         }
-        if (project.findType("org.evosuite.runtime.EvoRunnerParameters") == null) {
+        if (!options.effectiveNoRuntimeDependency() && project.findType("org.evosuite.runtime.EvoRunnerParameters") == null) {
             additions.add(JavaCore.newContainerEntry(EvoSuiteClasspathContainer.PATH, null, testAttribute(project), false));
             names.add("EvoSuite Runtime");
         }

@@ -295,6 +295,7 @@ public final class ExecutionModeUtils {
         if (javaMajorVersion < 9) {
             return;
         }
+        addSecurityManagerOption(cmdLine, javaMajorVersion, System.getProperty("java.security.manager"));
         // Module access flags needed for Java 9+ to allow reflective access
         addOpen(cmdLine, "java.base/java.util=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/java.lang=ALL-UNNAMED");
@@ -465,6 +466,16 @@ public final class ExecutionModeUtils {
     private static void addExport(List<String> cmdLine, String value) {
         cmdLine.add("--add-exports");
         cmdLine.add(value);
+    }
+
+    /** The client installs the sandbox dynamically; parent JVM flags are not inherited. */
+    static void addSecurityManagerOption(List<String> cmdLine, int javaVersion, String parentValue) {
+        if (javaVersion >= 18 && javaVersion < 24) {
+            cmdLine.add("-Djava.security.manager=" + ("disallow".equals(parentValue) ? "disallow" : "allow"));
+        } else if (javaVersion >= 12 && javaVersion < 18 && "disallow".equals(parentValue)) {
+            cmdLine.add("-Djava.security.manager=disallow");
+        }
+        // Java 24+ rejects =allow during VM startup. Older JDKs need no opt-in.
     }
 
     /**

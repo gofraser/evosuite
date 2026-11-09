@@ -76,6 +76,111 @@ public class CoverageAnalysisTest {
         assertTrue(CoverageAnalysis.isTest(JUnit4ParameterizedTest.class));
     }
 
+    @Test
+    public void extensionCoverageSuppressesRedundantInstrumentationAndRestoresSettings() throws Exception {
+        checkCoverageRunnerScope(false);
+    }
+
+    @Test
+    public void extensionCoverageRestoresSettingsAfterRunnerFailure() throws Exception {
+        checkCoverageRunnerScope(true);
+    }
+
+    private static boolean deferredRunnerInitialized;
+
+    public static class DeferredRunnerTest {
+        static {
+            if (!org.evosuite.runtime.agent.AgentLoader.isSkipAttach()) {
+                throw new IllegalStateException("runner initialized outside coverage scope");
+            }
+            deferredRunnerInitialized = true;
+        }
+
+        @org.junit.Test
+        public void testExample() { }
+    }
+
+    @Test
+    public void extensionDefersStaticRunnerInitializationUntilCoverageScope() throws Exception {
+        String junit = Properties.JUNIT;
+        Field clientNodeField = ClientServices.class.getDeclaredField("clientNode");
+        clientNodeField.setAccessible(true);
+        Object node = clientNodeField.get(ClientServices.getInstance());
+        try {
+            Properties.JUNIT = DeferredRunnerTest.class.getName();
+            clientNodeField.set(ClientServices.getInstance(), new CapturingClientNode());
+            try (MockedConstruction<JUnitRunner> runners = mockConstruction(JUnitRunner.class, (runner, context) -> {
+                org.mockito.Mockito.doAnswer(invocation -> {
+                    Class<?> selected = (Class<?>) context.arguments().get(0);
+                    Class.forName(selected.getName(), true, selected.getClassLoader());
+                    return null;
+                }).when(runner).run();
+                when(runner.getTestResults()).thenReturn(Collections.emptyList());
+            })) {
+                org.evosuite.testsuite.TestSuiteMinimizer minimizer = new org.evosuite.testsuite.TestSuiteMinimizer(Collections.emptyList());
+                Method filter = minimizer.getClass().getDeclaredMethod("filterJUnitCoveredGoals", java.util.List.class);
+                filter.setAccessible(true);
+                filter.invoke(minimizer, new java.util.ArrayList<TestFitnessFunction>());
+                assertTrue(deferredRunnerInitialized);
+                assertEquals(1, runners.constructed().size());
+            }
+        } finally {
+            Properties.JUNIT = junit;
+            clientNodeField.set(ClientServices.getInstance(), node);
+        }
+    }
+
+    private void checkCoverageRunnerScope(boolean fail) throws Exception {
+        boolean agent4 = org.evosuite.runtime.EvoRunner.useAgent;
+        boolean loader4 = org.evosuite.runtime.EvoRunner.useClassLoader;
+        boolean agent5 = org.evosuite.runtime.EvoRunnerJUnit5.useAgent;
+        boolean loader5 = org.evosuite.runtime.EvoRunnerJUnit5.useClassLoader;
+        boolean skip = org.evosuite.runtime.agent.AgentLoader.isSkipAttach();
+        ClassLoader loader = Thread.currentThread().getContextClassLoader();
+        Field clientNodeField = ClientServices.class.getDeclaredField("clientNode");
+        clientNodeField.setAccessible(true);
+        Object node = clientNodeField.get(ClientServices.getInstance());
+        try {
+            org.evosuite.runtime.EvoRunner.useAgent = true;
+            org.evosuite.runtime.EvoRunner.useClassLoader = true;
+            org.evosuite.runtime.EvoRunnerJUnit5.useAgent = true;
+            org.evosuite.runtime.EvoRunnerJUnit5.useClassLoader = true;
+            org.evosuite.runtime.agent.AgentLoader.setSkipAttach(fail);
+            clientNodeField.set(ClientServices.getInstance(), new CapturingClientNode());
+            try (MockedConstruction<JUnitRunner> runners = mockConstruction(JUnitRunner.class, (runner, context) -> {
+                org.mockito.Mockito.doAnswer(invocation -> {
+                    assertFalse(org.evosuite.runtime.EvoRunner.useAgent);
+                    assertFalse(org.evosuite.runtime.EvoRunner.useClassLoader);
+                    assertFalse(org.evosuite.runtime.EvoRunnerJUnit5.useAgent);
+                    assertFalse(org.evosuite.runtime.EvoRunnerJUnit5.useClassLoader);
+                    assertTrue(org.evosuite.runtime.agent.AgentLoader.isSkipAttach());
+                    if (fail) throw new IllegalStateException("runner failed");
+                    return null;
+                }).when(runner).run();
+                when(runner.getTestResults()).thenReturn(Collections.emptyList());
+            })) {
+                if (fail) org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                        () -> CoverageAnalysis.getCoveredGoals(JUnit4Test.class, Collections.emptyList()));
+                else assertTrue(CoverageAnalysis.getCoveredGoals(JUnit4Test.class, Collections.emptyList()).isEmpty());
+                assertEquals(1, runners.constructed().size());
+            }
+            assertTrue(org.evosuite.runtime.EvoRunner.useAgent);
+            assertTrue(org.evosuite.runtime.EvoRunner.useClassLoader);
+            assertTrue(org.evosuite.runtime.EvoRunnerJUnit5.useAgent);
+            assertTrue(org.evosuite.runtime.EvoRunnerJUnit5.useClassLoader);
+            assertEquals(fail, org.evosuite.runtime.agent.AgentLoader.isSkipAttach());
+            org.junit.jupiter.api.Assertions.assertSame(loader, Thread.currentThread().getContextClassLoader());
+        } finally {
+            org.evosuite.runtime.EvoRunner.useAgent = agent4;
+            org.evosuite.runtime.EvoRunner.useClassLoader = loader4;
+            org.evosuite.runtime.EvoRunnerJUnit5.useAgent = agent5;
+            org.evosuite.runtime.EvoRunnerJUnit5.useClassLoader = loader5;
+            org.evosuite.runtime.agent.AgentLoader.setSkipAttach(skip);
+            Thread.currentThread().setContextClassLoader(loader);
+            clientNodeField.set(ClientServices.getInstance(), node);
+        }
+    }
+
     /**
      * Drives the extracted {@code runDirectCoverageSweep} with two criteria: the first completes
      * (and publishes complete=true, simulating the real analyzer), the second throws {@link

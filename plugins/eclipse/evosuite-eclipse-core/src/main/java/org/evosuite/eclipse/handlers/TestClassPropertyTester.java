@@ -40,13 +40,14 @@ public class TestClassPropertyTester extends PropertyTester {
     public boolean test(Object receiver, String property, Object[] args, Object expectedValue) {
         try {
             IJavaElement element = null;
-            if (TEST_CLASS.equals(property) && receiver instanceof IJavaElement selected) {
+            if ((TEST_CLASS.equals(property) || "coverageSelection".equals(property)) && receiver instanceof IJavaElement selected) {
                 element = selected;
             } else if (EDITS_TEST_CLASS.equals(property) && receiver instanceof IWorkbenchPart part) {
                 element = part instanceof IEditorPart editor && editor.getEditorInput() != null
                         ? JavaUI.getEditorInputJavaElement(editor.getEditorInput()) : null;
             }
-            return element != null && TestClassSelection.containsTestClass(element);
+            return element != null && (TestClassSelection.containsTestClass(element)
+                    || "coverageSelection".equals(property) && TestClassSelection.isTestFolder(element));
         } catch (JavaModelException e) {
             return false;
         }

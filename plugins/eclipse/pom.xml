@@ -8,7 +8,7 @@
 
   It packages engine jars that the reactor has already built, so build those first:
 
-    (repository root, JDK 17)  mvn -pl master,standalone_runtime -am package -DskipTests
+    (repository root, JDK 17)  mvn -pl master,standalone_runtime,plugins/ide-core -am package -DskipTests
     (this directory, JDK 21+)  ./mvnw verify
 
   Use the wrapper: Maven 3.10 rejects the dependency list Tycho injects for test bundles

@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
-package org.evosuite.eclipse.launch;
+package org.evosuite.ide;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -147,7 +147,7 @@ public final class SeedingReport {
         return "EvoSuite could not run " + which + ", so some new tests may repeat existing ones.";
     }
 
-    static String count(int n, String noun) {
+    public static String count(int n, String noun) {
         return n + " " + noun + (n == 1 ? "" : "s");
     }
 }

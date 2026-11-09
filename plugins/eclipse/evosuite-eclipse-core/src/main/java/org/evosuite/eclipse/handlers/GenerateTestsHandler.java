@@ -18,8 +18,8 @@
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.eclipse.handlers;
+import org.evosuite.ide.ExistingSuitesQuestion;
 
-import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -43,6 +43,7 @@ import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.jdt.core.IJavaProject;
+import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.IPackageFragment;
 import org.eclipse.jdt.core.IType;
 import org.eclipse.jdt.core.JavaModelException;
@@ -57,11 +58,16 @@ import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.handlers.HandlerUtil;
 import org.eclipse.ui.ide.IDE;
 import org.evosuite.eclipse.Activator;
-import org.evosuite.eclipse.launch.EvoSuiteCommand;
-import org.evosuite.eclipse.launch.GenerationOptions;
-import org.evosuite.eclipse.launch.GenerationTarget;
+import org.evosuite.ide.EvoSuiteCommand;
+import org.evosuite.ide.GenerationOptions;
+import org.evosuite.ide.GenerationTarget;
 import org.evosuite.eclipse.launch.ProjectSetup;
-import org.evosuite.eclipse.launch.SuiteAction;
+import org.evosuite.eclipse.launch.SuiteOwnership;
+import org.evosuite.eclipse.launch.RunHistory;
+import org.eclipse.core.resources.ResourcesPlugin;
+import org.eclipse.core.resources.IFolder;
+import org.eclipse.core.resources.IFile;
+import org.evosuite.ide.SuiteAction;
 import org.evosuite.eclipse.launch.TestGenerationJob;
 import org.evosuite.eclipse.preferences.EvoSuitePreferences;
 
@@ -165,6 +171,23 @@ public class GenerateTestsHandler extends AbstractHandler {
         return resolved.computeIfAbsent(project, p -> settings.apply(p.getProject()));
     }
 
+    public static void replay(Shell shell, RunHistory.Run run) throws CoreException {
+        IJavaProject project = JavaCore.create(ResourcesPlugin.getWorkspace().getRoot().getProject(run.project()));
+        List<GenerationTarget> targets = run.targets();
+        GenerationOptions options = run.options();
+        Map<IJavaProject, List<GenerationTarget>> requests = Map.of(project, targets);
+        if (!project.exists() || targets.isEmpty() || !saveEditors(ExtendTestsHandler.files(requests))) return;
+        if (run.coverageOnly()) {
+            new TestGenerationJob(project, targets, options, SuiteAction.COMPARE, true).schedule();
+        } else {
+            ExistingSuitesQuestion.Scope scope = targets.stream().anyMatch(GenerationTarget::extendsTests)
+                    ? ExistingSuitesQuestion.Scope.EXTENSION
+                    : targets.stream().anyMatch(target -> !target.methods().isEmpty())
+                            ? ExistingSuitesQuestion.Scope.METHODS : ExistingSuitesQuestion.Scope.CLASSES;
+            launch(shell, requests, new LinkedHashMap<>(Map.of(project, options)), scope);
+        }
+    }
+
     static void launch(Shell shell, Map<IJavaProject, List<GenerationTarget>> requests,
                        ExistingSuitesQuestion.Scope scope) {
         launch(shell, requests, new LinkedHashMap<>(), scope);
@@ -191,22 +214,27 @@ public class GenerateTestsHandler extends AbstractHandler {
         for (Map.Entry<IJavaProject, List<GenerationTarget>> entry : requests.entrySet()) {
             IJavaProject project = entry.getKey();
             GenerationOptions projectOptions = options(resolved, project);
-            File testDir;
+            IFolder testDir;
             try {
-                testDir = ProjectSetup.testFolder(project.getProject(), projectOptions).getLocation().toFile();
+                testDir = ProjectSetup.testFolder(project.getProject(), projectOptions);
             } catch (CoreException e) {
                 MessageDialog.openError(shell, "EvoSuite", e.getStatus().getMessage());
                 continue;
             }
             for (GenerationTarget target : entry.getValue()) {
-                File suite = EvoSuiteCommand.suiteFile(testDir, target.className(), projectOptions.testSuffix);
-                if (suite.isFile() && !EvoSuiteCommand.isEvoSuiteSuite(suite)) {
-                    skipped.add(EvoSuiteCommand.notAnEvoSuiteSuite(target.className(), suite));
+                IFile suite = SuiteOwnership.suite(testDir, target.className(), projectOptions.testSuffix);
+                try {
+                    if (suite.exists() && !SuiteOwnership.generated(suite)) {
+                        skipped.add(EvoSuiteCommand.notAnEvoSuiteSuite(target.className(), suite.getLocation().toFile()));
+                        continue;
+                    }
+                } catch (CoreException e) {
+                    skipped.add(e.getStatus().getMessage());
                     continue;
                 }
                 classCount++;
                 runs.computeIfAbsent(project, p -> new ArrayList<>()).add(target);
-                if (suite.isFile()) {
+                if (suite.exists()) {
                     withSuites.add(target.className().substring(target.className().lastIndexOf('.') + 1));
                 }
             }

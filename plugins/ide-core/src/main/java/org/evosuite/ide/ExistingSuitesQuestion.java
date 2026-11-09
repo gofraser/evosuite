@@ -17,32 +17,32 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
-package org.evosuite.eclipse.handlers;
+package org.evosuite.ide;
 
 import java.util.List;
 
-import org.evosuite.eclipse.launch.SuiteAction;
-
 /**
- * What to ask when some of the classes to generate tests for already have test suites: the
- * wording and the preselected answer of the dialog, apart from the dialog itself. One question
- * covers all classes of a request, however many there are.
+ * What to ask when some of the classes to generate tests for already have test suites: the wording
+ * and the preselected answer of the dialog, apart from the dialog itself. One question covers all
+ * classes of a request, however many there are.
  */
 public final class ExistingSuitesQuestion {
 
     /**
-     * What the new suites cover. Suites for part of a class would lose the tests of the rest
-     * when replacing the existing ones, so adding is preselected for them.
+     * What the new suites cover. Suites for part of a class would lose the tests of the rest when
+     * replacing the existing ones, so adding is preselected for them.
      */
     public enum Scope {
         /** Whole classes. */
         CLASSES(null),
         /** Selected methods of each class. */
-        METHODS("The new tests only exercise the selected methods, so replacing would also drop the tests of "
-                + "the rest of the class."),
+        METHODS(
+                "The new tests only exercise the selected methods, so replacing would also drop the"
+                        + " tests of the rest of the class."),
         /** What existing tests of each class leave uncovered. */
-        EXTENSION("The new tests only cover what the existing tests leave uncovered, so replacing would also "
-                + "drop the suite's other tests.");
+        EXTENSION(
+                "The new tests only cover what the existing tests leave uncovered, so replacing"
+                        + " would also drop the suite's other tests.");
 
         /** Why replacing is a bad idea, or {@code null} if it is not. */
         final String partialNote;
@@ -71,10 +71,10 @@ public final class ExistingSuitesQuestion {
     }
 
     /**
-     * @param withSuites  the simple names of the classes that have a suite, never empty
-     * @param classCount  how many classes the request covers in all
-     * @param testFolder  the folder the suites are in, or {@code null} if the projects differ
-     * @param scope       what the new suites cover
+     * @param withSuites the simple names of the classes that have a suite, never empty
+     * @param classCount how many classes the request covers in all
+     * @param testFolder the folder the suites are in, or {@code null} if the projects differ
+     * @param scope what the new suites cover
      */
     public static ExistingSuitesQuestion of(List<String> withSuites, int classCount, String testFolder,
                                             Scope scope) {
@@ -96,7 +96,7 @@ public final class ExistingSuitesQuestion {
         }
         message.append("\n\n");
         message.append("Replace: overwrite ").append(one ? "it" : "them").append(" with the new suite")
-                .append(one ? "" : "s").append(".\n");
+                .append(one ? "" : "s").append(", including any manual changes.\n");
         message.append("Add New Tests: keep ").append(one ? "its" : "their")
                 .append(" tests and add the new ones that differ from them.\n");
         message.append("Compare: show ").append(one ? "the existing suite and the new one" : "each existing suite "
@@ -111,8 +111,7 @@ public final class ExistingSuitesQuestion {
             message.append(classCount > withSuites.size() ? "; the other classes get new suites." : ".");
         }
         String title = one ? "Existing Test Suite" : "Existing Test Suites";
-        return new ExistingSuitesQuestion(title, message.toString(),
-                scope.partialNote != null ? SuiteAction.ADD : SuiteAction.REPLACE);
+        return new ExistingSuitesQuestion(title, message.toString(), SuiteAction.ADD);
     }
 
     /** The index of the preselected button. */

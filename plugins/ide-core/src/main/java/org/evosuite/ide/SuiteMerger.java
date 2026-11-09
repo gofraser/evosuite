@@ -17,30 +17,8 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
-package org.evosuite.eclipse.launch;
+package org.evosuite.ide;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.Charset;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-
-import org.eclipse.core.filebuffers.FileBuffers;
-import org.eclipse.core.filebuffers.ITextFileBuffer;
-import org.eclipse.core.filebuffers.LocationKind;
-import org.eclipse.core.resources.IFile;
-import org.eclipse.core.resources.IResource;
-import org.eclipse.core.runtime.CoreException;
-import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.core.dom.AST;
@@ -54,8 +32,8 @@ import org.eclipse.jdt.core.dom.CompilationUnit;
 import org.eclipse.jdt.core.dom.FieldAccess;
 import org.eclipse.jdt.core.dom.FieldDeclaration;
 import org.eclipse.jdt.core.dom.ImportDeclaration;
-import org.eclipse.jdt.core.dom.MethodDeclaration;
 import org.eclipse.jdt.core.dom.MemberValuePair;
+import org.eclipse.jdt.core.dom.MethodDeclaration;
 import org.eclipse.jdt.core.dom.MethodInvocation;
 import org.eclipse.jdt.core.dom.QualifiedName;
 import org.eclipse.jdt.core.dom.QualifiedType;
@@ -72,29 +50,40 @@ import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.Document;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.TextUtilities;
-import org.evosuite.eclipse.Activator;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Adds the tests of a newly generated suite to an existing suite of the same class.
  *
  * <p>Only suites that EvoSuite generated in the same way can be merged: both carry
- * {@code @EvoRunnerParameters}, use the same version of JUnit, and have the same runner
- * annotations and superclass, so that the new tests run under the settings they were generated
- * for. Within those, the merge
+ * {@code @EvoRunnerParameters}, use the same version of JUnit, and have the same runner annotations
+ * and superclass, so that the new tests run under the settings they were generated for. Within
+ * those, the merge
+ *
  * <ul>
- * <li>keeps the existing file as it is and appends the new tests at the end of the class;</li>
- * <li>skips new tests whose body equals that of an existing test, and the empty
- * {@code notGeneratedAnyTest} that EvoSuite writes when it found no tests, and removes that
- * placeholder from the existing suite when tests are added to it;</li>
- * <li>continues the numbering, padded as in the existing suite, when the numbers of numbered
- * tests ({@code test0}, ...) clash with existing ones, and appends {@code _1}, {@code _2}, ...
- * to other names that clash;</li>
- * <li>adds the imports the new tests need, unless an import of one suite would change what a
- * name means in the tests of the other, and other members of the new suite, such as fields,
- * that the existing one has no member of that name for;</li>
- * <li>adds the classes the new suite initialises and resets between tests, in a JUnit 4 suite's
- * {@code initializeClasses()} and {@code resetClasses()}, to those of the existing one, filling
- * in these methods where EvoSuite left them empty.</li>
+ *   <li>keeps the existing file as it is and appends the new tests at the end of the class;
+ *   <li>skips new tests whose body equals that of an existing test, and the empty {@code
+ *       notGeneratedAnyTest} that EvoSuite writes when it found no tests, and removes that
+ *       placeholder from the existing suite when tests are added to it;
+ *   <li>continues the numbering, padded as in the existing suite, when the numbers of numbered
+ *       tests ({@code test0}, ...) clash with existing ones, and appends {@code _1}, {@code _2},
+ *       ... to other names that clash;
+ *   <li>adds the imports the new tests need, unless an import of one suite would change what a name
+ *       means in the tests of the other, and other members of the new suite, such as fields, that
+ *       the existing one has no member of that name for;
+ *   <li>adds the classes the new suite initialises and resets between tests, in a JUnit 4 suite's
+ *       {@code initializeClasses()} and {@code resetClasses()}, to those of the existing one,
+ *       filling in these methods where EvoSuite left them empty.
  * </ul>
  */
 public final class SuiteMerger {
@@ -126,7 +115,7 @@ public final class SuiteMerger {
             this.duplicates = duplicates;
         }
 
-        static Result incompatible(String reason) {
+        public static Result incompatible(String reason) {
             return new Result(reason, null, List.of(), 0);
         }
 
@@ -136,44 +125,24 @@ public final class SuiteMerger {
     }
 
     /**
-     * Merges the generated suite into the workspace file {@code existing}, which keeps its
-     * previous contents in the local history.
-     *
-     * @return the outcome; the file is unchanged unless {@link Result#isMerged()} and tests
-     *         were added
-     */
-    public static Result mergeInto(IFile existing, String generatedSource, String suiteName,
-                                   IProgressMonitor monitor) throws CoreException {
-        existing.refreshLocal(IResource.DEPTH_ZERO, monitor);
-        ITextFileBuffer buffer = FileBuffers.getTextFileBufferManager()
-                .getTextFileBuffer(existing.getFullPath(), LocationKind.IFILE);
-        if (buffer != null && buffer.isDirty()) {
-            return Result.incompatible(existing.getName() + " has unsaved changes in an editor");
-        }
-        String charset = existing.getCharset();
-        String existingSource;
-        try (InputStream in = existing.getContents()) {
-            existingSource = new String(in.readAllBytes(), charset);
-        } catch (IOException e) {
-            throw new CoreException(Activator.error("Cannot read " + existing.getFullPath(), e));
-        }
-        Result result = merge(existingSource, generatedSource, suiteName);
-        if (result.isMerged() && !result.added.isEmpty()) {
-            existing.setContents(new ByteArrayInputStream(result.source.getBytes(Charset.forName(charset))),
-                    IResource.KEEP_HISTORY, monitor);
-        }
-        return result;
-    }
-
-    /**
-     * Merges {@code generatedSource} into {@code existingSource}, both suites of the class
-     * {@code suiteName} (a simple name).
+     * Merges {@code generatedSource} into {@code existingSource}, both suites of the class {@code
+     * suiteName} (a simple name).
      */
     public static Result merge(String existingSource, String generatedSource, String suiteName) {
+        return merge(existingSource, generatedSource, suiteName, false);
+    }
+
+    /** Only use trustedRuntimeFree for paths whose generation provenance the IDE recorded. */
+    public static Result merge(
+            String existingSource,
+            String generatedSource,
+            String suiteName,
+            boolean trustedRuntimeFree) {
         // The parser takes a byte order mark for a stray character; the file keeps its own.
         boolean bom = existingSource.startsWith(BYTE_ORDER_MARK);
         Result result = mergeSources(withoutByteOrderMark(existingSource), withoutByteOrderMark(generatedSource),
-                suiteName);
+                suiteName,
+                        trustedRuntimeFree);
         if (!bom || result.source == null) {
             return result;
         }
@@ -184,7 +153,8 @@ public final class SuiteMerger {
         return source.startsWith(BYTE_ORDER_MARK) ? source.substring(BYTE_ORDER_MARK.length()) : source;
     }
 
-    private static Result mergeSources(String existingSource, String generatedSource, String suiteName) {
+    private static Result mergeSources(String existingSource, String generatedSource, String suiteName,
+            boolean trustedRuntimeFree) {
         CompilationUnit existingUnit = parse(existingSource);
         CompilationUnit generatedUnit = parse(generatedSource);
         if (hasErrors(existingUnit)) {
@@ -202,7 +172,8 @@ public final class SuiteMerger {
             return Result.incompatible("the new suite declares no class " + suiteName);
         }
         String incompatibility = incompatibility(existingUnit, existingType, existingSource,
-                generatedUnit, generatedType, generatedSource);
+                generatedUnit, generatedType, generatedSource,
+                        trustedRuntimeFree);
         if (incompatibility != null) {
             return Result.incompatible(incompatibility);
         }
@@ -292,8 +263,9 @@ public final class SuiteMerger {
     /** Why the two suites cannot be merged, or {@code null}. */
     private static String incompatibility(CompilationUnit existingUnit, TypeDeclaration existingType,
                                           String existingSource, CompilationUnit generatedUnit,
-                                          TypeDeclaration generatedType, String generatedSource) {
-        if (!hasAnnotation(existingType, "EvoRunnerParameters")) {
+                                          TypeDeclaration generatedType, String generatedSource,
+            boolean trustedRuntimeFree) {
+        if (!trustedRuntimeFree && !hasAnnotation(existingType, "EvoRunnerParameters")) {
             return "it is not a suite generated by EvoSuite (it has no @EvoRunnerParameters)";
         }
         String existingFormat = testFormat(existingUnit);
@@ -373,9 +345,9 @@ public final class SuiteMerger {
     }
 
     /**
-     * Adds the new suite's imports that the existing one lacks, and the classes its
-     * {@code initializeClasses()} and {@code resetClasses()} name, to {@code document}, and
-     * removes the placeholder of an existing suite without tests.
+     * Adds the new suite's imports that the existing one lacks, and the classes its {@code
+     * initializeClasses()} and {@code resetClasses()} name, to {@code document}, and removes the
+     * placeholder of an existing suite without tests.
      *
      * @return why the imports cannot be combined, or {@code null}
      */
@@ -555,8 +527,8 @@ public final class SuiteMerger {
     }
 
     /**
-     * The source of {@code member} with its leading comments, indented as in the generated
-     * suite, under {@code newName} if given.
+     * The source of {@code member} with its leading comments, indented as in the generated suite,
+     * under {@code newName} if given.
      */
     private static String memberSource(CompilationUnit unit, String source, BodyDeclaration member, String newName,
                                        String delimiter) {
@@ -625,8 +597,8 @@ public final class SuiteMerger {
 
     /**
      * How many tests the class {@code suiteName} in {@code source} has, not counting the
-     * placeholder EvoSuite writes when it found none; -1 if the source does not parse or lacks
-     * the class.
+     * placeholder EvoSuite writes when it found none; -1 if the source does not parse or lacks the
+     * class.
      */
     public static int testCount(String source, String suiteName) {
         CompilationUnit unit = parse(withoutByteOrderMark(source));
@@ -635,6 +607,12 @@ public final class SuiteMerger {
             return -1;
         }
         return (int) Arrays.stream(type.getMethods()).filter(m -> isTest(m) && !isPlaceholder(m)).count();
+    }
+
+    /** A parsed top-level suite marker, rather than a word in a comment or string. */
+    public static boolean isValidSuite(String source, String suiteName) {
+        CompilationUnit unit = parse(withoutByteOrderMark(source));
+        return !hasErrors(unit) && findType(unit, suiteName) != null;
     }
 
     public static boolean isGeneratedSuite(String source, String suiteName) {
