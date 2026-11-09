@@ -118,6 +118,10 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
             return finished == 0;
         }
 
+        private boolean canClear() {
+            return !active() && targets.stream().allMatch(t -> t.comparisons.isEmpty());
+        }
+
         Run copy() {
             Run r = new Run();
             r.id = id;
@@ -332,6 +336,10 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
         return phase;
     }
 
+    public synchronized int coverage(String id, int index) {
+        return find(id).targets.get(index).coverage;
+    }
+
     public synchronized void progress(String id, int index, int search, int coverage) {
         Target t = find(id).targets.get(index);
         t.search = search;
@@ -425,6 +433,10 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
         changed();
     }
 
+    public synchronized boolean hasClearableRuns() {
+        return state.runs.stream().anyMatch(Run::canClear);
+    }
+
     public void cleanup(boolean allCompleted) {
         List<Run> removed = new ArrayList<>();
         synchronized (this) {
@@ -433,10 +445,7 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
             state.runs.removeIf(
                     r -> {
                         boolean remove =
-                                !r.active()
-                                        && (allCompleted || r.finished < cutoff)
-                                        && r.targets.stream()
-                                                .allMatch(t -> t.comparisons.isEmpty());
+                                r.canClear() && (allCompleted || r.finished < cutoff);
                         if (remove) removed.add(r);
                         return remove;
                     });

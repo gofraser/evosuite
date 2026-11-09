@@ -64,6 +64,7 @@ import org.evosuite.intellij.settings.LlmApiKeyStore;
 import org.evosuite.intellij.settings.SettingsResolver;
 import org.evosuite.intellij.setup.ProjectSetupService;
 import org.evosuite.intellij.ui.EvoSuiteConsole;
+import org.evosuite.intellij.ui.EvoSuiteToolWindowFactory;
 import org.evosuite.intellij.ui.SuiteComparison;
 import org.jetbrains.annotations.NotNull;
 
@@ -190,6 +191,7 @@ public final class GenerationService implements Disposable {
         private volatile boolean cancelled;
         private SuiteAction suiteAction = SuiteAction.ADD;
         private int total, done, written, unchanged, delegated, warnings, measured;
+        private String coverageSummary;
 
         GenerationJob(Project project, Mode mode, TargetCollector.Selection selection,
                       RunHistory.Target replay, RunHistory history, EvoSuiteConsole console, String id) {
@@ -420,9 +422,10 @@ public final class GenerationService implements Disposable {
                 }
                 indicator.setText("Building " + module.getName());
                 history.phase(id, "Building " + module.getName());
+                var modules = IdeThread.smartRead(project, () -> buildModules(module, plan.generationTargets()));
                 var build = IdeThread.await(IdeThread.edt(() -> {
                     checkCancelled();
-                    return ProjectTaskManager.getInstance(project).build(buildModules(module, plan.generationTargets()));
+                    return ProjectTaskManager.getInstance(project).build(modules);
                 }), indicator);
                 if (build.isAborted() || build.hasErrors()) {
                     warnings += plan.targets().size();
@@ -552,10 +555,15 @@ public final class GenerationService implements Disposable {
                     int exit = GenerationRun.measureCoverage(target, options, java, engine, cp, plan.base(),
                             staging, listener, environment, this::cancelled);
                     checkCancelled();
-                    if (exit == 0) measured++;
-                    else warnings++;
-                    outcome(planned, exit == 0 ? "Coverage measured" : "Coverage failed",
-                            "Open reports for coverage statistics", -1);
+                    if (exit == 0) {
+                        measured++;
+                        int coverage = history.coverage(id, planned.historyIndex());
+                        if (coverage >= 0) coverageSummary = coverage + "% coverage for " + target.className();
+                        outcome(planned, "Coverage measured", "", -1);
+                    } else {
+                        warnings++;
+                        outcome(planned, "Coverage failed", "Engine exit code " + exit + ". See the EvoSuite console.", -1);
+                    }
                     return;
                 }
                 GenerationRun.Result result = GenerationRun.generate(target, options, java, engine, cp, plan.base(),
@@ -656,8 +664,10 @@ public final class GenerationService implements Disposable {
             history.finish(id, warnings == 0 ? "Completed" : "Completed with warnings",
                     comparisons.isEmpty() ? "Finished" : "Review pending comparisons in Runs");
             List<String> parts = new ArrayList<>();
-            if (mode == Mode.COVERAGE) parts.add(measured + " targets measured");
-            else {
+            if (mode == Mode.COVERAGE) {
+                parts.add(measured == 1 && coverageSummary != null
+                        ? coverageSummary : measured + " targets measured");
+            } else {
                 parts.add(written + " suites written/updated");
                 if (unchanged != 0) parts.add(unchanged + " unchanged");
                 if (delegated != 0) parts.add(delegated + " generated through Maven");
@@ -685,7 +695,10 @@ public final class GenerationService implements Disposable {
                 notification.addAction(NotificationAction.createSimple("Review comparisons",
                         () -> SuiteComparison.show(project, review)));
             }
-            notification.addAction(NotificationAction.createSimple("Show console", console::show));
+            if (mode == Mode.COVERAGE)
+                notification.addAction(NotificationAction.createSimple("View coverage",
+                        () -> EvoSuiteToolWindowFactory.showRun(project, id)));
+            else notification.addAction(NotificationAction.createSimple("Show console", console::show));
             notification.addAction(NotificationAction.createSimple("EvoSuite settings", () -> {
                 if (EvoSuiteProjectSettings.getInstance(project).getState().useProjectSettings)
                     ShowSettingsUtil.getInstance().showSettingsDialog(project, EvoSuiteProjectConfigurable.class);

@@ -25,6 +25,17 @@ import com.intellij.ui.content.ContentFactory;
 import org.jetbrains.annotations.NotNull;
 
 public final class EvoSuiteToolWindowFactory implements ToolWindowFactory {
+    public static void showRun(Project project, String id) {
+        if (project.isDisposed()) return;
+        var window = ToolWindowManager.getInstance(project).getToolWindow("EvoSuite");
+        if (window == null) return;
+        window.show(() -> {
+            var content = window.getContentManager().getSelectedContent();
+            if (content != null && content.getComponent() instanceof EvoSuiteToolWindowPanel panel)
+                panel.showRun(id);
+        });
+    }
+
     @Override
     public void createToolWindowContent(@NotNull Project project, @NotNull ToolWindow window) {
         var panel = new EvoSuiteToolWindowPanel(project);

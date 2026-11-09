@@ -115,23 +115,26 @@ explicitly accepted by the plugin still support Add/Replace/Compare across sessi
 **Measure Existing Test Coverage with EvoSuite** accepts test classes or test source directories.
 It resolves the production class using the same chooser as extension, builds the project, and runs
 the compiled tests against the selected coverage criteria. It does not generate or replace tests,
-change project setup, or call an LLM. Coverage statistics are available through Runs > Reports.
+change project setup, or call an LLM. Coverage statistics are available through Runs > Open reports.
 
-The Runs tab offers **Open tests**, **Run tests** through IntelliJ's JUnit runner, **Compare**,
-**Reports**, and **Repeat saved run** for bundled-engine requests. Maven-delegated requests must
-be repeated through the Maven runner because their actual generation settings and seeds are not
-captured. Repetition restores the recorded engine settings and random
+**Run tests** runs the selected generated suite in IntelliJ's Run window. **Open reports**
+opens the selected target's reports folder when it contains saved files. **Copy summary** copies
+the text shown for the selected row. Find secondary actions, including **Copy summary** and
+**Clear completed runs…**, under **More…**. **Repeat saved run** is available for bundled-engine
+requests.
+Maven-delegated requests must be repeated through the Maven runner because their generation settings
+and seeds are not captured. Repetition restores the recorded engine settings and random
 seed while using current project sources and credentials; time limits, environment and LLMs can
 still affect results. A blank seed chooses a fresh explicit seed for each target and records it.
 Repeated submissions of the same active selection are ignored. Requests with more than five targets
 show module counts and per-class search/call budgets before setup. **Cancel selected** stops one
 queued or active run. Completed diagnostics expire after 30 days by default; the Runs retention
-control changes that period. **Clear completed** removes completed history/diagnostics after
-confirmation. After the request completes and you have copied wanted comparison changes, choose
-**Finish review…**. Its confirmation explains that it closes saved suggestions without copying or
-creating files; only changes you already applied are kept. It also recognizes accepted runtime-free
-source. Pending comparisons are retained until then; project test files are kept. Run tests is
-available after a target completes and its comparisons are closed.
+control changes that period. **Clear completed runs…** removes completed runs from this project's
+history and deletes their saved diagnostics after confirmation. Active runs, runs with pending
+comparisons, and generated test files are kept. After the request completes and you have copied
+the changes you want, choose **Finish review…** to close saved suggestions. It also recognizes
+accepted runtime-free source. **Run tests** is available after a target completes and its
+comparisons are closed.
 History and ownership live in the machine-local workspace state, not the shareable project profile.
 
 Bundled-engine launches check the selected JDK before offering dependency changes or starting a build.

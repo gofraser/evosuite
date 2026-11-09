@@ -19,6 +19,11 @@
  */
 package org.evosuite.intellij
 
+import com.intellij.execution.ExecutionListener
+import com.intellij.execution.ExecutionManager
+import com.intellij.execution.junit.JUnitConfiguration
+import com.intellij.execution.process.ProcessHandler
+import com.intellij.execution.runners.ExecutionEnvironment
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.externalSystem.importing.ImportSpecBuilder
@@ -42,6 +47,7 @@ import kotlinx.coroutines.runBlocking
 import org.evosuite.ide.*
 import org.evosuite.intellij.run.ClasspathResolver
 import org.evosuite.intellij.run.EngineJars
+import org.evosuite.intellij.run.GeneratedTestRunner
 import org.evosuite.intellij.run.IdeThread
 import org.evosuite.intellij.run.SuitePlacement
 import org.evosuite.intellij.settings.SettingsResolver
@@ -188,6 +194,32 @@ class ImportAcceptanceTest : JavaCodeInsightFixtureTestCase() {
         val reports = root.resolve("app/target/surefire-reports/TEST-demo.Vault_ESTest.xml")
         assertTrue("Generated runtime-free Maven tests must execute", Files.isRegularFile(reports))
         assertFalse(Files.readString(reports).contains("<failure"))
+
+        val exit = CompletableFuture<Int>()
+        project.messageBus.connect(testRootDisposable).subscribe(
+            ExecutionManager.EXECUTION_TOPIC,
+            object : ExecutionListener {
+                private fun isGeneratedSuite(env: ExecutionEnvironment) =
+                    (env.runProfile as? JUnitConfiguration)?.persistentData?.MAIN_CLASS_NAME == "demo.Vault_ESTest"
+
+                override fun processNotStarted(
+                    executorId: String, env: ExecutionEnvironment, error: Throwable?
+                ) {
+                    if (isGeneratedSuite(env))
+                        exit.completeExceptionally(error ?: AssertionError("JUnit launch did not start"))
+                }
+
+                override fun processTerminated(
+                    executorId: String, env: ExecutionEnvironment, handler: ProcessHandler, exitCode: Int
+                ) {
+                    if (isGeneratedSuite(env)) exit.complete(exitCode)
+                }
+            },
+        )
+        GeneratedTestRunner.run(
+            project, root.resolve("app").resolve(options.testFolder).resolve("demo/Vault_ESTest.java")
+        )
+        assertEquals(0, PlatformTestUtil.waitForFuture(exit, 90_000))
     }
 
     fun testMavenSetupCanBeCancelledOrLimitedToDependencies() {

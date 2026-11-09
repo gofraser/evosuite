@@ -136,44 +136,32 @@ public class RunHistoryTest extends LightJavaCodeInsightFixtureTestCase {
         }
     }
 
-    public void testRunsPanelKeepsActionsInsideNarrowViewport() {
+    public void testCoverageRowAndActionsRemainReachableInAShortToolWindow() {
         var history = RunHistory.getInstance(getProject());
         history.loadState(new RunHistory.State());
-        String id = history.start("CLASSES", "demo run");
-        var options = new GenerationOptions();
-        options.randomSeed = "1234";
-        int target =
-                history.target(
-                        id,
-                        "app",
-                        GenerationTarget.wholeClass("demo.Calculator"),
-                        options,
-                        Path.of("/tmp/Calculator_ESTest.java"));
-        history.progress(id, target, 100, 85);
-        history.outcome(id, target, "Written / updated", "Generated suite is ready", 4);
+        String id = history.start("COVERAGE", "demo run");
+        int target = history.target(id, "app", GenerationTarget.wholeClass("demo.Calculator"),
+                new GenerationOptions(), Path.of("/tmp/Calculator_ESTest.java"));
+        history.line(id, target, "* Total coverage: 85.2%");
+        history.outcome(id, target, "Coverage measured", "", -1);
         history.finish(id, "Completed", "Finished");
         var panel = new RunResultsPanel(getProject());
         try {
-            panel.setSize(400, 600);
+            panel.setSize(360, 130);
             layout(panel);
-            checkButtons(panel, 400);
-            var image =
-                    new java.awt.image.BufferedImage(
-                            400, 600, java.awt.image.BufferedImage.TYPE_INT_RGB);
-            var graphics = image.createGraphics();
-            try {
-                panel.printAll(graphics);
-            } finally {
-                graphics.dispose();
-            }
-            try {
-                javax.imageio.ImageIO.write(
-                        image,
-                        "png",
-                        Path.of(System.getProperty("java.io.tmpdir"), "evosuite-runs.png")
-                                .toFile());
-            } catch (java.io.IOException ex) {
-                throw new RuntimeException(ex);
+            var table = findTable(panel);
+            assertEquals(85, table.getValueAt(0, 2));
+            assertTrue("The first result row must be visible, viewport: " + table.getVisibleRect()
+                            + ", row height: " + table.getRowHeight(),
+                    table.getVisibleRect().height >= table.getRowHeight());
+            assertEquals("Coverage: 85% — demo.Calculator",
+                    ((javax.swing.JLabel) panel.getComponent(0)).getText());
+            for (String name : List.of("Run tests", "Open reports", "More…")) {
+                var button = findButton(panel, name);
+                var point = javax.swing.SwingUtilities.convertPoint(
+                        button, button.getWidth() / 2, button.getHeight() / 2, panel);
+                assertSame(name, button,
+                        javax.swing.SwingUtilities.getDeepestComponentAt(panel, point.x, point.y));
             }
         } finally {
             com.intellij.openapi.util.Disposer.dispose(panel);
@@ -365,9 +353,54 @@ public class RunHistoryTest extends LightJavaCodeInsightFixtureTestCase {
         try {
             assertEquals(-1L, findTable(panel).getModel().getValueAt(0, 4));
             assertFalse(findButton(panel, "Run tests").isEnabled());
+            assertFalse(findButton(panel, "Clear completed runs…").isEnabled());
         } finally {
             com.intellij.openapi.util.Disposer.dispose(panel);
             history.finish(id, "Cancelled", "test finished");
+        }
+    }
+
+    public void testRunsOnlyOfferReportsWithFilesAndCopyTheSelectedSummary() throws Exception {
+        var history = RunHistory.getInstance(getProject());
+        history.loadState(new RunHistory.State());
+        Path staging = Files.createTempDirectory("evosuite-report-actions-");
+        try {
+            Path reports = Files.createDirectories(staging.resolve("reports/llm-traces"));
+            String id = history.start("CLASSES", "run");
+            var options = new GenerationOptions();
+            int index = history.target(id, "app", GenerationTarget.wholeClass("SelectedTarget"),
+                    options, staging.resolve("SelectedTarget_ESTest.java"));
+            history.target(id, "app", GenerationTarget.wholeClass("OtherTarget"),
+                    options, staging.resolve("OtherTarget_ESTest.java"));
+            history.beginTarget(id, index, staging);
+            history.outcome(id, index, "Written / updated", "Generated suite", 2);
+            history.finish(id, "Completed", "Finished");
+            var panel = new RunResultsPanel(getProject());
+            try {
+                assertFalse(findButton(panel, "Open reports").isEnabled());
+                assertTrue(findButton(panel, "Clear completed runs…").isEnabled());
+                Files.writeString(reports.resolve("trace.txt"), "Saved report");
+                panel.refresh();
+                assertTrue(findButton(panel, "Open reports").isEnabled());
+
+                var clipboard = com.intellij.openapi.ide.CopyPasteManager.getInstance();
+                var oldContents = clipboard.getContents();
+                try {
+                    findButton(panel, "Copy summary").doClick();
+                    String copied = clipboard.getContents(java.awt.datatransfer.DataFlavor.stringFlavor);
+                    assertNotNull(copied);
+                    assertTrue(copied.contains("SelectedTarget"));
+                    assertTrue(copied.contains("Generated suite"));
+                    assertFalse(copied.contains("OtherTarget"));
+                    assertFalse(copied.contains("<run"));
+                } finally {
+                    if (oldContents != null) clipboard.setContents(oldContents);
+                }
+            } finally {
+                com.intellij.openapi.util.Disposer.dispose(panel);
+            }
+        } finally {
+            GenerationRun.deleteTree(staging);
         }
     }
 
@@ -470,8 +503,12 @@ public class RunHistoryTest extends LightJavaCodeInsightFixtureTestCase {
         return null;
     }
 
-    private static javax.swing.JButton findButton(java.awt.Component c, String text) {
-        if (c instanceof javax.swing.JButton button && button.getText().equals(text)) return button;
+    private static javax.swing.AbstractButton findButton(java.awt.Component c, String text) {
+        if (c instanceof javax.swing.AbstractButton button && button.getText().equals(text)) return button;
+        if (c instanceof javax.swing.JComponent component && component.getComponentPopupMenu() != null) {
+            var button = findButton(component.getComponentPopupMenu(), text);
+            if (button != null) return button;
+        }
         if (c instanceof java.awt.Container parent)
             for (var child : parent.getComponents()) {
                 var button = findButton(child, text);
@@ -486,11 +523,4 @@ public class RunHistoryTest extends LightJavaCodeInsightFixtureTestCase {
             if (child instanceof java.awt.Container parent) layout(parent);
     }
 
-    private static void checkButtons(java.awt.Container c, int width) {
-        for (var child : c.getComponents()) {
-            if (child instanceof javax.swing.JButton button && button.isVisible())
-                assertTrue(button.getText(), button.getX() + button.getWidth() <= c.getWidth());
-            if (child instanceof java.awt.Container parent) checkButtons(parent, width);
-        }
-    }
 }

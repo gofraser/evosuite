@@ -38,6 +38,9 @@ import javax.swing.*;
 
 public final class EvoSuiteToolWindowPanel extends JPanel
         implements com.intellij.openapi.Disposable {
+    private final JTabbedPane sections = new JTabbedPane();
+    private final RunResultsPanel results;
+
     public EvoSuiteToolWindowPanel(Project project) {
         super(new BorderLayout());
         EvoSuiteConsole output = EvoSuiteConsole.getInstance(project);
@@ -135,9 +138,8 @@ public final class EvoSuiteToolWindowPanel extends JPanel
         welcome.add(welcomeScroll);
         body.add(welcome, "welcome");
         body.add(console.getComponent(), "console");
-        JTabbedPane sections = new JTabbedPane();
         sections.addTab("Console", body);
-        var results = new RunResultsPanel(project);
+        results = new RunResultsPanel(project);
         com.intellij.openapi.util.Disposer.register(this, results);
         sections.addTab("Runs", results);
         add(sections, BorderLayout.CENTER);
@@ -156,6 +158,11 @@ public final class EvoSuiteToolWindowPanel extends JPanel
                 });
         cards.show(body, output.hasOutput() ? "console" : "welcome");
         output.onOutput(() -> cards.show(body, "console"));
+    }
+
+    void showRun(String id) {
+        sections.setSelectedComponent(results);
+        results.selectRun(id);
     }
 
     @Override

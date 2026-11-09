@@ -19,17 +19,77 @@
  */
 package org.evosuite.intellij.run;
 
+import com.intellij.execution.ProgramRunnerUtil;
 import com.intellij.execution.RunManager;
 import com.intellij.execution.RunnerAndConfigurationSettings;
+import com.intellij.execution.executors.DefaultRunExecutor;
 import com.intellij.execution.junit.JUnitConfiguration;
 import com.intellij.execution.junit.JUnitConfigurationType;
+import com.intellij.execution.runners.ExecutionEnvironmentBuilder;
+import com.intellij.openapi.progress.ProgressIndicator;
+import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.roots.ProjectFileIndex;
+import com.intellij.openapi.ui.Messages;
+import com.intellij.openapi.vfs.LocalFileSystem;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiClass;
+import com.intellij.psi.PsiJavaFile;
+import com.intellij.psi.PsiManager;
+
+import java.nio.file.Path;
 
 public final class GeneratedTestRunner {
     private GeneratedTestRunner() {}
 
-    public static PsiClass suiteClass(com.intellij.psi.PsiJavaFile file) {
+    public static void run(Project project, Path output) {
+        new Task.Backgroundable(project, "Preparing EvoSuite Tests", true) {
+            private RunnerAndConfigurationSettings settings;
+            private String error;
+
+            @Override
+            public void run(ProgressIndicator indicator) {
+                var file = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(output);
+                try {
+                    settings = IdeThread.smartRead(project, () -> configurationForFile(project, file));
+                } catch (IllegalArgumentException ex) {
+                    error = ex.getMessage();
+                }
+            }
+
+            @Override
+            public void onSuccess() {
+                if (project.isDisposed()) return;
+                if (error != null) {
+                    Messages.showErrorDialog(project, error, "EvoSuite: Run Tests");
+                    return;
+                }
+                var executor = DefaultRunExecutor.getRunExecutorInstance();
+                var builder = ExecutionEnvironmentBuilder.createOrNull(executor, settings);
+                if (builder == null) {
+                    Messages.showErrorDialog(project, "IntelliJ’s JUnit runner is unavailable.", "EvoSuite: Run Tests");
+                    return;
+                }
+                RunManager.getInstance(project).setTemporaryConfiguration(settings);
+                ProgramRunnerUtil.executeConfiguration(builder.activeTarget().build(), true, true);
+            }
+        }.queue();
+    }
+
+    private static RunnerAndConfigurationSettings configurationForFile(Project project, VirtualFile file) {
+        if (file == null || !(PsiManager.getInstance(project).findFile(file) instanceof PsiJavaFile java))
+            throw new IllegalArgumentException("The generated Java test file is missing or cannot be read.");
+        var suite = suiteClass(java);
+        if (suite == null)
+            throw new IllegalArgumentException("No test class matches the generated file’s name.");
+        if (!ProjectFileIndex.getInstance(project).isInTestSourceContent(file))
+            throw new IllegalArgumentException(
+                    "IntelliJ does not recognize this folder as test sources. Check Settings / readiness "
+                            + "or reimport your Maven or Gradle project.");
+        return configuration(project, suite);
+    }
+
+    public static PsiClass suiteClass(PsiJavaFile file) {
         String name = file.getName().replaceFirst("\\.java$", "");
         return java.util.Arrays.stream(file.getClasses())
                 .filter(type -> name.equals(type.getName()))
@@ -45,6 +105,8 @@ public final class GeneratedTestRunner {
                                 JUnitConfigurationType.getInstance()
                                         .getConfigurationFactories()[0]);
         ((JUnitConfiguration) settings.getConfiguration()).beClassConfiguration(type);
+        settings.setActivateToolWindowBeforeRun(true);
+        settings.setFocusToolWindowBeforeRun(true);
         return settings;
     }
 }
