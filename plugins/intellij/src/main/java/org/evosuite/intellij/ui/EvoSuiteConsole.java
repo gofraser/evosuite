@@ -25,6 +25,7 @@ import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.Service;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.Disposer;
 import com.intellij.openapi.wm.ToolWindowManager;
 
 @Service(Service.Level.PROJECT)
@@ -37,6 +38,7 @@ public final class EvoSuiteConsole implements Disposable {
     public EvoSuiteConsole(Project project) {
         this.project = project;
         view = TextConsoleBuilderFactory.getInstance().createBuilder(project).getConsole();
+        Disposer.register(this, view);
     }
 
     public static EvoSuiteConsole getInstance(Project project) {
@@ -138,6 +140,5 @@ public final class EvoSuiteConsole implements Disposable {
     @Override
     public void dispose() {
         outputListener = null;
-        view.dispose();
     }
 }

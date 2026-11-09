@@ -22,11 +22,16 @@ package org.evosuite.intellij.ui;
 import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.actionSystem.impl.SimpleDataContext;
 import com.intellij.openapi.actionSystem.ex.ActionUtil;
+import com.intellij.openapi.application.ModalityState;
+import com.intellij.openapi.application.ReadAction;
+import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.DumbAwareAction;
+import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.psi.PsiDocumentManager;
+import com.intellij.util.concurrency.AppExecutorUtil;
 import org.jetbrains.annotations.NotNull;
 
 /** Tool-window focus must not replace the Java editor's generation target. */
@@ -46,14 +51,11 @@ public final class OpenFileGenerationAction extends DumbAwareAction {
 
     @Override
     public @NotNull ActionUpdateThread getActionUpdateThread() {
-        return ActionUpdateThread.EDT;
+        return delegate.getActionUpdateThread();
     }
 
-    private AnActionEvent editorEvent(AnActionEvent event) {
-        Project project = event.getProject();
-        if (project == null) return null;
-        var editor = FileEditorManager.getInstance(project).getSelectedTextEditor();
-        if (editor == null) return null;
+    private AnActionEvent editorEvent(AnActionEvent event, Project project, Editor editor) {
+        if (editor == null || editor.isDisposed()) return null;
         var file = PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument());
         if (file == null) return null;
         var context = SimpleDataContext.builder()
@@ -67,29 +69,51 @@ public final class OpenFileGenerationAction extends DumbAwareAction {
 
     @Override
     public void update(@NotNull AnActionEvent event) {
-        var target = editorEvent(event);
-        if (target != null) ActionUtil.updateAction(delegate, target);
-        event.getPresentation().setEnabled(target != null && target.getPresentation().isEnabled());
+        Project project = event.getProject();
+        boolean enabled = false;
+        if (project != null && !project.isDisposed()) {
+            Editor editor = event.getUpdateSession().compute(this, "selectedEditor", ActionUpdateThread.EDT,
+                    () -> FileEditorManager.getInstance(project).getSelectedTextEditor());
+            enabled = updateTarget(editorEvent(event, project, editor));
+        }
+        event.getPresentation().setEnabled(enabled);
         event.getPresentation().setVisible(true);
     }
 
     @Override
     public void actionPerformed(@NotNull AnActionEvent event) {
-        var target = editorEvent(event);
-        if (target != null) {
-            if (ActionUtil.updateAction(delegate, target).isPerformed()
-                    && target.getPresentation().isEnabledAndVisible()) {
-                ActionUtil.performAction(delegate, target);
-                return;
-            }
-        }
-        if (event.getProject() != null && com.intellij.openapi.project.DumbService.isDumb(event.getProject())) {
-            Messages.showInfoMessage(event.getProject(), "Wait for project indexing to finish before generating tests.", "EvoSuite");
+        Project project = event.getProject();
+        if (project == null || project.isDisposed()) return;
+        Editor editor = FileEditorManager.getInstance(project).getSelectedTextEditor();
+        if (editor != null && getActionUpdateThread() == ActionUpdateThread.BGT) {
+            ReadAction.nonBlocking(() -> {
+                var target = editorEvent(event, project, editor);
+                return updateTarget(target) ? target : null;
+            }).expireWith(project)
+                    .expireWhen(editor::isDisposed)
+                    .finishOnUiThread(ModalityState.current(), target -> perform(project, target))
+                    .submit(AppExecutorUtil.getAppExecutorService());
             return;
         }
-        Messages.showInfoMessage(event.getProject(),
-                "Open a Java production file to generate tests, place the caret in a method for method tests,"
-                        + " or open a test file to extend tests. You can also right-click classes,"
-                        + " packages or modules in the Project view.", "EvoSuite: Select a Java Target");
+        var target = editorEvent(event, project, editor);
+        perform(project, updateTarget(target) ? target : null);
+    }
+
+    private boolean updateTarget(AnActionEvent target) {
+        return target != null && ActionUtil.updateAction(delegate, target).isPerformed()
+                && target.getPresentation().isEnabledAndVisible();
+    }
+
+    private void perform(Project project, AnActionEvent target) {
+        if (DumbService.isDumb(project)) {
+            Messages.showInfoMessage(project, "Wait for project indexing to finish before generating tests.", "EvoSuite");
+        } else if (target != null) {
+            ActionUtil.performAction(delegate, target);
+        } else {
+            Messages.showInfoMessage(project,
+                    "Open a Java production file to generate tests, place the caret in a method for method tests,"
+                            + " or open a test file to extend tests. You can also right-click classes,"
+                            + " packages or modules in the Project view.", "EvoSuite: Select a Java Target");
+        }
     }
 }

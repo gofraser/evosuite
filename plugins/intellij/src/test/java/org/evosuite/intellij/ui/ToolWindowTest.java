@@ -21,14 +21,18 @@ package org.evosuite.intellij.ui;
 
 import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.actionSystem.impl.SimpleDataContext;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.project.DumbAwareAction;
+import com.intellij.testFramework.PlatformTestUtil;
 import com.intellij.testFramework.fixtures.JavaCodeInsightFixtureTestCase;
 import com.intellij.util.ui.UIUtil;
 
 import org.evosuite.intellij.actions.TargetCollector;
 import org.jetbrains.annotations.NotNull;
+
+import java.util.concurrent.CompletableFuture;
 
 public class ToolWindowTest extends JavaCodeInsightFixtureTestCase {
     public void testGenerationActionsHaveDistinctRenderableBadges() throws Exception {
@@ -190,6 +194,31 @@ public class ToolWindowTest extends JavaCodeInsightFixtureTestCase {
         action.update(event);
         assertFalse(event.getPresentation().isEnabled());
         assertTrue("Unavailable toolbar actions stay visible", event.getPresentation().isVisible());
+    }
+
+    public void testToolbarClickChecksEligibilityOffTheEventDispatchThread() throws Exception {
+        var file = myFixture.addFileToProject("demo/Vault.java", "package demo; public class Vault {}");
+        var editor = FileEditorManager.getInstance(getProject())
+                .openTextEditor(new OpenFileDescriptor(getProject(), file.getVirtualFile()), false);
+        assertNotNull(editor);
+        var checkedInBackground = new CompletableFuture<Boolean>();
+        var performedOnEdt = new CompletableFuture<Boolean>();
+        var action = new OpenFileGenerationAction(new DumbAwareAction() {
+            @Override public @NotNull ActionUpdateThread getActionUpdateThread() { return ActionUpdateThread.BGT; }
+            @Override public void update(@NotNull AnActionEvent event) {
+                checkedInBackground.complete(!ApplicationManager.getApplication().isDispatchThread());
+                event.getPresentation().setEnabled(event.getData(CommonDataKeys.EDITOR) == editor);
+            }
+            @Override public void actionPerformed(@NotNull AnActionEvent event) {
+                performedOnEdt.complete(ApplicationManager.getApplication().isDispatchThread());
+            }
+        }, "Generate Tests");
+        assertEquals(ActionUpdateThread.BGT, action.getActionUpdateThread());
+        var event = AnActionEvent.createEvent(SimpleDataContext.getProjectContext(getProject()),
+                action.getTemplatePresentation().clone(), "EvoSuiteToolWindow", ActionUiKind.TOOLBAR, null);
+        action.actionPerformed(event);
+        assertTrue(PlatformTestUtil.waitForFuture(checkedInBackground, 5000));
+        assertTrue(PlatformTestUtil.waitForFuture(performedOnEdt, 5000));
     }
 
     private static void capture(javax.swing.JPanel panel, String name) throws Exception {
