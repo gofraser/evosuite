@@ -19,6 +19,8 @@
  */
 package org.evosuite.eclipse.launch;
 
+import org.eclipse.core.filebuffers.FileBuffers;
+import org.eclipse.core.filebuffers.LocationKind;
 import org.eclipse.core.resources.*;
 import org.eclipse.core.runtime.*;
 import org.eclipse.core.runtime.jobs.Job;
@@ -109,11 +111,11 @@ public final class RunHistory {
                             ResourcesPlugin.getWorkspace()
                                     .getRoot()
                                     .getFile(IPath.fromPortableString(get("comparison." + i)));
-                    pairs.add(
-                            new SuiteComparison.Pair(
-                                    file,
-                                    Files.readString(
-                                            directory(this).resolve("comparison-" + i + ".java"))));
+                    Path base = directory(this);
+                    Path obsolete = base.resolve("comparison-" + i + ".obsolete");
+                    pairs.add(new SuiteComparison.Pair(file,
+                            Files.readString(base.resolve("comparison-" + i + ".java")),
+                            Files.isRegularFile(obsolete) ? Files.readString(obsolete) : null));
                 } catch (IOException e) {
                     Activator.logError("Cannot reopen comparison", e);
                 }
@@ -251,7 +253,7 @@ public final class RunHistory {
 
     private static String safeArguments(String value) {
         return EvoSuiteCommand.splitArguments(value).stream()
-                .filter(a -> !a.startsWith("-Dllm_api_key="))
+                .filter(a -> !EvoSuiteCommand.credentialArgument(a))
                 .map(a -> "\"" + a.replace("\\", "\\\\").replace("\"", "\\\"") + "\"")
                 .collect(java.util.stream.Collectors.joining(" "));
     }
@@ -294,6 +296,9 @@ public final class RunHistory {
                 Files.writeString(
                         directory(entry).resolve("comparison-" + i + ".java"),
                         pairs.get(i).generatedSource());
+                if (pairs.get(i).obsoleteSource() != null) {
+                    Files.writeString(directory(entry).resolve("comparison-" + i + ".obsolete"), pairs.get(i).obsoleteSource());
+                }
             }
             save(entry);
         } catch (IOException e) {
@@ -301,15 +306,17 @@ public final class RunHistory {
         }
     }
 
-    public static synchronized void reviewed(Entry entry) {
-        for (SuiteComparison.Pair pair : entry.comparisons()) {
+    public static void reviewed(Entry entry) {
+        List<SuiteComparison.Pair> pending = entry.comparisons();
+        java.util.Set<IFile> acceptedRuntimeFree = new java.util.HashSet<>();
+        for (SuiteComparison.Pair pair : pending) {
             try {
                 if (pair.existing().exists()) {
                     var buffer =
-                            org.eclipse.core.filebuffers.FileBuffers.getTextFileBufferManager()
+                            FileBuffers.getTextFileBufferManager()
                                     .getTextFileBuffer(
                                             pair.existing().getFullPath(),
-                                            org.eclipse.core.filebuffers.LocationKind.IFILE);
+                                            LocationKind.IFILE);
                     String source;
                     if (buffer != null) source = buffer.getDocument().get();
                     else
@@ -318,19 +325,44 @@ public final class RunHistory {
                         }
                     String marker = GeneratedSuiteRegistry.marker(source);
                     if (!marker.isEmpty()
-                            && marker.equals(GeneratedSuiteRegistry.marker(pair.generatedSource())))
-                        GeneratedSuiteRegistry.record(
-                                pair.existing().getLocation().toFile(), source);
+                            && marker.equals(GeneratedSuiteRegistry.marker(pair.generatedSource()))) {
+                        GeneratedSuiteRegistry.record(pair.existing().getLocation().toFile(), source);
+                        if ((buffer == null || !buffer.isDirty()) && source.equals(pair.generatedSource())) {
+                            acceptedRuntimeFree.add(pair.existing());
+                        }
+                    }
                 }
             } catch (IOException | CoreException e) {
                 Activator.logError("Cannot recognize accepted suite", e);
             }
         }
-        entry.values.stringPropertyNames().stream()
-                .filter(k -> k.startsWith("comparison."))
-                .toList()
-                .forEach(entry.values::remove);
-        save(entry);
+        for (SuiteComparison.Pair pair : pending) {
+            if (pair.obsoleteSource() == null) continue;
+            IFile helper = pair.existing();
+            IFile suite = helper.getParent().getFile(IPath.fromPortableString(
+                    helper.getName().replaceFirst("_scaffolding\\.java$", ".java")));
+            if (!acceptedRuntimeFree.contains(suite)) continue;
+            try {
+                ResourcesPlugin.getWorkspace().run(monitor -> {
+                    helper.refreshLocal(IResource.DEPTH_ZERO, monitor);
+                    var buffer = FileBuffers.getTextFileBufferManager().getTextFileBuffer(
+                            helper.getFullPath(), LocationKind.IFILE);
+                    if (helper.exists() && TestGenerationJob.overwriteProblem(helper, buffer) == null
+                            && pair.obsoleteSource().equals(TestGenerationJob.contents(helper))) {
+                        helper.delete(IResource.KEEP_HISTORY, monitor);
+                    }
+                }, helper.getProject(), IWorkspace.AVOID_UPDATE, null);
+            } catch (CoreException e) {
+                Activator.logError("Cannot remove obsolete scaffolding", e);
+            }
+        }
+        synchronized (RunHistory.class) {
+            entry.values.stringPropertyNames().stream()
+                    .filter(k -> k.startsWith("comparison."))
+                    .toList()
+                    .forEach(entry.values::remove);
+            save(entry);
+        }
     }
 
     public static int retentionDays() {

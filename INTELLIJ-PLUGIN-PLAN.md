@@ -1,0 +1,568 @@
+# EvoSuite IntelliJ plugin — revised implementation plan
+
+Revised 2026-10-21 against `7786356eb963cae05f3da63cbd10013a0b46ff90`.
+Implementation branch: `codex/intellij-plugin`. This supersedes the speculative 2026-10-15 plan.
+
+## Investigation and corrections
+
+The current Eclipse plugin, rather than historical worktree names, is the parity baseline.
+Its README and tests describe class/package/root/project selection, method selection,
+parsed JUnit extension, build setup, Maven precedence, LLM configuration, cancellation,
+and Replace/Add/Compare. Parsed seeding, `timePerClass`, JUnit detection, staging for
+**all** suite actions, handwritten-suite protection, unexpected-suite races, placeholder
+removal, padded numbering, import clashes and scaffolding comparisons are already implemented.
+They must be preserved; they are not future engine work.
+
+The legacy IntelliJ implementation uses obsolete components and a manually configured IDEA
+SDK, delegates to CTG or Maven, and lacks tests. Replace it in place, retaining the plugin id
+`org.evosuite.plugin.intellij` for an eventual Marketplace update. Do not publish in this task.
+
+Platform documentation was rechecked on 2026-10-21:
+- IntelliJ Platform Gradle plugin 2.19.0 requires Gradle 9; use wrapper-pinned 9.8.2 and checksum.
+- Compile against IDEA 2025.3.2 (253), Java 21, the agreed minimum. Verify also on 2026.2.3.
+- Declare Java and JUnit plugin dependencies; isolate Maven behind an optional descriptor.
+- Keep the shaded engine and runtime in `engine/`, never on the IDE classloader's classpath.
+
+## Decisions
+
+1. Share the existing command/options/targets/progress/process/POM/seeding/question code in
+   `plugins/ide-core`. Use Java 17 bytecode, a standalone Maven build and a Gradle subproject.
+   Both builds compile the same sources. The reactor includes the Maven module.
+2. Resolve the open parser question by preserving the tested **headless JDT merger**, not
+   rewriting it on JavaParser. JDT and text edits run without an Eclipse workbench; IntelliJ
+   bundles those libraries. Eclipse uses its existing JDT bundles and embeds only ide-core.
+   File buffers, local history and document undo remain IDE adapters. Preserve the existing
+   merger tests, and keep Eclipse-specific file/history tests in its workbench suite.
+3. Introduce reusable filesystem Java validation, settings keys/validation, LLM environment
+   resolution, and an isolated per-target generation driver. Never infer success from an old
+   suite's mtime: fresh staging directories are stronger evidence and avoid timestamp resolution
+   problems. Keep Eclipse's orchestration when extracting it would add unrelated risk.
+4. Use Java for services/actions and Kotlin for settings pages, with IDE defaults and a shared
+   `.idea/evosuite.xml` override. Enabled project settings start from engine defaults, not IDE
+   defaults. PasswordSafe holds the application API key; no key in serialized state.
+5. Detect JUnit 4-only projects, support the same settings and pom precedence as Eclipse,
+   make Search only absolute, and lock output folders/suffix/reports after additional args.
+6. Include the agreed optional Maven delegation mode. Explain its limits (whole classes,
+   Maven scheduling, no IDE per-class staging/merge/progress). Invoke IntelliJ's Maven runner;
+   never pretend it offers method or extension parity.
+7. Offer Maven setup/dependency edits explicitly. Use IntelliJ's project-model dependency API
+   for imported projects and test-scoped module libraries for plain modules. Maven setup must
+   persist the generated root over reimport. For Gradle source sets, print the exact snippet
+   instead of silently rewriting build scripts.
+8. ADD merges current unsaved document contents as one undoable command. REPLACE compares
+   instead if there are unsaved changes, the suite changed since consent, or a suite appeared
+   while queued. A handwritten suite is never overwritten. Incompatible ADD and differing
+   scaffolding become editable-existing/read-only-generated comparisons.
+9. Extension accepts several seed classes/roots for one CUT, copies sources to a common staging
+   root, includes compiled test outputs/libraries deliberately, disables carving after user
+   arguments, and reports parsed/executed coverage. Save documents before compilation.
+10. Marketplace upload/signing credentials are outside this task. Produce an installable unsigned
+    ZIP with signing configuration available for the maintainer.
+
+## Implementation order and acceptance checks
+
+- [x] Extract core and wire Eclipse to it; run pure tests and the Eclipse workbench suite.
+- [x] Replace legacy plugin with Gradle wrapper, descriptor, optional Maven support, console.
+- [x] Implement selection/filtering/descriptors, serialized runs, build-before-run and cancellation.
+- [x] Resolve module Java/classpath; register test roots and add missing dependencies.
+- [x] Add settings pages, defaults/overrides, enablement, secure key handling and legacy migration.
+- [x] Read effective imported Maven model, server credentials, optional delegation and setup.
+- [x] Implement suite decisions, undoable ADD, diff fallback, safe replacement and editor opening.
+- [x] Implement parsed extension and useful end-of-run summaries.
+- [x] Platform tests for selection, settings, setup/classpaths, merge/diff and actions; shared launch
+      tests including a real bundled-engine smoke, cancellation and LLM environment behavior.
+- [x] Build ZIP, inspect contents, run Plugin Verifier on baseline and current IDE; document results
+      and any checks blocked by the environment rather than claiming unexecuted checks passed.
+
+## Validation commands
+
+```sh
+# JDK 17
+mvn -pl master,standalone_runtime,plugins/ide-core -am package -DskipTests
+mvn -f plugins/ide-core/pom.xml test
+# JDK 21
+cd plugins/intellij
+./gradlew test buildPlugin verifyPlugin
+# Set -Pevosuite.root=/other/checkout to reuse already built engine jars.
+# For a local SDK: -PlocalIde=/path/to/IDE/Contents (use that IDE's required JVM).
+# Optional real engine tests: -Pevosuite.it.javaHome=/path/to/jdk-17
+cd ../eclipse
+./mvnw verify -Devosuite.it.javaHome=/path/to/jdk-17
+```
+
+## Sources
+
+- [Platform Gradle plugin](https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin.html)
+- [SDK dependencies](https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html)
+- [Build numbers and Java versions](https://plugins.jetbrains.com/docs/intellij/build-number-ranges.html)
+- [Sensitive data](https://plugins.jetbrains.com/docs/intellij/persisting-sensitive-data.html)
+- [Persistent state](https://plugins.jetbrains.com/docs/intellij/persisting-state-of-components.html)
+- [Verification](https://plugins.jetbrains.com/docs/intellij/verifying-plugin-compatibility.html)
+- Repository baseline: `plugins/eclipse/README.md`, `evosuite-eclipse-core`, its test fragment,
+  `plugins/maven`, and engine `PARSED_JUNIT` implementation.
+
+## Validation record (2026-10-21)
+
+- Fresh engine/runtime artifacts built successfully from this branch with JDK 17.
+- Shared core: 77 tests pass in Maven and Gradle, including process-tree cancellation and key transport.
+- IntelliJ: the full 15-test suite passed against IDEA 2025.3.2, followed by six focused
+  settings/path tests on the final code (16 distinct tests in total). The real-engine smoke generates class and
+  method suites, compiles the generated suite, parses a handwritten seed and executes its tests.
+- Eclipse: workbench verification passes (145 tests, 8 optional tests skipped). A separate
+  full run passed all seven real-engine tests; its unrelated menu-fixture race was corrected
+  by building the recreated test project before looking up its type. The workbench suite was
+  then rerun successfully. The m2e lifecycle test needs a separately installed Maven plugin
+  and its settings file and remains optional.
+- ZIP inspection found and corrected a display-name/project-directory mismatch. Every sandbox
+  now receives both engine jars under `evosuite-intellij/engine`; the ZIP build asserts their
+  presence and rejects putting them in `lib`. A platform test resolves the installed paths.
+- PasswordSafe is never accessed by headless settings indexing or unit tests. The legacy
+  Marketplace-ID naming check alone is muted (`TemplateWordInPluginId`); API checks remain active.
+- Plugin Verifier passes for baseline 253.30387.90 and current 262.10968.63. Both verdicts are
+  compatible, with no internal API usages, missing dependencies, or binary compatibility errors.
+  Baseline reports one public deprecated API usage; current reports six. Both report eight usages
+  of the same public experimental Maven folder-import API. These warnings are retained and
+  documented rather than muted. Plugin paths use the public class-location API; optional Maven
+  support resolves through its service registration, avoiding descriptor lookups marked internal.
+- Final `:test --tests org.evosuite.intellij.SettingsTest :buildPlugin :verifyPlugin` passes.
+  The verifier uses the supplied IDEs' bundled runtimes/dependencies in offline mode. The only
+  muted check is the previously released plugin ID's naming rule. The complete ZIP is ~56 MiB.
+- Signing and Marketplace publishing remain release activities. The later import acceptance
+  follow-up is recorded below; this task does not publish or require credentials.
+
+## Implementation review (2026-10-21)
+
+Reviewed the IntelliJ launch, placement, project setup, settings and Maven adapters against
+Eclipse's corresponding handlers/jobs and fixtures. Corrected:
+
+- Index-dependent background reads now wait for smart mode, including indexing begun after
+  action invocation. Model writes use the caller's default modality.
+- Pending VFS writes are flushed before external execution on 2026.2; the public API is
+  detected reflectively because 2025.3 completes writes synchronously and lacks this method.
+  See [Virtual Files](https://plugins.jetbrains.com/docs/intellij/virtual-file.html) and
+  [Threading Model](https://plugins.jetbrains.com/docs/intellij/threading-model.html).
+- Launch/setup no longer save unrelated edits made after initial consent. Add retains dirty
+  buffers; replacement still falls back to Compare.
+- Existing legacy main roots become one test-root entry, preserving the package prefix.
+  Broken bundled runtime library paths are rebound after upgrades. Dependency versions come
+  from generated engine metadata instead of a hardcoded Java constant.
+- Extension inference uses Eclipse's convention ordering and longest production-class prefix
+  as a confirmed guess. Interfaces and other ineligible types cannot become guesses.
+- A scaffolding conflict no longer discards a newly generated suite. Failed updates fall back
+  to Compare; failed placements retain source staging, and target/module failures allow the
+  rest of a batch to continue. Cancellation still propagates.
+- Maven setup updates preserve execution IDs (including inherited IDs), other goals and
+  configuration, save only the pom, and await the update promise before compilation.
+  Delegation uses generate's built-in export and reports delegated targets separately.
+- Invalid stored overrides can be disabled. Empty coverage selections report validation errors.
+  API-key save failures keep Apply pending and retryable instead of clearing modified state.
+
+Regression fixtures cover root conversion, library repair, inference conventions/ambiguity,
+new-suite scaffolding conflicts, read-only comparisons, settings recovery, secure-store retries,
+bundled-version consistency and Maven execution updates.
+
+Review validation: `test buildPlugin verifyPlugin --continue` passes with JDK 21 and the
+real-engine test using JDK 17. All 26 IntelliJ tests and 77 shared-core tests pass with no
+skips. The rebuilt ZIP passes CRC inspection and includes both isolated engine jars.
+Plugin Verifier reports Compatible on 253.30387.90 (one deprecated API usage) and
+262.10968.63 (three deprecated usages), with eight experimental Maven-import API usages
+each and no internal-API or binary compatibility errors. At this review stage, real imported
+Maven/Gradle acceptance was still outstanding; the follow-up below supersedes that limitation.
+
+## Real import acceptance follow-up (2026-10-22)
+
+Desktop control repeatedly timed out reading IntelliJ's accessibility interface. The user
+explicitly authorized automated import checks instead. The acceptance suite therefore uses
+IntelliJ's actual Maven/Gradle importers and physical multi-module projects, not constructed
+models or a claim of successful UI testing.
+
+The imports reproduced three functional gaps:
+
+1. Gradle imports main/test source sets as separate modules. Registering generated tests against
+   the selected main module failed with “Test folder has no module content root”. JUnit detection
+   and dependency lookup also missed the linked test module's libraries. Resolve that module
+   through `TestModuleProperties`; register roots there, including custom folders requiring an
+   additional content entry, and apply dependencies in its scope. Register the generated root
+   after dependency-driven imports finish, so the final module model owns it.
+2. `JavaProjectModelModificationService` fell back to an IDEA-library download dialog for Gradle.
+   It did not persist Gradle dependencies. Use the public `DependencyModifierService`, save only
+   build documents changed by the operation, flush pending VFS writes and await a real re-sync.
+   Add Jupiter's aggregate artifact and matching launcher when JUnit 5 is absent. Unsupported
+   build files get exact manual declarations; they never receive a transient IDEA-library fallback.
+3. Maven's model-modification version search substituted `RELEASE` when its repository index
+   did not list the local runtime snapshot. Repeated setup added duplicate declarations. Use
+   exact test-scoped POM edits, update existing coordinates idempotently, preserve existing scopes,
+   save only the changed pom and flush pending VFS writes before the awaited reimport.
+
+Acceptance coverage:
+
+- Maven multi-module/JUnit 4: import, effective options, missing-runtime dependency insertion,
+  setup execution creation/update, custom output-folder persistence after full reimport,
+  production/dependent-module classpaths, generation, compilation/execution and parsed seeding.
+- Gradle multi-project/JUnit 5: separate source-set ownership, no redundant dependency prompts,
+  custom generated root, apply the offered source-set snippet, real re-sync, generation,
+  compilation/execution and parsed seeding using compiled test outputs.
+- Gradle Groovy/JUnit 4: detect the framework from the linked test module, persist a missing
+  runtime dependency in the build script, re-sync and execute the fixture tests.
+- Gradle Kotlin DSL: add missing Jupiter/Platform-launcher/runtime dependencies, re-sync and
+  execute the fixture tests.
+- Acceptance Gradle daemons/caches use an isolated user home. This avoids reusing the user's
+  daemon from another installation, which can expose unexpected distribution paths in Kotlin
+  DSL script classpaths. The IntelliJ test harness explicitly permits its JDK/distribution/cache
+  roots without disabling VFS access checks globally.
+
+`ImportAcceptanceTest` is opt-in with `-Pevosuite.import.it=true` and a supplied JDK 17. It uses
+the wrapper's Gradle home by default. CI installs the snapshot Maven plugin/runtime and runs
+this suite alongside the existing tests. Fixture file changes are tracked as task inputs.
+
+Final validation (2026-10-22): the complete `test buildPlugin verifyPlugin --continue` run passes
+with all 31 IntelliJ tests (including four real-import acceptance cases), 77 shared-core tests,
+and no skips or failures. Normal tests also pass with the optional import suite excluded.
+The real imports run against IDEA 2025.3.2 using JDK 17 project/engine processes and a JDK 21
+IDE/test build. Plugin Verifier reports Compatible on 253.30387.90 and 262.10968.63, with one/four
+deprecated API usages respectively and twelve public experimental API usages each. No internal
+API or binary compatibility errors are reported. The final unsigned ZIP passes CRC inspection
+and includes both engine jars outside `lib/`. CI installs the required snapshots and enables
+the real-import acceptance suite.
+
+
+## Settings and first-run usability follow-up (2026-10-22)
+
+Manual feedback identified missing branding, an oversized settings dialog, invisible defaults,
+and two successive Maven setup prompts. The plugin now uses vector paths of the Eclipse logo
+for the plugin listing, tool window and all generation actions, including dark-theme variants.
+Settings prefer a compact 620 by 520 layout, wrap notes, use a two-column criteria grid, and
+track the viewport width while scrolling vertically. Text fields show default descriptions;
+combo boxes render named Default entries and an Automatic JUnit choice while retaining unset
+values internally so detection and settings precedence are unchanged.
+
+Maven setup now offers missing JUnit/runtime dependencies and the setup execution together.
+Configure Maven applies both in one undoable POM edit and awaits one reimport. Dependencies
+Only preserves the ability to skip the execution; Cancel leaves the POM untouched. The prompt
+explains that the setup goal registers test roots/configures the agent, but requires rather
+than inserts the test dependencies. Matching existing setup does not prompt again.
+
+Regression checks cover visible defaults, reset/apply and automatic-JUnit round trips, logo
+loading and action dimensions, all tabs fitting a compact viewport, and actual Maven imports
+for combined setup, dependency-only setup, cancellation and repeated setup. The settings
+fixture also renders each tab for visual inspection without desktop automation.
+
+Validation: `test buildPlugin verifyPlugin --continue` passes with 35 IntelliJ tests (including
+five real-import acceptance cases) and 77 shared-core tests, no failures/errors/skips. Captures
+of the three compact settings tabs were visually inspected. Plugin Verifier reports Compatible
+on IDEA 2025.3.2 and 2026.2.3, with the unchanged one/four deprecated and twelve experimental
+API usages. The rebuilt ZIP passes CRC inspection and contains the plugin/action logo assets
+as well as both isolated engine jars.
+
+
+## Explicit defaults and useful tool window (2026-10-22)
+
+Further manual feedback found that default descriptions beside empty text fields still looked
+like missing settings. Text editors now display their default values directly. Unedited default
+values retain their original unset/explicit state; edits become overrides, and clearing an override
+and applying restores its displayed default. Automatic checkboxes cover the module JDK,
+provider/environment model, provider endpoint and no extra arguments. Their descriptive values
+are read-only until the automatic option is disabled, and are never passed to the engine as literal
+paths/models/arguments. JUnit format retains its explicit Automatic choice.
+
+The EvoSuite sidebar remains the generation/progress tool window. Its initial view now explains
+how to start, with labeled actions for the open Java file, current method, existing tests and
+settings. The first console output switches to the console; output from an earlier run is retained
+when the window opens. The toolbar keeps generation/settings available alongside console actions,
+and Stop is disabled when no requests are running. Tool-window generation resolves the selected
+text editor explicitly, so moving focus into the console does not lose the generation target.
+
+Regression checks exercise default/edit/clear/apply round trips, explicit values equal to defaults,
+automatic extra-argument controls, the initial-to-output transition, reopening a populated console,
+and forwarding the open editor/caret to the existing generation actions. The real method action's
+enablement is checked as well. Tool-window buttons and delegation use public ActionUtil dispatch
+helpers; direct calls to override-only action methods were caught and removed by Plugin Verifier.
+The settings shortcut selects the project's active settings scope. Settings and tool-window
+captures support visual layout checks without desktop control.
+
+Validation: the full regression run passed all 38 IntelliJ tests (including five real Maven/Gradle
+imports) and all 77 shared-core tests with no failures/errors/skips. After the action-dispatch
+correction, all 15 focused settings/tool-window tests passed again, and `buildPlugin verifyPlugin`
+completed successfully. Plugin Verifier reports Compatible on IDEA 2025.3.2 and 2026.2.3, with
+unchanged one/four deprecated and twelve experimental API usages, and no override-only violations.
+The final ZIP passes CRC inspection and includes the new tool-window classes and isolated engine jars.
+
+
+## Remaining settings and first-run usability review (2026-10-22)
+
+Reviewed the settings editors, inherited/project scope, secure-storage lifecycle, setup dialogs,
+preflight/build sequencing, notifications and small tool-window behavior. Fixed the following:
+
+- Descriptive labels include units; enum choices and coverage criteria have readable names and
+  checkboxes have clickable captions. Unknown persisted choices remain visible instead of falling
+  back silently. Validation identifies the field, selects its tab, and explains numeric/URL errors.
+- A disabled project profile previews active IDE values. Scope changes retain draft project values;
+  explicit copy/restore actions take effect only on Apply. Restore also resets Maven delegation.
+  Criteria ordering and explicit default selections no longer mark an untouched page modified.
+- Maven controls/override summaries live under Advanced, with a precedence hint on the main page.
+  Wrapped helper text reserves vertical space even when GridBagLayout uses minimum sizes; field
+  descriptions must not overlap inputs, and criteria captions fit the compact viewport.
+- PasswordSafe is read lazily for active cloud features or explicit key management. Search-only/local
+  settings do not open it. A project page links to the shared credentials, and loaded keys remain
+  removable when LLM generation is disabled. The shared launch adapter now honors engine model
+  defaults/environment overrides and avoids a cloud-key lookup for local Ollama.
+- Cancel stops Maven/Gradle setup and the generation request. Explicit Skip/Dependencies Only choices
+  retain opt-out behavior. Real Maven import tests exposed invokeAndWait consuming cancellation;
+  IdeThread now transports UI callback failures explicitly back to the worker, preserving their types.
+- Missing-JDK failure occurs before dependency prompts/build-file edits. Preparation/build/queue
+  progress appears promptly, and configuration notifications link to settings. The welcome panel
+  scrolls when docked into a small area, keeping its generation/settings controls reachable.
+
+Regression coverage includes scope drafts/copy/reset, malformed and unsupported values, explicit
+criteria order, lazy/manual credentials and removal, cloud/local model defaults, a real missing-JDK
+launch with settings recovery, UI-to-worker cancellation/exception propagation, compact field-hint
+layout, and actual imported Maven/Gradle setup cancellation without build-file changes.
+
+Validation: the full `test buildPlugin verifyPlugin --continue` run passed 45 IntelliJ tests
+(including five physical Maven/Gradle imports) and 79 shared-core tests, with no failures/errors/
+skips. After the final presentation refinements, all 22 focused settings/first-run/tool-window
+checks passed again and the installable ZIP was rebuilt and verified. Compact settings and
+welcome/console captures were visually inspected; cloud credentials now sit directly below the
+provider selector with explicit first-use instructions. Plugin Verifier reports Compatible on
+IDEA 2025.3.2 and 2026.2.3 with unchanged one/four deprecated and twelve experimental API usages.
+The final ZIP passes CRC inspection and keeps both engine jars isolated outside the IDE classloader.
+
+
+## Generation and extension usability review (2026-10-22)
+
+Reviewed target preparation, save/build sequencing, extension inference, the existing-suite question,
+placement, comparison viewers and completion/cancellation feedback. Fixed:
+
+- Saving is scoped to this project's modified documents with explicit Save and Generate/Cancel
+  choices. A failed save stops generation instead of using stale sources; unrelated editor edits
+  stay dirty.
+- Extension class-name prompts validate production classes inline and explain the output suite.
+  Cancel now aborts the entire request rather than silently dropping one selected seed. Ambiguous
+  prompts list inferred candidates and identify the seed's module. The console identifies seed
+  classes and planned output paths before generation.
+- Replace/Add/Compare questions identify class/module and shared output location. Long messages,
+  including unbroken names and paths, wrap for smaller screens. Compare instructions explain
+  copying changes, IntelliJ autosave and the fact that closing does not undo edits. Cancel reports
+  cancellation and stops before build or setup.
+- Replacement consent snapshots now cover scaffolding as well as the suite. Saved, unsaved,
+  newly appeared or removed scaffolding changes force comparison instead of overwriting concurrent
+  work. Read-only fallback is explained in the console.
+- Comparison titles include the full file path; existing content stays linked to the live editor
+  document. Read-only and unavailable destinations are labeled and protected. Comparisons open
+  after generated editors, and completion notifications count them and offer Review comparisons
+  to reopen them in the current session, also when a run is cancelled or fails after producing
+  comparisons. Generated comparison sources are retained on disk with their location in the console
+  so dismissing a notification or restarting the IDE does not lose the new tests.
+- Add reports when preexisting unsaved edits remain dirty. Duplicate-only and empty-extension
+  outcomes are reported as unchanged, without claiming that all coverage goals were reached.
+  Skipped handwritten destinations count as warnings instead of implying an empty selection or
+  successful generation.
+
+New regression coverage exercises physical project-scoped saving and cancellation, production-class
+validation, extension cancellation, an actual generation request cancelled at Replace/Add/Compare
+before preflight/setup, compact questions, concurrent saved scaffolding edits, live-document and
+read-only comparisons, duplicate-only Add and no-additional-tests extension placement.
+
+Validation: the full regression/package/verifier run passed all 52 IntelliJ tests, including five
+real Maven/Gradle import acceptance cases, and 79 shared-core tests with no failures/errors/skips.
+After the final comparison-source retention/error-recovery adjustment, all 14 focused generation,
+extension, placement and first-run tests passed again, and the installable ZIP was rebuilt.
+Plugin Verifier reports Compatible on IDEA 2025.3.2 and 2026.2.3 with unchanged one/four deprecated
+and twelve experimental API usages. ZIP CRC inspection passed and both engine jars remain isolated
+outside the IDE classloader. Dialog acceptance is automated; native desktop interaction remains
+outside this validation, as requested earlier in the session.
+
+
+## Sandbox launch flags, action badges and minimization clarification (2026-10-22)
+
+- The IDE command builder adds `-Djava.security.manager=allow` as a JVM option before `-jar`
+  only for the selected JDK 18–23. Explicit JavaInstallation metadata drives IntelliJ launches;
+  the shared Eclipse-style adapter can read the selected JDK's release metadata. Unknown
+  versions do not inherit a guess from the IDE's JVM.
+- Engine client compatibility arguments also opt in on JDK 18–23: setting the parent flag alone
+  does not affect a spawned JVM. Explicit parent `disallow` is preserved. No `allow` is sent to
+  JDK 24+, which rejects it. GenerationRun pins JAVA_HOME to the selected engine installation
+  so a stale IDE environment cannot select a different client JDK.
+- Class, method and extension actions have distinct vector badges on the existing EvoSuite logo,
+  with light/dark assets shared by the context menus and tool-window delegates.
+- The settings checkbox now says Remove redundant tests and statements, with visible help
+  distinguishing value minimization. `MINIMIZE_VALUES=false` is the engine default (Git blame
+  traces it back to 2012), rather than a new IDE override. The settings and README explain
+  enabling `-Dminimize_values=true` without changing the engine default for other users.
+
+Regression coverage includes JDK 8/11/17/18/21/23/24/25/27 command boundaries, option placement
+before -jar, selected-JDK release detection, child flag forwarding and explicit disallow,
+light/dark icon rendering, and real JDK 21 engine/client generation with sandboxing left enabled
+and a deliberately conflicting inherited JAVA_HOME.
+
+Validation: rebuilt and installed engine/runtime/core/Maven snapshots with JDK 17. All six focused
+master JVM-forwarding tests passed. The full IntelliJ `test buildPlugin verifyPlugin --continue`
+run passed 54 IntelliJ tests (including actual sandbox-enabled JDK 21 generation and five physical
+Maven/Gradle import acceptance cases) and 81 shared-core tests, with no failures/errors/skips.
+Light/dark badge renders and the compact settings page were visually inspected. Plugin Verifier
+reports Compatible on IDEA 2025.3.2 and 2026.2.3 with unchanged one/four deprecated and twelve
+experimental API usages. ZIP CRC passed and both freshly built engine jars remain isolated
+outside the IDE classloader.
+
+
+## Value-minimization settings checkbox (2026-10-22)
+
+Added Minimize values (simplify constants) immediately below test minimization in the main
+settings tab. The shared minimizeValues setting defaults to false, participates in IDE/project
+profiles, inherited previews and defaults, and emits -Dminimize_values=true/false before user
+and Maven arguments. Existing argument/POM precedence is preserved. The checkbox is disabled
+while test minimization is off, retaining its selected value for later re-enabling; visible help
+explains that dependency. The README now points to the checkbox instead of requiring an extra
+argument.
+
+Regression checks cover toggling, Apply/reset round trips in both scopes, project inheritance,
+parent/child enablement and retained choices, default/explicit command flags, and overrides from
+additional arguments and Maven properties. All 20 IntelliJ settings tests and 40 shared command/
+Maven-settings tests passed with no failures/errors/skips. The six compact settings-tab captures
+were regenerated and the new checkbox/help layout visually inspected.
+
+The final installable ZIP was rebuilt and passed CRC/isolated-engine checks. Plugin Verifier
+reports Compatible on IDEA 2025.3.2 and 2026.2.3 with unchanged one/four deprecated and twelve
+experimental API usages.
+
+
+## UI/UX implementation follow-up (2026-10-22)
+
+Implemented on the existing codex/intellij-plugin branch and worktree:
+
+- Correctness: Gradle dependencies, persistent source sets and JUnit Platform setup share one
+  confirmation, undoable edit and awaited sync. Committed PSI between build-file edits avoids the
+  Kotlin DSL dependency-modifier failure. Source roots survive reimport without manual repair.
+  Action eligibility shares collector rules, including test-directory coverage/extension.
+- Existing suites: Add is the safe default for every scope. Compare creates no missing files;
+  pending files require explicit acceptance, and a scaffolding conflict defers the new suite too.
+  Runtime-free suites need a matching generated marker and machine-local ownership record;
+  handwritten replacements at an old path stay protected. Mark Reviewed recognizes accepted
+  runtime-free comparison content, and ownership survives ordinary edits and IDE restarts.
+- Runtime-free output: Omit EvoSuite runtime dependency maps to no_runtime_dependency. Setup adds
+  JUnit as needed and omits EvoSuite runtime, retaining dependencies used by older tests. JUnit 4
+  output compiles and executes with no EvoSuite jar; imported Maven/JUnit 4 and Gradle/JUnit 5
+  projects generate and execute runtime-free suites through their actual build tools.
+- Visibility: an applied per-module configuration/readiness dialog explains override sources,
+  selected JDK, test dependencies and resolved output. Runs persists target outcomes, elapsed
+  time, coverage, seeds, settings, reports and pending comparisons across sessions. It supports
+  editor/JUnit navigation, replay, individual cancellation, review recovery and diagnostic
+  retention. Repeated active selections are suppressed and larger requests show a budget preview.
+  Console output links to reports/sources and distinguishes failures; postprocessing is explicit.
+- Engine capabilities: fixed/fresh random seeds and replay, existing-test coverage measurement,
+  signatures/source/decompiled/bytecode LLM context, actual IDE source-file resolution, and output
+  token, HTTP timeout, retry and temperature controls. Search Only also overrides an LLM-only
+  strategy supplied in raw arguments. Optional Maven delegation falls back to the bundled driver
+  when needed to honor replay, fixed seeds, advanced controls, runtime-free output or suite safety.
+- First run/settings: grouped compact forms, supported-criteria selection, JDK/class choosers,
+  field-specific validation, provider-specific OpenAI/Anthropic credentials, safe legacy migration,
+  metadata-only connection checks and explicit missing-key recovery before setup/building. A
+  missing legacy key cannot erase a current provider draft. Inherited project settings disable
+  their JDK chooser as well as the fields. Coverage has a distinct logo badge.
+
+Validation uses automated import and Swing UI checks, following the user's preference. The full
+regression/package/verifier run passed 68 IntelliJ tests, including all seven physical Maven/Gradle
+import acceptance cases, and 83 shared-core tests. The same 83 core tests passed on Java 17 through
+Maven. After the ownership refinements, 43 focused settings, placement, first-run, tool-window,
+history and runtime-free Maven/Gradle execution checks passed. All 26 final settings/history checks passed, including the empty-legacy-key safeguard. The fresh
+installable ZIP passed CRC and isolated-engine checks. Plugin Verifier reports Compatible on IDEA
+2025.3.2 and 2026.2.3 (two/six deprecated and thirteen experimental API usages; no internal or
+override-only API reports). Compact settings and populated Runs captures were
+inspected. Live cloud generation and native desktop acceptance are outside this automated check.
+
+Lower-priority search profiles, parallel-client controls and broad instrumentation tuning remain
+available through Additional arguments; the new dedicated controls cover the prioritized engine
+capabilities above. The README documents the workflows and their limits.
+
+
+## Correctness and usability review follow-up (2026-10-22)
+
+Reviewed runtime-free placement/ownership, Undo, replay, persistent comparisons and the Runs UI.
+Fixed the following concrete issues:
+
+- Replacing runtime-free output with runtime-dependent output removed the ownership record, so
+  Undo restored a valid suite that subsequent generation rejected as handwritten. Authorized
+  markers are now retained, and an actual platform Undo regression verifies recognition is restored.
+  Marker recognition uses Java lexical comments, preventing a matching text-block string from
+  adopting a handwritten file at a previously generated path.
+- A deleted existing comparison destination vanished from recovery because only originally new
+  files could be recreated. Reopening any retained comparison now offers explicit file acceptance
+  when its destination is missing.
+- Finishing review silently discarded comparison references while leaving Pending comparison
+  status. Finish review now explains/asks before closing suggestions, can be cancelled, and updates
+  target status and the completed run phase. It is available after the request finishes so later
+  generation/notifications cannot reintroduce already closed review state.
+- Runs conflated queue time with execution, sorted formatted metrics lexicographically, and lacked
+  request timestamps. It now shows typed numeric metrics and a sortable request date/time, leaves
+  queued execution empty, and updates the table atomically while preserving sort and selection.
+  New requests receive focus; reopening a populated tool window selects Runs. Small windows retain
+  scrollable columns and full details, including method/seed-test selections and coverage/test counts.
+- Run tests could execute stale output before generation finished and selected a top-level helper
+  preceding the actual suite. It waits for the target outcome and resolves the class by filename.
+- Maven-delegated targets offered a replay that silently changed to the bundled driver despite not
+  capturing Maven's actual settings/seed. Replay is disabled with an explanation; the Maven runner
+  remains the supported way to repeat those requests.
+- A later module error overwrote previously successful target outcomes. Only unfinished targets are
+  now marked failed. Credential-like argument spellings are filtered consistently from saved and
+  copied run configuration while preserving the model token-limit setting. Retention settings are
+  clamped to the UI's supported range when loaded.
+
+The stronger runtime-free smoke check generates tests exercising a clock and filesystem reads,
+asserts those methods are present in the exported suite, and compiles/executes it with JUnit and
+Hamcrest only. Both runtime-free engine checks passed on JDK 17 and JDK 21, including the clock
+and filesystem case.
+
+The full regression run passed 82 IntelliJ tests (all seven physical Maven/Gradle import acceptance
+cases included) and 83 shared-core tests. Final dialog/startup and JDK 21 engine checks passed all
+18 focused tests. After replacing the deprecated lexer constructor with the public parser API,
+all 28 placement/history/tool-window checks passed. The final installable ZIP passed CRC and
+engine-classloader isolation checks. Plugin Verifier reports Compatible on IDEA 2025.3.2 and
+2026.2.3, with two/six deprecated and thirteen experimental API usages, and no scheduled-removal,
+internal or override-only API reports. Automated Swing layout checks and the populated narrow
+Runs capture were inspected; native desktop acceptance remains outside these automated checks.
+
+
+## Runtime-free extension and placement follow-up (2026-10-22)
+
+The workflow review found that runtime-free replacement left legacy scaffolding behind. That
+source still imported EvoSuite and prevented a complete conversion without runtime dependencies.
+Replace now removes the obsolete companion in the same undoable command. Scaffolding changed
+since consent, unsaved edits and read-only files retain the comparison safeguards. Compare includes
+obsolete scaffolding as an explicitly labeled empty suggestion; copying that content or deleting
+the helper is a separate user decision after replacing the suite. Cleared helpers do not repeatedly
+block Add, and deleted obsolete helpers are not offered for recreation from saved comparisons.
+Runtime-dependent Add requests fall back to Compare when their runtime setup cannot be combined
+with the new runtime-free suite. Empty extensions keep both existing files.
+
+A real-engine legacy-seed check also reproduced a hang in coverage evaluation: generated JUnit
+runners tried to attach a redundant Java agent. Existing-suite execution now suppresses agent
+attachment and secondary classloaders within a scoped guard, restoring runner flags, the previous
+attachment policy and context loader even on failure. Discovery and minimization defer seed-class
+initialization so static JUnit 5 runners initialize within that guard. The fix follows the engine's
+existing in-process JUnit-check safeguard and is included in the rebuilt engine/runtime jars.
+
+Coverage exclusion depends on suite minimization being enabled and having time to run. The
+request console now explains this condition, and saved Runs retain the seeding/execution summary,
+including after comparison review closes. Existing seed sources are never converted implicitly;
+the runtime-free option controls newly generated output.
+
+The new acceptance matrix uses actual whole-class and extension output with both JUnit formats,
+plain and generated seed suites, legacy scaffolding and the default JUnit 5 extension runner. It
+exercises Add/Replace/Compare, persists and reopens comparison suggestions, checks replacement
+Undo/Redo, tests orphan-helper recovery, and compiles/runs accepted output with JUnit only. Engine
+unit regressions cover instrumentation-state restoration and deferred static runner initialization.
+
+Native child-process inspection also stalled during acceptance on macOS. It is now bounded on a
+single dedicated daemon with cancelled queued requests purged, so it cannot block generation
+completion or cancellation indefinitely. The existing real master/client cancellation regression
+and a simulated uninterruptible-inspection regression both pass. Gradle import fixtures now use
+the selected test JDK's toolchain, avoiding extra SDK registrations when validating on JDK 21.
+
+Validation: 29 focused IntelliJ checks passed with engine JDK 17. The final strengthened suite
+passed all 88 IntelliJ checks with engine JDK 21, including all seven physical import acceptance
+cases and the matrix using real runtime-free generated seeds under their own output class name.
+All 84 shared-core checks passed, including real master/client cancellation; all 11 engine
+coverage tests passed on JDK 17. The engine and standalone runtime jars were rebuilt from these
+sources. The final ZIP passed CRC, engine isolation and test-dependency exclusion checks. Plugin
+Verifier reports Compatible on IDEA 2025.3.2 and 2026.2.3, with the existing two/six deprecated and
+thirteen experimental API usages. No native desktop acceptance was used.

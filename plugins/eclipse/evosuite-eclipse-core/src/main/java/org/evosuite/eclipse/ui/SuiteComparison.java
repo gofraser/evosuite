@@ -73,7 +73,10 @@ import org.evosuite.eclipse.Activator;
 public class SuiteComparison extends CompareEditorInput {
 
     /** An existing suite and the source of the new one. */
-    public record Pair(IFile existing, String generatedSource) {
+    public record Pair(IFile existing, String generatedSource, String obsoleteSource) {
+        public Pair(IFile existing, String generatedSource) {
+            this(existing, generatedSource, null);
+        }
     }
 
     private final List<Pair> pairs;

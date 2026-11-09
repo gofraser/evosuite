@@ -150,7 +150,13 @@ public final class RunResultsView extends ViewPart {
                 results,
                 "Mark reviewed",
                 () -> {
-                    if (selected() != null) RunHistory.reviewed(selected());
+                    var entry = selected();
+                    if (entry != null && !entry.comparisons().isEmpty()
+                            && MessageDialog.openConfirm(getSite().getShell(), "Finish EvoSuite review",
+                                    "Discard unapplied changes? Saved edits are kept. If you accepted a runtime-free "
+                                            + "suite, its unchanged generated scaffolding is removed.")) {
+                        RunHistory.reviewed(entry);
+                    }
                 });
         button(
                 results,
@@ -308,7 +314,7 @@ public final class RunResultsView extends ViewPart {
         try {
             ICompilationUnit unit = JavaCore.createCompilationUnitFrom(entry.output());
             IType type = unit == null ? null : unit.findPrimaryType();
-            if (type == null)
+            if (type == null || !unit.getJavaProject().isOnClasspath(unit))
                 throw new CoreException(
                         Activator.error("The suite must be in a test source folder."));
             var manager = DebugPlugin.getDefault().getLaunchManager();
@@ -328,6 +334,17 @@ public final class RunResultsView extends ViewPart {
                     entry.options().effectiveTestFormat().equals(GenerationOptions.JUNIT4)
                             ? "org.eclipse.jdt.junit.loader.junit4"
                             : "org.eclipse.jdt.junit.loader.junit5");
+            if (!entry.options().effectiveNoRuntimeDependency()) {
+                var vm = org.eclipse.jdt.launching.JavaRuntime.getVMInstall(type.getJavaProject());
+                if (vm == null) vm = org.eclipse.jdt.launching.JavaRuntime.getDefaultVMInstall();
+                if (vm instanceof org.eclipse.jdt.launching.IVMInstall2 versioned) {
+                    String version = versioned.getJavaVersion();
+                    if (version != null && version.matches("^(18|19|2[0-3])(?:[._+-].*)?$")) {
+                        config.setAttribute(IJavaLaunchConfigurationConstants.ATTR_VM_ARGUMENTS,
+                                "-Djava.security.manager=allow");
+                    }
+                }
+            }
             DebugUITools.launch(config, ILaunchManager.RUN_MODE);
         } catch (CoreException e) {
             MessageDialog.openError(getSite().getShell(), "Run generated tests", e.getMessage());

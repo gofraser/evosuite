@@ -41,6 +41,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class ModuleAccessForwardingTest {
 
+    @Test
+    public void sandboxOptInIsForwardedOnlyToSupportingClientJdks() {
+        for (int version : List.of(8, 11, 17, 18, 21, 23, 24, 25, 27)) {
+            List<String> args = new ArrayList<>();
+            ExecutionModeUtils.addSecurityManagerOption(args, version, null);
+            assertEquals(version >= 18 && version < 24, args.contains("-Djava.security.manager=allow"), "JDK " + version);
+            args.clear();
+            ExecutionModeUtils.addSecurityManagerOption(args, version, "disallow");
+            assertFalse(args.contains("-Djava.security.manager=allow"));
+            assertEquals(version >= 12 && version < 24, args.contains("-Djava.security.manager=disallow"));
+        }
+    }
+
     @AfterEach
     public void clearInherited() {
         System.clearProperty(ReflectionAccess.PRIVATE_ACCESS_PROPERTY);

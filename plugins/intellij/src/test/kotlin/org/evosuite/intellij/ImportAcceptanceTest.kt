@@ -1,0 +1,697 @@
+/*
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3.0 of the License, or
+ * (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
+ */
+package org.evosuite.intellij
+
+import com.intellij.execution.ExecutionListener
+import com.intellij.execution.ExecutionManager
+import com.intellij.execution.junit.JUnitConfiguration
+import com.intellij.execution.process.ProcessHandler
+import com.intellij.execution.runners.ExecutionEnvironment
+import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.externalSystem.importing.ImportSpecBuilder
+import com.intellij.openapi.externalSystem.service.execution.ProgressExecutionMode
+import com.intellij.openapi.externalSystem.util.ExternalSystemUtil
+import com.intellij.openapi.module.Module
+import com.intellij.openapi.module.ModuleManager
+import com.intellij.openapi.progress.EmptyProgressIndicator
+import com.intellij.openapi.projectRoots.JavaSdk
+import com.intellij.openapi.projectRoots.ProjectJdkTable
+import com.intellij.openapi.roots.ProjectFileIndex
+import com.intellij.openapi.roots.ProjectRootManager
+import com.intellij.openapi.ui.TestDialogManager
+import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.testFramework.PlatformTestUtil
+import com.intellij.testFramework.fixtures.JavaCodeInsightFixtureTestCase
+import java.nio.file.Files
+import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
+import kotlinx.coroutines.runBlocking
+import org.evosuite.ide.*
+import org.evosuite.intellij.run.ClasspathResolver
+import org.evosuite.intellij.run.EngineJars
+import org.evosuite.intellij.run.GeneratedTestRunner
+import org.evosuite.intellij.run.IdeThread
+import org.evosuite.intellij.run.SuitePlacement
+import org.evosuite.intellij.settings.SettingsResolver
+import org.evosuite.intellij.setup.ProjectSetupService
+import org.jetbrains.idea.maven.buildtool.MavenSyncSpec
+import org.jetbrains.idea.maven.project.MavenProjectsManager
+import org.jetbrains.idea.maven.project.MavenProjectsManagerEx
+import org.jetbrains.plugins.gradle.settings.DistributionType
+import org.jetbrains.plugins.gradle.settings.GradleProjectSettings
+import org.jetbrains.plugins.gradle.settings.GradleSettings
+import org.jetbrains.plugins.gradle.util.GradleConstants
+
+/** Opt-in real Maven/Gradle imports; no constructed imported models or UI automation. */
+class ImportAcceptanceTest : JavaCodeInsightFixtureTestCase() {
+    private lateinit var root: Path
+    private lateinit var jdkName: String
+    private var testJavaVersion = 17
+    private val gradleUserHome =
+        Path.of(System.getProperty("java.io.tmpdir"), "evosuite-import-gradle-home")
+
+    override fun setUp() {
+        check(java.lang.Boolean.getBoolean("evosuite.import.it")) {
+            "Enable with -Pevosuite.import.it=true"
+        }
+        super.setUp()
+        val home = System.getProperty("evosuite.it.javaHome").orEmpty()
+        require(home.isNotBlank()) { "Pass -Pevosuite.it.javaHome=/path/to/jdk-17-or-newer" }
+        testJavaVersion = JavaInstallation.at(Path.of(home)).version()
+        require(testJavaVersion >= 17) { "Import acceptance requires a JDK 17 or newer" }
+        com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess.allowRootAccess(
+            testRootDisposable,
+            home,
+            Path.of(home).toRealPath().toString(),
+            System.getProperty("evosuite.import.gradleHome"),
+            Path.of(System.getProperty("evosuite.import.gradleHome")).toRealPath().toString(),
+        )
+        Files.createDirectories(gradleUserHome)
+        com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess.allowRootAccess(
+            testRootDisposable,
+            gradleUserHome.toString(),
+            gradleUserHome.toRealPath().toString(),
+        )
+        jdkName = "EvoSuite import acceptance " + System.nanoTime()
+        val jdk = JavaSdk.getInstance().createJdk(jdkName, home, false)
+        WriteCommandAction.runWriteCommandAction(project) {
+            ProjectJdkTable.getInstance().addJdk(jdk, testRootDisposable)
+            ProjectRootManager.getInstance(project).projectSdk = jdk
+        }
+        root = Path.of(myFixture.tempDirPath)
+    }
+
+    private fun fixture(kind: String) {
+        val source = Path.of(System.getProperty("evosuite.import.fixtures"), kind)
+        Files.walk(source).use { paths ->
+            paths.forEach { from ->
+                val to = root.resolve(source.relativize(from).toString())
+                if (Files.isDirectory(from)) Files.createDirectories(to)
+                else
+                    Files.writeString(
+                        to,
+                        Files.readString(from)
+                            .replace("@EVOSUITE_VERSION@", EngineJars.VERSION)
+                            .replace("JavaLanguageVersion.of(17)", "JavaLanguageVersion.of($testJavaVersion)"),
+                    )
+            }
+        }
+        if (kind.startsWith("gradle"))
+            Files.writeString(
+                root.resolve("gradle.properties"),
+                "org.gradle.java.installations.paths=" +
+                    System.getProperty("evosuite.it.javaHome") +
+                    "\n",
+            )
+        LocalFileSystem.getInstance().refreshAndFindFileByNioFile(root)!!.refresh(false, true)
+    }
+
+    fun testMavenImportAndReimportKeepConfiguredTestFolder() {
+        fixture("maven")
+        val manager = MavenProjectsManager.getInstance(project)
+        manager.initForTests()
+        manager.enableAutoImportInTests()
+        manager.addManagedFilesOrUnignoreNoUpdate(
+            listOf(LocalFileSystem.getInstance().findFileByNioFile(root.resolve("pom.xml"))!!)
+        )
+        importMaven(manager)
+        val main = moduleFor("app/src/main/java/demo/Vault.java")
+        val options = background { SettingsResolver.resolve(main) }
+        assertEquals(GenerationOptions.JUNIT4, options.testFormat)
+        assertEquals(60, options.searchBudget)
+        assertEquals("src/test/generated", options.testFolder)
+        assertEquals(root.resolve("app"), ProjectSetupService.baseDir(main))
+        buildFixture("maven")
+        assertClasspath(main)
+        val questions = prepare(main, options)
+        assertEquals(questions.toString(), 1, questions.size)
+        assertTrue(questions.toString(), questions.single().contains("evosuite-standalone-runtime"))
+        assertTrue(questions.toString(), questions.single().contains("setup execution"))
+        assertTrue(prepare(main, options).isEmpty())
+        assertTestRoot(root.resolve("app").resolve(options.testFolder), main)
+        importMaven(manager)
+        assertTestRoot(
+            root.resolve("app").resolve(options.testFolder),
+            moduleFor("app/src/main/java/demo/Vault.java"),
+        )
+        val pom = Files.readString(root.resolve("app/pom.xml"))
+        assertTrue(pom, pom.contains("evosuite-setup") && pom.contains("<goal>setup</goal>"))
+        val local =
+            org.evosuite.intellij.settings.EvoSuiteProjectSettings.getInstance(project).state!!
+        local.useProjectSettings = true
+        local.values["usePomSettings"] = "false"
+        local.values["testFolder"] = "generated-tests/evosuite"
+        val changed = background { SettingsResolver.resolve(main) }
+        prepare(main, changed)
+        importMaven(manager)
+        assertTestRoot(
+            root.resolve("app/generated-tests/evosuite"),
+            moduleFor("app/src/main/java/demo/Vault.java"),
+        )
+        assertEquals(
+            1,
+            Regex("<id>evosuite-setup</id>")
+                .findAll(Files.readString(root.resolve("app/pom.xml")))
+                .count(),
+        )
+        exerciseGeneration("maven", moduleFor("app/src/main/java/demo/Vault.java"), changed)
+    }
+
+    fun testMavenRuntimeFreeSetupAndTestsNeedNoRuntimeDependency() {
+        fixture("maven")
+        val manager = MavenProjectsManager.getInstance(project)
+        manager.initForTests(); manager.enableAutoImportInTests()
+        manager.addManagedFilesOrUnignoreNoUpdate(listOf(LocalFileSystem.getInstance().findFileByNioFile(root.resolve("pom.xml"))!!))
+        importMaven(manager)
+        val main = moduleFor("app/src/main/java/demo/Vault.java")
+        val options = background { SettingsResolver.resolve(main) }; options.noRuntimeDependency = true
+        val questions = prepare(main, options)
+        assertEquals(questions.toString(), 1, questions.size)
+        assertFalse(questions.toString(), questions.single().contains("evosuite-standalone-runtime"))
+        assertTrue(Files.readString(root.resolve("app/pom.xml")).contains("<goal>setup</goal>"))
+        assertFalse(Files.readString(root.resolve("app/pom.xml")).contains("evosuite-standalone-runtime"))
+        buildFixture("maven")
+        exerciseGeneration("maven", moduleFor("app/src/main/java/demo/Vault.java"), options)
+        assertFalse(Files.readString(root.resolve("app/pom.xml")).contains("evosuite-standalone-runtime"))
+        val reports = root.resolve("app/target/surefire-reports/TEST-demo.Vault_ESTest.xml")
+        assertTrue("Generated runtime-free Maven tests must execute", Files.isRegularFile(reports))
+        assertFalse(Files.readString(reports).contains("<failure"))
+
+        val exit = CompletableFuture<Int>()
+        project.messageBus.connect(testRootDisposable).subscribe(
+            ExecutionManager.EXECUTION_TOPIC,
+            object : ExecutionListener {
+                private fun isGeneratedSuite(env: ExecutionEnvironment) =
+                    (env.runProfile as? JUnitConfiguration)?.persistentData?.MAIN_CLASS_NAME == "demo.Vault_ESTest"
+
+                override fun processNotStarted(
+                    executorId: String, env: ExecutionEnvironment, error: Throwable?
+                ) {
+                    if (isGeneratedSuite(env))
+                        exit.completeExceptionally(error ?: AssertionError("JUnit launch did not start"))
+                }
+
+                override fun processTerminated(
+                    executorId: String, env: ExecutionEnvironment, handler: ProcessHandler, exitCode: Int
+                ) {
+                    if (isGeneratedSuite(env)) exit.complete(exitCode)
+                }
+            },
+        )
+        GeneratedTestRunner.run(
+            project, root.resolve("app").resolve(options.testFolder).resolve("demo/Vault_ESTest.java")
+        )
+        assertEquals(0, PlatformTestUtil.waitForFuture(exit, 90_000))
+    }
+
+    fun testMavenSetupCanBeCancelledOrLimitedToDependencies() {
+        fixture("maven")
+        val path = root.resolve("app/pom.xml")
+        Files.writeString(path, Files.readString(path).replace(
+            Regex("<dependency>\\s*<groupId>junit</groupId>[\\s\\S]*?</dependency>"), ""))
+        LocalFileSystem.getInstance().refreshAndFindFileByNioFile(path)!!.refresh(false, false)
+        val manager = MavenProjectsManager.getInstance(project)
+        manager.initForTests()
+        manager.enableAutoImportInTests()
+        manager.addManagedFilesOrUnignoreNoUpdate(
+            listOf(LocalFileSystem.getInstance().findFileByNioFile(root.resolve("pom.xml"))!!)
+        )
+        importMaven(manager)
+        val main = moduleFor("app/src/main/java/demo/Vault.java")
+        val options = background { SettingsResolver.resolve(main) }
+        assertEquals(GenerationOptions.JUNIT5, options.testFormat)
+        val original = Files.readString(path)
+        assertEquals(1, prepare(main, options, 2, cancelled = true).size)
+        assertEquals(original, Files.readString(path))
+        assertFalse(Files.exists(root.resolve("app/src/test/generated")))
+        assertEquals(1, prepare(main, options, 1).size)
+        val dependenciesOnly = Files.readString(path)
+        assertTrue(dependenciesOnly, dependenciesOnly.contains("<artifactId>evosuite-standalone-runtime</artifactId>"))
+        assertFalse(dependenciesOnly, dependenciesOnly.contains("<goal>setup</goal>"))
+        assertTrue(dependenciesOnly, dependenciesOnly.contains("<artifactId>junit-jupiter</artifactId>"))
+        assertTrue(background { ProjectSetupService.hasClass(main, "org.junit.jupiter.api.Test") })
+        assertTrue(background { ProjectSetupService.hasClass(main, "org.evosuite.runtime.EvoRunnerParameters") })
+        // Setup-only offers an explicit Skip action; Cancel still stops the request.
+        assertEquals(1, prepare(main, options, 2, cancelled = true).size)
+        assertEquals(dependenciesOnly, Files.readString(path))
+        assertEquals(1, prepare(main, options).size)
+        assertTrue(Files.readString(path).contains("<goal>setup</goal>"))
+        assertTrue(prepare(main, options).isEmpty())
+    }
+
+    private fun importMaven(manager: MavenProjectsManager) {
+        val future =
+            CompletableFuture.supplyAsync {
+                runBlocking {
+                    (manager as MavenProjectsManagerEx).updateAllMavenProjects(
+                        MavenSyncSpec.full("EvoSuite acceptance")
+                    )
+                }
+            }
+        PlatformTestUtil.waitForFuture(future, 180_000)
+    }
+
+    fun testGradleSourceSetImportAndReimportKeepConfiguredTestFolder() {
+        fixture("gradle")
+        linkGradle()
+        importGradle()
+        val main = moduleFor("app/src/main/java/demo/Vault.java")
+        val tests = moduleFor("app/src/test/java/demo/VaultTest.java")
+        assertTrue(main.name, main != tests)
+        assertEquals(
+            GenerationOptions.JUNIT5,
+            background { SettingsResolver.resolve(main) }.testFormat,
+        )
+        assertEquals(root.resolve("app"), ProjectSetupService.baseDir(main))
+        buildFixture("gradle")
+        assertClasspath(main)
+        val options = GenerationOptions()
+        assertEquals(tests, ProjectSetupService.testModule(main))
+        assertTrue(
+            background {
+                ProjectSetupService.hasClass(
+                    ProjectSetupService.testModule(main),
+                    "org.junit.jupiter.api.Test",
+                )
+            }
+        )
+        val questions = prepare(main, options)
+        assertTestRoot(
+            root.resolve("app").resolve(options.testFolder),
+            ProjectSetupService.testModule(main),
+        )
+        assertEquals(questions.toString(), 1, questions.size)
+        assertTestRoot(root.resolve("app").resolve(options.testFolder), tests)
+        options.testFolder = "generated-tests/evosuite"
+        val changedQuestions = prepare(main, options)
+        assertEquals(changedQuestions.toString(), 1, changedQuestions.size)
+        assertTestRoot(root.resolve("app").resolve(options.testFolder), tests)
+        // The plugin must persist this itself; no manual build-script repair is allowed.
+        assertTrue(Files.readString(root.resolve("app/build.gradle")).contains(options.testFolder))
+        importGradle()
+        assertTestRoot(
+            root.resolve("app").resolve(options.testFolder),
+            moduleFor("app/src/test/java/demo/VaultTest.java"),
+        )
+        exerciseGeneration("gradle", moduleFor("app/src/main/java/demo/Vault.java"), options)
+    }
+
+    fun testGradleJUnit4DetectionAndMissingRuntimeDependencyArePersisted() {
+        fixture("gradle")
+        val build = root.resolve("build.gradle")
+        Files.writeString(
+            build,
+            Files.readString(build)
+                .replace("org.junit.jupiter:junit-jupiter:5.14.3", "junit:junit:4.13.2")
+                .replace(
+                    "        testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.14.3'",
+                    "",
+                )
+                .replace(
+                    "        testImplementation 'org.evosuite:evosuite-standalone-runtime:" +
+                        EngineJars.VERSION +
+                        "'",
+                    "",
+                ),
+        )
+        Files.writeString(
+            root.resolve("app/src/test/java/demo/VaultTest.java"),
+            Files.readString(
+                Path.of(
+                    System.getProperty("evosuite.import.fixtures"),
+                    "maven/app/src/test/java/demo/VaultTest.java",
+                )
+            ),
+        )
+        LocalFileSystem.getInstance().findFileByNioFile(build)!!.refresh(false, false)
+        linkGradle()
+        importGradle()
+        val main = moduleFor("app/src/main/java/demo/Vault.java")
+        val options = background { SettingsResolver.resolve(main) }
+        assertEquals(GenerationOptions.JUNIT4, options.testFormat)
+        val beforeSetup = Files.readString(root.resolve("app/build.gradle"))
+        assertEquals(1, prepare(main, options, 2, cancelled = true).size)
+        assertEquals(beforeSetup, Files.readString(root.resolve("app/build.gradle")))
+        val questions = prepare(main, options)
+        assertTestRoot(
+            root.resolve("app").resolve(options.testFolder),
+            ProjectSetupService.testModule(main),
+        )
+        assertTrue(
+            questions.toString(),
+            questions.any { it.contains("evosuite-standalone-runtime") },
+        )
+        importGradle()
+        val tests = moduleFor("app/src/test/java/demo/VaultTest.java")
+        assertTrue(
+            background {
+                ProjectSetupService.hasClass(tests, "org.evosuite.runtime.EvoRunnerParameters")
+            }
+        )
+        val updated = Files.readString(build) + Files.readString(root.resolve("app/build.gradle"))
+        assertTrue(
+            updated,
+            updated.contains("evosuite-standalone-runtime") &&
+                updated.contains("testImplementation"),
+        )
+        buildFixture("gradle", true)
+    }
+
+    fun testGradleKotlinDslMissingRuntimeDependencyIsPersisted() {
+        fixture("gradle")
+        for (file in listOf("settings.gradle", "build.gradle", "app/build.gradle")) Files.delete(
+            root.resolve(file)
+        )
+        fixture("gradle-kotlin")
+        // The root supplies Java/dependencies, but the subproject has no script until setup.
+        Files.delete(root.resolve("app/build.gradle.kts"))
+        Files.writeString(root.resolve("build.gradle.kts"), Files.readString(root.resolve("build.gradle.kts"))
+                + "\nproject(\":app\") { dependencies { add(\"implementation\", project(\":library\")) } }\n")
+        LocalFileSystem.getInstance().refreshAndFindFileByNioFile(root)!!.refresh(false, true)
+        linkGradle()
+        importGradle()
+        val main = moduleFor("app/src/main/java/demo/Vault.java")
+        val options = background { SettingsResolver.resolve(main) }
+        assertEquals(GenerationOptions.JUNIT5, options.testFormat)
+        val questions = prepare(main, options)
+        assertTestRoot(
+            root.resolve("app").resolve(options.testFolder),
+            ProjectSetupService.testModule(main),
+        )
+        assertTrue(
+            questions.toString(),
+            questions.any { it.contains("evosuite-standalone-runtime") },
+        )
+        importGradle()
+        val tests = moduleFor("app/src/test/java/demo/VaultTest.java")
+        assertTrue(
+            background {
+                ProjectSetupService.hasClass(tests, "org.evosuite.runtime.EvoRunnerParameters")
+            }
+        )
+        assertTrue(background { ProjectSetupService.hasClass(tests, "org.junit.jupiter.api.Test") })
+        assertFalse(Files.exists(root.resolve("app/build.gradle")))
+        val updated = Files.readString(root.resolve("app/build.gradle.kts"))
+        assertTrue(
+            updated,
+            updated.contains("junit-jupiter") && updated.contains("junit-platform-launcher"),
+        )
+        assertTrue(
+            updated,
+            updated.contains("evosuite-standalone-runtime") &&
+                updated.contains("testImplementation"),
+        )
+        buildFixture("gradle", true)
+    }
+
+    fun testGradleRuntimeFreeGenerationNeedsOnlyJUnitAndRunsAfterReimport() {
+        fixture("gradle")
+        for (file in listOf("settings.gradle", "build.gradle", "app/build.gradle")) Files.delete(root.resolve(file))
+        fixture("gradle-kotlin")
+        // The root supplies Java/dependencies, but the subproject has no script until setup.
+        Files.delete(root.resolve("app/build.gradle.kts"))
+        Files.writeString(root.resolve("build.gradle.kts"), Files.readString(root.resolve("build.gradle.kts"))
+                + "\nproject(\":app\") { dependencies { add(\"implementation\", project(\":library\")) } }\n")
+        LocalFileSystem.getInstance().refreshAndFindFileByNioFile(root)!!.refresh(false, true)
+        linkGradle(); importGradle()
+        val main = moduleFor("app/src/main/java/demo/Vault.java")
+        val options = background { SettingsResolver.resolve(main) }
+        options.noRuntimeDependency = true
+        val questions = prepare(main, options)
+        assertEquals(questions.toString(), 1, questions.size)
+        assertFalse(questions.toString(), questions.single().contains("evosuite-standalone-runtime"))
+        val build = Files.readString(root.resolve("app/build.gradle.kts"))
+        assertTrue(build, build.contains(options.testFolder) && build.contains("useJUnitPlatform()"))
+        assertFalse(build, build.contains("evosuite-standalone-runtime"))
+        importGradle()
+        assertTrue(prepare(main, options).isEmpty())
+        buildFixture("gradle")
+        exerciseGeneration("gradle", moduleFor("app/src/main/java/demo/Vault.java"), options)
+        val results = root.resolve("app/build/test-results/test")
+        val reports = Files.list(results).use { paths -> paths.filter { it.fileName.toString().contains("Vault_ESTest") }.toList() }
+        assertFalse("Generated JUnit tests must actually execute", reports.isEmpty())
+        val xml = Files.readString(reports.first())
+        assertTrue(xml, Regex("tests=\"[1-9][0-9]*\"").containsMatchIn(xml))
+        assertFalse(xml, xml.contains("<failure"))
+        assertFalse(Files.readString(root.resolve("app/build.gradle.kts")).contains("evosuite-standalone-runtime"))
+        val generated = com.intellij.psi.PsiManager.getInstance(project).findFile(
+            LocalFileSystem.getInstance().refreshAndFindFileByNioFile(root.resolve("app").resolve(options.testFolder).resolve("demo/Vault_ESTest.java"))!!
+        ) as com.intellij.psi.PsiJavaFile
+        val run = org.evosuite.intellij.run.GeneratedTestRunner.configuration(project, generated.classes[0]).configuration as com.intellij.execution.junit.JUnitConfiguration
+        assertEquals(moduleFor("app/src/test/java/demo/VaultTest.java"), run.configurationModule.module)
+        assertEquals("class", run.persistentData.TEST_OBJECT)
+        assertEquals("demo.Vault_ESTest", run.persistentData.MAIN_CLASS_NAME)
+    }
+
+    private fun linkGradle() {
+        val home = System.getProperty("evosuite.import.gradleHome").orEmpty()
+        require(home.isNotBlank()) { "Pass -Pevosuite.import.gradleHome=/path/to/gradle" }
+        val settings =
+            GradleProjectSettings().apply {
+                externalProjectPath = root.toString()
+                gradleHome = home
+                distributionType = DistributionType.LOCAL
+                gradleJvm = jdkName
+                isResolveModulePerSourceSet = true
+                delegatedBuild = true
+            }
+        GradleSettings.getInstance(project).apply {
+            serviceDirectoryPath = gradleUserHome.toString()
+            linkProject(settings)
+        }
+    }
+
+    private fun prepare(module: Module, options: GenerationOptions, answer: Int = 0, cancelled: Boolean = false): List<String> {
+        val questions = java.util.concurrent.CopyOnWriteArrayList<String>()
+        val previous =
+            TestDialogManager.setTestDialog { message ->
+                questions.add(message)
+                answer
+            }
+        try {
+            background {
+                try {
+                    ProjectSetupService.prepare(module, options, EmptyProgressIndicator(), ::println)
+                    assertFalse("Cancel must stop setup", cancelled)
+                } catch (ex: com.intellij.openapi.progress.ProcessCanceledException) {
+                    if (!cancelled) throw ex
+                }
+            }
+        } finally {
+            TestDialogManager.setTestDialog(previous)
+        }
+        return questions
+    }
+
+    private fun exerciseGeneration(kind: String, main: Module, options: GenerationOptions) {
+        options.searchBudget = 3
+        options.clientMemory = 512
+        options.criterion = "BRANCH"
+        options.pomExtraArguments = ""
+        options.extraArguments = "-Dsandbox=false -Dminimization_timeout=3 -Dassertion_timeout=3"
+        val cp =
+            ReadAction.compute<List<String>, RuntimeException> {
+                ClasspathResolver.resolve(main, false)
+            }
+        val lines = java.util.concurrent.CopyOnWriteArrayList<String>()
+        val listener =
+            object : ProgressParser.Listener {
+                override fun line(line: String) {
+                    lines.add(line)
+                }
+
+                override fun progress(search: Int, coverage: Int) {}
+            }
+        val installation = background {
+            IdeThread.smartRead(project) { ClasspathResolver.java(main, options) }
+        }
+        val target = GenerationTarget.wholeClass("demo.Vault")
+        val result = background {
+            GenerationRun.generate(
+                target,
+                options,
+                installation,
+                EngineJars.engine(),
+                cp,
+                root.resolve("app"),
+                root.resolve("generation"),
+                listener,
+                emptyMap(),
+            ) {
+                false
+            }
+        }
+        assertTrue(lines.joinToString("\n"), result.produced())
+        assertEquals(lines.joinToString("\n"), 0, result.exitCode())
+        val destination =
+            root.resolve("app").resolve(options.testFolder).resolve("demo/Vault_ESTest.java")
+        val placed =
+            SuitePlacement.place(
+                project,
+                target,
+                options,
+                destination,
+                result,
+                SuiteAction.REPLACE,
+                null,
+                ::println,
+            )
+        assertTrue(placed.written())
+        IdeThread.flushPendingVfsWrites()
+        buildFixture(kind, true)
+        // Extend a compiled, handwritten test through the imported test module's full classpath.
+        val testModule = moduleFor("app/src/test/java/demo/VaultTest.java")
+        val seedRoot = root.resolve("app/src/test/java")
+        val original = Files.readString(seedRoot.resolve("demo/VaultTest.java"))
+        val extensionCp =
+            ReadAction.compute<List<String>, RuntimeException> {
+                ClasspathResolver.resolve(main, GenerationTarget.extending("demo.Vault", listOf(GenerationTarget.Seed("demo.VaultTest", seedRoot.toFile())))).also {
+                    assertEquals(main, ProjectSetupService.productionModule(testModule))
+                    assertTrue(org.evosuite.intellij.run.GenerationService.buildModules(main, listOf(GenerationTarget.extending("demo.Vault", listOf(GenerationTarget.Seed("demo.VaultTest", seedRoot.toFile()))))).contains(testModule))
+                }
+            }
+        options.searchBudget = 10
+        options.extraArguments = "-Dsandbox=false -Dminimization_timeout=10 -Dassertion_timeout=5"
+        val extended = background {
+            GenerationRun.generate(
+                GenerationTarget.extending(
+                    "demo.Vault",
+                    listOf(GenerationTarget.Seed("demo.VaultTest", seedRoot.toFile())),
+                ),
+                options,
+                installation,
+                EngineJars.engine(),
+                extensionCp,
+                root.resolve("app"),
+                root.resolve("extension"),
+                listener,
+                emptyMap(),
+            ) {
+                false
+            }
+        }
+        assertNotNull(extended.seeding())
+        assertTrue(lines.joinToString("\n"), extended.seeding().seeded())
+        assertTrue(lines.joinToString("\n"), extended.seeding().ranExistingTests())
+        assertEquals(original, Files.readString(seedRoot.resolve("demo/VaultTest.java")))
+    }
+
+    private fun importGradle() {
+        val done = CompletableFuture<Void>()
+        ExternalSystemUtil.refreshProject(
+            root.toString(),
+            ImportSpecBuilder(project, GradleConstants.SYSTEM_ID)
+                .use(ProgressExecutionMode.IN_BACKGROUND_ASYNC)
+                .withImportProjectData(true)
+                .withCallback(done),
+        )
+        PlatformTestUtil.waitForFuture(done, 180_000)
+    }
+
+    private fun buildFixture(kind: String, executeTests: Boolean = false) {
+        background {
+            val command =
+                if (kind == "maven")
+                    listOf(
+                        "mvn",
+                        "-f",
+                        root.resolve("pom.xml").toString(),
+                        if (executeTests) "test" else "test-compile",
+                    )
+                else
+                    listOf(
+                        Path.of(System.getProperty("evosuite.import.gradleHome"), "bin", "gradle")
+                            .toString(),
+                        "-p",
+                        root.toString(),
+                        if (executeTests) "test" else "testClasses",
+                        "--console=plain",
+                    )
+            val log = root.resolve("acceptance-build.log")
+            val process =
+                ProcessBuilder(command)
+                    .directory(root.toFile())
+                    .redirectErrorStream(true)
+                    .redirectOutput(log.toFile())
+                    .apply {
+                        environment()["JAVA_HOME"] = System.getProperty("evosuite.it.javaHome")
+                        environment()["GRADLE_USER_HOME"] = gradleUserHome.toString()
+                    }
+                    .start()
+            try {
+                check(process.waitFor(180, java.util.concurrent.TimeUnit.SECONDS)) {
+                    "Build timed out: " + log
+                }
+                assertEquals(Files.readString(log), 0, process.exitValue())
+            } finally {
+                if (process.isAlive) process.destroyForcibly()
+            }
+        }
+        LocalFileSystem.getInstance().refreshAndFindFileByNioFile(root)!!.refresh(false, true)
+    }
+
+    private fun <T> background(action: () -> T): T =
+        PlatformTestUtil.waitForFuture(CompletableFuture.supplyAsync(action), 180_000)
+
+    private fun moduleFor(path: String): Module =
+        ReadAction.compute<Module, RuntimeException> {
+            val file = LocalFileSystem.getInstance().findFileByNioFile(root.resolve(path))!!
+            ProjectFileIndex.getInstance(project).getModuleForFile(file)
+                ?: error(
+                    "No module for " +
+                        path +
+                        "; modules: " +
+                        ModuleManager.getInstance(project).modules.map { it.name }
+                )
+        }
+
+    private fun assertClasspath(module: Module) {
+        val cp =
+            ReadAction.compute<List<String>, RuntimeException> {
+                ClasspathResolver.resolve(module, false)
+            }
+        assertTrue(
+            cp.toString(),
+            cp.any { it.contains("app") && (it.contains("classes") || it.contains("production")) },
+        )
+        assertTrue(
+            cp.toString(),
+            cp.any {
+                it.contains("library") && (it.contains("classes") || it.contains("production"))
+            },
+        )
+        assertFalse(
+            cp.toString(),
+            cp.any {
+                it.contains("junit") ||
+                    it.contains("evosuite-standalone-runtime") ||
+                    it.contains("test-classes")
+            },
+        )
+    }
+
+    private fun assertTestRoot(path: Path, owner: Module) {
+        val file = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(path)!!
+        val index = ProjectFileIndex.getInstance(project)
+        assertTrue(path.toString(), index.isInTestSourceContent(file))
+        assertEquals(owner, index.getModuleForFile(file))
+    }
+}

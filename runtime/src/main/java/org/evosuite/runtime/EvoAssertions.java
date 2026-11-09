@@ -20,7 +20,6 @@
 package org.evosuite.runtime;
 
 import org.evosuite.runtime.util.ReflectionUtils;
-import org.junit.internal.AssumptionViolatedException;
 
 import java.lang.annotation.Annotation;
 
@@ -35,9 +34,8 @@ public class EvoAssertions {
      */
     public static void verifyException(String sourceClass, Throwable t) throws AssertionError {
 
-        // this can happen in false positives for PAFM
-        if (t instanceof AssumptionViolatedException) {
-            throw (AssumptionViolatedException) t;
+        if (t instanceof RuntimeException && isAbortedTest(t.getClass())) {
+            throw (RuntimeException) t;
         }
 
         //non functional requirement exceptions are handled specially in the generated tests
@@ -46,6 +44,18 @@ public class EvoAssertions {
         }
 
         assertThrownBy(sourceClass, t);
+    }
+
+    private static boolean isAbortedTest(Class<?> type) {
+        // Either test framework may be absent from the generated suite's classpath.
+        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+            String name = current.getName();
+            if (name.equals("org.junit.internal.AssumptionViolatedException")
+                    || name.equals("org.opentest4j.TestAbortedException")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

@@ -1,0 +1,7 @@
+/.gradle/
+/.intellijPlatform/
+/build/
+/.idea/
+*.iml
+/.kotlin/
+!/gradle/wrapper/gradle-wrapper.jar

@@ -68,8 +68,13 @@ public class TransformerForTests implements ClassFileTransformer {
                             ProtectionDomain protectionDomain, byte[] classfileBuffer)
             throws IllegalClassFormatException {
 
+        // Bootstrap classes, including helpers installed by other agents, cannot link to this runtime.
+        if (!active || loader == null || className == null) {
+            return classfileBuffer;
+        }
+
         String classWithDots = className.replace('/', '.');
-        if (!active || !RuntimeInstrumentation.checkIfCanInstrument(classWithDots)
+        if (!RuntimeInstrumentation.checkIfCanInstrument(classWithDots)
                 || classWithDots.startsWith(PackageInfo.getEvoSuitePackage())) {
             return classfileBuffer;
         } else {

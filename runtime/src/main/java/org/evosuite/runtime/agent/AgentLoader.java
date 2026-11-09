@@ -71,6 +71,11 @@ public class AgentLoader {
         AgentLoader.skipAttach = skip;
     }
 
+    /** Whether in-process execution currently suppresses redundant agent attachment. */
+    public static boolean isSkipAttach() {
+        return skipAttach;
+    }
+
     /**
      * Dynamically loads the EvoSuite javaagent into the current JVM.
      *

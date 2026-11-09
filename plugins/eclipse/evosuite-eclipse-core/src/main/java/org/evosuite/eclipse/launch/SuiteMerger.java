@@ -655,6 +655,33 @@ public final class SuiteMerger {
         return (int) Arrays.stream(type.getMethods()).filter(m -> isTest(m) && !isPlaceholder(m)).count();
     }
 
+    public static boolean isGeneratedSuite(String source, String suiteName) {
+        CompilationUnit unit = parse(withoutByteOrderMark(source));
+        TypeDeclaration type = findType(unit, suiteName);
+        if (type == null || hasErrors(unit)) return false;
+        String runtime = "org.evosuite.runtime";
+        String runner = runtime + ".EvoRunnerParameters";
+        boolean runtimeImport = false;
+        boolean conflictingImport = false;
+        for (Object value : unit.imports()) {
+            ImportDeclaration declaration = (ImportDeclaration) value;
+            String name = declaration.getName().getFullyQualifiedName();
+            if (!declaration.isStatic()) {
+                if (runner.equals(name) || runtime.equals(name) && declaration.isOnDemand()) runtimeImport = true;
+                if (name.endsWith(".EvoRunnerParameters") && !runner.equals(name)) conflictingImport = true;
+            }
+        }
+        for (Object value : type.modifiers()) {
+            if (value instanceof Annotation annotation) {
+                String name = annotation.getTypeName().getFullyQualifiedName();
+                if (runner.equals(name) || name.equals("EvoRunnerParameters") && runtimeImport && !conflictingImport) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     private static boolean hasAnnotation(BodyDeclaration declaration, String simpleName) {
         for (Object modifier : declaration.modifiers()) {
             if (modifier instanceof Annotation annotation) {

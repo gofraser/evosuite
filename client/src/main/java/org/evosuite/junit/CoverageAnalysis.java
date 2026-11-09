@@ -368,7 +368,7 @@ public class CoverageAnalysis {
 
                     try {
                         Class<?> clazz = Class.forName(
-                                sut, true, TestGenerationContext.getInstance().getClassLoaderForSUT());
+                                sut, false, TestGenerationContext.getInstance().getClassLoaderForSUT());
 
                         if (isTest(clazz)) {
                             classes.add(clazz);
@@ -406,7 +406,7 @@ public class CoverageAnalysis {
 
                 try {
                     Class<?> clazz = Class.forName(prefix,
-                            true,
+                            false,
                             TestGenerationContext.getInstance().getClassLoaderForSUT());
                     testClasses.add(clazz);
                 } catch (ClassNotFoundException e) {
@@ -490,7 +490,7 @@ public class CoverageAnalysis {
         Class<?> clazz = null;
         Throwable failure = null;
         try {
-            clazz = Class.forName(className, true, TestGenerationContext.getInstance().getClassLoaderForSUT());
+            clazz = Class.forName(className, false, TestGenerationContext.getInstance().getClassLoaderForSUT());
         } catch (Throwable t) {
             failure = t;
         }
@@ -693,17 +693,39 @@ public class CoverageAnalysis {
         ExecutionTracer.setCheckCallerThread(false);
         ExecutionTracer.getExecutionTracer().clear();
 
+        // Existing generated tests must use the SUT's coverage instrumentation. Their runners
+        // must neither load another instrumenting classloader nor attach a second agent (which
+        // can hang on some JDK/OS combinations). This also covers extension minimization, not
+        // just the standalone -measureCoverage entry point.
+        boolean useAgent4 = EvoRunner.useAgent;
+        boolean useLoader4 = EvoRunner.useClassLoader;
+        boolean useAgent5 = org.evosuite.runtime.EvoRunnerJUnit5.useAgent;
+        boolean useLoader5 = org.evosuite.runtime.EvoRunnerJUnit5.useClassLoader;
+        boolean skipAttach = org.evosuite.runtime.agent.AgentLoader.isSkipAttach();
+        ClassLoader contextLoader = Thread.currentThread().getContextClassLoader();
         List<JUnitResult> results = new ArrayList<>();
-        for (Class<?> testClass : testClasses) {
-            LoggingUtils.getEvoLogger().info("  Executing " + testClass.getSimpleName());
-            // Set the context classloader in case the SUT requests it
-            Thread.currentThread().setContextClassLoader(testClass.getClassLoader());
-            JUnitRunner junitRunner = new JUnitRunner(testClass);
-            junitRunner.run();
-            results.addAll(junitRunner.getTestResults());
+        try {
+            EvoRunner.useAgent = false;
+            EvoRunner.useClassLoader = false;
+            org.evosuite.runtime.EvoRunnerJUnit5.useAgent = false;
+            org.evosuite.runtime.EvoRunnerJUnit5.useClassLoader = false;
+            org.evosuite.runtime.agent.AgentLoader.setSkipAttach(true);
+            for (Class<?> testClass : testClasses) {
+                LoggingUtils.getEvoLogger().info("  Executing " + testClass.getSimpleName());
+                Thread.currentThread().setContextClassLoader(testClass.getClassLoader());
+                JUnitRunner junitRunner = new JUnitRunner(testClass);
+                junitRunner.run();
+                results.addAll(junitRunner.getTestResults());
+            }
+        } finally {
+            EvoRunner.useAgent = useAgent4;
+            EvoRunner.useClassLoader = useLoader4;
+            org.evosuite.runtime.EvoRunnerJUnit5.useAgent = useAgent5;
+            org.evosuite.runtime.EvoRunnerJUnit5.useClassLoader = useLoader5;
+            org.evosuite.runtime.agent.AgentLoader.setSkipAttach(skipAttach);
+            Thread.currentThread().setContextClassLoader(contextLoader);
+            ExecutionTracer.disable();
         }
-
-        ExecutionTracer.disable();
 
         LoggingUtils.clientInfo("Executed " + results.size() + " unit " + "test(s)");
         ClientServices.track(RuntimeVariable.Tests_Executed,

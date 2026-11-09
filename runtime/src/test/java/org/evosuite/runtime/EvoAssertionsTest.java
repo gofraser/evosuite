@@ -20,12 +20,26 @@
 package org.evosuite.runtime;
 
 import org.evosuite.runtime.sandbox.MSecurityManager;
+import org.junit.AssumptionViolatedException;
 import org.junit.jupiter.api.Test;
+import org.opentest4j.TestAbortedException;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class EvoAssertionsTest {
+
+    @Test
+    void verifyExceptionPreservesAbortedTests() {
+        AssumptionViolatedException junit4 = new AssumptionViolatedException("skipped");
+        TestAbortedException jupiter = new TestAbortedException("skipped");
+
+        assertSame(junit4, assertThrows(AssumptionViolatedException.class,
+                () -> EvoAssertions.verifyException("example.Subject", junit4)));
+        assertSame(jupiter, assertThrows(TestAbortedException.class,
+                () -> EvoAssertions.verifyException("example.Subject", jupiter)));
+    }
 
     @Test
     void assertThrownByIgnoresShadedRuntimeSystemWrapperFrame() {

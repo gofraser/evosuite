@@ -136,7 +136,7 @@ public class PluginParityTest {
     public void runtimeFreeOwnershipRequiresLocalRecordAndARealComment(@TempDir Path dir)
             throws Exception {
         File suite = dir.resolve("Foo_ESTest.java").toFile();
-        String generated = GeneratedSuiteRegistry.decorate(suite, "public class Foo_ESTest {}\n");
+        String generated = GeneratedSuiteRegistry.decorate("public class Foo_ESTest {}\n");
         Files.writeString(suite.toPath(), generated);
         assertFalse(EvoSuiteCommand.isEvoSuiteSuite(suite));
         GeneratedSuiteRegistry.record(suite, generated);
@@ -204,6 +204,20 @@ public class PluginParityTest {
                             && changed.contains("useJUnitPlatform()")
                             && changed.contains("junit-platform-launcher"));
         }
+    }
+
+    @Test
+    public void gradleSetupTargetsTheSelectedTestSourceSet() {
+        GenerationOptions options = new GenerationOptions();
+        options.testFormat = "JUNIT5";
+        options.testFolder = "src/integrationTest/evosuite";
+        String script = BuildToolSetup.updateGradle("plugins { java }\n", options,
+                true, false, true, "1.2.1", "integrationTest", true);
+        assertTrue(script.contains("sourceSets.named(\"integrationTest\")"));
+        assertTrue(script.contains("add(\"integrationTestImplementation\","));
+        assertTrue(script.contains("add(\"integrationTestRuntimeOnly\","));
+        assertEquals(script, BuildToolSetup.updateGradle(script, options,
+                true, false, true, "1.2.1", "integrationTest", true));
     }
 
     @Test

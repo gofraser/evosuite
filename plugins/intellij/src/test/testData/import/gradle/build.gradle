@@ -1,0 +1,14 @@
+subprojects {
+    apply plugin: 'java'
+    repositories { mavenCentral(); mavenLocal() }
+    java { toolchain { languageVersion = JavaLanguageVersion.of(17) } }
+}
+project(':app') {
+    dependencies {
+        implementation project(':library')
+        testImplementation 'org.junit.jupiter:junit-jupiter:5.14.3'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.14.3'
+        testImplementation 'org.evosuite:evosuite-standalone-runtime:@EVOSUITE_VERSION@'
+    }
+    test { useJUnitPlatform() }
+}

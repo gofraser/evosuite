@@ -22,6 +22,7 @@ package org.evosuite.eclipse.launch;
 import org.eclipse.core.filebuffers.*;
 import org.eclipse.core.resources.*;
 import org.eclipse.core.runtime.*;
+import org.eclipse.jdt.core.IClasspathEntry;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.widgets.Display;
@@ -77,7 +78,11 @@ public final class BuildToolSetup {
         IFile pom = resource.getFile("pom.xml");
         boolean maven = resource.hasNature(ProjectSetup.MAVEN_NATURE) && pom.exists();
         if (!maven && !resource.hasNature(ProjectSetup.GRADLE_NATURE)) return false;
+        if (!maven && Platform.getBundle("org.eclipse.buildship.core") == null) {
+            throw new CoreException(Activator.error("Buildship is required to refresh " + resource.getName()));
+        }
         IFile file = maven ? pom : gradleBuildFile(resource);
+        file.refreshLocal(IResource.DEPTH_ZERO, monitor);
         boolean existed = file.exists();
         String original = existed ? read(file) : "";
         String version = runtimeVersion();
@@ -90,8 +95,17 @@ public final class BuildToolSetup {
                                 missingJunit,
                                 missingRuntime,
                                 file.getName().endsWith(".kts"),
-                                version);
-        if (full.equals(original)) return true;
+                                version,
+                                sourceSet(project, options.testFolder),
+                                !junit4 && project.findType("org.junit.platform.launcher.Launcher") == null);
+        var folder = ProjectSetup.testFolder(resource, options);
+        if (full.equals(original)) {
+            if (!folder.exists()) {
+                ProjectSetup.createFolders(folder);
+                refresh(resource, maven, monitor);
+            }
+            return true;
+        }
         int[] choice = {-1};
         Display.getDefault()
                 .syncExec(
@@ -140,25 +154,44 @@ public final class BuildToolSetup {
                 maven && choice[0] == 1
                         ? updatePom(original, options, missingJunit, missingRuntime, false, version)
                         : full;
-        ITextFileBuffer buffer =
-                FileBuffers.getTextFileBufferManager()
-                        .getTextFileBuffer(file.getFullPath(), LocationKind.IFILE);
-        if (buffer != null && buffer.isDirty())
-            throw new CoreException(
-                    Activator.error("Save " + file.getName() + " before configuring it."));
-        if (file.exists() != existed || (existed && !read(file).equals(original)))
-            throw new CoreException(
-                    Activator.error(
-                            file.getName()
-                                    + " changed while setup was being confirmed. Retry"
-                                    + " generation."));
-        String charset = existed ? file.getCharset() : resource.getDefaultCharset();
-        var contents = new ByteArrayInputStream(updated.getBytes(Charset.forName(charset)));
-        if (existed) file.setContents(contents, IResource.KEEP_HISTORY, monitor);
-        else file.create(contents, false, monitor);
-        if (maven) MavenSupport.refresh(resource, monitor);
-        else syncGradle(resource, monitor);
+        ResourcesPlugin.getWorkspace().run(pm -> {
+            file.refreshLocal(IResource.DEPTH_ZERO, pm);
+            ITextFileBuffer buffer = FileBuffers.getTextFileBufferManager()
+                    .getTextFileBuffer(file.getFullPath(), LocationKind.IFILE);
+            if (buffer != null && buffer.isDirty()) {
+                throw new CoreException(Activator.error("Save " + file.getName() + " before configuring it."));
+            }
+            if (file.exists() != existed || existed && !read(file).equals(original)) {
+                throw new CoreException(Activator.error(file.getName() + " changed while setup was being confirmed."));
+            }
+            String charset = existed ? file.getCharset() : resource.getDefaultCharset();
+            var contents = new ByteArrayInputStream(updated.getBytes(Charset.forName(charset)));
+            if (existed) file.setContents(contents, IResource.KEEP_HISTORY, pm);
+            else file.create(contents, IResource.NONE, pm);
+            if (choice[0] == 0) ProjectSetup.createFolders(folder);
+        }, resource, IWorkspace.AVOID_UPDATE, monitor);
+        refresh(resource, maven, monitor);
         return true;
+    }
+
+    private static void refresh(IProject project, boolean maven, IProgressMonitor monitor) throws CoreException {
+        if (maven) MavenSupport.refresh(project, monitor);
+        else syncGradle(project, monitor);
+    }
+
+    private static String sourceSet(IJavaProject project, String folder) throws CoreException {
+        IPath output = IPath.fromPortableString(folder);
+        if (output.segmentCount() >= 3 && "src".equals(output.segment(0))) {
+            String candidate = output.segment(1);
+            IPath prefix = project.getPath().append("src").append(candidate);
+            if (candidate.matches("[A-Za-z_][A-Za-z0-9_]*")) {
+                for (IClasspathEntry entry : project.getRawClasspath()) {
+                    if (entry.getEntryKind() == IClasspathEntry.CPE_SOURCE && entry.isTest()
+                            && prefix.isPrefixOf(entry.getPath())) return candidate;
+                }
+            }
+        }
+        return "test";
     }
 
     /** Keep an existing script; otherwise inherit the nearest enclosing build's DSL. */
@@ -194,9 +227,15 @@ public final class BuildToolSetup {
             boolean runtime,
             boolean kotlin,
             String version) {
+        return updateGradle(original, options, junit, runtime, kotlin, version, "test",
+                junit && !options.effectiveTestFormat().equals(GenerationOptions.JUNIT4));
+    }
+
+    static String updateGradle(String original, GenerationOptions options, boolean junit, boolean runtime,
+                               boolean kotlin, String version, String sourceSet, boolean launcher) {
         String path =
                 options.testFolder.replace("\\", "\\\\").replace("\"", "\\\"").replace("$", "\\$");
-        String block = START + "\nsourceSets.named(\"test\") { java.srcDir(\"" + path + "\") }\n";
+        String block = START + "\nsourceSets.named(\"" + sourceSet + "\") { java.srcDir(\"" + path + "\") }\n";
         String taskType =
                 kotlin
                         ? "<org.gradle.api.tasks.testing.Test>()"
@@ -205,7 +244,8 @@ public final class BuildToolSetup {
                 options.effectiveTestFormat().equals(GenerationOptions.JUNIT4)
                         ? "useJUnit()"
                         : "useJUnitPlatform()";
-        block += "tasks.withType" + taskType + ".configureEach { " + runner + " }\n";
+        block += "tasks.withType" + taskType + ".matching { it.name == \"" + sourceSet
+                + "\" }.configureEach { " + runner + " }\n";
         block += END;
         int start = original.indexOf(START), end = original.indexOf(END);
         String result =
@@ -217,18 +257,19 @@ public final class BuildToolSetup {
         String dependencies = "";
         if (junit) {
             dependencies +=
-                    "    testImplementation(\""
+                    gradleDependency(sourceSet, "Implementation")
                             + (options.effectiveTestFormat().equals(GenerationOptions.JUNIT4)
                                     ? "junit:junit:4.13.2"
                                     : "org.junit.jupiter:junit-jupiter:5.13.4")
                             + "\")\n";
-            if (!options.effectiveTestFormat().equals(GenerationOptions.JUNIT4))
-                dependencies +=
-                        "    testRuntimeOnly(\"org.junit.platform:junit-platform-launcher:1.13.4\")\n";
+        }
+        if (launcher) {
+            dependencies += gradleDependency(sourceSet, "RuntimeOnly")
+                    + "org.junit.platform:junit-platform-launcher:1.13.4\")\n";
         }
         if (runtime)
             dependencies +=
-                    "    testImplementation(\"org.evosuite:evosuite-standalone-runtime:"
+                    gradleDependency(sourceSet, "Implementation") + "org.evosuite:evosuite-standalone-runtime:"
                             + version
                             + "\")\n";
         // Do not add declarations already present when a sync has not yet refreshed the classpath.
@@ -237,11 +278,8 @@ public final class BuildToolSetup {
                         .lines()
                         .filter(
                                 line -> {
-                                    String coordinate =
-                                            line.substring(
-                                                    line.indexOf('"') + 1, line.lastIndexOf('"'));
-                                    return !result.contains(
-                                            coordinate.substring(0, coordinate.lastIndexOf(':')));
+                                    String declaration = line.stripLeading();
+                                    return !result.contains(declaration.substring(0, declaration.lastIndexOf(':')));
                                 })
                         .toList();
         return additions.isEmpty()
@@ -376,10 +414,17 @@ public final class BuildToolSetup {
         child(parent, name).setTextContent(value);
     }
 
+    private static String gradleDependency(String sourceSet, String scope) {
+        return "test".equals(sourceSet) ? "    test" + scope + "(\""
+                : "    add(\"" + sourceSet + scope + "\", \"";
+    }
+
     private static void syncGradle(IProject project, IProgressMonitor monitor)
             throws CoreException {
         var bundle = Platform.getBundle("org.eclipse.buildship.core");
-        if (bundle == null) return;
+        if (bundle == null) {
+            throw new CoreException(Activator.error("Buildship is required to refresh " + project.getName()));
+        }
         try {
             Object workspace =
                     bundle.loadClass("org.eclipse.buildship.core.GradleCore")
@@ -390,18 +435,14 @@ public final class BuildToolSetup {
                             bundle.loadClass("org.eclipse.buildship.core.GradleWorkspace")
                                     .getMethod("getBuild", IProject.class)
                                     .invoke(workspace, project);
-            if (build.isPresent()) {
-                Object result =
-                        bundle.loadClass("org.eclipse.buildship.core.GradleBuild")
-                                .getMethod("synchronize", IProgressMonitor.class)
-                                .invoke(build.get(), monitor);
-                IStatus status =
-                        (IStatus)
-                                bundle.loadClass("org.eclipse.buildship.core.SynchronizationResult")
-                                        .getMethod("getStatus")
-                                        .invoke(result);
-                if (!status.isOK()) throw new CoreException(status);
+            if (build.isEmpty()) {
+                throw new CoreException(Activator.error("No imported Gradle build for " + project.getName()));
             }
+            Object result = bundle.loadClass("org.eclipse.buildship.core.GradleBuild")
+                    .getMethod("synchronize", IProgressMonitor.class).invoke(build.get(), monitor);
+            IStatus status = (IStatus) bundle.loadClass("org.eclipse.buildship.core.SynchronizationResult")
+                    .getMethod("getStatus").invoke(result);
+            if (!status.isOK()) throw new CoreException(status);
         } catch (ReflectiveOperationException e) {
             throw new CoreException(Activator.error("Cannot synchronize Gradle after setup", e));
         }

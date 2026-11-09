@@ -1,0 +1,30 @@
+<idea-plugin>
+  <id>org.evosuite.plugin.intellij</id>
+  <name>EvoSuite</name>
+  <vendor url="https://www.evosuite.org">EvoSuite</vendor>
+  <description><![CDATA[Generate JUnit tests for Java classes and methods, or extend existing tests with EvoSuite. Includes the engine, project settings, LLM support, and Replace/Add/Compare.]]></description>
+  <depends>com.intellij.modules.platform</depends>
+  <depends>com.intellij.java</depends>
+  <depends>JUnit</depends>
+  <depends optional="true" config-file="evosuite-maven.xml">org.jetbrains.idea.maven</depends>
+  <extensions defaultExtensionNs="com.intellij">
+    <toolWindow icon="/icons/evosuite.svg" id="EvoSuite" anchor="bottom" factoryClass="org.evosuite.intellij.ui.EvoSuiteToolWindowFactory"/>
+    <notificationGroup id="EvoSuite" displayType="BALLOON"/>
+    <applicationConfigurable id="evosuite.application" parentId="tools" displayName="EvoSuite" instance="org.evosuite.intellij.settings.EvoSuiteApplicationConfigurable"/>
+    <projectConfigurable id="evosuite.project" parentId="tools" displayName="EvoSuite (Project)" instance="org.evosuite.intellij.settings.EvoSuiteProjectConfigurable"/>
+  </extensions>
+  <actions>
+    <action id="EvoSuite.GenerateTests" icon="/icons/evosuite-class.svg" class="org.evosuite.intellij.actions.GenerateTestsAction" text="Generate Tests with EvoSuite" description="Generate tests for selected Java classes">
+      <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/><add-to-group group-id="EditorPopupMenu" anchor="last"/><add-to-group group-id="StructureViewPopupMenu" anchor="last"/><add-to-group group-id="GenerateGroup" anchor="last"/>
+    </action>
+    <action id="EvoSuite.GenerateMethodTests" icon="/icons/evosuite-method.svg" class="org.evosuite.intellij.actions.GenerateMethodTestsAction" text="Generate Tests for Method with EvoSuite">
+      <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/><add-to-group group-id="EditorPopupMenu" anchor="last"/><add-to-group group-id="StructureViewPopupMenu" anchor="last"/><add-to-group group-id="GenerateGroup" anchor="last"/>
+    </action>
+    <action id="EvoSuite.ExtendTests" icon="/icons/evosuite-extend.svg" class="org.evosuite.intellij.actions.ExtendTestsAction" text="Extend Tests with EvoSuite">
+      <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/><add-to-group group-id="EditorPopupMenu" anchor="last"/><add-to-group group-id="StructureViewPopupMenu" anchor="last"/><add-to-group group-id="GenerateGroup" anchor="last"/>
+    </action>
+    <action id="EvoSuite.MeasureCoverage" icon="/icons/evosuite-coverage.svg" class="org.evosuite.intellij.actions.MeasureCoverageAction" text="Measure Existing Test Coverage with EvoSuite" description="Measure production-class coverage using selected existing tests">
+      <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/><add-to-group group-id="EditorPopupMenu" anchor="last"/>
+    </action>
+  </actions>
+</idea-plugin>

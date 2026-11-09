@@ -364,8 +364,15 @@ public final class EvoSuiteCommand {
      */
     public static String forDisplay(List<String> arguments) {
         return arguments.stream()
-                .map(a -> a.startsWith("-Dllm_api_key=") ? "-Dllm_api_key=****" : a)
+                .map(arg -> credentialArgument(arg) ? arg.substring(0, arg.indexOf('=') + 1) + "****" : arg)
                 .collect(Collectors.joining(" "));
+    }
+
+    static boolean credentialArgument(String argument) {
+        int end = argument.indexOf('=');
+        return end > 2 && argument.startsWith("-D")
+                && argument.substring(2, end).toLowerCase(java.util.Locale.ROOT)
+                        .matches(".*(?:api_key|apikey|password|secret|access_token|credential).*");
     }
 
     /**
@@ -375,9 +382,15 @@ public final class EvoSuiteCommand {
      */
     public static boolean isEvoSuiteSuite(File suite) {
         try {
-            // Also matches the qualified @org.evosuite.runtime.EvoRunnerParameters.
-            String source = Files.readString(suite.toPath(), StandardCharsets.ISO_8859_1);
-            return GeneratedSuiteRegistry.annotated(source) || GeneratedSuiteRegistry.owns(suite, source);
+            if (!suite.getName().endsWith(".java")) return false;
+            String source;
+            try {
+                source = Files.readString(suite.toPath());
+            } catch (java.nio.charset.MalformedInputException e) {
+                source = Files.readString(suite.toPath(), StandardCharsets.ISO_8859_1);
+            }
+            return SuiteMerger.isGeneratedSuite(source, GeneratedSuiteRegistry.suiteName(suite))
+                    || GeneratedSuiteRegistry.owns(suite, source);
         } catch (IOException e) {
             return false;
         }
