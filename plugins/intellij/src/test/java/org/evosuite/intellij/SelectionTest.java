@@ -174,8 +174,8 @@ public class SelectionTest extends LightJavaCodeInsightFixtureTestCase {
         assertEquals("<init>(I)V", MethodRules.descriptor(type.getConstructors()[0]));
         PsiMethod[] methods = type.findMethodsByName("sign", false);
         assertEquals("sign([IZ)J", MethodRules.descriptor(methods[0]));
-        assertNotNull(MethodRules.whyNotTestable(type.findMethodsByName("hidden", false)[0]));
-        assertNotNull(MethodRules.whyNotTestable(type.getInnerClasses()[0].getMethods()[0]));
+        assertFalse(MethodRules.isTestable(type.findMethodsByName("hidden", false)[0]));
+        assertFalse(MethodRules.isTestable(type.getInnerClasses()[0].getMethods()[0]));
         var result =
                 TargetCollector.collect(
                         getProject(),

@@ -21,6 +21,7 @@ package org.evosuite.intellij.maven;
 
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.progress.ProgressIndicator;
+import com.intellij.openapi.roots.ExternalLibraryDescriptor;
 
 import org.evosuite.ide.*;
 
@@ -34,18 +35,14 @@ import java.util.function.Consumer;
 public interface MavenIntegration {
     Path directory(Module module);
 
-    default String runtimeVersion(Module module) {
-        return "";
-    }
+    String runtimeVersion(Module module);
 
     PomSettings settings(Module module);
 
     String serverPassword(String id, Consumer<String> console);
 
-    record TestDependency(String group, String artifact, String version) {}
-
     org.jetbrains.concurrency.Promise<Void> offerSetup(
-            Module module, GenerationOptions options, List<TestDependency> dependencies);
+            Module module, GenerationOptions options, List<ExternalLibraryDescriptor> libraries);
 
     boolean canDelegate(Module module, GenerationOptions options) throws java.io.IOException;
 

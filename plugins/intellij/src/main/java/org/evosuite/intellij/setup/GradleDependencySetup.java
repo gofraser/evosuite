@@ -43,9 +43,6 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
-/**
- * One approved, undoable build-file change and one sync for dependencies and test configuration.
- */
 final class GradleDependencySetup {
     private static final String START = "// EvoSuite managed test configuration: start";
     private static final String END = "// EvoSuite managed test configuration: end";
@@ -134,7 +131,6 @@ final class GradleDependencySetup {
         return base.resolve("build.gradle");
     }
 
-    /** Only edit the selected script; never let a module-level modifier choose another file. */
     static String updateDependencies(String original, List<UnifiedDependency> dependencies) {
         if (dependencies.isEmpty()) return original;
         int from = original.indexOf(DEPENDENCIES_START);
@@ -168,7 +164,6 @@ final class GradleDependencySetup {
             Consumer<String> console) {
         Path base = ProjectSetupService.baseDir(production);
         Path build = buildFile(base);
-        // A subproject may inherit all configuration from its root and have no own script.
         boolean kotlin = build.toString().endsWith(".kts");
         String sourceSet = sourceSet(testModule);
         boolean junit5 = GenerationOptions.JUNIT5.equals(options.testFormat);

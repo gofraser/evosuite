@@ -28,7 +28,6 @@ import com.intellij.psi.search.GlobalSearchScope;
 import org.evosuite.intellij.actions.TargetCollector;
 import org.evosuite.intellij.actions.TestClassInference;
 
-/** Keep class-selection mistakes in the prompt instead of failing a generation run. */
 public final class ExtensionTargetDialog {
     private ExtensionTargetDialog() {}
 

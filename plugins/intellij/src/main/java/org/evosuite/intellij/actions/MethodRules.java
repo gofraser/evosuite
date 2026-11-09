@@ -25,19 +25,12 @@ import com.intellij.psi.util.*;
 public final class MethodRules {
     private MethodRules() {}
 
-    public static String whyNotTestable(PsiMethod method) {
+    public static boolean isTestable(PsiMethod method) {
         PsiClass type = method.getContainingClass();
-        if (type == null || type.getContainingClass() != null)
-            return "Select a method of a top-level class.";
-        if (type.isInterface() || type.isAnnotationType())
-            return "Interfaces and annotations cannot be tested.";
-        if (method.hasModifierProperty(PsiModifier.PRIVATE)
-                || method.hasModifierProperty(PsiModifier.ABSTRACT))
-            return "Private and abstract methods cannot be called directly by tests.";
-        if (method.isConstructor()
-                && (type.isEnum() || type.hasModifierProperty(PsiModifier.ABSTRACT)))
-            return "This constructor cannot be called directly by tests.";
-        return null;
+        return type != null && type.getContainingClass() == null && !type.isInterface()
+                && !method.hasModifierProperty(PsiModifier.PRIVATE)
+                && !method.hasModifierProperty(PsiModifier.ABSTRACT)
+                && !(method.isConstructor() && (type.isEnum() || type.hasModifierProperty(PsiModifier.ABSTRACT)));
     }
 
     /** Unresolved source types cannot safely be guessed for a JVM method descriptor. */

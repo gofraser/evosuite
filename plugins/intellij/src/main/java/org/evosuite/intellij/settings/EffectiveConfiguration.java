@@ -23,7 +23,6 @@ import org.evosuite.ide.*;
 
 import java.util.*;
 
-/** A redacted, ordered explanation of the values passed to the engine. */
 public final class EffectiveConfiguration {
     public record Value(String setting, String property, String value, String source) {}
 
@@ -118,7 +117,6 @@ public final class EffectiveConfiguration {
                 rows,
                 EvoSuiteCommand.splitArguments(options.pomExtraArguments),
                 "Maven additional arguments");
-        // Export locations and Search-only are deliberately pinned after overrides.
         rows.put(
                 "test_dir",
                 new Value(

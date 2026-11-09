@@ -24,7 +24,10 @@ import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.roots.ProjectFileIndex;
 import com.intellij.openapi.ui.Messages;
+import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
+
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
@@ -56,12 +59,43 @@ public final class GenerationDocuments {
         if (answer != 0) return false;
         var files = FileDocumentManager.getInstance();
         documents.forEach(files::saveDocument);
-        // A failed save (for example a read-only file) must not run against stale sources.
         if (documents.stream().anyMatch(files::isDocumentUnsaved)) {
             Messages.showErrorDialog(project,
                     "Some project files could not be saved. Save them before generating tests.", "EvoSuite");
             return false;
         }
         return true;
+    }
+
+    static void deleteFile(VirtualFile file) {
+        try {
+            file.delete(GenerationDocuments.class);
+        } catch (IOException ex) {
+            throw new IllegalStateException("Cannot remove " + file.getPath(), ex);
+        }
+    }
+
+    public static VirtualFile createFile(Path path, String source) {
+        VirtualFile file = null;
+        try {
+            VirtualFile directory = VfsUtil.createDirectories(path.getParent().toString());
+            file = directory.createChildData(GenerationDocuments.class, path.getFileName().toString());
+            var documents = FileDocumentManager.getInstance();
+            Document document = documents.getDocument(file);
+            if (document == null) throw new IOException("No document for " + path);
+            document.setText(source);
+            documents.saveDocument(document);
+            return file;
+        } catch (IOException | RuntimeException ex) {
+            if (file != null) {
+                try {
+                    file.delete(GenerationDocuments.class);
+                } catch (IOException cleanup) {
+                    ex.addSuppressed(cleanup);
+                }
+            }
+            if (ex instanceof RuntimeException runtime) throw runtime;
+            throw new IllegalStateException("Cannot create " + path, ex);
+        }
     }
 }

@@ -37,8 +37,10 @@ import org.jetbrains.annotations.NotNull;
 
 import java.awt.*;
 import java.awt.datatransfer.StringSelection;
+import java.io.IOException;
 import java.util.*;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.swing.*;
 import javax.swing.table.*;
@@ -57,110 +59,8 @@ public final class ConfigurationDialog {
                 for (Module module :
                         ReadAction.compute(() -> ModuleManager.getInstance(project).getModules())) {
                     indicator.checkCanceled();
-                    if (!ReadAction.compute(
-                            () ->
-                                    ModuleRootManager.getInstance(module)
-                                                    .getSourceRoots(false)
-                                                    .length
-                                            > 0)) continue;
-                    try {
-                        var options = SettingsResolver.resolve(module);
-                        var local = EvoSuiteProjectSettings.getInstance(project).getState();
-                        var stored =
-                                local.useProjectSettings
-                                        ? local.values
-                                        : EvoSuiteAppSettings.getInstance().getState().values;
-                        for (var value :
-                                EffectiveConfiguration.describe(
-                                        options,
-                                        stored,
-                                        local.useProjectSettings
-                                                ? "Project settings"
-                                                : "IDE defaults"))
-                            rows.add(
-                                    new String[] {
-                                        module.getName(),
-                                        value.setting(),
-                                        value.value().isBlank()
-                                                ? "Automatic / engine default"
-                                                : value.value(),
-                                        value.source()
-                                    });
-                        String java;
-                        try {
-                            var installation = ClasspathResolver.java(module, options);
-                            java =
-                                    installation.executable()
-                                            + " (JDK "
-                                            + installation.version()
-                                            + ")";
-                            rows.add(
-                                    new String[] {
-                                        module.getName(),
-                                        "Sandbox availability",
-                                        installation.version() >= 24
-                                                ? "SecurityManager sandbox unavailable on JDK 24+"
-                                                : "Available (may be disabled by engine options)",
-                                        "Selected JDK"
-                                    });
-                        } catch (java.io.IOException ex) {
-                            java = "Needs attention: " + ex.getMessage();
-                        }
-                        rows.add(
-                                new String[] {module.getName(), "Java runtime", java, "Preflight"});
-                        var test = ProjectSetupService.testModule(module);
-                        rows.add(
-                                new String[] {
-                                    module.getName(),
-                                    "JUnit dependency",
-                                    ProjectSetupService.hasClass(
-                                                    test,
-                                                    "JUNIT4".equals(options.testFormat)
-                                                            ? "org.junit.Test"
-                                                            : "org.junit.jupiter.api.Test")
-                                            ? "Available"
-                                            : "Will offer dependency setup",
-                                    "Preflight"
-                                });
-                        rows.add(
-                                new String[] {
-                                    module.getName(),
-                                    "EvoSuite runtime dependency",
-                                    options.effectiveNoRuntimeDependency()
-                                            ? "Not required for new runtime-free tests"
-                                            : ProjectSetupService.hasClass(
-                                                            test,
-                                                            "org.evosuite.runtime.EvoRunnerParameters")
-                                                    ? "Available"
-                                                    : "Will offer dependency setup",
-                                    "Preflight"
-                                });
-                        rows.add(
-                                new String[] {
-                                    module.getName(),
-                                    "Output",
-                                    ProjectSetupService.testFolder(module, options).toString(),
-                                    "Resolved module location"
-                                });
-                        rows.add(
-                                new String[] {
-                                    module.getName(),
-                                    "Credentials",
-                                    "Provider-specific secure storage / Maven server /"
-                                        + " EVOSUITE_LLM_API_KEY; use Test connection to validate",
-                                    "Not read during readiness check"
-                                });
-                    } catch (ProcessCanceledException ex) {
-                        throw ex;
-                    } catch (RuntimeException ex) {
-                        rows.add(
-                                new String[] {
-                                    module.getName(),
-                                    "Configuration error",
-                                    String.valueOf(ex.getMessage()),
-                                    "Needs attention"
-                                });
-                    }
+                    if (ReadAction.compute(() -> ModuleRootManager.getInstance(module).getSourceRoots(false).length > 0))
+                        addRows(module, rows);
                 }
                 IdeThread.edt(
                         () -> {
@@ -170,6 +70,51 @@ public final class ConfigurationDialog {
                         });
             }
         }.queue();
+    }
+
+    private static void addRows(Module module, List<String[]> rows) {
+        String name = module.getName();
+        try {
+            var options = SettingsResolver.resolve(module);
+            var local = EvoSuiteProjectSettings.getInstance(module.getProject()).getState();
+            var stored = local.useProjectSettings ? local.values : EvoSuiteAppSettings.getInstance().getState().values;
+            String scope = local.useProjectSettings ? "Project settings" : "IDE defaults";
+            for (var value : EffectiveConfiguration.describe(options, stored, scope)) {
+                String text = value.value().isBlank() ? "Automatic / engine default" : value.value();
+                rows.add(new String[] {name, value.setting(), text, value.source()});
+            }
+
+            String java;
+            try {
+                var installation = ClasspathResolver.java(module, options);
+                java = installation.executable() + " (JDK " + installation.version() + ")";
+                String sandbox = installation.version() >= 24 ? "SecurityManager sandbox unavailable on JDK 24+"
+                        : "Available (may be disabled by engine options)";
+                rows.add(new String[] {name, "Sandbox availability", sandbox, "Selected JDK"});
+            } catch (IOException ex) {
+                java = "Needs attention: " + ex.getMessage();
+            }
+            rows.add(new String[] {name, "Java runtime", java, "Preflight"});
+            Module tests = ProjectSetupService.testModule(module);
+            String junit = GenerationOptions.JUNIT4.equals(options.testFormat) ? "org.junit.Test" : "org.junit.jupiter.api.Test";
+            rows.add(new String[] {name, "JUnit dependency", dependencyStatus(tests, junit), "Preflight"});
+            String runtime = options.effectiveNoRuntimeDependency() ? "Not required for new runtime-free tests"
+                    : dependencyStatus(tests, "org.evosuite.runtime.EvoRunnerParameters");
+            rows.add(new String[] {name, "EvoSuite runtime dependency", runtime, "Preflight"});
+            rows.add(new String[] {name, "Output", ProjectSetupService.testFolder(module, options).toString(),
+                    "Resolved module location"});
+            rows.add(new String[] {name, "Credentials",
+                    "Provider-specific secure storage / Maven server / EVOSUITE_LLM_API_KEY; use Test connection to validate",
+                    "Not read during readiness check"});
+        } catch (ProcessCanceledException ex) {
+            throw ex;
+        } catch (RuntimeException ex) {
+            rows.add(new String[] {name, "Configuration error", String.valueOf(ex.getMessage()), "Needs attention"});
+        }
+    }
+
+    private static String dependencyStatus(Module module, String className) {
+        return ProjectSetupService.hasClass(module, className) ? "Available" : "Will offer dependency setup";
     }
 
     private static final class View extends DialogWrapper {
@@ -252,16 +197,10 @@ public final class ConfigurationDialog {
             content.add(split, BorderLayout.CENTER);
             panel.add(content, BorderLayout.CENTER);
             JButton copy = new JButton("Copy redacted configuration");
-            copy.addActionListener(
-                    e ->
-                            CopyPasteManager.getInstance()
-                                    .setContents(
-                                            new StringSelection(
-                                                    rows.stream()
-                                                            .map(r -> String.join("\t", r))
-                                                            .collect(
-                                                                    java.util.stream.Collectors
-                                                                            .joining("\n")))));
+            copy.addActionListener(e -> {
+                String text = rows.stream().map(row -> String.join("\t", row)).collect(Collectors.joining("\n"));
+                CopyPasteManager.getInstance().setContents(new StringSelection(text));
+            });
             panel.add(copy, BorderLayout.SOUTH);
             return panel;
         }

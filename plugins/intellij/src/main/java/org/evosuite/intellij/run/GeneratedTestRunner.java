@@ -26,7 +26,6 @@ import com.intellij.execution.junit.JUnitConfigurationType;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiClass;
 
-/** Let IntelliJ select the generated class's actual test source-set module and JUnit runner. */
 public final class GeneratedTestRunner {
     private GeneratedTestRunner() {}
 

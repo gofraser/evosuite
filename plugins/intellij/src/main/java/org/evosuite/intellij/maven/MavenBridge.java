@@ -28,7 +28,6 @@ public final class MavenBridge {
     private MavenBridge() {}
 
     public static MavenIntegration get(Project project) {
-        // Registered only by the optional Maven descriptor; absent services resolve to null.
         return project.getService(MavenIntegration.class);
     }
 

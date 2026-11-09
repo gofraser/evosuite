@@ -37,7 +37,6 @@ import java.util.List;
 
 import javax.swing.*;
 
-/** Persistent outcomes and recovery actions, independently of the text console. */
 public final class RunResultsPanel extends JPanel implements Disposable {
     private record Row(RunHistory.Run run, RunHistory.Target target, int index) {
         String id() {
@@ -331,9 +330,7 @@ public final class RunResultsPanel extends JPanel implements Disposable {
                 .setEnabled(
                         t != null
                                 && !t.settings.isEmpty()
-                                && t.replayUnavailable.isBlank()
-                                && !t.status.equals("Delegated to Maven")
-                                && !t.status.equals("Maven failed")
+                                && t.canReplay()
                                 && !row.run().active());
         buttons.get("Repeat saved run")
                 .setToolTipText(

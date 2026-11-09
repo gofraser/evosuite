@@ -19,7 +19,6 @@
  */
 package org.evosuite.intellij.actions;
 
-/** Measure the production class coverage of selected existing test classes. */
 public final class MeasureCoverageAction extends GenerateTestsAction {
     @Override
     protected TargetCollector.Mode mode() {

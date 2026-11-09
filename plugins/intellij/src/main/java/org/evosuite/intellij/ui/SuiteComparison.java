@@ -22,91 +22,59 @@ package org.evosuite.intellij.ui;
 import com.intellij.diff.*;
 import com.intellij.diff.chains.SimpleDiffRequestChain;
 import com.intellij.diff.requests.*;
+import com.intellij.ide.highlighter.JavaFileType;
+import com.intellij.diff.util.DiffUserDataKeys;
+import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.editor.Document;
+import com.intellij.openapi.editor.EditorFactory;
+import com.intellij.openapi.fileEditor.FileDocumentManager;
+import com.intellij.openapi.fileEditor.FileEditorManager;
+import com.intellij.openapi.project.DumbAwareAction;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.vfs.LocalFileSystem;
 
-import java.util.*;
+import org.evosuite.intellij.run.GenerationDocuments;
+import org.evosuite.intellij.run.IdeThread;
+import org.evosuite.intellij.settings.GeneratedSuiteRegistry;
+
+import java.nio.file.Path;
+import java.util.List;
 
 public final class SuiteComparison {
-    public record Pair(String name, Document existing, String generated, java.nio.file.Path destination) {
+    private SuiteComparison() {}
+
+    public record Pair(String name, Document existing, String generated, Path destination) {
         public Pair(String name, Document existing, String generated) {
             this(name, existing, generated, null);
         }
     }
 
-    public static Pair pending(java.nio.file.Path path, String source) {
-        return new Pair(
-                path.toString(),
-                com.intellij.openapi.editor.EditorFactory.getInstance().createDocument(""),
-                source,
-                path);
+    public static Pair pending(Path path, String source) {
+        return new Pair(path.toString(), EditorFactory.getInstance().createDocument(""), source, path);
     }
 
-    /** An explicit acceptance never overwrites a file which appeared meanwhile. */
     public static void acceptNew(Project project, Pair pair) {
-        if (pair.destination() == null) return;
-        var path = pair.destination();
-        var fs = com.intellij.openapi.vfs.LocalFileSystem.getInstance();
-        var existing = fs.refreshAndFindFileByNioFile(path);
-        if (existing != null) {
-            var doc =
-                    com.intellij
-                            .openapi
-                            .fileEditor
-                            .FileDocumentManager
-                            .getInstance()
-                            .getDocument(existing);
-            if (doc != null) show(project, List.of(new Pair(pair.name(), doc, pair.generated())));
+        Path path = pair.destination();
+        if (path == null) return;
+        var file = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(path);
+        if (file != null) {
+            Document existing = FileDocumentManager.getInstance().getDocument(file);
+            if (existing != null) show(project, List.of(new Pair(pair.name(), existing, pair.generated())));
             return;
         }
-        com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(
-                project,
-                "EvoSuite: accept generated file",
-                null,
-                () -> {
-                    try {
-                        var directory =
-                                com.intellij.openapi.vfs.VfsUtil.createDirectories(
-                                        path.getParent().toString());
-                        if (directory.findChild(path.getFileName().toString()) != null)
-                            throw new IllegalStateException(
-                                    "File appeared; reopen its comparison before applying"
-                                            + " changes.");
-                        var file =
-                                directory.createChildData(
-                                        SuiteComparison.class, path.getFileName().toString());
-                        var manager =
-                                com.intellij.openapi.fileEditor.FileDocumentManager.getInstance();
-                        var doc = manager.getDocument(file);
-                        if (doc == null) throw new IllegalStateException("Cannot edit " + path);
-                        doc.setText(pair.generated());
-                        manager.saveDocument(doc);
-                        org.evosuite.intellij.settings.GeneratedSuiteRegistry.getInstance(project)
-                                .recordAccepted(path, pair.generated());
-                        com.intellij
-                                .openapi
-                                .fileEditor
-                                .FileEditorManager
-                                .getInstance(project)
-                                .openFile(file, true);
-                    } catch (java.io.IOException ex) {
-                        throw new IllegalStateException("Cannot create " + path, ex);
-                    }
-                });
+        IdeThread.writeCommand(project, "EvoSuite: accept generated file", () -> {
+            var created = GenerationDocuments.createFile(path, pair.generated());
+            GeneratedSuiteRegistry.getInstance(project).recordAccepted(path, pair.generated());
+            FileEditorManager.getInstance(project).openFile(created, true);
+        });
     }
-
-    private SuiteComparison() {}
 
     public static SimpleDiffRequest request(Project project, Pair pair) {
         DiffContentFactory factory = DiffContentFactory.getInstance();
-        var manager = com.intellij.openapi.fileEditor.FileDocumentManager.getInstance();
-        var pendingFile =
-                pair.destination() == null
-                        ? null
-                        : com.intellij.openapi.vfs.LocalFileSystem.getInstance()
-                                .refreshAndFindFileByNioFile(pair.destination());
-        Document document =
-                pendingFile == null ? pair.existing() : manager.getDocument(pendingFile);
+        var manager = FileDocumentManager.getInstance();
+        var pendingFile = pair.destination() == null ? null
+                : LocalFileSystem.getInstance().refreshAndFindFileByNioFile(pair.destination());
+        Document document = pendingFile == null ? null : manager.getDocument(pendingFile);
         if (document == null) document = pair.existing();
         var file = manager.getFile(document);
         boolean readOnly = file == null || !document.isWritable() || !file.isWritable();
@@ -117,7 +85,7 @@ public final class SuiteComparison {
                         factory.create(project, document),
                         factory.create(
                                 pair.generated(),
-                                com.intellij.ide.highlighter.JavaFileType.INSTANCE),
+                                JavaFileType.INSTANCE),
                         file == null
                                 ? "No destination file — create it to keep generated changes"
                                 : readOnly
@@ -128,19 +96,19 @@ public final class SuiteComparison {
                                       + " content left (read-only)"
                                 : "Generated tests — copy wanted changes left (read-only)");
         request.putUserData(
-                com.intellij.diff.util.DiffUserDataKeys.FORCE_READ_ONLY_CONTENTS,
+                DiffUserDataKeys.FORCE_READ_ONLY_CONTENTS,
                 new boolean[] {readOnly, true});
         if (pair.destination() != null && file == null)
             request.putUserData(
-                    com.intellij.diff.util.DiffUserDataKeys.CONTEXT_ACTIONS,
+                    DiffUserDataKeys.CONTEXT_ACTIONS,
                     List.of(
-                            new com.intellij.openapi.project.DumbAwareAction(
+                            new DumbAwareAction(
                                     "Accept generated file",
                                     "Create this pending file without replacing existing files",
                                     null) {
                                 @Override
                                 public void actionPerformed(
-                                        com.intellij.openapi.actionSystem.AnActionEvent event) {
+                                        AnActionEvent event) {
                                     acceptNew(project, pair);
                                 }
                             }));
@@ -149,8 +117,7 @@ public final class SuiteComparison {
 
     public static void show(Project project, List<Pair> pairs) {
         if (project.isDisposed() || pairs.isEmpty()) return;
-        List<DiffRequest> requests =
-                pairs.stream().map(p -> (DiffRequest) request(project, p)).toList();
+        var requests = pairs.stream().<DiffRequest>map(pair -> request(project, pair)).toList();
         DiffManager.getInstance()
                 .showDiff(project, new SimpleDiffRequestChain(requests), DiffDialogHints.DEFAULT);
     }

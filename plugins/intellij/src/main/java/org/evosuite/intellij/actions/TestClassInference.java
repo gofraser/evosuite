@@ -25,7 +25,6 @@ import com.intellij.psi.search.GlobalSearchScope;
 
 import java.util.*;
 
-/** The same naming conventions and confirmed longest-prefix guess as Eclipse. */
 public final class TestClassInference {
     private TestClassInference() {}
 

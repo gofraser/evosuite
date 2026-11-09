@@ -24,7 +24,6 @@ import com.intellij.notification.NotificationGroupManager;
 import com.intellij.notification.NotificationType;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.application.PathManager;
 import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.components.Service;
 import com.intellij.openapi.fileEditor.FileEditorManager;
@@ -111,8 +110,7 @@ public final class GenerationService implements Disposable {
     }
 
     public void replay(Project project, RunHistory.Run run, RunHistory.Target target) {
-        if (!target.replayUnavailable.isBlank()
-                || target.status.equals("Delegated to Maven") || target.status.equals("Maven failed")) {
+        if (!target.canReplay()) {
             EvoSuiteConsole console = EvoSuiteConsole.getInstance(project);
             console.println("Repeat this request through the Maven runner.");
             console.show();
@@ -133,7 +131,7 @@ public final class GenerationService implements Disposable {
         String identity = mode + ":" + (replay != null
                 ? List.of(replay.module, replay.className, replay.methods, replay.seed, replay.settings.hashCode())
                 : ReadAction.compute(() -> selectionIdentity(selection)));
-        if (history.activeSelection(identity) != null) {
+        if (history.hasActiveSelection(identity)) {
             console.println("This selection is already queued or running. Inspect or cancel it in Runs.");
             console.show();
             return;
@@ -707,7 +705,7 @@ public final class GenerationService implements Disposable {
     }
 
     private static Path newStaging() throws IOException {
-        Path state = Path.of(PathManager.getSystemPath(), "evosuite", "runs");
+        Path state = RunHistory.stagingRoot();
         Files.createDirectories(state);
         return Files.createTempDirectory(state, "run-");
     }

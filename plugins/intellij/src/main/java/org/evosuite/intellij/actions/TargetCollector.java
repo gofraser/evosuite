@@ -42,7 +42,6 @@ public final class TargetCollector {
         COVERAGE
     }
 
-    /** Stable handles survive document saves and PSI reparsing before background collection. */
     public static final class Selection {
         private final List<SmartPsiElementPointer<PsiElement>> pointers;
         private final List<VirtualFile> files;
@@ -162,7 +161,7 @@ public final class TargetCollector {
                 PsiMethod method = selectedMethod(element);
                 if (method != null
                         && eligibleClass(project, method.getContainingClass(), mode)
-                        && MethodRules.whyNotTestable(method) == null
+                        && MethodRules.isTestable(method)
                         && MethodRules.descriptorOrNull(method) != null) return true;
             } else if (element instanceof PsiPackage pkg) {
                 if (Arrays.stream(pkg.getDirectories()).anyMatch(dir ->
@@ -229,7 +228,7 @@ public final class TargetCollector {
             if (mode == Mode.METHODS) {
                 PsiMethod method = selectedMethod(element);
                 if (method == null || !eligibleClass(project, method.getContainingClass(), mode)
-                        || MethodRules.whyNotTestable(method) != null) continue;
+                        || !MethodRules.isTestable(method)) continue;
                 PsiClass type = method.getContainingClass();
                 Module module = index.getModuleForFile(type.getContainingFile().getVirtualFile());
                 if (module == null || module.isDisposed()) continue;
@@ -255,7 +254,6 @@ public final class TargetCollector {
             for (Module module : selected.modules()) {
                 if (module.isDisposed()) continue;
                 for (VirtualFile root : ModuleRootManager.getInstance(module).getSourceRoots(testSources)) {
-                    // Do not collect roots belonging to nested modules when a module was selected.
                     if (index.getModuleForFile(root) == module) visit.accept(root);
                 }
             }

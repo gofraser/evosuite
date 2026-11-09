@@ -20,6 +20,7 @@
 package org.evosuite.intellij.run;
 
 import com.intellij.openapi.application.*;
+import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.progress.ProcessCanceledException;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.project.Project;
@@ -45,11 +46,10 @@ public final class IdeThread {
                 .executeSynchronously();
     }
 
-    /** Since 2026.2 VFS saves can be asynchronous; external JVMs need the bytes on disk. */
+    /** Flush asynchronous VFS writes before starting a process that reads those files. */
     public static void flushPendingVfsWrites() throws IOException {
         try {
-            // This public API was added in 262. Keep compatibility with the 253 baseline,
-            // which completes writes synchronously and has nothing to flush.
+            // Builds before 262 write synchronously and lack this API.
             ManagingFS.class.getMethod("flushPendingUpdates").invoke(ManagingFS.getInstance());
         } catch (NoSuchMethodException ignored) {
         } catch (IllegalAccessException ex) {
@@ -70,13 +70,19 @@ public final class IdeThread {
                             try { result.set(supplier.get()); }
                             catch (Throwable ex) { failure.set(ex); }
                         }, ModalityState.defaultModalityState());
-        // invokeAndWait may consume cancellation thrown by the UI callback. Transport failures
-        // explicitly so background setup never mistakes Cancel for a null success result.
+        // invokeAndWait can swallow cancellation from the callback.
         Throwable ex = failure.get();
         if (ex instanceof RuntimeException runtime) throw runtime;
         if (ex instanceof Error error) throw error;
         if (ex != null) throw new IllegalStateException(ex);
         return result.get();
+    }
+
+    public static void writeCommand(Project project, String name, Runnable edit) {
+        edt(() -> {
+            WriteCommandAction.runWriteCommandAction(project, name, null, edit);
+            return null;
+        });
     }
 
     public static <T> T await(Promise<T> promise, ProgressIndicator indicator) {

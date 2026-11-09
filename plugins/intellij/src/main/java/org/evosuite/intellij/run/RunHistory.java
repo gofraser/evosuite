@@ -32,14 +32,19 @@ import org.evosuite.intellij.settings.EffectiveConfiguration;
 import org.evosuite.intellij.ui.SuiteComparison;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.IOException;
 import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Pattern;
 
 /** Machine-local, redacted run records. Generated comparison sources stay outside project files. */
 @Service(Service.Level.PROJECT)
 @State(name = "EvoSuiteRunHistory", storages = @Storage(StoragePathMacros.WORKSPACE_FILE))
 public final class RunHistory implements PersistentStateComponent<RunHistory.State> {
+    private static final String MAVEN_REPLAY = "Repeat this request through the Maven runner.";
+
     public static final class Comparison {
         public String destination = "", generated = "";
     }
@@ -64,6 +69,10 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
         public List<Seed> seeds = new ArrayList<>();
         public Map<String, String> settings = new TreeMap<>();
         public List<Comparison> comparisons = new ArrayList<>();
+
+        public boolean canReplay() {
+            return replayUnavailable.isBlank() && !mavenOutcome(status);
+        }
 
         Target copy() {
             Target t = new Target();
@@ -158,24 +167,14 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
         state.retentionDays = Math.max(1, Math.min(3650, state.retentionDays));
         for (Run run : state.runs) {
             for (Target target : run.targets)
-                if (target.status.equals("Delegated to Maven")
-                        || target.status.equals("Maven failed"))
-                    target.replayUnavailable =
-                            "Maven controls generation settings and seeds. Repeat this request"
-                                    + " through the Maven runner.";
-            if (run.active()) {
-                run.status = "Interrupted";
-                run.phase =
-                        "IDE session ended; completed outputs and pending comparisons are"
-                                + " retained.";
-                run.finished = System.currentTimeMillis();
-                for (Target target : run.targets)
-                    if (target.finished == 0) {
-                        target.status = "Interrupted";
-                        target.finished = run.finished;
-                    }
-            }
+                if (mavenOutcome(target.status)) target.replayUnavailable = MAVEN_REPLAY;
+            if (run.active())
+                finishRun(run, "Interrupted", "IDE session ended; completed outputs and pending comparisons are retained.");
         }
+    }
+
+    private static boolean mavenOutcome(String status) {
+        return status.equals("Delegated to Maven") || status.equals("Maven failed");
     }
 
     public void listen(Disposable parent, Runnable listener) {
@@ -183,8 +182,7 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
         Disposer.register(parent, () -> listeners.remove(listener));
     }
 
-    private final java.util.concurrent.atomic.AtomicBoolean notificationPending =
-            new java.util.concurrent.atomic.AtomicBoolean();
+    private final AtomicBoolean notificationPending = new AtomicBoolean();
 
     private void changed() {
         if (notificationPending.compareAndSet(false, true))
@@ -228,22 +226,23 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
         return state.runs.stream().anyMatch(run -> run.id.equals(id) && run.active());
     }
 
-    public synchronized String activeSelection(String selection) {
-        return state.runs.stream()
-                .filter(r -> r.active() && r.selection.equals(selection))
-                .map(r -> r.id)
-                .findFirst()
-                .orElse(null);
+    public synchronized boolean hasActiveSelection(String selection) {
+        return state.runs.stream().anyMatch(run -> run.active() && run.selection.equals(selection));
     }
 
     public synchronized void phase(String id, String phase) {
-        find(id).phase = phase;
-        find(id).status = phase;
+        Run run = find(id);
+        run.phase = phase;
+        run.status = phase;
         changed();
     }
 
     public synchronized void finish(String id, String status, String detail) {
-        Run run = find(id);
+        finishRun(find(id), status, detail);
+        changed();
+    }
+
+    private static void finishRun(Run run, String status, String detail) {
         run.status = status;
         run.phase = detail;
         run.finished = System.currentTimeMillis();
@@ -252,7 +251,6 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
                 t.status = status;
                 t.finished = run.finished;
             }
-        changed();
     }
 
     public synchronized int target(
@@ -296,17 +294,16 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
         target.status = "Running Maven";
         target.started = System.currentTimeMillis();
         target.reports = staging.resolve("reports").toString();
-        target.replayUnavailable = "Repeat this request through the Maven runner.";
+        target.replayUnavailable = MAVEN_REPLAY;
         changed();
     }
 
-    private static final java.util.regex.Pattern RANDOM_SEED =
-            java.util.regex.Pattern.compile("-Drandom_seed=(-?\\d+)");
-    private static final java.util.regex.Pattern TOTAL_COVERAGE =
-            java.util.regex.Pattern.compile("Total coverage:\\s*([0-9]+(?:[.,][0-9]+)?)\\s*%");
+    private static final Pattern RANDOM_SEED = Pattern.compile("-Drandom_seed=(-?\\d+)");
+    private static final Pattern TOTAL_COVERAGE = Pattern.compile("Total coverage:\\s*([0-9]+(?:[.,][0-9]+)?)\\s*%");
 
     public synchronized String line(String id, int index, String line) {
-        Target t = find(id).targets.get(index);
+        Run run = find(id);
+        Target t = run.targets.get(index);
         var seed = RANDOM_SEED.matcher(line);
         while (seed.find()) t.seed = seed.group(1);
         var totalCoverage = TOTAL_COVERAGE.matcher(line);
@@ -329,7 +326,7 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
                                         : null;
         if (phase != null && !t.status.equals(phase)) {
             t.status = phase;
-            find(id).phase = phase + ": " + t.className;
+            run.phase = phase + ": " + t.className;
             changed();
         }
         return phase;
@@ -347,10 +344,7 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
         Target t = find(id).targets.get(index);
         t.status = status;
         t.detail = detail;
-        if (status.equals("Delegated to Maven") || status.equals("Maven failed"))
-            t.replayUnavailable =
-                    "Maven controls generation settings and seeds. Repeat this request through the"
-                            + " Maven runner.";
+        if (mavenOutcome(status)) t.replayUnavailable = MAVEN_REPLAY;
         t.tests = tests;
         t.finished = System.currentTimeMillis();
         changed();
@@ -448,30 +442,27 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
                     });
             changed();
         }
-        ApplicationManager.getApplication()
-                .executeOnPooledThread(
-                        () -> {
-                            Path managed =
-                                    Path.of(PathManager.getSystemPath(), "evosuite", "runs")
-                                            .toAbsolutePath()
-                                            .normalize();
-                            for (Run r : removed)
-                                for (Target t : r.targets)
-                                    if (!t.reports.isBlank()) {
-                                        Path folder =
-                                                Path.of(t.reports)
-                                                        .toAbsolutePath()
-                                                        .normalize()
-                                                        .getParent();
-                                        if (folder != null && managed.equals(folder.getParent())
-                                                && folder.getFileName().toString().startsWith("run-")
-                                                && !Files.isSymbolicLink(folder))
-                                            try {
-                                                GenerationRun.deleteTree(folder);
-                                            } catch (java.io.IOException ignored) {
-                                            }
-                                    }
-                        });
+        if (removed.isEmpty()) return;
+        ApplicationManager.getApplication().executeOnPooledThread(() -> {
+            Path managed = stagingRoot();
+            removed.stream().flatMap(run -> run.targets.stream())
+                    .map(target -> target.reports).filter(reports -> !reports.isBlank())
+                    .map(reports -> Path.of(reports).toAbsolutePath().normalize().getParent())
+                    .filter(Objects::nonNull).distinct()
+                    .filter(folder -> managed.equals(folder.getParent())
+                            && folder.getFileName().toString().startsWith("run-")
+                            && !Files.isSymbolicLink(folder))
+                    .forEach(folder -> {
+                        try {
+                            GenerationRun.deleteTree(folder);
+                        } catch (IOException ignored) {
+                        }
+                    });
+        });
+    }
+
+    static Path stagingRoot() {
+        return Path.of(PathManager.getSystemPath(), "evosuite", "runs").toAbsolutePath().normalize();
     }
 
     public synchronized void retention(int days) {

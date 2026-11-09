@@ -82,7 +82,6 @@ public final class GeneratedSuiteRegistry
         return "";
     }
 
-    /** Finishing review explicitly accepts matching, copied runtime-free comparison content. */
     public synchronized void recordAccepted(Path path, String generated) {
         try {
             String expected = markerId(generated), actual = markerId(currentSource(path));

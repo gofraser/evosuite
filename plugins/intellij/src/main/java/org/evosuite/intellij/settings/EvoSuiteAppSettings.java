@@ -19,6 +19,7 @@
  */
 package org.evosuite.intellij.settings;
 
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.*;
 
 import org.jetbrains.annotations.NotNull;
@@ -37,12 +38,7 @@ public final class EvoSuiteAppSettings
     private State state = new State();
 
     public static EvoSuiteAppSettings getInstance() {
-        return service(EvoSuiteAppSettings.class);
-    }
-
-    private static <T> T service(Class<T> type) {
-        return com.intellij.openapi.application.ApplicationManager.getApplication()
-                .getService(type);
+        return ApplicationManager.getApplication().getService(EvoSuiteAppSettings.class);
     }
 
     @Override

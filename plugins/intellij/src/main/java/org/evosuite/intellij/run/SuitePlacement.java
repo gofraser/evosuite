@@ -24,7 +24,6 @@ import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.LocalFileSystem;
-import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 
 import org.evosuite.ide.EvoSuiteCommand;
@@ -44,7 +43,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
-/** Applies generation results against the current editor contents on the EDT. */
 public final class SuitePlacement {
     public record Snapshot(String source, long stamp, Snapshot scaffolding) {}
 
@@ -101,12 +99,8 @@ public final class SuitePlacement {
         return new SourceFile(file, doc);
     }
 
-    public static boolean generated(String source, String name) {
-        return SuiteMerger.isGeneratedSuite(source, name);
-    }
-
     public static boolean generated(Project project, Path path, String source, String name) {
-        return generated(source, name) || GeneratedSuiteRegistry.getInstance(project).owns(path, source)
+        return SuiteMerger.isGeneratedSuite(source, name) || GeneratedSuiteRegistry.getInstance(project).owns(path, source)
                 && SuiteMerger.isValidSuite(source, name);
     }
 
@@ -122,7 +116,7 @@ public final class SuitePlacement {
             return new Placed(null, List.of(), false, false, tests);
         }
         var registry = GeneratedSuiteRegistry.getInstance(project);
-        String fresh = generated(source, name) ? source : registry.decorate(destination, source);
+        String fresh = SuiteMerger.isGeneratedSuite(source, name) ? source : registry.decorate(destination, source);
         String scaffold = Files.isRegularFile(generated.scaffolding())
                 ? Files.readString(generated.scaffolding()) : null;
         return IdeThread.edt(() -> apply(project, target, options, destination, requested, consent,
@@ -154,11 +148,11 @@ public final class SuitePlacement {
             VirtualFile[] created = new VirtualFile[1];
             WriteCommandAction.runWriteCommandAction(project, "EvoSuite: create " + name, null, () -> {
                 VirtualFile newHelper = helper == null && scaffold != null
-                        ? create(scaffoldPath, scaffold) : null;
+                        ? GenerationDocuments.createFile(scaffoldPath, scaffold) : null;
                 try {
-                    created[0] = create(destination, fresh);
+                    created[0] = GenerationDocuments.createFile(destination, fresh);
                 } catch (RuntimeException ex) {
-                    if (newHelper != null) remove(newHelper);
+                    if (newHelper != null) GenerationDocuments.deleteFile(newHelper);
                     throw ex;
                 }
             });
@@ -207,7 +201,7 @@ public final class SuitePlacement {
                 }
                 boolean dirty = suite.dirty();
                 WriteCommandAction.runWriteCommandAction(project, "EvoSuite: add tests to " + name, null, () -> {
-                    if (helper == null && scaffold != null) create(scaffoldPath, scaffold);
+                    if (helper == null && scaffold != null) GenerationDocuments.createFile(scaffoldPath, scaffold);
                     suite.document().setText(merge.source);
                 });
                 if (!dirty) FileDocumentManager.getInstance().saveDocument(suite.document());
@@ -218,8 +212,8 @@ public final class SuitePlacement {
             console.accept("Cannot add tests to " + name + ": " + merge.incompatibility + ". Opening Compare.");
         } else if (chosen == SuiteAction.REPLACE) {
             WriteCommandAction.runWriteCommandAction(project, "EvoSuite: replace " + name, null, () -> {
-                if (obsolete) remove(helper.file());
-                else if (scaffold != null && helper == null) create(scaffoldPath, scaffold);
+                if (obsolete) GenerationDocuments.deleteFile(helper.file());
+                else if (scaffold != null && helper == null) GenerationDocuments.createFile(scaffoldPath, scaffold);
                 else if (differs) helper.document().setText(scaffold);
                 suite.document().setText(fresh);
             });
@@ -234,7 +228,7 @@ public final class SuitePlacement {
         List<SuiteComparison.Pair> diffs = new ArrayList<>();
         diffs.add(suite.compare(fresh));
         if (differs || obsolete) diffs.add(helper.compare(obsolete ? "" : scaffold));
-        else if (scaffold != null && helper == null) diffs.add(SuiteComparison.pending(scaffoldPath, scaffold));
+        if (scaffold != null && helper == null) diffs.add(SuiteComparison.pending(scaffoldPath, scaffold));
         return new Placed(null, List.copyOf(diffs), false, false, tests);
     }
 
@@ -246,35 +240,4 @@ public final class SuitePlacement {
                 && SuiteMerger.isValidSuite(source, suiteName(path));
     }
 
-    private static void remove(VirtualFile file) {
-        try {
-            file.delete(SuitePlacement.class);
-        } catch (IOException ex) {
-            throw new IllegalStateException("Cannot remove " + file.getPath(), ex);
-        }
-    }
-
-    private static VirtualFile create(Path path, String source) {
-        VirtualFile file = null;
-        try {
-            VirtualFile directory = VfsUtil.createDirectories(path.getParent().toString());
-            file = directory.createChildData(SuitePlacement.class, path.getFileName().toString());
-            var documents = FileDocumentManager.getInstance();
-            Document document = documents.getDocument(file);
-            if (document == null) throw new IOException("No document for " + path);
-            document.setText(source);
-            documents.saveDocument(document);
-            return file;
-        } catch (IOException | RuntimeException ex) {
-            if (file != null) {
-                try {
-                    file.delete(SuitePlacement.class);
-                } catch (IOException cleanup) {
-                    ex.addSuppressed(cleanup);
-                }
-            }
-            if (ex instanceof RuntimeException runtime) throw runtime;
-            throw new IllegalStateException("Cannot create " + path, ex);
-        }
-    }
 }

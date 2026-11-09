@@ -21,23 +21,33 @@ package org.evosuite.intellij.maven;
 
 import com.intellij.openapi.application.*;
 import com.intellij.openapi.command.WriteCommandAction;
+import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.module.Module;
+import com.intellij.openapi.progress.ProcessCanceledException;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.roots.ExternalLibraryDescriptor;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.psi.*;
 import com.intellij.psi.xml.*;
 
 import org.evosuite.ide.*;
 import org.evosuite.intellij.run.EngineJars;
+import org.evosuite.intellij.run.IdeThread;
 import org.jdom.Element;
 import org.jetbrains.idea.maven.execution.*;
 import org.jetbrains.idea.maven.model.*;
 import org.jetbrains.idea.maven.project.*;
+import org.jetbrains.concurrency.AsyncPromise;
+import org.jetbrains.concurrency.Promise;
+import org.jetbrains.concurrency.Promises;
 
 import java.nio.file.*;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public final class MavenSupport implements MavenIntegration {
     private final Project project;
@@ -92,7 +102,7 @@ public final class MavenSupport implements MavenIntegration {
         return new PomSettings(config, generate, setup, properties, junit4 && !jupiter);
     }
 
-    static Map<String, String> collect(Element element, MavenProject model) {
+    private static Map<String, String> collect(Element element, MavenProject model) {
         Map<String, String> values = new LinkedHashMap<>();
         if (element == null) return values;
         for (Element child : element.getChildren()) {
@@ -107,65 +117,62 @@ public final class MavenSupport implements MavenIntegration {
         return values;
     }
 
-    private static final java.util.regex.Pattern PROPERTY = java.util.regex.Pattern.compile("\\$\\{([^}]+)}");
+    private static final Pattern PROPERTY = Pattern.compile("\\$\\{([^}]+)}");
 
     public static String interpolate(String text, MavenProject model) {
+        if (!text.contains("${")) return text;
         Map<String, String> properties = new HashMap<>();
-        model.getProperties()
-                .forEach((key, value) -> properties.put(key.toString(), value.toString()));
-        model.getModelMap()
-                .forEach(
-                        (key, value) -> {
-                            properties.putIfAbsent(key, value);
-                            if (!key.startsWith("project.") && !key.startsWith("pom.")) {
-                                properties.put("project." + key, value);
-                                properties.put("pom." + key, value);
-                            }
-                        });
-        Map<String, java.util.function.Supplier<String>> builtins = new HashMap<>();
-        builtins.put("basedir", () -> model.getDirectory());
-        builtins.put("build.directory", () -> model.getBuildDirectory());
-        builtins.put("build.outputDirectory", () -> model.getOutputDirectory());
-        builtins.put("build.testOutputDirectory", () -> model.getTestOutputDirectory());
-        builtins.put("build.finalName", () -> model.getFinalName());
-        builtins.put(
-                "build.sourceDirectory",
-                () ->
-                        model.getSources().stream()
-                                .findFirst()
-                                .orElse(model.getDirectory() + "/src/main/java"));
-        builtins.put(
-                "build.testSourceDirectory",
-                () ->
-                        model.getTestSources().stream()
-                                .findFirst()
-                                .orElse(model.getDirectory() + "/src/test/java"));
-        builtins.put("groupId", () -> model.getMavenId().getGroupId());
-        builtins.put("artifactId", () -> model.getMavenId().getArtifactId());
-        builtins.put("version", () -> model.getMavenId().getVersion());
-        properties.put("basedir", model.getDirectory());
-        String value = text;
-        for (int pass = 0; pass < 10 && value.contains("${"); pass++) {
-            var matcher = PROPERTY.matcher(value);
-            StringBuffer resolved = new StringBuffer();
-            while (matcher.find()) {
-                String key = matcher.group(1);
-                String builtin =
-                        key.startsWith("project.")
-                                ? key.substring(8)
-                                : key.startsWith("pom.") ? key.substring(4) : "";
-                var supplier = builtins.get(builtin);
-                String replacement = supplier == null ? properties.get(key) : supplier.get();
-                matcher.appendReplacement(
-                        resolved,
-                        java.util.regex.Matcher.quoteReplacement(
-                                replacement == null ? matcher.group() : replacement));
+        model.getProperties().forEach((key, value) -> properties.put(key.toString(), value.toString()));
+        model.getModelMap().forEach((key, value) -> {
+            properties.putIfAbsent(key, value);
+            if (!key.startsWith("project.") && !key.startsWith("pom.")) {
+                properties.put("project." + key, value);
+                properties.put("pom." + key, value);
             }
-            matcher.appendTail(resolved);
-            if (resolved.toString().equals(value)) break;
-            value = resolved.toString();
+        });
+        properties.put("basedir", model.getDirectory());
+        for (int pass = 0; pass < 10 && text.contains("${"); pass++) {
+            String resolved = PROPERTY.matcher(text).replaceAll(match -> {
+                String replacement = property(match.group(1), model, properties);
+                return Matcher.quoteReplacement(replacement == null ? match.group() : replacement);
+            });
+            if (text.equals(resolved)) break;
+            text = resolved;
         }
-        return value;
+        return text;
+    }
+
+    private static String property(String key, MavenProject model, Map<String, String> properties) {
+        int prefix = key.startsWith("project.") ? 8 : key.startsWith("pom.") ? 4 : 0;
+        if (prefix == 0) return properties.get(key);
+        return switch (key.substring(prefix)) {
+            case "basedir" -> model.getDirectory();
+            case "build.directory" -> model.getBuildDirectory();
+            case "build.outputDirectory" -> model.getOutputDirectory();
+            case "build.testOutputDirectory" -> model.getTestOutputDirectory();
+            case "build.finalName" -> model.getFinalName();
+            case "build.sourceDirectory" -> model.getSources().stream().findFirst()
+                    .orElse(model.getDirectory() + "/src/main/java");
+            case "build.testSourceDirectory" -> model.getTestSources().stream().findFirst()
+                    .orElse(model.getDirectory() + "/src/test/java");
+            case "groupId" -> model.getMavenId().getGroupId();
+            case "artifactId" -> model.getMavenId().getArtifactId();
+            case "version" -> model.getMavenId().getVersion();
+            default -> properties.get(key);
+        };
+    }
+
+    static List<MavenPlugin.Execution> setupExecutions(MavenPlugin plugin) {
+        return plugin == null ? List.of() : plugin.getExecutions().stream()
+                .filter(execution -> execution.getGoals().contains("setup")).toList();
+    }
+
+    static Path setupFolder(MavenProject model, MavenPlugin plugin, MavenPlugin.Execution execution) {
+        var values = collect(plugin.getConfigurationElement(), model);
+        values.putAll(collect(execution.getConfigurationElement(), model));
+        String folder = values.getOrDefault("testFolder",
+                model.getProperties().getProperty("evosuite.testFolder", "src/test/evosuite"));
+        return Path.of(model.getDirectory()).resolve(folder).normalize();
     }
 
     @Override
@@ -182,39 +189,23 @@ public final class MavenSupport implements MavenIntegration {
     }
 
     @Override
-    public org.jetbrains.concurrency.Promise<Void> offerSetup(
-            Module module, GenerationOptions options, List<TestDependency> dependencies) {
+    public Promise<Void> offerSetup(Module module, GenerationOptions options,
+                                    List<ExternalLibraryDescriptor> dependencies) {
         MavenProject model = model(module);
-        if (model == null) return org.jetbrains.concurrency.Promises.resolvedPromise();
+        if (model == null) return Promises.resolvedPromise();
         MavenPlugin plugin = model.findPlugin(PomSettings.GROUP_ID, PomSettings.ARTIFACT_ID);
-        MavenPlugin.Execution setup = null;
-        boolean configured = false;
-        if (plugin != null) {
-            for (var execution : plugin.getExecutions()) {
-                if (!execution.getGoals().contains("setup")) continue;
-                var values = collect(plugin.getConfigurationElement(), model);
-                values.putAll(collect(execution.getConfigurationElement(), model));
-                String folder =
-                        values.getOrDefault(
-                                "testFolder",
-                                model.getProperties()
-                                        .getProperty("evosuite.testFolder", "src/test/evosuite"));
-                Path base = Path.of(model.getDirectory());
-                if (base.resolve(folder)
-                        .normalize()
-                        .equals(base.resolve(options.testFolder).normalize()))
-                    configured = true;
-                if (setup == null) setup = execution;
-            }
-        }
-        if (configured && dependencies.isEmpty())
-            return org.jetbrains.concurrency.Promises.resolvedPromise();
+        var executions = setupExecutions(plugin);
+        Path output = Path.of(model.getDirectory()).resolve(options.testFolder).normalize();
+        boolean configured = executions.stream()
+                .anyMatch(execution -> setupFolder(model, plugin, execution).equals(output));
+        if (configured && dependencies.isEmpty()) return Promises.resolvedPromise();
+
         String dependencyNote = dependencies.isEmpty() ? "" :
                 "Add these test dependencies:\n" + dependencies.stream()
-                        .map(d -> "  " + d.group() + ":" + d.artifact() + ":" + d.version())
-                        .collect(java.util.stream.Collectors.joining("\n")) + "\n\n";
+                        .map(d -> "  " + d.getLibraryGroupId() + ":" + artifact(d) + ":" + d.getPreferredVersion())
+                        .collect(Collectors.joining("\n")) + "\n\n";
         String setupNote = configured ? "" :
-                (setup == null ? "Add" : "Update") + " the EvoSuite setup execution to keep "
+                (executions.isEmpty() ? "Add" : "Update") + " the EvoSuite setup execution to keep "
                         + options.testFolder + " as a test source folder on reimport and configure"
                         + " the runtime agent for Maven tests.\n\n"
                         + (options.effectiveNoRuntimeDependency()
@@ -232,9 +223,9 @@ public final class MavenSupport implements MavenIntegration {
                         : new String[] {"Configure Maven", "Skip Maven Setup", "Cancel"},
                 0, Messages.getQuestionIcon());
         if (choice < 0 || choice == (configured ? 1 : 2))
-            throw new com.intellij.openapi.progress.ProcessCanceledException();
+            throw new ProcessCanceledException();
         if (!combined && !configured && choice == 1)
-            return org.jetbrains.concurrency.Promises.resolvedPromise();
+            return Promises.resolvedPromise();
         boolean configureExecution = !configured && choice == 0;
         PsiFile file = PsiManager.getInstance(project).findFile(model.getFile());
         if (!(file instanceof XmlFile xml) || xml.getRootTag() == null)
@@ -242,13 +233,13 @@ public final class MavenSupport implements MavenIntegration {
                     "Cannot update "
                             + model.getPath()
                             + ". Check that the pom is valid and writable.");
-        var documents = com.intellij.openapi.fileEditor.FileDocumentManager.getInstance();
+        var documents = FileDocumentManager.getInstance();
         var document = documents.getDocument(model.getFile());
         if (document == null || !document.isWritable() || !model.getFile().isWritable())
             throw new IllegalStateException("Cannot edit " + model.getPath());
         if (documents.isDocumentUnsaved(document))
             throw new IllegalStateException("Save your edits to " + model.getPath() + " before configuring Maven.");
-        String executionId = setup == null ? "evosuite-setup" : setup.getExecutionId();
+        String executionId = executions.isEmpty() ? "evosuite-setup" : executions.getFirst().getExecutionId();
         if (executionId == null || executionId.isBlank()) executionId = "default";
         String id = executionId;
         WriteCommandAction.runWriteCommandAction(
@@ -256,15 +247,24 @@ public final class MavenSupport implements MavenIntegration {
                 "EvoSuite: configure Maven setup",
                 null,
                 () -> {
-                    for (TestDependency dependency : dependencies)
-                        configureTestDependency(xml, dependency.group(), dependency.artifact(), dependency.version());
+                    for (var dependency : dependencies)
+                        configureTestDependency(xml, dependency.getLibraryGroupId(),
+                                artifact(dependency), dependency.getPreferredVersion());
                     if (configureExecution) configureSetup(xml, options, id);
                 },
                 file);
-        return saveAndRefresh(model);
+        documents.saveDocument(document);
+        if (documents.isDocumentUnsaved(document))
+            throw new IllegalStateException("Could not save " + model.getPath());
+        return refresh(model);
     }
 
-    /** Exact versions also work before Maven's repository index has discovered a local snapshot. */
+    private static String artifact(ExternalLibraryDescriptor dependency) {
+        return "org.junit.jupiter".equals(dependency.getLibraryGroupId())
+                ? "junit-jupiter" : dependency.getLibraryArtifactId();
+    }
+
+    // Local snapshots might not be indexed yet.
     static void configureTestDependency(
             XmlFile xml, String group, String artifact, String version) {
         XmlTag dependencies = child(xml.getRootTag(), "dependencies");
@@ -282,10 +282,7 @@ public final class MavenSupport implements MavenIntegration {
                         .orElse(null);
         if (dependency == null) {
             dependency =
-                    dependencies.addSubTag(
-                            dependencies.createChildTag(
-                                    "dependency", dependencies.getNamespace(), "", false),
-                            false);
+                    append(dependencies, "dependency", "");
             child(dependency, "groupId").getValue().setText(group);
             child(dependency, "artifactId").getValue().setText(artifact);
             child(dependency, "scope").getValue().setText("test");
@@ -293,37 +290,21 @@ public final class MavenSupport implements MavenIntegration {
         child(dependency, "version").getValue().setText(version);
     }
 
-    private org.jetbrains.concurrency.Promise<Void> saveAndRefresh(MavenProject model) {
-        var documents = com.intellij.openapi.fileEditor.FileDocumentManager.getInstance();
-        var document = documents.getDocument(model.getFile());
-        if (document == null) throw new IllegalStateException("Cannot edit " + model.getPath());
-        documents.saveDocument(document);
-        if (documents.isDocumentUnsaved(document))
-            throw new IllegalStateException("Could not save " + model.getPath());
-        var result = new org.jetbrains.concurrency.AsyncPromise<Void>();
-        ApplicationManager.getApplication()
-                .executeOnPooledThread(
-                        () -> {
-                            try {
-                                org.evosuite.intellij.run.IdeThread.flushPendingVfsWrites();
-                                if (project.isDisposed())
-                                    throw new com.intellij.openapi.progress
-                                            .ProcessCanceledException();
-                                org.evosuite.intellij.run.IdeThread.edt(
-                                                () ->
-                                                        MavenProjectsManager.getInstance(project)
-                                                                .forceUpdateProjects(
-                                                                        List.of(model)))
-                                        .onSuccess(result::setResult)
-                                        .onError(result::setError);
-                            } catch (Exception ex) {
-                                result.setError(ex);
-                            }
-                        });
+    private Promise<Void> refresh(MavenProject model) {
+        var result = new AsyncPromise<Void>();
+        ApplicationManager.getApplication().executeOnPooledThread(() -> {
+            try {
+                IdeThread.flushPendingVfsWrites();
+                if (project.isDisposed()) throw new ProcessCanceledException();
+                IdeThread.edt(() -> MavenProjectsManager.getInstance(project).forceUpdateProjects(List.of(model)))
+                        .onSuccess(result::setResult).onError(result::setError);
+            } catch (Exception ex) {
+                result.setError(ex);
+            }
+        });
         return result;
     }
 
-    /** Updates the matching execution, including inherited IDs, without discarding other goals. */
     static void configureSetup(XmlFile xml, GenerationOptions options, String executionId) {
         XmlTag build = child(xml.getRootTag(), "build"), plugins = child(build, "plugins");
         XmlTag target = null;
@@ -332,10 +313,7 @@ public final class MavenSupport implements MavenIntegration {
                     && PomSettings.GROUP_ID.equals(candidate.getSubTagText("groupId")))
                 target = candidate;
         if (target == null) {
-            target =
-                    plugins.addSubTag(
-                            plugins.createChildTag("plugin", plugins.getNamespace(), "", false),
-                            false);
+            target = append(plugins, "plugin", "");
             child(target, "groupId").getValue().setText(PomSettings.GROUP_ID);
             child(target, "artifactId").getValue().setText(PomSettings.ARTIFACT_ID);
             child(target, "version").getValue().setText(EngineJars.VERSION);
@@ -346,29 +324,22 @@ public final class MavenSupport implements MavenIntegration {
                         .filter(e -> executionId.equals(e.getSubTagText("id")))
                         .findFirst()
                         .orElse(null);
-        if (execution == null)
-            execution =
-                    executions.addSubTag(
-                            executions.createChildTag(
-                                    "execution", executions.getNamespace(), "", false),
-                            false);
+        if (execution == null) execution = append(executions, "execution", "");
         child(execution, "id").getValue().setText(executionId);
         XmlTag goals = child(execution, "goals");
         if (Arrays.stream(goals.findSubTags("goal"))
                 .noneMatch(g -> "setup".equals(g.getValue().getTrimmedText())))
-            goals.addSubTag(
-                    goals.createChildTag("goal", goals.getNamespace(), "setup", false), false);
-        child(child(execution, "configuration"), "testFolder")
-                .getValue()
-                .setText(options.testFolder);
+            append(goals, "goal", "setup");
+        child(child(execution, "configuration"), "testFolder").getValue().setText(options.testFolder);
     }
 
     private static XmlTag child(XmlTag parent, String name) {
         XmlTag child = parent.findFirstSubTag(name);
-        return child == null
-                ? parent.addSubTag(
-                        parent.createChildTag(name, parent.getNamespace(), "", false), false)
-                : child;
+        return child == null ? append(parent, name, "") : child;
+    }
+
+    private static XmlTag append(XmlTag parent, String name, String value) {
+        return parent.addSubTag(parent.createChildTag(name, parent.getNamespace(), value, false), false);
     }
 
     @Override
@@ -429,7 +400,7 @@ public final class MavenSupport implements MavenIntegration {
                                         + EngineJars.VERSION
                                         + ":generate"));
         goals.add("-Dcuts=" + targets.stream().map(GenerationTarget::className)
-                .collect(java.util.stream.Collectors.joining(",")));
+                .collect(Collectors.joining(",")));
         goals.add("-DtargetFolder=" + staging.toAbsolutePath());
         MavenRunner runner = MavenRunner.getInstance(project);
         MavenRunnerSettings settings = runner.getSettings().clone();

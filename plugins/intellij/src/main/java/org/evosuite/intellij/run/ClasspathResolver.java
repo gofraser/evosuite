@@ -53,18 +53,12 @@ public final class ClasspathResolver {
                                     || name.contains("evosuite-runtime")) return false;
                             return extension
                                     || !(name.startsWith("junit-")
-                                            || name.startsWith("junit4-")
-                                            || name.startsWith("junit-jupiter-")
-                                            || name.startsWith("junit-platform-")
-                                            || name.startsWith("junit-vintage-"));
+                                            || name.startsWith("junit4-"));
                         })
                 .distinct()
                 .toList();
     }
 
-    /**
-     * Test roots may belong to integrationTest/testFixtures rather than the ordinary test module.
-     */
     public static List<Module> seedModules(Module production, List<GenerationTarget> targets) {
         Set<Module> modules = new LinkedHashSet<>();
         var index =
