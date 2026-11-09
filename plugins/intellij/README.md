@@ -249,12 +249,11 @@ them. Runtime-free source needs JUnit and does not require an EvoSuite runtime d
 IDs and other configuration are preserved. It saves that pom and waits for reimport before
 building. Its import configurator keeps that execution's folder as a test root on reimport. Gradle source roots are persisted automatically when Configure Gradle is accepted.
 
-The project settings offer **Run whole-class requests through the Maven plugin**. This invokes
-IntelliJ's Maven runner with `compile` and `generate` (which already exports tests), uses pom
-settings and Maven scheduling/export, and has no per-class
-progress or IDE Add/Compare workflow. Requests requiring saved/fixed seeds, advanced model controls, runtime-free output, Search-only enforcement or protection
-of existing suites use the bundled engine instead. Methods and extension always use the bundled
-engine. The default mode is the bundled engine.
+The project settings offer **Run whole-class requests through the Maven plugin**. IntelliJ runs
+Maven's `compile` and EvoSuite `generate` goals with POM settings and a temporary export folder.
+It places only suites for the selected classes and checks the destination again before writing.
+Existing suites, method generation, extension, fixed seeds, runtime-free output and Search only
+use the bundled engine. See the Maven console for delegated progress and reports.
 
 ## Build and test
 

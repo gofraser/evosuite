@@ -47,13 +47,12 @@ public interface MavenIntegration {
     org.jetbrains.concurrency.Promise<Void> offerSetup(
             Module module, GenerationOptions options, List<TestDependency> dependencies);
 
-    org.jetbrains.concurrency.Promise<Void> addTestDependency(
-            Module module, String group, String artifact, String version);
+    boolean canDelegate(Module module, GenerationOptions options) throws java.io.IOException;
 
     boolean delegate(
             Module module,
             List<GenerationTarget> targets,
-            GenerationOptions options,
+            Path staging,
             Map<String, String> env,
             ProgressIndicator indicator);
 }

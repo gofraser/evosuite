@@ -88,16 +88,7 @@ public final class ConfigurationDialog {
                                     });
                         String java;
                         try {
-                            var installation =
-                                    ReadAction.compute(
-                                            () -> {
-                                                try {
-                                                    return ClasspathResolver.java(module, options);
-                                                } catch (java.io.IOException ex) {
-                                                    throw new IllegalArgumentException(
-                                                            ex.getMessage(), ex);
-                                                }
-                                            });
+                            var installation = ClasspathResolver.java(module, options);
                             java =
                                     installation.executable()
                                             + " (JDK "
@@ -112,14 +103,12 @@ public final class ConfigurationDialog {
                                                 : "Available (may be disabled by engine options)",
                                         "Selected JDK"
                                     });
-                        } catch (RuntimeException ex) {
+                        } catch (java.io.IOException ex) {
                             java = "Needs attention: " + ex.getMessage();
                         }
                         rows.add(
                                 new String[] {module.getName(), "Java runtime", java, "Preflight"});
-                        var test =
-                                IdeThread.smartRead(
-                                        project, () -> ProjectSetupService.testModule(module));
+                        var test = ProjectSetupService.testModule(module);
                         rows.add(
                                 new String[] {
                                     module.getName(),
@@ -150,11 +139,7 @@ public final class ConfigurationDialog {
                                 new String[] {
                                     module.getName(),
                                     "Output",
-                                    ReadAction.compute(
-                                                    () ->
-                                                            ProjectSetupService.testFolder(
-                                                                    module, options))
-                                            .toString(),
+                                    ProjectSetupService.testFolder(module, options).toString(),
                                     "Resolved module location"
                                 });
                         rows.add(
@@ -165,6 +150,8 @@ public final class ConfigurationDialog {
                                         + " EVOSUITE_LLM_API_KEY; use Test connection to validate",
                                     "Not read during readiness check"
                                 });
+                    } catch (ProcessCanceledException ex) {
+                        throw ex;
                     } catch (RuntimeException ex) {
                         rows.add(
                                 new String[] {
@@ -177,7 +164,8 @@ public final class ConfigurationDialog {
                 }
                 IdeThread.edt(
                         () -> {
-                            new View(project, rows).show();
+                            indicator.checkCanceled();
+                            if (!project.isDisposed()) new View(project, rows).show();
                             return null;
                         });
             }

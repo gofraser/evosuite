@@ -42,11 +42,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public final class RunHistory implements PersistentStateComponent<RunHistory.State> {
     public static final class Comparison {
         public String destination = "", generated = "";
-        public boolean create;
     }
 
     public static final class Seed {
-        public String className = "", root = "";
+        public String className = "", root = "", source = "";
     }
 
     public static final class Target {
@@ -83,9 +82,20 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
             t.coverage = coverage;
             t.tests = tests;
             t.methods = new ArrayList<>(methods);
-            t.seeds = new ArrayList<>(seeds);
+            for (Seed seed : seeds) {
+                Seed copy = new Seed();
+                copy.className = seed.className;
+                copy.root = seed.root;
+                copy.source = seed.source;
+                t.seeds.add(copy);
+            }
             t.settings = new TreeMap<>(settings);
-            t.comparisons = new ArrayList<>(comparisons);
+            for (Comparison comparison : comparisons) {
+                Comparison copy = new Comparison();
+                copy.destination = comparison.destination;
+                copy.generated = comparison.generated;
+                t.comparisons.add(copy);
+            }
             return t;
         }
     }
@@ -215,7 +225,7 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
     }
 
     public synchronized boolean active(String id) {
-        return find(id).active();
+        return state.runs.stream().anyMatch(run -> run.id.equals(id) && run.active());
     }
 
     public synchronized String activeSelection(String selection) {
@@ -260,23 +270,33 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
             Seed s = new Seed();
             s.className = seed.className();
             s.root = seed.sourceRoot().toString();
+            s.source = seed.sourceFile().toString();
             t.seeds.add(s);
         }
         t.settings = EffectiveConfiguration.savedValues(options);
         t.keyServerId = options.llmApiKeyServerId;
-        find(id).targets.add(t);
+        List<Target> targets = find(id).targets;
+        targets.add(t);
         changed();
-        return find(id).targets.size() - 1;
+        return targets.size() - 1;
     }
 
     public synchronized void beginTarget(String id, int index, Path staging) {
-        Target t = find(id).targets.get(index);
-        t.status = find(id).mode.equals("COVERAGE") ? "Measuring coverage" : "Searching";
+        Run run = find(id);
+        Target t = run.targets.get(index);
+        t.status = run.mode.equals("COVERAGE") ? "Measuring coverage" : "Searching";
         t.started = System.currentTimeMillis();
         t.reports = staging.resolve("reports").toString();
-        find(id).phase =
-                (find(id).mode.equals("COVERAGE") ? "Measuring coverage: " : "Searching: ")
-                        + t.className;
+        run.phase = t.status + ": " + t.className;
+        changed();
+    }
+
+    public synchronized void delegated(String id, int index, Path staging) {
+        Target target = find(id).targets.get(index);
+        target.status = "Running Maven";
+        target.started = System.currentTimeMillis();
+        target.reports = staging.resolve("reports").toString();
+        target.replayUnavailable = "Repeat this request through the Maven runner.";
         changed();
     }
 
@@ -285,7 +305,7 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
     private static final java.util.regex.Pattern TOTAL_COVERAGE =
             java.util.regex.Pattern.compile("Total coverage:\\s*([0-9]+(?:[.,][0-9]+)?)\\s*%");
 
-    public synchronized void line(String id, int index, String line) {
+    public synchronized String line(String id, int index, String line) {
         Target t = find(id).targets.get(index);
         var seed = RANDOM_SEED.matcher(line);
         while (seed.find()) t.seed = seed.group(1);
@@ -295,7 +315,7 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
                     (int) Math.round(Double.parseDouble(totalCoverage.group(1).replace(',', '.')));
             changed();
         }
-        if (!line.stripLeading().startsWith("*")) return;
+        if (!line.stripLeading().startsWith("*")) return null;
         String lower = line.toLowerCase(Locale.ROOT);
         String phase =
                 lower.contains("minimiz")
@@ -312,6 +332,7 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
             find(id).phase = phase + ": " + t.className;
             changed();
         }
+        return phase;
     }
 
     public synchronized void progress(String id, int index, int search, int coverage) {
@@ -358,9 +379,9 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
             Comparison c = new Comparison();
             c.destination = destination.toString();
             c.generated = path.toString();
-            c.create = pair.destination() != null;
             saved.add(c);
         }
+        if (saved.isEmpty()) return;
         synchronized (this) {
             find(id).targets.get(index).comparisons = saved;
             changed();
@@ -442,9 +463,9 @@ public final class RunHistory implements PersistentStateComponent<RunHistory.Sta
                                                         .toAbsolutePath()
                                                         .normalize()
                                                         .getParent();
-                                        if (folder != null
-                                                && folder.startsWith(managed)
-                                                && !folder.equals(managed))
+                                        if (folder != null && managed.equals(folder.getParent())
+                                                && folder.getFileName().toString().startsWith("run-")
+                                                && !Files.isSymbolicLink(folder))
                                             try {
                                                 GenerationRun.deleteTree(folder);
                                             } catch (java.io.IOException ignored) {

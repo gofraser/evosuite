@@ -21,12 +21,12 @@ package org.evosuite.intellij.setup;
 
 import com.intellij.buildsystem.model.unified.UnifiedDependency;
 import com.intellij.openapi.command.WriteCommandAction;
-import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.externalSystem.ExternalSystemModulePropertyManager;
 import com.intellij.openapi.externalSystem.importing.ImportSpecBuilder;
 import com.intellij.openapi.externalSystem.model.ProjectSystemId;
 import com.intellij.openapi.externalSystem.service.execution.ProgressExecutionMode;
 import com.intellij.openapi.externalSystem.util.*;
+import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.progress.*;
@@ -35,6 +35,7 @@ import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.vfs.*;
 
 import org.evosuite.ide.GenerationOptions;
+import org.evosuite.intellij.run.GenerationDialogs;
 import org.evosuite.intellij.run.IdeThread;
 
 import java.nio.file.*;
@@ -48,6 +49,11 @@ import java.util.function.Consumer;
 final class GradleDependencySetup {
     private static final String START = "// EvoSuite managed test configuration: start";
     private static final String END = "// EvoSuite managed test configuration: end";
+
+    private static final String DEPENDENCIES_START = "// EvoSuite managed test dependencies: start";
+    private static final String DEPENDENCIES_END = "// EvoSuite managed test dependencies: end";
+
+    private GradleDependencySetup() {}
 
     static boolean applies(Module module) {
         return "GRADLE"
@@ -99,10 +105,18 @@ final class GradleDependencySetup {
     }
 
     static String update(String original, String block) {
-        int start = original.indexOf(START), end = original.indexOf(END);
-        if (start >= 0 && end >= start)
-            return original.substring(0, start) + block + original.substring(end + END.length());
-        return original.stripTrailing() + "\n\n" + block + "\n";
+        return replaceBlock(original, START, END, block);
+    }
+
+    private static String replaceBlock(String original, String start, String end, String block) {
+        int from = original.indexOf(start);
+        int to = original.indexOf(end);
+        if (from == -1 && to == -1)
+            return original.isBlank() ? block + "\n" : original.stripTrailing() + "\n\n" + block + "\n";
+        if (from == -1 || to <= from || original.indexOf(start, from + start.length()) != -1
+                || original.indexOf(end, to + end.length()) != -1)
+            throw new IllegalStateException("Conflicting EvoSuite markers in Gradle build file");
+        return original.substring(0, from) + block + original.substring(to + end.length());
     }
 
     /** Keep a build without a subproject script in its surrounding Kotlin/Groovy DSL. */
@@ -122,39 +136,27 @@ final class GradleDependencySetup {
 
     /** Only edit the selected script; never let a module-level modifier choose another file. */
     static String updateDependencies(String original, List<UnifiedDependency> dependencies) {
-        String start = "// EvoSuite managed test dependencies: start";
-        String end = "// EvoSuite managed test dependencies: end";
-        int from = original.indexOf(start), to = original.indexOf(end);
-        String previous = from >= 0 && to > from ? original.substring(from, to + end.length()) : "";
-        List<String> additions = new ArrayList<>();
+        if (dependencies.isEmpty()) return original;
+        int from = original.indexOf(DEPENDENCIES_START);
+        int to = original.indexOf(DEPENDENCIES_END);
+        String previous = from >= 0 && to > from ? original.substring(from, to) : "";
+        int closingBrace = previous.lastIndexOf('}');
+        if (!previous.isEmpty() && closingBrace < 0)
+            throw new IllegalStateException("Invalid EvoSuite dependency block in Gradle build file");
+
+        Set<String> additions = new LinkedHashSet<>();
         for (UnifiedDependency dependency : dependencies) {
-            var coordinate = dependency.getCoordinates();
-            String group = coordinate.getGroupId(),
-                    artifact = coordinate.getArtifactId(),
-                    version = coordinate.getVersion();
-            // Existing declarations (including a managed block retained across source-root updates)
-            // win.
-            if (original.contains(group + ":" + artifact + ":")) continue;
-            additions.add(
-                    "    "
-                            + dependency.getScope()
-                            + "(\""
-                            + group
-                            + ":"
-                            + artifact
-                            + ":"
-                            + version
-                            + "\")");
+            var coordinates = dependency.getCoordinates();
+            String declaration = "    " + dependency.getScope() + "(\"" + coordinates.getGroupId()
+                    + ":" + coordinates.getArtifactId() + ":" + coordinates.getVersion() + "\")";
+            if (!previous.lines().anyMatch(line -> line.strip().equals(declaration.strip())))
+                additions.add(declaration);
         }
         if (additions.isEmpty()) return original;
-        String block =
-                previous.isEmpty()
-                        ? start + "\ndependencies {\n"
-                        : previous.substring(0, previous.lastIndexOf('}'));
-        block += String.join("\n", additions) + "\n}\n" + end;
-        return previous.isEmpty()
-                ? original.stripTrailing() + "\n\n" + block + "\n"
-                : original.substring(0, from) + block + original.substring(to + end.length());
+        String block = previous.isEmpty() ? DEPENDENCIES_START + "\ndependencies {\n"
+                : previous.substring(0, closingBrace).stripTrailing() + "\n";
+        block += String.join("\n", additions) + "\n}\n" + DEPENDENCIES_END;
+        return replaceBlock(original, DEPENDENCIES_START, DEPENDENCIES_END, block);
     }
 
     static boolean prepare(
@@ -168,12 +170,9 @@ final class GradleDependencySetup {
         Path build = buildFile(base);
         // A subproject may inherit all configuration from its root and have no own script.
         boolean kotlin = build.toString().endsWith(".kts");
-        String block =
-                configuration(
-                        options.testFolder,
-                        sourceSet(testModule),
-                        kotlin,
-                        "JUNIT5".equals(options.testFormat));
+        String sourceSet = sourceSet(testModule);
+        boolean junit5 = GenerationOptions.JUNIT5.equals(options.testFormat);
+        String block = configuration(options.testFolder, sourceSet, kotlin, junit5);
         String original;
         try {
             original = Files.exists(build) ? Files.readString(build) : "";
@@ -186,7 +185,7 @@ final class GradleDependencySetup {
             String version = descriptor.getPreferredVersion();
             if (version == null || version.isBlank()) version = descriptor.getMinVersion();
             boolean jupiter = "org.junit.jupiter".equals(descriptor.getLibraryGroupId());
-            String scope = sourceSet(testModule);
+            String scope = sourceSet;
             dependencies.add(
                     new UnifiedDependency(
                             descriptor.getLibraryGroupId(),
@@ -201,46 +200,15 @@ final class GradleDependencySetup {
                                 version.startsWith("5.") ? "1." + version.substring(2) : version,
                                 scope + "RuntimeOnly"));
         }
-        int choice =
-                IdeThread.edt(
-                        () ->
-                                Messages.showDialog(
-                                        production.getProject(),
-                                        org.evosuite.intellij.run.GenerationDialogs.message(
-                                                "Configure "
-                                                        + build
-                                                        + "?\n\nRegister "
-                                                        + options.testFolder
-                                                        + " as test sources."
-                                                        + ("JUNIT5".equals(options.testFormat)
-                                                                ? "\n"
-                                                                      + "Enable JUnit Platform for"
-                                                                      + " the test task."
-                                                                : "")
-                                                        + (dependencies.isEmpty()
-                                                                ? ""
-                                                                : "\n"
-                                                                        + "Add missing test"
-                                                                        + " dependencies:\n"
-                                                                        + dependencies.stream()
-                                                                                .map(
-                                                                                        d ->
-                                                                                                "  "
-                                                                                                        + d
-                                                                                                                .getCoordinates())
-                                                                                .collect(
-                                                                                        java.util
-                                                                                                .stream
-                                                                                                .Collectors
-                                                                                                .joining(
-                                                                                                        "\n")))
-                                                        + "\n\n"
-                                                        + "The build file will be saved and Gradle"
-                                                        + " synced once."),
-                                        "EvoSuite Gradle Setup",
-                                        new String[] {"Configure Gradle", "Skip Setup", "Cancel"},
-                                        0,
-                                        Messages.getQuestionIcon()));
+        String message = "Configure " + build + "?\n\nRegister " + options.testFolder + " as test sources."
+                + (junit5 ? "\nEnable JUnit Platform for the test task." : "");
+        if (!dependencies.isEmpty()) message += "\n\nAdd test dependencies:\n"
+                + dependencies.stream().map(d -> "  " + d.getCoordinates())
+                        .collect(java.util.stream.Collectors.joining("\n"));
+        String prompt = message + "\n\nThe build file will be saved and Gradle synced.";
+        int choice = IdeThread.edt(() -> Messages.showDialog(production.getProject(),
+                GenerationDialogs.message(prompt), "EvoSuite Gradle Setup",
+                new String[] {"Configure Gradle", "Skip Setup", "Cancel"}, 0, Messages.getQuestionIcon()));
         if (choice < 0 || choice == 2) throw new ProcessCanceledException();
         if (choice == 1) {
             console.accept(
@@ -248,46 +216,42 @@ final class GradleDependencySetup {
                             + " dependencies before running tests.");
             return false;
         }
-        IdeThread.edt(
-                () -> {
-                    var manager = FileDocumentManager.getInstance();
-                    Map<Document, Long> before = new IdentityHashMap<>();
-                    for (var doc : manager.getUnsavedDocuments())
-                        before.put(doc, doc.getModificationStamp());
-                    WriteCommandAction.runWriteCommandAction(
-                            production.getProject(),
-                            "EvoSuite: configure Gradle tests",
-                            null,
-                            () -> {
-                                try {
-                                    VirtualFile directory =
-                                            VfsUtil.createDirectories(base.toString());
-                                    VirtualFile file =
-                                            directory.findChild(build.getFileName().toString());
-                                    if (file == null)
-                                        file =
-                                                directory.createChildData(
-                                                        GradleDependencySetup.class,
-                                                        build.getFileName().toString());
-                                    Document doc = manager.getDocument(file);
-                                    if (doc == null)
-                                        throw new IllegalStateException("Cannot edit " + build);
-                                    doc.setText(
-                                            updateDependencies(
-                                                    update(doc.getText(), block), dependencies));
-                                    var psi =
-                                            com.intellij.psi.PsiDocumentManager.getInstance(
-                                                    production.getProject());
-                                    psi.commitDocument(doc);
-                                } catch (java.io.IOException ex) {
-                                    throw new IllegalStateException("Cannot update " + build, ex);
-                                }
-                            });
-                    for (var doc : manager.getUnsavedDocuments())
-                        if (!Objects.equals(before.get(doc), doc.getModificationStamp()))
-                            manager.saveDocument(doc);
-                    return null;
-                });
+        IdeThread.edt(() -> {
+            indicator.checkCanceled();
+            FileDocumentManager manager = FileDocumentManager.getInstance();
+            VirtualFile file = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(build);
+            Document existing = file == null ? null : manager.getDocument(file);
+            if (file != null && (existing == null || !file.isWritable() || !existing.isWritable()))
+                throw new IllegalStateException("Cannot edit " + build);
+            if (existing != null && manager.isDocumentUnsaved(existing))
+                throw new IllegalStateException("Save your edits to " + build + " before configuring Gradle.");
+            String current = existing == null ? "" : existing.getText();
+            if (!current.equals(com.intellij.openapi.util.text.StringUtil.convertLineSeparators(original)))
+                throw new IllegalStateException(build + " changed during setup. Start generation again.");
+            String updated = updateDependencies(update(current, block), dependencies);
+            Document[] edited = {existing};
+            WriteCommandAction.runWriteCommandAction(production.getProject(), "EvoSuite: configure Gradle tests",
+                    null, () -> {
+                        try {
+                            if (edited[0] == null) {
+                                VirtualFile directory = VfsUtil.createDirectories(base.toString());
+                                VirtualFile created = directory.createChildData(GradleDependencySetup.class,
+                                        build.getFileName().toString());
+                                edited[0] = manager.getDocument(created);
+                                if (edited[0] == null) throw new IllegalStateException("Cannot edit " + build);
+                            }
+                            edited[0].setText(updated);
+                            com.intellij.psi.PsiDocumentManager.getInstance(production.getProject())
+                                    .commitDocument(edited[0]);
+                        } catch (java.io.IOException ex) {
+                            throw new IllegalStateException("Cannot update " + build, ex);
+                        }
+                    });
+            manager.saveDocument(edited[0]);
+            if (manager.isDocumentUnsaved(edited[0]))
+                throw new IllegalStateException("Could not save " + build);
+            return null;
+        });
         try {
             IdeThread.flushPendingVfsWrites();
         } catch (java.io.IOException ex) {

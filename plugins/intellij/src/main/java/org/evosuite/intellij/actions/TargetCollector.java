@@ -21,6 +21,7 @@ package org.evosuite.intellij.actions;
 
 import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.module.Module;
+import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.roots.*;
 import com.intellij.openapi.vfs.*;
@@ -30,6 +31,7 @@ import com.intellij.psi.util.PsiTreeUtil;
 import org.evosuite.ide.GenerationTarget;
 
 import java.util.*;
+import java.util.function.Consumer;
 
 /** PSI/VFS selection resolver. Must run in a read action; no raw PSI is retained by a launch. */
 public final class TargetCollector {
@@ -75,7 +77,11 @@ public final class TargetCollector {
         }
     }
 
-    public record TestClass(Module module, String name, VirtualFile root) {}
+    public record TestClass(Module module, String name, VirtualFile root, VirtualFile file) {
+        public TestClass(Module module, String name, VirtualFile root) {
+            this(module, name, root, null);
+        }
+    }
 
     public record Collected(Map<Module, List<GenerationTarget>> targets, List<TestClass> tests) {}
 
@@ -119,7 +125,7 @@ public final class TargetCollector {
         }
         if (editorContext) modules = new Module[0];
         return new Selection(
-                List.copyOf(elements),
+                elements,
                 files == null ? List.of() : List.of(files),
                 List.of(modules));
     }
@@ -130,10 +136,11 @@ public final class TargetCollector {
                 || type.getQualifiedName() == null
                 || type.isInterface()
                 || type.isAnnotationType()) return false;
-        var file = type.getContainingFile().getVirtualFile();
+        PsiFile source = type.getContainingFile();
+        VirtualFile file = source == null ? null : source.getVirtualFile();
         var index = ProjectFileIndex.getInstance(project);
-        if (file == null || !index.isInSourceContent(file)) return false;
-        if ((mode == Mode.EXTEND || mode == Mode.COVERAGE))
+        if (file == null || !file.isInLocalFileSystem() || !index.isInSourceContent(file)) return false;
+        if (usesExistingTests(mode))
             return index.isInTestSourceContent(file)
                     && !type.hasModifierProperty(PsiModifier.ABSTRACT)
                     && !type.getName().endsWith("_scaffolding")
@@ -143,51 +150,39 @@ public final class TargetCollector {
 
     public static boolean hasEligibleTarget(Project project, Selection selection, Mode mode) {
         var index = ProjectFileIndex.getInstance(project);
-        if (mode != Mode.METHODS)
-            for (var module : selection.modules())
-                if (java.util.Arrays.stream(
-                                com.intellij.openapi.roots.ModuleRootManager.getInstance(module)
-                                        .getSourceRoots())
-                        .anyMatch(
-                                root ->
-                                        (mode == Mode.EXTEND || mode == Mode.COVERAGE)
-                                                == index.isInTestSourceContent(root))) return true;
-        for (var element : selection.elements()) {
-            if (element instanceof PsiPackage && mode == Mode.CLASSES) return true;
-            if (element instanceof PsiDirectory dir
-                    && index.isInSourceContent(dir.getVirtualFile())
-                    && ((mode == Mode.EXTEND || mode == Mode.COVERAGE))
-                            == index.isInTestSourceContent(dir.getVirtualFile()))
-                return mode != Mode.METHODS;
+        boolean testSources = usesExistingTests(mode);
+        if (mode != Mode.METHODS && selection.modules().stream()
+                .filter(module -> !module.isDisposed())
+                .flatMap(module -> Arrays.stream(ModuleRootManager.getInstance(module).getSourceRoots()))
+                .anyMatch(root -> index.isInTestSourceContent(root) == testSources)) return true;
+
+        List<PsiElement> elements = selection.elements();
+        for (var element : elements) {
             if (mode == Mode.METHODS) {
-                PsiMethod method =
-                        element instanceof PsiMethod m
-                                ? m
-                                : PsiTreeUtil.getParentOfType(element, PsiMethod.class, false);
+                PsiMethod method = selectedMethod(element);
                 if (method != null
+                        && eligibleClass(project, method.getContainingClass(), mode)
                         && MethodRules.whyNotTestable(method) == null
-                        && MethodRules.descriptorOrNull(method) != null
-                        && eligibleClass(project, method.getContainingClass(), mode)) return true;
+                        && MethodRules.descriptorOrNull(method) != null) return true;
+            } else if (element instanceof PsiPackage pkg) {
+                if (Arrays.stream(pkg.getDirectories()).anyMatch(dir ->
+                        eligibleFile(index, dir.getVirtualFile(), testSources))) return true;
+            } else if (element instanceof PsiDirectory dir) {
+                if (eligibleFile(index, dir.getVirtualFile(), testSources)) return true;
             } else if (element instanceof PsiJavaFile file) {
-                for (var type : file.getClasses())
-                    if (eligibleClass(project, type, mode)) return true;
-            } else {
-                PsiClass type =
-                        element instanceof PsiClass c
-                                ? c
-                                : PsiTreeUtil.getParentOfType(element, PsiClass.class, false);
-                if (eligibleClass(project, type, mode)) return true;
+                if (Arrays.stream(file.getClasses()).anyMatch(type -> eligibleClass(project, type, mode)))
+                    return true;
+            } else if (eligibleClass(project, selectedClass(element), mode)) {
+                return true;
             }
         }
-        if (selection.elements().isEmpty() && mode != Mode.METHODS)
+        if (elements.isEmpty() && mode != Mode.METHODS)
             for (var file : selection.files()) {
-                if (!index.isInSourceContent(file)
-                        || ((mode == Mode.EXTEND || mode == Mode.COVERAGE))
-                                != index.isInTestSourceContent(file)) continue;
+                if (!eligibleFile(index, file, testSources)) continue;
                 if (file.isDirectory()) return true;
-                if (PsiManager.getInstance(project).findFile(file) instanceof PsiJavaFile java)
-                    for (var type : java.getClasses())
-                        if (eligibleClass(project, type, mode)) return true;
+                if (PsiManager.getInstance(project).findFile(file) instanceof PsiJavaFile java
+                        && Arrays.stream(java.getClasses()).anyMatch(type -> eligibleClass(project, type, mode)))
+                    return true;
             }
         return false;
     }
@@ -195,83 +190,49 @@ public final class TargetCollector {
     public static Collected collect(Project project, Selection selected, Mode mode) {
         ProjectFileIndex index = ProjectFileIndex.getInstance(project);
         Map<Module, LinkedHashMap<String, GenerationTarget>> byModule = new LinkedHashMap<>();
-        Map<String, TestClass> tests = new LinkedHashMap<>();
-        java.util.function.Consumer<PsiClass> accept =
-                type -> {
-                    if (!eligibleClass(project, type, mode)) return;
-                    VirtualFile file = type.getContainingFile().getVirtualFile();
-                    if (file == null
-                            || !index.isInSourceContent(file)
-                            || type.getContainingClass() != null
-                            || type.getQualifiedName() == null
-                            || type.isInterface()
-                            || type.isAnnotationType()) return;
-                    Module module = index.getModuleForFile(file);
-                    if (module == null || module.isDisposed()) return;
-                    if ((mode == Mode.EXTEND || mode == Mode.COVERAGE)) {
-                        if (index.isInTestSourceContent(file)
-                                && !type.hasModifierProperty(PsiModifier.ABSTRACT)
-                                && !type.getName().endsWith("_scaffolding")
-                                && file.getNameWithoutExtension().equals(type.getName())) {
-                            VirtualFile root = index.getSourceRootForFile(file);
-                            if (root != null)
-                                tests.put(
-                                        module.getName() + ":" + type.getQualifiedName(),
-                                        new TestClass(module, type.getQualifiedName(), root));
-                        }
-                    } else if (!index.isInTestSourceContent(file) && !generated(type)) {
-                        byModule.computeIfAbsent(module, ignored -> new LinkedHashMap<>())
-                                .putIfAbsent(
-                                        type.getQualifiedName(),
-                                        GenerationTarget.wholeClass(type.getQualifiedName()));
-                    }
-                };
+        Set<TestClass> tests = new LinkedHashSet<>();
+        boolean testSources = usesExistingTests(mode);
+        Consumer<PsiClass> accept = type -> {
+            if (!eligibleClass(project, type, mode)) return;
+            VirtualFile file = type.getContainingFile().getVirtualFile();
+            Module module = index.getModuleForFile(file);
+            if (module == null || module.isDisposed()) return;
+            String name = type.getQualifiedName();
+            if (testSources) {
+                VirtualFile root = index.getSourceRootForFile(file);
+                if (root != null) tests.add(new TestClass(module, name, root, file));
+            } else {
+                byModule.computeIfAbsent(module, ignored -> new LinkedHashMap<>())
+                        .putIfAbsent(name, GenerationTarget.wholeClass(name));
+            }
+        };
         Set<VirtualFile> visited = new HashSet<>();
-        java.util.function.Consumer<VirtualFile> visit =
-                root ->
-                        VfsUtilCore.iterateChildrenRecursively(
-                                root,
-                                file ->
-                                        !index.isExcluded(file)
-                                                && ((mode == Mode.EXTEND || mode == Mode.COVERAGE)
-                                                        || !index.isInTestSourceContent(file))
-                                                && (selected.modules().isEmpty()
-                                                        || index.getModuleForFile(file) == null
-                                                        || selected.modules()
-                                                                .contains(
-                                                                        index.getModuleForFile(
-                                                                                file))),
-                                file -> {
-                                    com.intellij.openapi.progress.ProgressManager.checkCanceled();
-                                    if (!file.isDirectory()
-                                            && file.getExtension() != null
-                                            && file.getExtension().equals("java")
-                                            && visited.add(file)) {
-                                        PsiFile psi =
-                                                PsiManager.getInstance(project).findFile(file);
-                                        if (psi instanceof PsiJavaFile java)
-                                            for (PsiClass type : java.getClasses())
-                                                accept.accept(type);
-                                    }
-                                    return true;
-                                });
-        for (PsiElement element : selected.elements()) {
-            if (!element.isValid()) continue;
+        Set<Module> selectedModules = new HashSet<>(selected.modules());
+        PsiManager psi = PsiManager.getInstance(project);
+        Consumer<VirtualFile> visit = root -> VfsUtilCore.iterateChildrenRecursively(
+                root,
+                file -> {
+                    if (!file.isValid() || index.isExcluded(file)
+                            || !testSources && index.isInTestSourceContent(file)) return false;
+                    Module owner = index.getModuleForFile(file);
+                    return selectedModules.isEmpty() || owner == null || selectedModules.contains(owner);
+                },
+                file -> {
+                    ProgressManager.checkCanceled();
+                    if (!file.isDirectory() && "java".equals(file.getExtension()) && visited.add(file)
+                            && psi.findFile(file) instanceof PsiJavaFile java)
+                        for (PsiClass type : java.getClasses()) accept.accept(type);
+                    return true;
+                });
+        List<PsiElement> elements = selected.elements();
+        for (PsiElement element : elements) {
             if (mode == Mode.METHODS) {
-                PsiMethod method =
-                        element instanceof PsiMethod m
-                                ? m
-                                : PsiTreeUtil.getParentOfType(element, PsiMethod.class, false);
-                if (method == null || MethodRules.whyNotTestable(method) != null
-                        || !eligibleClass(project, method.getContainingClass(), mode)) continue;
+                PsiMethod method = selectedMethod(element);
+                if (method == null || !eligibleClass(project, method.getContainingClass(), mode)
+                        || MethodRules.whyNotTestable(method) != null) continue;
                 PsiClass type = method.getContainingClass();
-                VirtualFile file = type.getContainingFile().getVirtualFile();
-                if (file == null
-                        || !index.isInSourceContent(file)
-                        || index.isInTestSourceContent(file)
-                        || generated(type)) continue;
-                Module module = index.getModuleForFile(file);
-                if (module == null) continue;
+                Module module = index.getModuleForFile(type.getContainingFile().getVirtualFile());
+                if (module == null || module.isDisposed()) continue;
                 String descriptor = MethodRules.descriptorOrNull(method);
                 if (descriptor == null) continue;
                 var targets = byModule.computeIfAbsent(module, ignored -> new LinkedHashMap<>());
@@ -287,30 +248,40 @@ public final class TargetCollector {
             } else if (element instanceof PsiDirectory dir) visit.accept(dir.getVirtualFile());
             else if (element instanceof PsiJavaFile file)
                 for (PsiClass type : file.getClasses()) accept.accept(type);
-            else {
-                PsiClass type =
-                        element instanceof PsiClass cls
-                                ? cls
-                                : PsiTreeUtil.getParentOfType(element, PsiClass.class, false);
-                if (type != null) {
-                    while (type.getContainingClass() != null) type = type.getContainingClass();
-                    accept.accept(type);
-                }
-            }
+            else accept.accept(selectedClass(element));
         }
         if (mode != Mode.METHODS) {
-            for (VirtualFile file : selected.files())
-                if (selected.elements().isEmpty()) visit.accept(file);
-            for (Module module : selected.modules())
-                for (VirtualFile root :
-                        ModuleRootManager.getInstance(module).getSourceRoots((mode == Mode.EXTEND || mode == Mode.COVERAGE))) {
+            if (elements.isEmpty()) selected.files().forEach(visit);
+            for (Module module : selected.modules()) {
+                if (module.isDisposed()) continue;
+                for (VirtualFile root : ModuleRootManager.getInstance(module).getSourceRoots(testSources)) {
                     // Do not collect roots belonging to nested modules when a module was selected.
                     if (index.getModuleForFile(root) == module) visit.accept(root);
                 }
+            }
         }
         Map<Module, List<GenerationTarget>> targets = new LinkedHashMap<>();
         byModule.forEach((module, classes) -> targets.put(module, List.copyOf(classes.values())));
-        return new Collected(targets, List.copyOf(tests.values()));
+        return new Collected(targets, List.copyOf(tests));
+    }
+
+    private static boolean usesExistingTests(Mode mode) {
+        return mode == Mode.EXTEND || mode == Mode.COVERAGE;
+    }
+
+    private static boolean eligibleFile(ProjectFileIndex index, VirtualFile file, boolean testSources) {
+        return file.isValid() && index.isInSourceContent(file)
+                && index.isInTestSourceContent(file) == testSources;
+    }
+
+    private static PsiMethod selectedMethod(PsiElement element) {
+        return PsiTreeUtil.getParentOfType(element, PsiMethod.class, false);
+    }
+
+    private static PsiClass selectedClass(PsiElement element) {
+        PsiClass type = PsiTreeUtil.getParentOfType(element, PsiClass.class, false);
+        while (type != null && type.getContainingClass() != null) type = type.getContainingClass();
+        return type;
     }
 
     public static boolean generated(PsiClass type) {

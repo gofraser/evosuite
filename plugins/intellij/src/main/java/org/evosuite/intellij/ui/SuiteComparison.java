@@ -81,14 +81,8 @@ public final class SuiteComparison {
                         if (doc == null) throw new IllegalStateException("Cannot edit " + path);
                         doc.setText(pair.generated());
                         manager.saveDocument(doc);
-                        String name = file.getNameWithoutExtension();
-                        if (!name.endsWith("_scaffolding"))
-                            org.evosuite.intellij.settings.GeneratedSuiteRegistry.getInstance(
-                                            project)
-                                    .record(
-                                            path,
-                                            !org.evosuite.ide.SuiteMerger.isGeneratedSuite(
-                                                    pair.generated(), name));
+                        org.evosuite.intellij.settings.GeneratedSuiteRegistry.getInstance(project)
+                                .recordAccepted(path, pair.generated());
                         com.intellij
                                 .openapi
                                 .fileEditor

@@ -73,18 +73,20 @@ tasks.processResources {
 }
 val engineJar = engineRoot.resolve("master/target/evosuite-master-$engineVersion.jar")
 val runtimeJar = engineRoot.resolve("standalone_runtime/target/evosuite-standalone-runtime-$engineVersion.jar")
-val engineFiles = tasks.register<Sync>("copyEngineJars") {
-    from(engineJar) { rename { "evosuite.jar" } }
-    from(runtimeJar) { rename { "evosuite-standalone-runtime.jar" } }
-    into(layout.buildDirectory.dir("engine"))
-    doFirst {
+val validateEngineJars = tasks.register("validateEngineJars") {
+    doLast {
         listOf(engineJar, runtimeJar).forEach { require(it.isFile) { "Build EvoSuite jars first: mvn -pl master,standalone_runtime -am package -DskipTests (missing $it)" } }
         listOf("master", "client", "runtime").forEach { module ->
             val latest = engineRoot.resolve("$module/target/classes").walkTopDown().filter { it.isFile }.maxOfOrNull { it.lastModified() } ?: 0L
             require(engineJar.lastModified() >= latest) { "EvoSuite jar is older than $module classes. Rebuild the shaded engine jar." }
         }
-        logger.lifecycle("Bundling engine {} and runtime {}", engineJar, runtimeJar)
     }
+}
+val engineFiles = tasks.register<Sync>("copyEngineJars") {
+    dependsOn(validateEngineJars)
+    from(engineJar) { rename { "evosuite.jar" } }
+    from(runtimeJar) { rename { "evosuite-standalone-runtime.jar" } }
+    into(layout.buildDirectory.dir("engine"))
 }
 tasks.withType<org.jetbrains.intellij.platform.gradle.tasks.PrepareSandboxTask>().configureEach {
     dependsOn(engineFiles)

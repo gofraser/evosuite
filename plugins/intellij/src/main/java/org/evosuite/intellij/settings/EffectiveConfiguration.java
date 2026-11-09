@@ -156,21 +156,8 @@ public final class EffectiveConfiguration {
     public static Map<String, String> savedValues(GenerationOptions options) {
         Map<String, String> result = new TreeMap<>();
         for (String key : SettingKeys.all()) result.put(key, SettingKeys.value(options, key));
-        // Use actual command construction so raw arguments, including custom engine options,
-        // retain their order. Output paths and credentials are deliberately excluded.
-        var command =
-                new org.evosuite.ide.EvoSuiteCommand(
-                                "java",
-                                "engine",
-                                "Target",
-                                List.of(),
-                                new java.io.File("."),
-                                new java.io.File("tests"),
-                                new java.io.File("reports"),
-                                options)
-                        .toArguments(0);
-        var args =
-                command.subList(command.indexOf("-base_dir") + 2, command.size()).stream()
+        // Keep only overrides here. SettingKeys already saves the typed values.
+        var args = EvoSuiteCommand.additionalArguments(options).stream()
                         .filter(
                                 a ->
                                         !a.matches(

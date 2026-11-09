@@ -20,8 +20,6 @@
 package org.evosuite.intellij.actions;
 
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.roots.ProjectFileIndex;
-import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
 import com.intellij.psi.search.GlobalSearchScope;
 
@@ -83,14 +81,6 @@ public final class TestClassInference {
     }
 
     public static boolean isCut(Project project, PsiClass type) {
-        if (type == null
-                || type.getContainingClass() != null
-                || type.isInterface()
-                || type.isAnnotationType()
-                || TargetCollector.generated(type)) return false;
-        VirtualFile file = type.getContainingFile().getVirtualFile();
-        return file != null
-                && ProjectFileIndex.getInstance(project).isInSourceContent(file)
-                && !ProjectFileIndex.getInstance(project).isInTestSourceContent(file);
+        return TargetCollector.eligibleClass(project, type, TargetCollector.Mode.CLASSES);
     }
 }

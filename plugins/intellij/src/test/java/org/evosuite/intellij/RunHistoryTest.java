@@ -65,6 +65,7 @@ public class RunHistoryTest extends LightJavaCodeInsightFixtureTestCase {
         var saved = EffectiveConfiguration.savedValues(options);
         assertFalse(saved.toString().contains("never-save-this"));
         var replay = SettingKeys.resolve(saved);
+        assertEquals(saved, EffectiveConfiguration.savedValues(replay));
         var args =
                 new EvoSuiteCommand(
                                 "java",

@@ -57,24 +57,6 @@ public class GenerationWorkflowTest extends JavaCodeInsightFixtureTestCase {
                 GenerationService.mask("-Dllm_api_key=\"secret with spaces\" -Dx=1"));
     }
 
-    public void testDelegatedMavenOutputsAreVisibleThroughVfs() throws Exception {
-        Path root = java.nio.file.Path.of(myFixture.getTempDirPath()).resolve("exported");
-        Path suite = root.resolve("demo/Vault_ESTest.java");
-        Files.createDirectories(suite.getParent());
-        Files.writeString(
-                suite,
-                "package demo; @org.evosuite.runtime.EvoRunnerParameters public class Vault_ESTest"
-                    + " {} ");
-        var outputs =
-                GenerationService.refreshDelegatedOutputs(
-                        getProject(),
-                        root,
-                        List.of(org.evosuite.ide.GenerationTarget.wholeClass("demo.Vault")),
-                        new org.evosuite.ide.GenerationOptions());
-        assertEquals(1, outputs.size());
-        assertEquals(suite, outputs.getFirst().toNioPath());
-    }
-
     public void testSaveIsProjectScopedAndCancelKeepsEdits() throws Exception {
         var local =
                 myFixture

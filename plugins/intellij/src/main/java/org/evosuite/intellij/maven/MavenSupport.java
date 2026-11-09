@@ -107,6 +107,8 @@ public final class MavenSupport implements MavenIntegration {
         return values;
     }
 
+    private static final java.util.regex.Pattern PROPERTY = java.util.regex.Pattern.compile("\\$\\{([^}]+)}");
+
     public static String interpolate(String text, MavenProject model) {
         Map<String, String> properties = new HashMap<>();
         model.getProperties()
@@ -144,7 +146,7 @@ public final class MavenSupport implements MavenIntegration {
         properties.put("basedir", model.getDirectory());
         String value = text;
         for (int pass = 0; pass < 10 && value.contains("${"); pass++) {
-            var matcher = java.util.regex.Pattern.compile("\\$\\{([^}]+)}").matcher(value);
+            var matcher = PROPERTY.matcher(value);
             StringBuffer resolved = new StringBuffer();
             while (matcher.find()) {
                 String key = matcher.group(1);
@@ -240,6 +242,12 @@ public final class MavenSupport implements MavenIntegration {
                     "Cannot update "
                             + model.getPath()
                             + ". Check that the pom is valid and writable.");
+        var documents = com.intellij.openapi.fileEditor.FileDocumentManager.getInstance();
+        var document = documents.getDocument(model.getFile());
+        if (document == null || !document.isWritable() || !model.getFile().isWritable())
+            throw new IllegalStateException("Cannot edit " + model.getPath());
+        if (documents.isDocumentUnsaved(document))
+            throw new IllegalStateException("Save your edits to " + model.getPath() + " before configuring Maven.");
         String executionId = setup == null ? "evosuite-setup" : setup.getExecutionId();
         if (executionId == null || executionId.isBlank()) executionId = "default";
         String id = executionId;
@@ -252,24 +260,6 @@ public final class MavenSupport implements MavenIntegration {
                         configureTestDependency(xml, dependency.group(), dependency.artifact(), dependency.version());
                     if (configureExecution) configureSetup(xml, options, id);
                 },
-                file);
-        return saveAndRefresh(model);
-    }
-
-    @Override
-    public org.jetbrains.concurrency.Promise<Void> addTestDependency(
-            Module module, String group, String artifact, String version) {
-        MavenProject model = model(module);
-        if (model == null)
-            return org.jetbrains.concurrency.Promises.rejectedPromise("Not a Maven module");
-        PsiFile file = PsiManager.getInstance(project).findFile(model.getFile());
-        if (!(file instanceof XmlFile xml) || xml.getRootTag() == null)
-            return org.jetbrains.concurrency.Promises.rejectedPromise("Cannot edit the module pom");
-        WriteCommandAction.runWriteCommandAction(
-                project,
-                "EvoSuite: add test dependency",
-                null,
-                () -> configureTestDependency(xml, group, artifact, version),
                 file);
         return saveAndRefresh(model);
     }
@@ -306,7 +296,10 @@ public final class MavenSupport implements MavenIntegration {
     private org.jetbrains.concurrency.Promise<Void> saveAndRefresh(MavenProject model) {
         var documents = com.intellij.openapi.fileEditor.FileDocumentManager.getInstance();
         var document = documents.getDocument(model.getFile());
-        if (document != null) documents.saveDocument(document);
+        if (document == null) throw new IllegalStateException("Cannot edit " + model.getPath());
+        documents.saveDocument(document);
+        if (documents.isDocumentUnsaved(document))
+            throw new IllegalStateException("Could not save " + model.getPath());
         var result = new org.jetbrains.concurrency.AsyncPromise<Void>();
         ApplicationManager.getApplication()
                 .executeOnPooledThread(
@@ -379,10 +372,51 @@ public final class MavenSupport implements MavenIntegration {
     }
 
     @Override
+    public boolean canDelegate(Module module, GenerationOptions options) throws java.io.IOException {
+        MavenProject model = model(module);
+        if (model == null || !"_ESTest".equals(options.testSuffix)) return false;
+        PomSettings pom = read(model);
+        if (pom != null) {
+            var effective = new GenerationOptions();
+            pom.applyTo(effective, Path.of(model.getDirectory()).toFile());
+            if (effective.pomProperties.containsKey("junit_suffix")
+                    || EvoSuiteCommand.splitArguments(effective.pomExtraArguments).stream()
+                            .anyMatch(arg -> arg.startsWith("-Djunit_suffix="))) return false;
+        }
+
+        return supportsStaging(model, MavenRunner.getInstance(project).getSettings());
+    }
+
+    private static boolean supportsStaging(MavenProject model, MavenRunnerSettings settings)
+            throws java.io.IOException {
+        // The goal's legacy CLI aliases override explicit POM values. Canonical CLI properties
+        // suppress that override, so use the bundled engine if the invocation supplies them.
+        if (settings.getMavenProperties().keySet().stream()
+                .anyMatch(key -> overridesStaging("-D" + key)))
+            return false;
+        for (String variable : List.of("MAVEN_ARGS", "MAVEN_OPTS", "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS"))
+            if (overridesStaging(settings.getEnvironmentProperties().getOrDefault(variable,
+                    System.getenv().getOrDefault(variable, "")))) return false;
+        for (Path dir = Path.of(model.getDirectory()); dir != null; dir = dir.getParent()) {
+            for (String config : List.of("maven.config", "jvm.config")) {
+                Path file = dir.resolve(".mvn").resolve(config);
+                if (Files.isRegularFile(file) && overridesStaging(Files.readString(file)))
+                    return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean overridesStaging(String value) {
+        return value.contains("evosuite.testFolder") || value.contains("evosuite.cuts")
+                || value.contains("-DtargetFolder") || value.contains("-Dcuts");
+    }
+
+    @Override
     public boolean delegate(
             Module module,
             List<GenerationTarget> targets,
-            GenerationOptions options,
+            Path staging,
             Map<String, String> env,
             ProgressIndicator indicator) {
         MavenProject model = model(module);
@@ -394,12 +428,17 @@ public final class MavenSupport implements MavenIntegration {
                                 "org.evosuite.plugins:evosuite-maven-plugin:"
                                         + EngineJars.VERSION
                                         + ":generate"));
-        goals.add(
-                "-Devosuite.cuts="
-                        + String.join(
-                                ",", targets.stream().map(GenerationTarget::className).toList()));
+        goals.add("-Dcuts=" + targets.stream().map(GenerationTarget::className)
+                .collect(java.util.stream.Collectors.joining(",")));
+        goals.add("-DtargetFolder=" + staging.toAbsolutePath());
         MavenRunner runner = MavenRunner.getInstance(project);
         MavenRunnerSettings settings = runner.getSettings().clone();
+        try {
+            if (!supportsStaging(model, settings))
+                throw new IllegalStateException("Maven options changed during setup. Start generation again.");
+        } catch (java.io.IOException ex) {
+            throw new IllegalStateException("Cannot read the Maven invocation settings", ex);
+        }
         Map<String, String> environment = new HashMap<>(settings.getEnvironmentProperties());
         environment.putAll(env);
         settings.setEnvironmentProperties(environment);

@@ -228,7 +228,7 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
         var configurable =
                 new EvoSuiteConfigurable(null) {
                     @Override
-                    protected void storeApiKey(String password) {
+                    protected void storeApiKey(String provider, String password) {
                         assertEquals("example-key", password);
                         if (++attempts[0] == 1)
                             throw new IllegalStateException("Simulated secure-store failure");
@@ -457,8 +457,8 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
         int[] reads = {0}; String[] saved = {null};
         var configurable = new EvoSuiteConfigurable(null) {
             @Override protected boolean mayAutomaticallyLoadApiKey() { return true; }
-            @Override protected String loadApiKey() { reads[0]++; return "example-key"; }
-            @Override protected void storeApiKey(String value) { saved[0] = value; }
+            @Override protected String loadApiKey(String provider) { reads[0]++; return "example-key"; }
+            @Override protected void storeApiKey(String providerName, String value) { saved[0] = value; }
         };
         try {
             state.values.clear();
@@ -482,7 +482,7 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
         int[] reads = {0};
         var configurable = new EvoSuiteConfigurable(null) {
             @Override protected boolean mayAutomaticallyLoadApiKey() { return true; }
-            @Override protected String loadApiKey() { reads[0]++; return ""; }
+            @Override protected String loadApiKey(String provider) { reads[0]++; return ""; }
         };
         try {
             state.values.clear();
@@ -534,7 +534,7 @@ public class SettingsTest extends LightJavaCodeInsightFixtureTestCase {
         var configurable =
                 new EvoSuiteConfigurable(null) {
                     @Override
-                    protected void storeApiKey(String value) {
+                    protected void storeApiKey(String providerName, String value) {
                         saved.add(value);
                     }
                 };

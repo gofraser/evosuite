@@ -195,4 +195,23 @@ public class SetupAndClasspathTest extends JavaCodeInsightFixtureTestCase {
         assertTrue(extension.toString(), extension.contains(junit.toString()));
         assertFalse(extension.toString(), extension.contains(runtime.toString()));
     }
+
+    public void testPackageSymlinkCannotRedirectOutputOutsideModule() throws Exception {
+        Path base = Path.of(myFixture.getTempDirPath());
+        Path outside = Files.createTempDirectory("evosuite-outside-");
+        Path folder = Files.createDirectories(base.resolve("generated"));
+        Path link = Files.createSymbolicLink(folder.resolve("demo"), outside);
+        try {
+            ProjectSetupService.verifyOutputPath(base, folder);
+            try {
+                ProjectSetupService.verifyOutputPath(base, link.resolve("Vault_ESTest.java"));
+                fail("A package symlink must not redirect generated tests outside the module");
+            } catch (IllegalArgumentException expected) {
+                assertTrue(expected.getMessage().contains("outside the module"));
+            }
+        } finally {
+            Files.delete(link);
+            Files.delete(outside);
+        }
+    }
 }

@@ -57,7 +57,4 @@ public final class LlmApiKeyStore {
         return key == null ? "" : key;
     }
 
-    public static void set(String key) {
-        PasswordSafe.getInstance().setPassword(ATTRIBUTES, key.isBlank() ? null : key);
-    }
 }

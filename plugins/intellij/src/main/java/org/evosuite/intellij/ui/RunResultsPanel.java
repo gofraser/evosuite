@@ -109,7 +109,7 @@ public final class RunResultsPanel extends JPanel implements Disposable {
                                                             - started)
                                                     / 1000);
                         }
-                        case 5 -> new Date(row.run().started);
+                        case 5 -> new java.util.Date(row.run().started);
                         default -> throw new IndexOutOfBoundsException();
                     };
                 }
@@ -303,69 +303,13 @@ public final class RunResultsPanel extends JPanel implements Disposable {
                         ? "No runs yet. Open a Java file and choose a generation action."
                         : row.run().phase);
         phase.setToolTipText(phase.getText());
-        String text =
-                row == null
-                        ? ""
-                        : row.run().mode
-                                + " • "
-                                + new java.util.Date(row.run().started)
-                                + "\n"
-                                + (t == null
-                                        ? row.run().phase
-                                        : t.className
-                                                + "\nModule: "
-                                                + t.module
-                                                + (t.methods.isEmpty()
-                                                        ? ""
-                                                        : "\nMethods: "
-                                                                + String.join(", ", t.methods))
-                                                + (t.seeds.isEmpty()
-                                                        ? ""
-                                                        : "\nExisting tests: "
-                                                                + t.seeds.stream()
-                                                                        .map(seed -> seed.className)
-                                                                        .collect(
-                                                                                java.util.stream
-                                                                                        .Collectors
-                                                                                        .joining(
-                                                                                                ", ")))
-                                                + "\n"
-                                                + t.status
-                                                + (t.detail.isBlank() ? "" : " — " + t.detail)
-                                                + "\nRandom seed: "
-                                                + (t.seed.isBlank() ? "Not recorded" : t.seed)
-                                                + "\nCoverage: "
-                                                + (t.coverage < 0
-                                                        ? "Not available"
-                                                        : t.coverage + "%")
-                                                + "\nGenerated tests: "
-                                                + (t.tests < 0 ? "Not available" : t.tests)
-                                                + "\nSearch progress: "
-                                                + (t.search < 0 ? "Not available" : t.search + "%")
-                                                + "\nOutput: "
-                                                + t.output
-                                                + "\nReports: "
-                                                + t.reports
-                                                + "\nPending comparisons: "
-                                                + t.comparisons.size()
-                                                + "\n"
-                                                + (t.replayUnavailable.isBlank()
-                                                        ? "Repeat uses saved settings and seed with"
-                                                                + " the current project sources and"
-                                                                + " credentials."
-                                                        : t.replayUnavailable));
+        String text = details(row);
         if (!detail.getText().equals(text)) detail.setText(text);
         for (var button : buttons.values()) button.setEnabled(t != null);
-        buttons.get("Open tests")
-                .setEnabled(
-                        t != null && !t.output.isBlank() && Files.isRegularFile(Path.of(t.output)));
-        buttons.get("Run tests")
-                .setEnabled(
-                        t != null
-                                && t.finished > 0
-                                && t.comparisons.isEmpty()
-                                && !t.output.isBlank()
-                                && Files.isRegularFile(Path.of(t.output)));
+        boolean outputExists = t != null && !t.output.isBlank() && Files.isRegularFile(Path.of(t.output));
+        buttons.get("Open tests").setEnabled(outputExists);
+        buttons.get("Run tests").setEnabled(outputExists && t.finished > 0 && t.comparisons.isEmpty()
+                && canRun(t.status));
         buttons.get("Compare").setEnabled(t != null && !t.comparisons.isEmpty());
         buttons.get("Finish review…")
                 .setEnabled(
@@ -401,6 +345,36 @@ public final class RunResultsPanel extends JPanel implements Disposable {
                                         : t.replayUnavailable);
         buttons.get("Cancel selected").setEnabled(row != null && row.run().active());
         buttons.get("Copy details").setEnabled(row != null);
+    }
+
+    private static boolean canRun(String status) {
+        return switch (status) {
+            case "Written / updated", "Unchanged", "Review closed", "Delegated to Maven", "Coverage measured" -> true;
+            default -> false;
+        };
+    }
+
+    private static String details(Row row) {
+        if (row == null) return "";
+        String heading = row.run().mode + " • " + new java.util.Date(row.run().started) + "\n";
+        var t = row.target();
+        if (t == null) return heading + row.run().phase;
+        StringBuilder text = new StringBuilder(heading).append(t.className).append("\nModule: ").append(t.module);
+        if (!t.methods.isEmpty()) text.append("\nMethods: ").append(String.join(", ", t.methods));
+        if (!t.seeds.isEmpty()) text.append("\nExisting tests: ").append(t.seeds.stream()
+                .map(seed -> seed.className).collect(java.util.stream.Collectors.joining(", ")));
+        text.append('\n').append(t.status);
+        if (!t.detail.isBlank()) text.append(" — ").append(t.detail);
+        return text.append("\nRandom seed: ").append(t.seed.isBlank() ? "Not recorded" : t.seed)
+                .append("\nCoverage: ").append(t.coverage < 0 ? "Not available" : t.coverage + "%")
+                .append("\nGenerated tests: ").append(t.tests < 0 ? "Not available" : Integer.toString(t.tests))
+                .append("\nSearch progress: ").append(t.search < 0 ? "Not available" : t.search + "%")
+                .append("\nOutput: ").append(t.output)
+                .append("\nReports: ").append(t.reports)
+                .append("\nPending comparisons: ").append(t.comparisons.size())
+                .append('\n').append(t.replayUnavailable.isBlank()
+                        ? "Repeat uses saved settings and seed with the current project sources and credentials."
+                        : t.replayUnavailable).toString();
     }
 
     private void open() {

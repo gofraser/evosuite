@@ -70,6 +70,36 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
     private var keyTouched = false
     private var updatingKeyField = false
     private var uiGeneration = 0
+    private var keyEditRevision = 0
+
+    init {
+        copyDefaults.addActionListener {
+            loadEditors(EvoSuiteAppSettings.getInstance().state!!.values)
+            enableFields()
+        }
+        projectSwitch.addActionListener {
+            if (!inherited) projectDraft = editorValues()
+            inherited = !projectSwitch.isSelected
+            loadEditors(if (inherited) EvoSuiteAppSettings.getInstance().state!!.values else projectDraft)
+            enableFields()
+        }
+        credentialChoice.addActionListener {
+            switchCredential(credentialChoice.selectedItem as String)
+            enableFields()
+        }
+        key.document.addDocumentListener(object : javax.swing.event.DocumentListener {
+            private fun edited() {
+                if (updatingKeyField) return
+                keyTouched = true
+                keyEditRevision++
+            }
+
+            override fun insertUpdate(e: javax.swing.event.DocumentEvent) = edited()
+            override fun removeUpdate(e: javax.swing.event.DocumentEvent) = edited()
+            override fun changedUpdate(e: javax.swing.event.DocumentEvent) = Unit
+        })
+    }
+
     override fun getDisplayName() = if (project == null) "EvoSuite" else "EvoSuite (Project)"
     override fun createComponent(): JComponent {
         val root = JPanel(BorderLayout(0, 8)).apply {
@@ -90,7 +120,6 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
             })
             scopeActions.add(copyDefaults)
             scopeActions.add(restoreDefaults)
-            copyDefaults.addActionListener { loadEditors(EvoSuiteAppSettings.getInstance().state!!.values); enableFields() }
             top.add(scopeActions)
             top.add(JButton("Effective configuration / check project setup…").apply {
                 addActionListener { org.evosuite.intellij.ui.ConfigurationDialog.show(project) }
@@ -173,7 +202,7 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
                         addActionListener {
                             try { if (!inherited) validateEditors() }
                             catch (ex: ConfigurationException) {
-                                com.intellij.openapi.ui.Messages.showErrorDialog(project, ex.message.orEmpty(), "EvoSuite Settings")
+                                com.intellij.openapi.ui.Messages.showErrorDialog(project, ex.localizedMessage.orEmpty(), "EvoSuite Settings")
                                 return@addActionListener
                             }
                             val draft = SettingKeys.resolve(editorValues())
@@ -193,7 +222,7 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
             if (title == "Advanced") {
                 if (project != null) {
                     panel.add(delegate, constraints(0, row++, 1.0).apply { gridwidth = 2 })
-                    panel.add(note("For Maven projects: delegation uses Maven scheduling/export. Methods, extension and Add/Compare use the bundled engine."), constraints(0, row++, 1.0).apply { gridwidth = 2 })
+                    panel.add(note("Maven can generate whole-class suites for new destinations. IntelliJ reviews any conflicts before placing them."), constraints(0, row++, 1.0).apply { gridwidth = 2 })
                     panel.add(JScrollPane(pomNote), constraints(0, row++, 1.0).apply { gridwidth = 2 })
                 }
                 panel.add(note("pom.xml settings take precedence when enabled. The run console lists each override."), constraints(0, row++, 1.0).apply { gridwidth = 2 })
@@ -204,12 +233,6 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
         }
         root.add(tabs)
         tabs.selectedIndex = selectedTab
-        projectSwitch.addActionListener {
-            if (!inherited) projectDraft = editorValues()
-            inherited = !projectSwitch.isSelected
-            loadEditors(if (inherited) EvoSuiteAppSettings.getInstance().state!!.values else projectDraft)
-            enableFields()
-        }
         reset()
         return root
     }
@@ -266,7 +289,7 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
                             val pom = org.evosuite.intellij.maven.MavenBridge.settings(module) ?: return@mapNotNull null
                             val options = org.evosuite.ide.GenerationOptions()
                             val lines = pom.applyTo(options, org.evosuite.intellij.setup.ProjectSetupService.baseDir(module).toFile())
-                            module.name + ": " + lines.joinToString("; ").replace(Regex("(-Dllm_api_key=).*"), "$1****")
+                            module.name + ": " + lines.joinToString("; ", transform = org.evosuite.intellij.run.GenerationService::mask)
                         }.joinToString("\n").ifEmpty { "No imported EvoSuite Maven-plugin overrides." }
                     }
                 }.getOrElse { "Maven overrides are unavailable while the project model is changing." }
@@ -289,17 +312,22 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
         }
         if (project == null) {
             cacheCredential()
-            val currentProvider = credentialProvider
             try {
-                credentialDrafts.filterValues { it.touched }.forEach { (provider, draft) ->
-                    credentialProvider = provider
-                    try { storeApiKey(draft.text) }
-                    catch (e: Exception) { throw ConfigurationException("Could not save the $provider API key in secure storage. Retry Apply to save it.") }
-                    draft.original = draft.text; draft.touched = false
+                credentialDrafts.forEach { (provider, draft) ->
+                    if (!draft.touched) return@forEach
+                    try {
+                        storeApiKey(provider, draft.text)
+                    } catch (e: Exception) {
+                        throw ConfigurationException("Could not save the $provider API key. Retry Apply to save it.")
+                    }
+                    draft.original = draft.text
+                    draft.touched = false
                 }
             } finally {
-                credentialProvider = currentProvider
-                credentialDrafts[currentProvider]?.let { originalKey = it.original; keyTouched = it.touched }
+                credentialDrafts[credentialProvider]?.let {
+                    originalKey = it.original
+                    keyTouched = it.touched
+                }
             }
         }
         if (project == null) EvoSuiteAppSettings.getInstance().state!!.values = java.util.TreeMap(current())
@@ -320,7 +348,6 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
         if (project == null) {
             panel.add(JLabel("Stored key provider").apply { labelFor = credentialChoice }, constraints(0, row, 0.0))
             panel.add(credentialChoice, constraints(1, row++, 1.0))
-            credentialChoice.addActionListener { switchCredential(credentialChoice.selectedItem as String); enableFields() }
             panel.add(JLabel("Cloud API key").apply { labelFor = key }, constraints(0, row, 0.0))
             panel.add(key, constraints(1, row++, 1.0))
             panel.add(loadKey, constraints(1, row++, 1.0))
@@ -328,26 +355,32 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
                 name = "importLegacyApiKey"
                 addActionListener {
                     val provider = credentialProvider
+                    val token = uiGeneration
+                    val request = ++keyRequestGeneration
+                    val revision = keyEditRevision
+                    keyLoadInFlight = true
+                    enableFields()
                     ApplicationManager.getApplication().executeOnPooledThread {
                         val legacy = runCatching { loadLegacyApiKey() }
                         ApplicationManager.getApplication().invokeLater {
-                            if (component != null && provider == credentialProvider) {
+                            if (component != null && token == uiGeneration && request == keyRequestGeneration
+                                && provider == credentialProvider) {
+                                keyLoadInFlight = false
+                                if (revision != keyEditRevision) {
+                                    enableFields()
+                                    return@invokeLater
+                                }
                                 if (legacy.isSuccess && !legacy.getOrNull().isNullOrBlank()) {
                                     updatingKeyField = true; key.text = legacy.getOrDefault(""); updatingKeyField = false
                                     keyReady = true; keyTouched = true; keyStatus.text = "Apply to store this key for $provider. Other providers keep their own keys."
-                                    enableFields()
                                 } else keyStatus.text = if (legacy.isSuccess) "No legacy shared key was found. The current provider key is kept." else "The legacy shared key could not be read. The current provider key is kept."
+                                enableFields()
                             }
                         }
                     }
                 }
             }, constraints(1, row++, 1.0))
             panel.add(keyStatus, constraints(0, row++, 1.0).apply { gridwidth = 2 })
-            key.document.addDocumentListener(object : javax.swing.event.DocumentListener {
-                override fun insertUpdate(e: javax.swing.event.DocumentEvent) { if (!updatingKeyField) keyTouched = true }
-                override fun removeUpdate(e: javax.swing.event.DocumentEvent) { if (!updatingKeyField) keyTouched = true }
-                override fun changedUpdate(e: javax.swing.event.DocumentEvent) {}
-            })
         } else {
             panel.add(JButton("Manage shared API key…").apply {
                 name = "manageApiKey"
@@ -365,7 +398,7 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
         component?.revalidate()
     }
     protected open fun loadLegacyApiKey(): String = LlmApiKeyStore.get()
-    protected open fun loadApiKey(): String? = LlmApiKeyStore.get(credentialProvider)
+    protected open fun loadApiKey(provider: String): String? = LlmApiKeyStore.get(provider)
     protected open fun mayAutomaticallyLoadApiKey() = !ApplicationManager.getApplication().isHeadlessEnvironment && !ApplicationManager.getApplication().isUnitTestMode
     private fun requestKeyLoad() {
         if (project != null || keyReady || keyLoadInFlight || component == null) return
@@ -376,7 +409,7 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
         val provider = credentialProvider
         val request = ++keyRequestGeneration
         ApplicationManager.getApplication().executeOnPooledThread {
-            val loaded = runCatching { loadApiKey() }
+            val loaded = runCatching { loadApiKey(provider) }
             ApplicationManager.getApplication().invokeLater {
                 if (component == null || token != uiGeneration || request != keyRequestGeneration || provider != credentialProvider) return@invokeLater
                 updatingKeyField = true
@@ -472,10 +505,10 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
         return labels[value] ?: if (value in choices(name).orEmpty()) value else "Unsupported: $value"
     }
     /** Keep Apply open on failure; PasswordSafe still runs off EDT and may show its own prompt. */
-    protected open fun storeApiKey(password: String) {
+    protected open fun storeApiKey(provider: String, password: String) {
         val failure = java.util.concurrent.atomic.AtomicReference<Throwable>()
         com.intellij.openapi.progress.ProgressManager.getInstance().runProcessWithProgressSynchronously(
-            Runnable { runCatching { LlmApiKeyStore.set(credentialProvider, password) }.onFailure { failure.set(it) } },
+            Runnable { runCatching { LlmApiKeyStore.set(provider, password) }.onFailure { failure.set(it) } },
             "Saving EvoSuite API key", false, project)
         failure.get()?.let { throw IllegalStateException("Secure storage failed", it) }
     }
@@ -558,7 +591,23 @@ open class EvoSuiteConfigurable(private val project: Project?) : Configurable {
         "extraArguments" -> "none"
         else -> SettingKeys.defaultValue(name).ifEmpty { "EvoSuite default" }
     }
-    override fun disposeUIResources() { component = null; fields.clear(); tabs = null; uiGeneration++; keyRequestGeneration++; updatingKeyField = true; key.text = ""; originalKey = null; credentialDrafts.clear(); updatingKeyField = false }
+    override fun disposeUIResources() {
+        component = null
+        fields.clear()
+        tabs = null
+        credentialsPanel = null
+        credentialExpander = null
+        javaHomeChooser = null
+        uiGeneration++
+        keyRequestGeneration++
+        lastLlmProvider = ""
+        updatingKeyField = true
+        key.text = ""
+        updatingKeyField = false
+        originalKey = null
+        keyTouched = false
+        credentialDrafts.clear()
+    }
     private fun constraints(x: Int, y: Int, weight: Double) = GridBagConstraints().apply { gridx=x; gridy=y; weightx=weight; fill=GridBagConstraints.HORIZONTAL; anchor=GridBagConstraints.NORTHWEST; insets=Insets(4, 8, 4, 8) }
     private fun setEnabled(component: JComponent, enabled: Boolean) {
         component.isEnabled = enabled

@@ -19,12 +19,15 @@
  */
 package org.evosuite.intellij.run;
 
+import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.projectRoots.Sdk;
 import com.intellij.openapi.roots.*;
-import com.intellij.openapi.roots.ProjectRootManager;
 
-import org.evosuite.ide.*;
+import org.evosuite.ide.GenerationOptions;
+import org.evosuite.ide.GenerationTarget;
+import org.evosuite.ide.JavaInstallation;
+import org.evosuite.intellij.setup.ProjectSetupService;
 
 import java.io.IOException;
 import java.nio.file.*;
@@ -34,7 +37,10 @@ public final class ClasspathResolver {
     private ClasspathResolver() {}
 
     public static List<String> resolve(Module module, boolean extension) {
-        if (extension) module = org.evosuite.intellij.setup.ProjectSetupService.testModule(module);
+        return classpath(extension ? ProjectSetupService.testModule(module) : module, extension);
+    }
+
+    private static List<String> classpath(Module module, boolean extension) {
         OrderEnumerator entries =
                 OrderEnumerator.orderEntries(module).recursively().runtimeOnly().withoutSdk();
         if (!extension) entries.productionOnly();
@@ -72,7 +78,7 @@ public final class ClasspathResolver {
                 if (module != null) modules.add(module);
             }
         if (modules.isEmpty() && targets.stream().anyMatch(GenerationTarget::extendsTests))
-            modules.add(org.evosuite.intellij.setup.ProjectSetupService.testModule(production));
+            modules.add(ProjectSetupService.testModule(production));
         return List.copyOf(modules);
     }
 
@@ -80,26 +86,23 @@ public final class ClasspathResolver {
         if (!target.extendsTests()) return resolve(production, false);
         Set<String> paths = new LinkedHashSet<>();
         for (Module module : seedModules(production, List.of(target)))
-            paths.addAll(resolve(module, true));
+            paths.addAll(classpath(module, true));
         paths.addAll(resolve(production, false));
         return List.copyOf(paths);
     }
 
     public static JavaInstallation java(Module module, GenerationOptions options)
             throws IOException {
-        String home = options.javaHome;
-        if (home.isBlank()) {
-            Sdk sdk = ModuleRootManager.getInstance(module).getSdk();
-            if (sdk == null)
-                sdk = ProjectRootManager.getInstance(module.getProject()).getProjectSdk();
-            if (sdk == null || sdk.getHomePath() == null)
-                throw new IOException(
-                        "Configure a module JDK or set Java home in Tools > EvoSuite.");
-            home = sdk.getHomePath();
-        }
+        String home = options.javaHome.isBlank() ? ReadAction.compute(() -> sdkHome(module)) : options.javaHome;
+        if (home == null) throw new IOException("Configure a module JDK or set Java home in Tools > EvoSuite.");
         JavaInstallation java = JavaInstallation.at(Path.of(home));
         if (!java.hasCompiler())
             throw new IOException("EvoSuite needs a full JDK with javac: " + home);
         return java;
+    }
+    private static String sdkHome(Module module) {
+        Sdk sdk = ModuleRootManager.getInstance(module).getSdk();
+        if (sdk == null) sdk = ProjectRootManager.getInstance(module.getProject()).getProjectSdk();
+        return sdk == null ? null : sdk.getHomePath();
     }
 }

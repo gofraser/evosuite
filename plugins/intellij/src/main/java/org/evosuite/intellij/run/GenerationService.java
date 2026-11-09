@@ -19,1219 +19,743 @@
  */
 package org.evosuite.intellij.run;
 
-import com.intellij.notification.*;
+import com.intellij.notification.NotificationAction;
+import com.intellij.notification.NotificationGroupManager;
+import com.intellij.notification.NotificationType;
 import com.intellij.openapi.Disposable;
-import com.intellij.openapi.application.*;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.application.PathManager;
+import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.components.Service;
-import com.intellij.openapi.fileEditor.*;
+import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.module.Module;
-import com.intellij.openapi.progress.*;
+import com.intellij.openapi.module.ModuleManager;
+import com.intellij.openapi.options.ShowSettingsUtil;
+import com.intellij.openapi.progress.ProcessCanceledException;
+import com.intellij.openapi.progress.ProgressIndicator;
+import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.roots.ProjectFileIndex;
 import com.intellij.openapi.ui.Messages;
-import com.intellij.openapi.vfs.*;
+import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.psi.JavaPsiFacade;
+import com.intellij.psi.PsiElement;
+import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.task.ProjectTaskManager;
 
-import org.evosuite.ide.*;
+import org.evosuite.ide.EvoSuiteCommand;
+import org.evosuite.ide.ExistingSuitesQuestion;
+import org.evosuite.ide.GenerationOptions;
+import org.evosuite.ide.GenerationRun;
+import org.evosuite.ide.GenerationTarget;
+import org.evosuite.ide.JavaInstallation;
+import org.evosuite.ide.LlmEnvironment;
+import org.evosuite.ide.ProgressParser;
+import org.evosuite.ide.SettingKeys;
+import org.evosuite.ide.SuiteAction;
 import org.evosuite.intellij.actions.TargetCollector;
+import org.evosuite.intellij.actions.TargetCollector.Mode;
 import org.evosuite.intellij.actions.TestClassInference;
-import org.evosuite.intellij.maven.*;
-import org.evosuite.intellij.settings.*;
+import org.evosuite.intellij.maven.MavenBridge;
+import org.evosuite.intellij.maven.MavenIntegration;
+import org.evosuite.intellij.settings.EvoSuiteApplicationConfigurable;
+import org.evosuite.intellij.settings.EvoSuiteProjectConfigurable;
+import org.evosuite.intellij.settings.EvoSuiteProjectSettings;
+import org.evosuite.intellij.settings.LlmApiKeyStore;
+import org.evosuite.intellij.settings.SettingsResolver;
 import org.evosuite.intellij.setup.ProjectSetupService;
-import org.evosuite.intellij.ui.*;
+import org.evosuite.intellij.ui.EvoSuiteConsole;
+import org.evosuite.intellij.ui.SuiteComparison;
 import org.jetbrains.annotations.NotNull;
 
-import java.nio.file.*;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
-/**
- * Application-wide run serialization; project closure and disposal cancel the entire process tree.
- */
 @Service(Service.Level.APP)
 public final class GenerationService implements Disposable {
+    private static final Pattern API_KEY = Pattern.compile(
+            "(-Dllm_api_key=)(?:\"(?:\\\\.|[^\"\\\\])*\"|'(?:\\\\.|[^'\\\\])*'|\\S+)");
     private final Semaphore slot = new Semaphore(1, true);
-    private final Map<Project, Set<ProgressIndicator>> running = new ConcurrentHashMap<>();
+    private final Map<String, GenerationJob> jobs = new ConcurrentHashMap<>();
     private volatile boolean disposed;
-    private final Map<String, ProgressIndicator> runIndicators = new ConcurrentHashMap<>();
-    private final Set<String> cancelledRuns = ConcurrentHashMap.newKeySet();
 
     public static GenerationService getInstance() {
         return ApplicationManager.getApplication().getService(GenerationService.class);
     }
 
     public boolean isRunning(Project project) {
-        return !running.getOrDefault(project, Set.of()).isEmpty();
+        return jobs.values().stream().anyMatch(job -> job.project == project);
     }
 
     public void cancel(Project project) {
-        RunHistory.getInstance(project).getState().runs.stream()
-                .filter(RunHistory.Run::active)
-                .forEach(r -> cancel(project, r.id));
-        running.getOrDefault(project, Set.of()).forEach(ProgressIndicator::cancel);
+        jobs.values().stream().filter(job -> job.project == project).forEach(GenerationJob::cancel);
     }
 
     public void cancel(Project project, String id) {
-        cancelledRuns.add(id);
-        var indicator = runIndicators.get(id);
-        if (indicator != null) indicator.cancel();
-    }
-
-    public void replay(Project project, RunHistory.Run run, RunHistory.Target target) {
-        if (!target.replayUnavailable.isBlank()
-                || target.status.equals("Delegated to Maven")
-                || target.status.equals("Maven failed")) {
-            EvoSuiteConsole.getInstance(project)
-                    .println(
-                            "Repeat Maven-delegated generation through the Maven runner; engine"
-                                    + " settings and seeds were not captured.");
-            EvoSuiteConsole.getInstance(project).show();
-            return;
-        }
-        submit(
-                project,
-                new TargetCollector.Selection(List.of(), List.of(), List.of()),
-                TargetCollector.Mode.valueOf(run.mode),
-                target);
+        GenerationJob job = jobs.get(id);
+        if (job != null && job.project == project) job.cancel();
     }
 
     @Override
     public void dispose() {
         disposed = true;
-        running.values().forEach(set -> set.forEach(ProgressIndicator::cancel));
+        jobs.values().forEach(GenerationJob::cancel);
     }
 
-    private record Request(
-            Module module,
-            List<GenerationTarget> targets,
-            GenerationOptions options,
-            Path base,
-            Path testDir,
-            Map<String, SuitePlacement.Snapshot> consent,
-            Map<String, Integer> historyIndices) {}
+    public void replay(Project project, RunHistory.Run run, RunHistory.Target target) {
+        if (!target.replayUnavailable.isBlank()
+                || target.status.equals("Delegated to Maven") || target.status.equals("Maven failed")) {
+            EvoSuiteConsole console = EvoSuiteConsole.getInstance(project);
+            console.println("Repeat this request through the Maven runner.");
+            console.show();
+            return;
+        }
+        submit(project, null, Mode.valueOf(run.mode), target);
+    }
 
-    public void submit(
-            Project project, TargetCollector.Selection selection, TargetCollector.Mode mode) {
+    public void submit(Project project, TargetCollector.Selection selection, Mode mode) {
         submit(project, selection, mode, null);
     }
 
-    private void submit(
-            Project project,
-            TargetCollector.Selection selection,
-            TargetCollector.Mode mode,
-            RunHistory.Target replay) {
-        var history = RunHistory.getInstance(project);
-        String identity =
-                mode
-                        + ":"
-                        + (replay != null
-                                ? replay.module + ":" + replay.className + ":" + replay.seed
-                                : ReadAction.compute(
-                                        () ->
-                                                selection.elements().stream()
-                                                                .map(
-                                                                        e -> {
-                                                                            var file =
-                                                                                    e
-                                                                                            .getContainingFile();
-                                                                            return file != null
-                                                                                            && file
-                                                                                                            .getVirtualFile()
-                                                                                                    != null
-                                                                                    ? file.getVirtualFile()
-                                                                                                    .getPath()
-                                                                                            + ":"
-                                                                                            + e.getClass()
-                                                                                                    .getSimpleName()
-                                                                                            + ":"
-                                                                                            + e
-                                                                                                    .getTextRange()
-                                                                                    : e.toString();
-                                                                        })
-                                                                .toList()
-                                                                .toString()
-                                                        + selection.files().stream()
-                                                                .map(VirtualFile::getPath)
-                                                                .toList()
-                                                        + selection.modules().stream()
-                                                                .map(Module::getName)
-                                                                .toList()));
+    private void submit(Project project, TargetCollector.Selection selection, Mode mode,
+                        RunHistory.Target replay) {
+        if (disposed || project.isDisposed()) return;
+        RunHistory history = RunHistory.getInstance(project);
+        EvoSuiteConsole console = EvoSuiteConsole.getInstance(project);
+        String identity = mode + ":" + (replay != null
+                ? List.of(replay.module, replay.className, replay.methods, replay.seed, replay.settings.hashCode())
+                : ReadAction.compute(() -> selectionIdentity(selection)));
         if (history.activeSelection(identity) != null) {
-            EvoSuiteConsole.getInstance(project)
-                    .println(
-                            "This selection is already queued or running. Use Runs to inspect or"
-                                    + " cancel it.");
-            EvoSuiteConsole.getInstance(project).show();
+            console.println("This selection is already queued or running. Inspect or cancel it in Runs.");
+            console.show();
             return;
         }
         if (!GenerationDocuments.saveBeforeGeneration(project)) return;
-        EvoSuiteConsole console = EvoSuiteConsole.getInstance(project);
-        console.show();
-        console.println("EvoSuite: collecting Java targets and checking generation settings…");
-        String runId = history.start(mode.name(), identity);
-        history.cleanup(false);
-        new Task.Backgroundable(project, "EvoSuite: generate tests", true) {
-            @Override
-            public void run(@NotNull ProgressIndicator indicator) {
-                running.compute(
-                        project,
-                        (ignored, indicators) -> {
-                            Set<ProgressIndicator> next =
-                                    indicators == null ? ConcurrentHashMap.newKeySet() : indicators;
-                            next.add(indicator);
-                            return next;
-                        });
-                runIndicators.put(runId, indicator);
-                if (cancelledRuns.contains(runId)) indicator.cancel();
-                boolean acquired = false;
-                List<VirtualFile> suites = new ArrayList<>();
-                List<SuiteComparison.Pair> comparisons = new ArrayList<>();
-                int[] counts = {
-                    0, 0, 0, 0
-                }; // written, warnings/errors, delegated targets, unchanged
-                try {
-                    indicator.setIndeterminate(true);
-                    indicator.setText("Collecting Java targets");
-                    Map<Module, List<GenerationTarget>> targets;
-                    if (replay != null) {
-                        Module module =
-                                ReadAction.compute(
-                                        () ->
-                                                com.intellij.openapi.module.ModuleManager
-                                                        .getInstance(project)
-                                                        .findModuleByName(replay.module));
-                        if (module == null)
-                            throw new IllegalArgumentException(
-                                    "Module no longer exists: " + replay.module);
-                        targets =
-                                Map.of(
-                                        module,
-                                        List.of(
-                                                new GenerationTarget(
-                                                        replay.className,
-                                                        replay.methods,
-                                                        replay.seeds.stream()
-                                                                .map(
-                                                                        seed ->
-                                                                                new GenerationTarget
-                                                                                        .Seed(
-                                                                                        seed.className,
-                                                                                        new java.io
-                                                                                                .File(
-                                                                                                seed.root)))
-                                                                .toList())));
-                    } else {
-                        var collected =
-                                IdeThread.smartRead(
-                                        project,
-                                        () -> TargetCollector.collect(project, selection, mode));
-                        targets =
-                                mode == TargetCollector.Mode.EXTEND
-                                                || mode == TargetCollector.Mode.COVERAGE
-                                        ? extensions(project, collected.tests())
-                                        : collected.targets();
-                    }
-                    List<Request> requests = new ArrayList<>();
-                    List<String> withSuites = new ArrayList<>();
-                    int total = 0;
-                    for (var entry : targets.entrySet()) {
-                        indicator.checkCanceled();
-                        Module module = entry.getKey();
-                        try {
-                            GenerationOptions options =
-                                    replay == null
-                                            ? SettingsResolver.resolve(module)
-                                            : SettingKeys.resolve(replay.settings);
-                            if (replay != null) {
-                                options.randomSeed = replay.seed;
-                                options.llmApiKeyServerId = replay.keyServerId;
-                            }
-                            if (mode == TargetCollector.Mode.COVERAGE)
-                                options.llmApproach = GenerationOptions.APPROACH_SEARCH_ONLY;
-                            Path base =
-                                    ReadAction.compute(() -> ProjectSetupService.baseDir(module));
-                            Path folder =
-                                    ReadAction.compute(
-                                            () -> ProjectSetupService.testFolder(module, options));
-                            List<GenerationTarget> safe = new ArrayList<>();
-                            Map<String, SuitePlacement.Snapshot> consent = new HashMap<>();
-                            Map<String, Integer> historyIndices = new HashMap<>();
-                            for (GenerationTarget target : entry.getValue()) {
-                                Path suite =
-                                        EvoSuiteCommand.suiteFile(
-                                                        folder.toFile(),
-                                                        target.className(),
-                                                        options.testSuffix)
-                                                .toPath();
-                                Path displayedOutput =
-                                        mode == TargetCollector.Mode.COVERAGE
-                                                        && !target.seeds().isEmpty()
-                                                ? target.seeds()
-                                                        .getFirst()
-                                                        .sourceRoot()
-                                                        .toPath()
-                                                        .resolve(
-                                                                target.seeds()
-                                                                                .getFirst()
-                                                                                .className()
-                                                                                .replace('.', '/')
-                                                                        + ".java")
-                                                : suite;
-                                historyIndices.put(
-                                        target.className(),
-                                        history.target(
-                                                runId,
-                                                module.getName(),
-                                                target,
-                                                options,
-                                                displayedOutput));
-                                SuitePlacement.Snapshot existing =
-                                        IdeThread.edt(() -> SuitePlacement.snapshot(suite));
-                                if (mode != TargetCollector.Mode.COVERAGE
-                                        && existing != null
-                                        && !SuitePlacement.generated(
-                                                project,
-                                                suite,
-                                                existing.source(),
-                                                suite.getFileName()
-                                                        .toString()
-                                                        .replaceFirst("\\.java$", ""))) {
-                                    console.println(
-                                            EvoSuiteCommand.notAnEvoSuiteSuite(
-                                                    target.className(), suite.toFile()));
-                                    counts[1]++;
-                                    history.outcome(
-                                            runId,
-                                            historyIndices.get(target.className()),
-                                            "Skipped",
-                                            "Existing destination is handwritten or no longer"
-                                                + " matches its generated-suite ownership marker",
-                                            -1);
-                                    continue;
-                                }
-                                safe.add(target);
-                                console.println("Planned output: " + suite);
-                                if (target.extendsTests())
-                                    console.println(
-                                            "Extending "
-                                                    + target.seedNames()
-                                                    + ": using existing tests as seeds. Suite"
-                                                    + " minimization removes goals they already"
-                                                    + " cover; check the seeding summary to confirm"
-                                                    + " existing-test execution.");
-                                if (mode != TargetCollector.Mode.COVERAGE && existing != null) {
-                                    consent.put(target.className(), existing);
-                                    withSuites.add(
-                                            target.className() + " (" + module.getName() + ")");
-                                }
-                            }
-                            if (!safe.isEmpty()) {
-                                requests.add(
-                                        new Request(
-                                                module,
-                                                List.copyOf(safe),
-                                                options,
-                                                base,
-                                                folder,
-                                                Map.copyOf(consent),
-                                                Map.copyOf(historyIndices)));
-                                total += safe.size();
-                            }
-                        } catch (ProcessCanceledException ex) {
-                            throw ex;
-                        } catch (Exception ex) {
-                            counts[1]++;
-                            console.println(
-                                    "Cannot prepare "
-                                            + module.getName()
-                                            + ": "
-                                            + mask(String.valueOf(ex.getMessage()))
-                                            + ". Continuing with other modules.");
-                        }
-                    }
-                    if (requests.isEmpty()) {
-                        history.finish(
-                                runId,
-                                counts[1] > 0 ? "Could not prepare" : "No eligible targets",
-                                "See target details and console for skipped selections or"
-                                        + " configuration errors");
-                        console.println(
-                                counts[1] > 0
-                                        ? "No targets could be prepared. See the messages above;"
-                                                + " existing handwritten suites are kept."
-                                        : "No eligible Java targets selected. Choose a production"
-                                                + " Java class, package or module; use Extend Tests"
-                                                + " for existing test classes. Interfaces and"
-                                                + " generated suites are skipped.");
-                        if (counts[1] > 0)
-                            showNotification(
-                                    project,
-                                    NotificationType.WARNING,
-                                    "EvoSuite could not prepare generation. See the console for"
-                                            + " configuration details.");
-                        return;
-                    }
-                    if (total > 5 && replay == null) {
-                        int targetCount = total;
-                        String summary =
-                                requests.stream()
-                                        .map(
-                                                r ->
-                                                        r.module().getName()
-                                                                + ": "
-                                                                + r.targets().size()
-                                                                + " targets, "
-                                                                + r.options()
-                                                                        .effectiveSearchBudget()
-                                                                + "s search each, LLM calls/class: "
-                                                                + r.options().effectiveLlmMaxCalls()
-                                                                + " (0=unlimited)")
-                                        .collect(java.util.stream.Collectors.joining("\n"));
-                        boolean proceed =
-                                IdeThread.edt(
-                                        () ->
-                                                Messages.showDialog(
-                                                                project,
-                                                                GenerationDialogs.message(
-                                                                        "Generate for "
-                                                                                + targetCount
-                                                                                + " targets?\n\n"
-                                                                                + summary
-                                                                                + "\n\n"
-                                                                                + "Build,"
-                                                                                + " minimization"
-                                                                                + " and validation"
-                                                                                + " take additional"
-                                                                                + " time. Inspect"
-                                                                                + " effective"
-                                                                                + " configuration"
-                                                                                + " from the"
-                                                                                + " EvoSuite view"
-                                                                                + " before"
-                                                                                + " starting."),
-                                                                "EvoSuite: Review Bulk Request",
-                                                                new String[] {
-                                                                    "Start Generation", "Cancel"
-                                                                },
-                                                                0,
-                                                                Messages.getQuestionIcon())
-                                                        == 0);
-                        if (!proceed) throw new ProcessCanceledException();
-                    }
-                    SuiteAction action = SuiteAction.ADD;
-                    if (!withSuites.isEmpty()) {
-                        var scope =
-                                mode == TargetCollector.Mode.CLASSES
-                                        ? ExistingSuitesQuestion.Scope.CLASSES
-                                        : mode == TargetCollector.Mode.METHODS
-                                                ? ExistingSuitesQuestion.Scope.METHODS
-                                                : ExistingSuitesQuestion.Scope.EXTENSION;
-                        String folder =
-                                requests.stream()
-                                                        .map(r -> r.testDir().toString())
-                                                        .distinct()
-                                                        .count()
-                                                == 1
-                                        ? requests.getFirst().testDir().toString()
-                                        : null;
-                        var question = ExistingSuitesQuestion.of(withSuites, total, folder, scope);
-                        String runtimeFreeNote =
-                                requests.stream()
-                                                .anyMatch(
-                                                        r ->
-                                                                r.options()
-                                                                        .effectiveNoRuntimeDependency())
-                                        ? "\n\n"
-                                              + "For runtime-free output, Replace also removes"
-                                              + " obsolete matching scaffolding. Add falls back to"
-                                              + " Compare if runtime setups differ. Compare"
-                                              + " includes obsolete scaffolding as an empty"
-                                              + " suggestion; apply it only when you replace the"
-                                              + " suite."
-                                        : "";
-                        action =
-                                IdeThread.edt(
-                                        () ->
-                                                ExistingSuitesQuestion.action(
-                                                        Messages.showDialog(
-                                                                project,
-                                                                GenerationDialogs.message(
-                                                                        question.message
-                                                                                + runtimeFreeNote
-                                                                                + "\n\n"
-                                                                                + "In Compare, copy"
-                                                                                + " wanted changes"
-                                                                                + " from Generated"
-                                                                                + " to Existing."
-                                                                                + " IntelliJ saves"
-                                                                                + " your edits"
-                                                                                + " normally;"
-                                                                                + " closing the"
-                                                                                + " viewer does not"
-                                                                                + " undo them. You"
-                                                                                + " can reopen"
-                                                                                + " comparisons"
-                                                                                + " from the result"
-                                                                                + " notification.\n\n"
-                                                                                + "Cancel stops"
-                                                                                + " this request"
-                                                                                + " before building"
-                                                                                + " or changing"
-                                                                                + " project"
-                                                                                + " setup."),
-                                                                question.title,
-                                                                ExistingSuitesQuestion.BUTTONS
-                                                                        .toArray(String[]::new),
-                                                                question.defaultButton(),
-                                                                Messages.getQuestionIcon())));
-                        if (action == null) throw new ProcessCanceledException();
-                    }
-                    indicator.setText("Waiting for other EvoSuite runs");
-                    history.phase(runId, "Queued: waiting for engine");
-                    if (slot.availablePermits() == 0)
-                        console.println(
-                                "Waiting for another EvoSuite run. Stop cancels this project's"
-                                        + " queued requests.");
-                    while (!slot.tryAcquire(200, TimeUnit.MILLISECONDS)) check(project, indicator);
-                    acquired = true;
-                    check(project, indicator);
-                    int done = 0;
-                    for (Request request : requests) {
-                        check(project, indicator);
-                        if (request.module().isDisposed()) continue;
-                        try {
-                            var options = request.options();
-                            console.println("=== Module " + request.module().getName());
-                            options.fromPom.forEach(
-                                    line -> console.println("From pom: " + mask(line)));
-                            for (String property :
-                                    EvoSuiteCommand.overriddenUserProperties(options))
-                                console.println(
-                                        "Ignoring additional "
-                                                + property
-                                                + "; configure the output folder/suffix in EvoSuite"
-                                                + " settings.");
-                            indicator.setText("Preparing " + request.module().getName());
-                            history.phase(runId, "Preparing " + request.module().getName());
-                            var maven = MavenBridge.get(project);
-                            Map<String, String> env =
-                                    LlmEnvironment.resolve(
-                                            options,
-                                            () ->
-                                                    LlmApiKeyStore.get(
-                                                            options.effectiveLlmProvider()),
-                                            () ->
-                                                    maven == null
-                                                            ? ""
-                                                            : maven.serverPassword(
-                                                                    options.llmApiKeyServerId,
-                                                                    console::println),
-                                            System.getenv(),
-                                            console::println);
-                            String provider = options.effectiveLlmProvider();
-                            if (!provider.equals("NONE")
-                                    && !provider.equals("OLLAMA")
-                                    && env.getOrDefault(
-                                                    EvoSuiteCommand.API_KEY_VARIABLE,
-                                                    System.getenv()
-                                                            .getOrDefault(
-                                                                    EvoSuiteCommand
-                                                                            .API_KEY_VARIABLE,
-                                                                    ""))
-                                            .isBlank()) {
-                                int choice =
-                                        IdeThread.edt(
-                                                () ->
-                                                        Messages.showDialog(
-                                                                project,
-                                                                GenerationDialogs.message(
-                                                                        "No API key is available"
-                                                                                + " for "
-                                                                                + provider
-                                                                                + ". Configure a"
-                                                                                + " key before"
-                                                                                + " using this"
-                                                                                + " provider, or"
-                                                                                + " run search only"
-                                                                                + " for this"
-                                                                                + " request."
-                                                                                + " Project"
-                                                                                + " settings are"
-                                                                                + " kept."),
-                                                                "EvoSuite: Missing API Key",
-                                                                new String[] {
-                                                                    "Configure Key…",
-                                                                    "Run Search Only",
-                                                                    "Cancel"
-                                                                },
-                                                                0,
-                                                                Messages.getQuestionIcon()));
-                                if (choice == 0) {
-                                    IdeThread.edt(
-                                            () -> {
-                                                com.intellij.openapi.options.ShowSettingsUtil
-                                                        .getInstance()
-                                                        .showSettingsDialog(
-                                                                project,
-                                                                org.evosuite.intellij.settings
-                                                                        .EvoSuiteApplicationConfigurable
-                                                                        .class,
-                                                                c ->
-                                                                        c.selectProviderCredentials(
-                                                                                provider));
-                                                return null;
-                                            });
-                                    throw new ProcessCanceledException();
-                                }
-                                if (choice != 1) throw new ProcessCanceledException();
-                                options.llmApproach = GenerationOptions.APPROACH_SEARCH_ONLY;
-                                env = Map.of(EvoSuiteCommand.API_KEY_VARIABLE, "");
-                                request.historyIndices()
-                                        .values()
-                                        .forEach(i -> history.settings(runId, i, options));
-                            }
-                            boolean delegation =
-                                    EvoSuiteProjectSettings.getInstance(project)
-                                                    .getState()
-                                                    .delegateToMaven
-                                            && mode == TargetCollector.Mode.CLASSES
-                                            && maven != null
-                                            && maven.directory(request.module()) != null;
-                            // Maven's own export does not implement IDE staging or Search-only
-                            // enforcement.
-                            // Fall back to the bundled driver whenever either protection is
-                            // required.
-                            if (delegation
-                                    && (replay != null
-                                            || !options.randomSeed.isBlank()
-                                            || !options.llmContextMode.equals("SIGNATURE_ONLY")
-                                            || options.llmMaxTokens != 32768
-                                            || options.llmTimeoutSeconds != 60
-                                            || options.llmRetryMaxAttempts != 2
-                                            || !options.llmTemperature.equals("0.7")
-                                            || options.effectiveNoRuntimeDependency()
-                                            || options.llmSwitchedOff()
-                                            || !request.consent().isEmpty()
-                                            || request.targets().stream()
-                                                    .anyMatch(
-                                                            t ->
-                                                                    Files.exists(
-                                                                            EvoSuiteCommand
-                                                                                    .suiteFile(
-                                                                                            request.testDir()
-                                                                                                    .toFile(),
-                                                                                            t
-                                                                                                    .className(),
-                                                                                            options.testSuffix)
-                                                                                    .toPath())))) {
-                                console.println(
-                                        "Using the bundled engine for saved/fixed-seed settings,"
-                                            + " runtime-free output, Search only, or existing-suite"
-                                            + " protection.");
-                                delegation = false;
-                            }
-                            final Map<String, String> environment = env;
-                            var java =
-                                    delegation
-                                            ? null
-                                            : ReadAction.compute(
-                                                    () -> {
-                                                        try {
-                                                            return ClasspathResolver.java(
-                                                                    request.module(), options);
-                                                        } catch (java.io.IOException ex) {
-                                                            throw new IllegalArgumentException(
-                                                                    ex.getMessage(), ex);
-                                                        }
-                                                    });
-                            if (mode != TargetCollector.Mode.COVERAGE)
-                                ProjectSetupService.prepare(
-                                        request.module(), options, indicator, console::println);
-                            check(project, indicator);
-                            // Only the initial save question authorizes saving editor changes.
-                            IdeThread.flushPendingVfsWrites();
-                            if (delegation) {
-                                console.println(
-                                        "Delegating whole-class generation to Maven. Maven controls"
-                                                + " scheduling/export and uses pom settings; IDE"
-                                                + " Add/Compare is unavailable in this mode.");
-                                final boolean delegatedOk =
-                                        maven.delegate(
-                                                request.module(),
-                                                request.targets(),
-                                                options,
-                                                environment,
-                                                indicator);
-                                suites.addAll(
-                                        refreshDelegatedOutputs(
-                                                project,
-                                                request.testDir(),
-                                                request.targets(),
-                                                options));
-                                if (!delegatedOk) counts[1]++;
-                                else counts[2] += request.targets().size();
-                                request.historyIndices()
-                                        .values()
-                                        .forEach(
-                                                i ->
-                                                        history.outcome(
-                                                                runId,
-                                                                i,
-                                                                delegatedOk
-                                                                        ? "Delegated to Maven"
-                                                                        : "Maven failed",
-                                                                "See Maven output for exported"
-                                                                        + " suites and reports",
-                                                                -1));
-                                done += request.targets().size();
-                                continue;
-                            }
-                            indicator.setText("Building " + request.module().getName());
-                            history.phase(runId, "Building " + request.module().getName());
-                            console.println(
-                                    "Building "
-                                            + request.module().getName()
-                                            + " before generation…");
-                            var build =
-                                    IdeThread.await(
-                                            IdeThread.edt(
-                                                    () ->
-                                                            ProjectTaskManager.getInstance(project)
-                                                                    .build(
-                                                                            buildModules(
-                                                                                    request
-                                                                                            .module(),
-                                                                                    request
-                                                                                            .targets()))),
-                                            indicator);
-                            if (build.isAborted() || build.hasErrors()) {
-                                console.println(
-                                        "Build failed or was cancelled. Fix compilation errors"
-                                                + " before generating tests.");
-                                counts[1] += request.targets().size();
-                                request.historyIndices()
-                                        .values()
-                                        .forEach(
-                                                i ->
-                                                        history.outcome(
-                                                                runId,
-                                                                i,
-                                                                "Build failed",
-                                                                "Fix compilation errors before"
-                                                                        + " generation",
-                                                                -1));
-                                continue;
-                            }
-                            IdeThread.flushPendingVfsWrites();
-                            Path engine = EngineJars.engine();
-                            indicator.setIndeterminate(false);
-                            for (GenerationTarget target : request.targets()) {
-                                check(project, indicator);
-                                int historyIndex = request.historyIndices().get(target.className());
-                                int index = done++;
-                                int all = total;
-                                List<String> cp =
-                                        ReadAction.compute(
-                                                () ->
-                                                        ClasspathResolver.resolve(
-                                                                request.module(), target));
-                                if (cp.isEmpty())
-                                    throw new IllegalArgumentException(
-                                            "No production classpath for "
-                                                    + request.module().getName());
-                                indicator.setText("Generating tests for " + target.label());
-                                Path state =
-                                        Path.of(PathManager.getSystemPath(), "evosuite", "runs");
-                                Files.createDirectories(state);
-                                Path staging = Files.createTempDirectory(state, "run-");
-                                history.beginTarget(runId, historyIndex, staging);
-                                // Resolve custom source layouts from the IDE, not src/main/java
-                                // assumptions.
-                                GenerationOptions targetOptions = options.copy();
-                                targetOptions.llmSourcePath =
-                                        IdeThread.smartRead(
-                                                project,
-                                                () -> {
-                                                    var type =
-                                                            com.intellij.psi.JavaPsiFacade
-                                                                    .getInstance(project)
-                                                                    .findClass(
-                                                                            target.className(),
-                                                                            com.intellij.psi.search
-                                                                                    .GlobalSearchScope
-                                                                                    .moduleWithDependenciesAndLibrariesScope(
-                                                                                            request
-                                                                                                    .module(),
-                                                                                            false));
-                                                    return type == null
-                                                                    || type.getContainingFile()
-                                                                                    .getVirtualFile()
-                                                                            == null
-                                                            ? ""
-                                                            : type.getContainingFile()
-                                                                    .getVirtualFile()
-                                                                    .getPath();
-                                                });
-                                console.println(
-                                        "Reports and LLM traces: " + staging.resolve("reports"));
-                                String key =
-                                        environment.getOrDefault(
-                                                EvoSuiteCommand.API_KEY_VARIABLE,
-                                                System.getenv(EvoSuiteCommand.API_KEY_VARIABLE));
-                                boolean keepSources = false;
-                                try {
-                                    ProgressParser.Listener listener =
-                                            new ProgressParser.Listener() {
-                                                public void line(String line) {
-                                                    history.line(runId, historyIndex, line);
-                                                    String phase = line.toLowerCase(Locale.ROOT);
-                                                    if (line.stripLeading().startsWith("*")
-                                                            && (phase.contains("minimiz")
-                                                                    || phase.contains("assertion")
-                                                                    || phase.contains(
-                                                                            "junit check"))) {
-                                                        indicator.setIndeterminate(true);
-                                                        indicator.setText(
-                                                                "Post-processing "
-                                                                        + target.label());
-                                                    }
-                                                    console.println(
-                                                            key == null || key.isBlank()
-                                                                    ? mask(line)
-                                                                    : mask(line)
-                                                                            .replace(key, "****"));
-                                                }
 
-                                                public void progress(int search, int coverage) {
-                                                    history.progress(
-                                                            runId, historyIndex, search, coverage);
-                                                    indicator.setIndeterminate(false);
-                                                    indicator.setFraction(
-                                                            (index + Math.min(100, search) / 100.0)
-                                                                    / all);
-                                                    indicator.setText2(
-                                                            target.label()
-                                                                    + ": search "
-                                                                    + search
-                                                                    + "%, coverage "
-                                                                    + coverage
-                                                                    + "%");
-                                                }
-                                            };
-                                    if (mode == TargetCollector.Mode.COVERAGE) {
-                                        int exit =
-                                                GenerationRun.measureCoverage(
-                                                        target,
-                                                        targetOptions,
-                                                        java,
-                                                        engine,
-                                                        cp,
-                                                        request.base(),
-                                                        staging,
-                                                        listener,
-                                                        environment,
-                                                        () ->
-                                                                indicator.isCanceled()
-                                                                        || project.isDisposed()
-                                                                        || disposed);
-                                        if (exit == EvoSuiteProcess.CANCELLED)
-                                            throw new ProcessCanceledException();
-                                        if (exit != 0) counts[1]++;
-                                        history.outcome(
-                                                runId,
-                                                historyIndex,
-                                                exit == 0 ? "Coverage measured" : "Coverage failed",
-                                                "Open reports for coverage statistics",
-                                                -1);
-                                        continue;
-                                    }
-                                    GenerationRun.Result result =
-                                            GenerationRun.generate(
-                                                    target,
-                                                    targetOptions,
-                                                    java,
-                                                    engine,
-                                                    cp,
-                                                    request.base(),
-                                                    staging,
-                                                    listener,
-                                                    environment,
-                                                    () ->
-                                                            indicator.isCanceled()
-                                                                    || project.isDisposed()
-                                                                    || disposed);
-                                    if (result.exitCode() == EvoSuiteProcess.CANCELLED)
-                                        throw new ProcessCanceledException();
-                                    if (result.seeding() != null) {
-                                        console.println(result.seeding().summary());
-                                        if (!result.seeding().seeded()
-                                                || !result.seeding().ranExistingTests())
-                                            counts[1]++;
-                                    }
-                                    if (!result.produced()) {
-                                        console.println(
-                                                "No tests generated for "
-                                                        + target.label()
-                                                        + " (exit "
-                                                        + result.exitCode()
-                                                        + ").");
-                                        counts[1]++;
-                                        history.outcome(
-                                                runId,
-                                                historyIndex,
-                                                "No tests generated",
-                                                "Engine exit code "
-                                                        + result.exitCode()
-                                                        + (result.seeding() == null
-                                                                ? ""
-                                                                : ". "
-                                                                        + result.seeding()
-                                                                                .summary()),
-                                                0);
-                                        continue;
-                                    }
-                                    if (result.exitCode() != 0) {
-                                        console.println(
-                                                "EvoSuite wrote tests but exited with code "
-                                                        + result.exitCode()
-                                                        + "; the suite may be incomplete.");
-                                        counts[1]++;
-                                    }
-                                    Path destination =
-                                            EvoSuiteCommand.suiteFile(
-                                                            request.testDir().toFile(),
-                                                            target.className(),
-                                                            options.testSuffix)
-                                                    .toPath();
-                                    var placed =
-                                            SuitePlacement.place(
-                                                    project,
-                                                    target,
-                                                    targetOptions,
-                                                    destination,
-                                                    result,
-                                                    action,
-                                                    request.consent().get(target.className()),
-                                                    console::println);
-                                    if (placed.skipped()) counts[1]++;
-                                    else if (placed.written()) counts[0]++;
-                                    else if (placed.comparisons().isEmpty()) counts[3]++;
-                                    if (placed.suite() != null && options.openGeneratedTests)
-                                        suites.add(placed.suite());
-                                    comparisons.addAll(placed.comparisons());
-                                    history.comparisons(
-                                            runId, historyIndex, placed.comparisons(), staging);
-                                    history.outcome(
-                                            runId,
-                                            historyIndex,
-                                            placed.skipped()
-                                                    ? "Skipped"
-                                                    : !placed.comparisons().isEmpty()
-                                                            ? "Pending comparison"
-                                                            : placed.written()
-                                                                    ? "Written / updated"
-                                                                    : "Unchanged",
-                                            result.seeding() == null
-                                                    ? ""
-                                                    : result.seeding().summary(),
-                                            SuiteMerger.testCount(
-                                                    Files.readString(result.suite()),
-                                                    destination
-                                                            .getFileName()
-                                                            .toString()
-                                                            .replaceFirst("\\.java$", "")));
-                                    if (!placed.comparisons().isEmpty()) {
-                                        keepSources = true;
-                                        console.println(
-                                                "Generated comparison sources retained at "
-                                                        + staging.resolve("tests"));
-                                    }
-                                } catch (ProcessCanceledException | InterruptedException ex) {
-                                    throw ex;
-                                } catch (Exception ex) {
-                                    counts[1]++;
-                                    history.outcome(
-                                            runId,
-                                            historyIndex,
-                                            "Failed",
-                                            mask(String.valueOf(ex.getMessage())),
-                                            -1);
-                                    keepSources = true;
-                                    console.println(
-                                            "Failed for "
-                                                    + target.label()
-                                                    + ": "
-                                                    + mask(String.valueOf(ex.getMessage())));
-                                    console.println(
-                                            "Generated sources retained at "
-                                                    + staging.resolve("tests"));
-                                } finally {
-                                    // Failed placements and pending comparisons keep recoverable
-                                    // generated sources.
-                                    try {
-                                        if (!keepSources)
-                                            GenerationRun.deleteTree(staging.resolve("tests"));
-                                        GenerationRun.deleteTree(staging.resolve("seeds"));
-                                    } catch (java.io.IOException ex) {
-                                        console.println(
-                                                "Could not clean staging folder " + staging);
-                                    }
-                                }
-                            }
-                        } catch (ProcessCanceledException | InterruptedException ex) {
-                            throw ex;
-                        } catch (Exception ex) {
-                            counts[1]++;
-                            history.failUnfinished(
-                                    runId,
-                                    request.historyIndices().values(),
-                                    mask(String.valueOf(ex.getMessage())));
-                            console.println(
-                                    "Failed module "
-                                            + request.module().getName()
-                                            + ": "
-                                            + mask(String.valueOf(ex.getMessage()))
-                                            + ". Continuing with other modules.");
-                        }
-                    }
-                    IdeThread.flushPendingVfsWrites();
-                    history.finish(
-                            runId,
-                            counts[1] == 0 ? "Completed" : "Completed with warnings",
-                            comparisons.isEmpty()
-                                    ? "Finished"
-                                    : "Review pending comparisons in Runs");
-                    console.println(
-                            "EvoSuite finished: "
-                                    + counts[0]
-                                    + " suites written/updated, "
-                                    + counts[3]
-                                    + " unchanged (no additional tests), "
-                                    + counts[2]
-                                    + " Maven targets processed, "
-                                    + comparisons.size()
-                                    + " comparisons, "
-                                    + counts[1]
-                                    + " warnings/errors.");
-                    showNotification(
-                            project,
-                            counts[1] == 0
-                                    ? NotificationType.INFORMATION
-                                    : NotificationType.WARNING,
-                            "EvoSuite finished: "
-                                    + counts[0]
-                                    + " suites written/updated"
-                                    + (counts[3] == 0
-                                            ? ""
-                                            : ", " + counts[3] + " unchanged (no additional tests)")
-                                    + (counts[2] == 0
-                                            ? ""
-                                            : ", " + counts[2] + " Maven targets processed")
-                                    + (comparisons.isEmpty()
-                                            ? ""
-                                            : ", "
-                                                    + comparisons.size()
-                                                    + " files to compare (copy changes to keep"
-                                                    + " them)")
-                                    + (counts[1] == 0
-                                            ? "."
-                                            : "; see the EvoSuite console for warnings."),
-                            comparisons);
-                } catch (ProcessCanceledException ex) {
-                    history.finish(
-                            runId,
-                            "Cancelled",
-                            "Completed outputs and pending comparisons are kept");
-                    console.println("EvoSuite cancelled. Completed suites are kept.");
-                    if (!comparisons.isEmpty())
-                        showNotification(
-                                project,
-                                NotificationType.INFORMATION,
-                                "EvoSuite cancelled: completed suites are kept; "
-                                        + comparisons.size()
-                                        + " files are available to compare.",
-                                comparisons);
-                } catch (InterruptedException ex) {
-                    Thread.currentThread().interrupt();
-                    history.finish(runId, "Cancelled", "Completed outputs are kept");
-                    console.println("EvoSuite cancelled.");
-                    if (!comparisons.isEmpty())
-                        showNotification(
-                                project,
-                                NotificationType.INFORMATION,
-                                "EvoSuite cancelled: completed suites are kept; "
-                                        + comparisons.size()
-                                        + " files are available to compare.",
-                                comparisons);
-                } catch (Exception ex) {
-                    history.finish(runId, "Failed", mask(String.valueOf(ex.getMessage())));
-                    console.println("EvoSuite failed: " + mask(String.valueOf(ex.getMessage())));
-                    showNotification(
-                            project,
-                            NotificationType.ERROR,
-                            "EvoSuite failed. Completed results are kept; see the EvoSuite"
-                                    + " console.",
-                            comparisons);
-                } finally {
-                    if (history.active(runId))
-                        history.finish(
-                                runId,
-                                "No eligible targets",
-                                "See console for skipped selections or configuration errors");
-                    runIndicators.remove(runId);
-                    cancelledRuns.remove(runId);
-                    if (acquired) slot.release();
-                    running.computeIfPresent(
-                            project,
-                            (ignored, indicators) -> {
-                                indicators.remove(indicator);
-                                return indicators.isEmpty() ? null : indicators;
-                            });
-                    ApplicationManager.getApplication()
-                            .invokeLater(
-                                    () -> {
-                                        if (project.isDisposed()) return;
-                                        if (suites.size() <= 3)
-                                            suites.forEach(
-                                                    file ->
-                                                            FileEditorManager.getInstance(project)
-                                                                    .openFile(file, true));
-                                        SuiteComparison.show(project, comparisons);
-                                    });
-                }
-            }
-        }.queue();
+        console.show();
+        String id = history.start(mode.name(), identity);
+        history.cleanup(false);
+        var job = new GenerationJob(project, mode, selection, replay, history, console, id);
+        jobs.put(id, job);
+        try {
+            job.queue();
+        } catch (RuntimeException ex) {
+            jobs.remove(id);
+            history.finish(id, "Could not start", mask(String.valueOf(ex.getMessage())));
+            throw ex;
+        }
     }
 
-    private void check(Project project, ProgressIndicator indicator) {
-        if (disposed || project.isDisposed()) throw new ProcessCanceledException();
-        indicator.checkCanceled();
+    private static List<List<String>> selectionIdentity(TargetCollector.Selection selection) {
+        return List.of(selection.elements().stream().map(GenerationService::elementIdentity)
+                        .distinct().sorted().toList(),
+                selection.files().stream().map(VirtualFile::getPath).distinct().sorted().toList(),
+                selection.modules().stream().map(Module::getName).distinct().sorted().toList());
+    }
+
+    private static String elementIdentity(PsiElement element) {
+        var file = element.getContainingFile();
+        VirtualFile source = file == null ? null : file.getVirtualFile();
+        return source == null ? element.toString()
+                : source.getPath() + ":" + element.getClass().getSimpleName() + ":" + element.getTextRange();
+    }
+
+    private record PlannedTarget(GenerationTarget target, Path destination,
+                                 SuitePlacement.Snapshot consent, int historyIndex) {}
+
+    private record ModulePlan(Module module, GenerationOptions options, Path base, Path testDir,
+                              List<PlannedTarget> targets) {
+        List<GenerationTarget> generationTargets() {
+            return targets.stream().map(PlannedTarget::target).toList();
+        }
+    }
+
+    private final class GenerationJob extends Task.Backgroundable {
+        private final Project project;
+        private final Mode mode;
+        private final TargetCollector.Selection selection;
+        private final RunHistory.Target replay;
+        private final RunHistory history;
+        private final EvoSuiteConsole console;
+        private final String id;
+        private final Set<VirtualFile> suites = new LinkedHashSet<>();
+        private final List<SuiteComparison.Pair> comparisons = new ArrayList<>();
+        private volatile ProgressIndicator indicator;
+        private volatile boolean cancelled;
+        private SuiteAction suiteAction = SuiteAction.ADD;
+        private int total, done, written, unchanged, delegated, warnings, measured;
+
+        GenerationJob(Project project, Mode mode, TargetCollector.Selection selection,
+                      RunHistory.Target replay, RunHistory history, EvoSuiteConsole console, String id) {
+            super(project, mode == Mode.COVERAGE ? "EvoSuite: measure coverage" : "EvoSuite: generate tests",
+                    true);
+            this.project = project;
+            this.mode = mode;
+            this.selection = selection;
+            this.replay = replay;
+            this.history = history;
+            this.console = console;
+            this.id = id;
+        }
+
+        void cancel() {
+            cancelled = true;
+            ProgressIndicator current = indicator;
+            if (current != null) current.cancel();
+        }
+
+        private boolean cancelled() {
+            return cancelled || disposed || project.isDisposed() || indicator.isCanceled();
+        }
+
+        private void checkCancelled() {
+            if (cancelled()) throw new ProcessCanceledException();
+        }
+
+        @Override
+        public void run(@NotNull ProgressIndicator progress) {
+            indicator = progress;
+            if (cancelled) progress.cancel();
+            boolean acquired = false;
+            try {
+                checkCancelled();
+                progress.setIndeterminate(true);
+                progress.setText("Collecting Java targets");
+                console.println("Collecting Java targets and checking EvoSuite settings…");
+                List<ModulePlan> plans = planTargets();
+                if (plans.isEmpty()) {
+                    String status = warnings == 0 ? "No eligible targets" : "Could not prepare";
+                    history.finish(id, status, "See the EvoSuite console for details");
+                    console.println(warnings == 0 ? "No eligible Java targets selected."
+                            : "No targets could be prepared. See the preceding messages.");
+                    if (warnings != 0) notifyResult(NotificationType.WARNING, "EvoSuite could not prepare generation.");
+                    return;
+                }
+                total = plans.stream().mapToInt(plan -> plan.targets().size()).sum();
+                confirm(plans);
+                progress.setText("Waiting for other EvoSuite runs");
+                history.phase(id, "Queued: waiting for engine");
+                while (!slot.tryAcquire(200, TimeUnit.MILLISECONDS)) checkCancelled();
+                acquired = true;
+                for (ModulePlan plan : plans) {
+                    checkCancelled();
+                    runModule(plan);
+                }
+                checkCancelled();
+                IdeThread.flushPendingVfsWrites();
+                finish();
+            } catch (ProcessCanceledException ex) {
+                finishCancelled();
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                finishCancelled();
+            } catch (Exception ex) {
+                String detail = mask(String.valueOf(ex.getMessage()));
+                history.finish(id, "Failed", detail);
+                console.println("EvoSuite failed: " + detail);
+                notifyResult(NotificationType.ERROR, "EvoSuite failed. See the console for details.");
+            } finally {
+                if (acquired) slot.release();
+                jobs.remove(id);
+                if (!project.isDisposed()) {
+                    ApplicationManager.getApplication().invokeLater(() -> {
+                        if (project.isDisposed()) return;
+                        if (suites.size() <= 3) {
+                            var editors = FileEditorManager.getInstance(project);
+                            suites.stream().filter(VirtualFile::isValid).forEach(file -> editors.openFile(file, true));
+                        }
+                        SuiteComparison.show(project, comparisons);
+                    });
+                }
+            }
+        }
+
+        @Override
+        public void onFinished() {
+            // IntelliJ can cancel a task before it enters run().
+            jobs.remove(id);
+            if (history.active(id)) finishCancelled();
+        }
+
+        private List<ModulePlan> planTargets() {
+            List<ModulePlan> plans = new ArrayList<>();
+            for (var entry : collectTargets().entrySet()) {
+                checkCancelled();
+                Module module = entry.getKey();
+                List<Integer> indices = new ArrayList<>();
+                try {
+                    GenerationOptions options = replay == null
+                            ? SettingsResolver.resolve(module) : SettingKeys.resolve(replay.settings);
+                    if (replay != null) {
+                        options.randomSeed = replay.seed;
+                        options.llmApiKeyServerId = replay.keyServerId;
+                    }
+                    boolean coverage = mode == Mode.COVERAGE;
+                    if (coverage) options.llmApproach = GenerationOptions.APPROACH_SEARCH_ONLY;
+                    Path base = ProjectSetupService.baseDir(module);
+                    Path folder = coverage ? null : ProjectSetupService.testFolder(module, options);
+                    List<PlannedTarget> targets = new ArrayList<>();
+                    for (var target : entry.getValue()) {
+                        checkCancelled();
+                        Path output = coverage ? target.seeds().getFirst().sourceFile().toPath()
+                                : EvoSuiteCommand.suiteFile(folder.toFile(), target.className(), options.testSuffix)
+                                        .toPath();
+                        int index = history.target(id, module.getName(), target, options, output);
+                        indices.add(index);
+                        SuitePlacement.Snapshot consent = coverage ? null
+                                : IdeThread.edt(() -> SuitePlacement.snapshot(output));
+                        if (consent != null && !SuitePlacement.generated(project, output,
+                                consent.source(), SuitePlacement.suiteName(output))) {
+                            console.println(EvoSuiteCommand.notAnEvoSuiteSuite(target.className(), output.toFile()));
+                            history.outcome(id, index, "Skipped", "Destination is not an EvoSuite suite", -1);
+                            warnings++;
+                            continue;
+                        }
+                        targets.add(new PlannedTarget(target, output, consent, index));
+                        if (!coverage) console.println("Planned output: " + output);
+                    }
+                    if (!targets.isEmpty()) plans.add(new ModulePlan(module, options, base, folder, targets));
+                } catch (ProcessCanceledException ex) {
+                    throw ex;
+                } catch (Exception ex) {
+                    warnings++;
+                    String detail = mask(String.valueOf(ex.getMessage()));
+                    history.failUnfinished(id, indices, detail);
+                    console.println("Cannot prepare " + module.getName() + ": " + detail);
+                }
+            }
+            return plans;
+        }
+
+        private Map<Module, List<GenerationTarget>> collectTargets() {
+            if (replay != null) {
+                Module module = ReadAction.compute(() -> ModuleManager.getInstance(project)
+                        .findModuleByName(replay.module));
+                if (module == null) throw new IllegalArgumentException("Module no longer exists: " + replay.module);
+                var seeds = replay.seeds.stream().map(seed -> seed.source.isBlank()
+                        ? new GenerationTarget.Seed(seed.className, new File(seed.root))
+                        : new GenerationTarget.Seed(seed.className, new File(seed.root), new File(seed.source)))
+                        .toList();
+                return Map.of(module, List.of(new GenerationTarget(replay.className, replay.methods, seeds)));
+            }
+            var collected = IdeThread.smartRead(project, () -> TargetCollector.collect(project, selection, mode));
+            return mode == Mode.EXTEND || mode == Mode.COVERAGE
+                    ? extensions(project, collected.tests()) : collected.targets();
+        }
+
+        private void confirm(List<ModulePlan> plans) {
+            if (total > 5 && replay == null) {
+                String summary = plans.stream().map(plan -> {
+                    String label = plan.module().getName() + ": " + plan.targets().size() + " targets";
+                    if (mode == Mode.COVERAGE) return label;
+                    return label + ", " + plan.options().effectiveSearchBudget()
+                            + "s search each, LLM calls/class: " + plan.options().effectiveLlmMaxCalls()
+                            + " (0 = unlimited)";
+                }).collect(Collectors.joining("\n"));
+                String operation = mode == Mode.COVERAGE ? "Measure coverage" : "Generate tests";
+                int answer = question(operation + " for " + total + " targets?\n\n" + summary,
+                        "EvoSuite: Review Bulk Request", new String[] {"Start", "Cancel"}, 0);
+                if (answer != 0) throw new ProcessCanceledException();
+            }
+            List<String> existing = plans.stream().flatMap(plan -> plan.targets().stream()
+                    .filter(target -> target.consent() != null)
+                    .map(target -> target.target().className() + " (" + plan.module().getName() + ")"))
+                    .toList();
+            if (existing.isEmpty()) return;
+            var scope = switch (mode) {
+                case CLASSES -> ExistingSuitesQuestion.Scope.CLASSES;
+                case METHODS -> ExistingSuitesQuestion.Scope.METHODS;
+                default -> ExistingSuitesQuestion.Scope.EXTENSION;
+            };
+            var folders = plans.stream().map(ModulePlan::testDir).distinct().toList();
+            var question = ExistingSuitesQuestion.of(existing, total,
+                    folders.size() == 1 ? folders.getFirst().toString() : null, scope);
+            String runtimeFree = plans.stream().anyMatch(plan -> plan.options().effectiveNoRuntimeDependency())
+                    ? "\n\nReplace can also remove obsolete scaffolding. Add opens Compare if the runtime setups differ."
+                    : "";
+            suiteAction = ExistingSuitesQuestion.action(question(question.message + runtimeFree
+                            + "\n\nIn Compare, copy changes into Existing to keep them. Cancel stops this request before setup.",
+                    question.title, ExistingSuitesQuestion.BUTTONS.toArray(String[]::new), question.defaultButton()));
+            if (suiteAction == null) throw new ProcessCanceledException();
+        }
+
+        private int question(String message, String title, String[] buttons, int defaultButton) {
+            return IdeThread.edt(() -> {
+                checkCancelled();
+                return Messages.showDialog(project, GenerationDialogs.message(message), title, buttons,
+                        defaultButton, Messages.getQuestionIcon());
+            });
+        }
+
+        private void runModule(ModulePlan plan) throws InterruptedException {
+            Module module = plan.module();
+            GenerationOptions options = plan.options();
+            try {
+                if (module.isDisposed()) throw new IllegalStateException("Module was removed");
+                indicator.setIndeterminate(true);
+                indicator.setText("Preparing " + module.getName());
+                history.phase(id, "Preparing " + module.getName());
+                console.println("=== Module " + module.getName());
+                options.fromPom.forEach(line -> console.println("From pom: " + mask(line)));
+                for (String property : EvoSuiteCommand.overriddenUserProperties(options))
+                    console.println("Ignoring additional " + property + "; EvoSuite controls output locations.");
+
+                MavenIntegration maven = MavenBridge.get(project);
+                Map<String, String> environment = environment(plan, maven);
+                boolean delegation = canDelegate(plan, maven);
+                JavaInstallation java = delegation ? null : ClasspathResolver.java(module, options);
+                if (mode != Mode.COVERAGE)
+                    ProjectSetupService.prepare(module, options, indicator, console::println);
+                checkCancelled();
+                IdeThread.flushPendingVfsWrites();
+                if (delegation) {
+                    delegate(plan, maven, environment);
+                    return;
+                }
+                indicator.setText("Building " + module.getName());
+                history.phase(id, "Building " + module.getName());
+                var build = IdeThread.await(IdeThread.edt(() -> {
+                    checkCancelled();
+                    return ProjectTaskManager.getInstance(project).build(buildModules(module, plan.generationTargets()));
+                }), indicator);
+                if (build.isAborted() || build.hasErrors()) {
+                    warnings += plan.targets().size();
+                    console.println("Build failed or was cancelled for " + module.getName() + ".");
+                    plan.targets().forEach(target ->
+                            outcome(target, "Build failed", "Fix compilation errors before generation", -1));
+                    return;
+                }
+                IdeThread.flushPendingVfsWrites();
+                Path engine = EngineJars.engine();
+                for (PlannedTarget target : plan.targets()) {
+                    checkCancelled();
+                    runTarget(plan, target, java, engine, environment);
+                }
+            } catch (ProcessCanceledException | InterruptedException ex) {
+                throw ex;
+            } catch (Exception ex) {
+                warnings++;
+                String detail = mask(String.valueOf(ex.getMessage()));
+                history.failUnfinished(id, plan.targets().stream().map(PlannedTarget::historyIndex).toList(), detail);
+                console.println("Failed module " + module.getName() + ": " + detail);
+            }
+        }
+
+        private Map<String, String> environment(ModulePlan plan, MavenIntegration maven) {
+            GenerationOptions options = plan.options();
+            Map<String, String> env = LlmEnvironment.resolve(options,
+                    () -> LlmApiKeyStore.get(options.effectiveLlmProvider()),
+                    () -> maven == null ? "" : maven.serverPassword(options.llmApiKeyServerId, console::println),
+                    System.getenv(), console::println);
+            String provider = options.effectiveLlmProvider();
+            if (provider.equals("NONE") || provider.equals("OLLAMA")
+                    || !env.getOrDefault(EvoSuiteCommand.API_KEY_VARIABLE,
+                            System.getenv().getOrDefault(EvoSuiteCommand.API_KEY_VARIABLE, "")).isBlank()) return env;
+
+            int choice = question("No API key is available for " + provider + ". Configure a key or run search only.",
+                    "EvoSuite: Missing API Key", new String[] {"Configure Key…", "Run Search Only", "Cancel"}, 0);
+            if (choice == 0) {
+                IdeThread.edt(() -> {
+                    ShowSettingsUtil.getInstance().showSettingsDialog(project,
+                            EvoSuiteApplicationConfigurable.class, c -> c.selectProviderCredentials(provider));
+                    return null;
+                });
+            }
+            if (choice != 1) throw new ProcessCanceledException();
+            options.llmApproach = GenerationOptions.APPROACH_SEARCH_ONLY;
+            plan.targets().forEach(target -> history.settings(id, target.historyIndex(), options));
+            return Map.of(EvoSuiteCommand.API_KEY_VARIABLE, "");
+        }
+
+        private boolean canDelegate(ModulePlan plan, MavenIntegration maven) throws IOException {
+            if (mode != Mode.CLASSES || maven == null || maven.directory(plan.module()) == null
+                    || !EvoSuiteProjectSettings.getInstance(project).getState().delegateToMaven) return false;
+            GenerationOptions options = plan.options();
+            if (replay != null || !options.usePomSettings || !options.effectiveRandomSeed().isBlank()
+                    || !options.llmContextMode.equals("SIGNATURE_ONLY") || options.llmMaxTokens != 32768
+                    || options.llmTimeoutSeconds != 60 || options.llmRetryMaxAttempts != 2
+                    || !options.llmTemperature.equals("0.7") || options.effectiveNoRuntimeDependency()
+                    || options.llmSwitchedOff() || plan.targets().stream().anyMatch(t -> t.consent() != null)
+                    || !maven.canDelegate(plan.module(), options)) {
+                console.println("Using the bundled engine to preserve run settings or protect existing suites.");
+                return false;
+            }
+            return true;
+        }
+
+        private void delegate(ModulePlan plan, MavenIntegration maven, Map<String, String> environment)
+                throws IOException {
+            console.println("Running whole-class generation through Maven with its POM settings.");
+            Path staging = newStaging();
+            Path export = staging.resolve("export");
+            try {
+                history.phase(id, "Running Maven");
+                for (PlannedTarget target : plan.targets()) {
+                    history.delegated(id, target.historyIndex(), staging);
+                }
+                boolean ok = maven.delegate(plan.module(), plan.generationTargets(), export, environment, indicator);
+                checkCancelled();
+                if (!ok) warnings++;
+                for (PlannedTarget target : plan.targets()) {
+                    done++;
+                    GenerationRun.Result result = GenerationRun.output(ok ? 0 : 1, export,
+                            target.target(), plan.options().testSuffix, null);
+                    if (!ok || !result.produced()) {
+                        if (ok) warnings++;
+                        outcome(target, ok ? "No tests exported" : "Maven failed", "See Maven output", -1);
+                        continue;
+                    }
+                    try {
+                        place(plan, target, plan.options(), result, staging, null);
+                        delegated++;
+                    } catch (ProcessCanceledException ex) {
+                        throw ex;
+                    } catch (Exception ex) {
+                        warnings++;
+                        String detail = mask(String.valueOf(ex.getMessage()));
+                        console.println("Failed for " + target.target().label() + ": " + detail);
+                        outcome(target, "Failed", detail, -1);
+                    }
+                }
+            } finally {
+                GenerationRun.deleteTree(export);
+            }
+        }
+
+        private void runTarget(ModulePlan plan, PlannedTarget planned, JavaInstallation java,
+                               Path engine, Map<String, String> environment) throws InterruptedException {
+            int position = done++;
+            GenerationTarget target = planned.target();
+            Path staging = null;
+            boolean keepSources = false;
+            String key = environment.getOrDefault(EvoSuiteCommand.API_KEY_VARIABLE,
+                    System.getenv(EvoSuiteCommand.API_KEY_VARIABLE));
+            try {
+                var cp = ReadAction.compute(() -> ClasspathResolver.resolve(plan.module(), target));
+                if (cp.isEmpty()) throw new IllegalArgumentException("No production classpath");
+                indicator.setText((mode == Mode.COVERAGE ? "Measuring coverage for " : "Generating tests for ")
+                        + target.label());
+                staging = newStaging();
+                history.beginTarget(id, planned.historyIndex(), staging);
+                GenerationOptions options = plan.options().copy();
+                if (mode != Mode.COVERAGE)
+                    options.llmSourcePath = IdeThread.smartRead(project, () -> sourcePath(plan.module(), target));
+                console.println("Reports and LLM traces: " + staging.resolve("reports"));
+                ProgressParser.Listener listener = listener(planned, position, key);
+                if (mode == Mode.COVERAGE) {
+                    int exit = GenerationRun.measureCoverage(target, options, java, engine, cp, plan.base(),
+                            staging, listener, environment, this::cancelled);
+                    checkCancelled();
+                    if (exit == 0) measured++;
+                    else warnings++;
+                    outcome(planned, exit == 0 ? "Coverage measured" : "Coverage failed",
+                            "Open reports for coverage statistics", -1);
+                    return;
+                }
+                GenerationRun.Result result = GenerationRun.generate(target, options, java, engine, cp, plan.base(),
+                        staging, listener, environment, this::cancelled);
+                checkCancelled();
+                if (result.seeding() != null) {
+                    console.println(redact(result.seeding().summary(), key));
+                    if (!result.seeding().seeded() || !result.seeding().ranExistingTests()) warnings++;
+                }
+                if (!result.produced()) {
+                    warnings++;
+                    String detail = "Engine exit code " + result.exitCode();
+                    if (result.seeding() != null) detail += ". " + redact(result.seeding().summary(), key);
+                    outcome(planned, "No tests generated", detail, 0);
+                    console.println("No tests generated for " + target.label() + " (" + detail + ").");
+                    return;
+                }
+                if (result.exitCode() != 0) {
+                    warnings++;
+                    console.println("EvoSuite wrote tests but exited with code " + result.exitCode()
+                            + "; the suite may be incomplete.");
+                }
+                keepSources = place(plan, planned, options, result, staging, key);
+            } catch (ProcessCanceledException | InterruptedException ex) {
+                throw ex;
+            } catch (Exception ex) {
+                warnings++;
+                String detail = redact(String.valueOf(ex.getMessage()), key);
+                outcome(planned, "Failed", detail, -1);
+                console.println("Failed for " + target.label() + ": " + detail);
+                keepSources = true;
+            } finally {
+                if (staging != null) {
+                    if (keepSources && Files.isDirectory(staging.resolve("tests")))
+                        console.println("Generated sources retained at " + staging.resolve("tests"));
+                    try {
+                        if (!keepSources) GenerationRun.deleteTree(staging.resolve("tests"));
+                        GenerationRun.deleteTree(staging.resolve("seeds"));
+                    } catch (IOException ex) {
+                        console.println("Could not clean staging folder " + staging);
+                    }
+                }
+            }
+        }
+
+        private boolean place(ModulePlan plan, PlannedTarget target, GenerationOptions options,
+                              GenerationRun.Result result, Path staging, String key) throws IOException {
+            Path destination = target.destination();
+            ProjectSetupService.verifyOutputPath(plan.base(), destination);
+            ProjectSetupService.verifyOutputPath(plan.base(), SuitePlacement.scaffoldingPath(destination));
+            var placed = SuitePlacement.place(project, target.target(), options, destination, result,
+                    suiteAction, target.consent(), console::println);
+            if (placed.skipped()) warnings++;
+            else if (placed.written()) written++;
+            else if (placed.comparisons().isEmpty()) unchanged++;
+            if (placed.suite() != null && options.openGeneratedTests) suites.add(placed.suite());
+            comparisons.addAll(placed.comparisons());
+            history.comparisons(id, target.historyIndex(), placed.comparisons(), staging);
+            String status;
+            if (placed.skipped()) status = "Skipped";
+            else if (!placed.comparisons().isEmpty()) status = "Pending comparison";
+            else status = placed.written() ? "Written / updated" : "Unchanged";
+            outcome(target, status, result.seeding() == null ? "" : redact(result.seeding().summary(), key),
+                    placed.tests());
+            return !placed.comparisons().isEmpty();
+        }
+
+        private ProgressParser.Listener listener(PlannedTarget planned, int position, String key) {
+            int index = planned.historyIndex();
+            String label = planned.target().label();
+            return new ProgressParser.Listener() {
+                @Override
+                public void line(String line) {
+                    String safe = redact(line, key);
+                    String phase = history.line(id, index, safe);
+                    if (phase != null) {
+                        indicator.setIndeterminate(true);
+                        indicator.setText(phase + " for " + label);
+                    }
+                    console.println(safe);
+                }
+
+                @Override
+                public void progress(int search, int coverage) {
+                    history.progress(id, index, search, coverage);
+                    indicator.setIndeterminate(false);
+                    indicator.setFraction((position + Math.min(100, search) / 100.0) / total);
+                    indicator.setText2(label + ": search " + search + "%, coverage " + coverage + "%");
+                }
+            };
+        }
+
+        private void outcome(PlannedTarget target, String status, String detail, int tests) {
+            history.outcome(id, target.historyIndex(), status, detail, tests);
+        }
+
+        private void finish() {
+            history.finish(id, warnings == 0 ? "Completed" : "Completed with warnings",
+                    comparisons.isEmpty() ? "Finished" : "Review pending comparisons in Runs");
+            List<String> parts = new ArrayList<>();
+            if (mode == Mode.COVERAGE) parts.add(measured + " targets measured");
+            else {
+                parts.add(written + " suites written/updated");
+                if (unchanged != 0) parts.add(unchanged + " unchanged");
+                if (delegated != 0) parts.add(delegated + " generated through Maven");
+                if (!comparisons.isEmpty()) parts.add(comparisons.size() + " comparisons");
+            }
+            if (warnings != 0) parts.add(warnings + " warnings/errors");
+            String message = "EvoSuite finished: " + String.join(", ", parts) + ".";
+            console.println(message);
+            notifyResult(warnings == 0 ? NotificationType.INFORMATION : NotificationType.WARNING, message);
+        }
+
+        private void finishCancelled() {
+            history.finish(id, "Cancelled", "Completed outputs and pending comparisons are kept");
+            console.println("EvoSuite cancelled.");
+            if (!comparisons.isEmpty())
+                notifyResult(NotificationType.INFORMATION, "EvoSuite cancelled. Comparisons are available in Runs.");
+        }
+
+        private void notifyResult(NotificationType type, String message) {
+            if (project.isDisposed()) return;
+            var notification = NotificationGroupManager.getInstance().getNotificationGroup("EvoSuite")
+                    .createNotification(message, type);
+            if (!comparisons.isEmpty()) {
+                var review = List.copyOf(comparisons);
+                notification.addAction(NotificationAction.createSimple("Review comparisons",
+                        () -> SuiteComparison.show(project, review)));
+            }
+            notification.addAction(NotificationAction.createSimple("Show console", console::show));
+            notification.addAction(NotificationAction.createSimple("EvoSuite settings", () -> {
+                if (EvoSuiteProjectSettings.getInstance(project).getState().useProjectSettings)
+                    ShowSettingsUtil.getInstance().showSettingsDialog(project, EvoSuiteProjectConfigurable.class);
+                else ShowSettingsUtil.getInstance().showSettingsDialog(project, EvoSuiteApplicationConfigurable.class);
+            }));
+            notification.notify(project);
+        }
     }
 
     public static String mask(String text) {
-        // Cover quoted values as one credential without consuming following diagnostic flags.
-        return text.replaceAll("(-Dllm_api_key=)(\"[^\"]*\"|'[^']*'|[^\\s]+)", "$1****");
+        return API_KEY.matcher(text).replaceAll("$1****");
+    }
+
+    private static String redact(String text, String key) {
+        String masked = mask(text);
+        return key == null || key.isBlank() ? masked : masked.replace(key, "****");
+    }
+
+    private static Path newStaging() throws IOException {
+        Path state = Path.of(PathManager.getSystemPath(), "evosuite", "runs");
+        Files.createDirectories(state);
+        return Files.createTempDirectory(state, "run-");
+    }
+
+    private static String sourcePath(Module module, GenerationTarget target) {
+        var type = JavaPsiFacade.getInstance(module.getProject()).findClass(target.className(),
+                GlobalSearchScope.moduleWithDependenciesAndLibrariesScope(module, false));
+        var file = type == null ? null : type.getContainingFile();
+        var source = file == null ? null : file.getVirtualFile();
+        return source == null ? "" : source.getPath();
     }
 
     public static Module[] buildModules(Module production, List<GenerationTarget> targets) {
-        if (targets.stream().noneMatch(GenerationTarget::extendsTests))
-            return new Module[] {production};
-        Set<Module> modules = new LinkedHashSet<>();
-        modules.add(production);
-        modules.add(ProjectSetupService.testModule(production));
-        modules.addAll(ClasspathResolver.seedModules(production, targets));
-        return modules.toArray(Module[]::new);
+        return ReadAction.compute(() -> {
+            Set<Module> modules = new LinkedHashSet<>();
+            modules.add(production);
+            modules.addAll(ClasspathResolver.seedModules(production, targets));
+            return modules.toArray(Module[]::new);
+        });
     }
 
-    /** Refresh external Maven writes before resolving editor/run actions through the VFS. */
-    public static List<VirtualFile> refreshDelegatedOutputs(
-            Project project,
-            Path folder,
-            List<GenerationTarget> targets,
-            GenerationOptions options) {
-        return IdeThread.edt(
-                () -> {
-                    var fs = com.intellij.openapi.vfs.LocalFileSystem.getInstance();
-                    var root = fs.refreshAndFindFileByNioFile(folder);
-                    if (root != null)
-                        com.intellij.openapi.vfs.VfsUtil.markDirtyAndRefresh(
-                                false, true, true, root);
-                    List<VirtualFile> outputs = new ArrayList<>();
-                    for (var target : targets) {
-                        Path path =
-                                EvoSuiteCommand.suiteFile(
-                                                folder.toFile(),
-                                                target.className(),
-                                                options.testSuffix)
-                                        .toPath();
-                        var file = fs.refreshAndFindFileByNioFile(path);
-                        if (file != null && !file.isDirectory()) {
-                            org.evosuite.intellij.settings.GeneratedSuiteRegistry.getInstance(
-                                            project)
-                                    .record(path, false);
-                            outputs.add(file);
-                        }
-                    }
-                    return List.copyOf(outputs);
-                });
-    }
-
-    private static void showNotification(Project project, NotificationType type, String text) {
-        showNotification(project, type, text, List.of());
-    }
-
-    private static void showNotification(
-            Project project,
-            NotificationType type,
-            String text,
-            List<SuiteComparison.Pair> comparisons) {
-        if (project.isDisposed()) return;
-        var notification =
-                NotificationGroupManager.getInstance()
-                        .getNotificationGroup("EvoSuite")
-                        .createNotification(text, type);
-        if (!comparisons.isEmpty()) {
-            var review = List.copyOf(comparisons);
-            notification.addAction(
-                    NotificationAction.createSimple(
-                            "Review comparisons", () -> SuiteComparison.show(project, review)));
-        }
-        notification.addAction(
-                NotificationAction.createSimple(
-                        "Show console", () -> EvoSuiteConsole.getInstance(project).show()));
-        notification.addAction(
-                NotificationAction.createSimple(
-                        "EvoSuite settings",
-                        () -> {
-                            if (EvoSuiteProjectSettings.getInstance(project)
-                                    .getState()
-                                    .useProjectSettings)
-                                com.intellij.openapi.options.ShowSettingsUtil.getInstance()
-                                        .showSettingsDialog(
-                                                project,
-                                                org.evosuite.intellij.settings
-                                                        .EvoSuiteProjectConfigurable.class);
-                            else
-                                com.intellij.openapi.options.ShowSettingsUtil.getInstance()
-                                        .showSettingsDialog(
-                                                project,
-                                                org.evosuite.intellij.settings
-                                                        .EvoSuiteApplicationConfigurable.class);
-                        }));
-        notification.notify(project);
-    }
-
-    private Map<Module, List<GenerationTarget>> extensions(
-            Project project, List<TargetCollector.TestClass> tests) {
+    private static Map<Module, List<GenerationTarget>> extensions(Project project,
+                                                               List<TargetCollector.TestClass> tests) {
         Map<Module, Map<String, List<GenerationTarget.Seed>>> grouped = new LinkedHashMap<>();
         for (var test : tests) {
-            Module owner =
-                    IdeThread.smartRead(
-                            project, () -> ProjectSetupService.productionModule(test.module()));
-            GenerationOptions options = SettingsResolver.resolve(owner);
-            var inference =
-                    IdeThread.smartRead(
-                            project,
-                            () -> TestClassInference.infer(project, test, options.testSuffix));
-            List<String> candidates = inference.candidates();
-            String cut =
-                    candidates.size() == 1
-                            ? candidates.getFirst()
-                            : ExtensionTargetDialog.choose(project, test, inference);
+            com.intellij.openapi.progress.ProgressManager.checkCanceled();
+            Module testOwner = ProjectSetupService.productionModule(test.module());
+            String suffix = SettingsResolver.resolve(testOwner).testSuffix;
+            var inference = IdeThread.smartRead(project, () -> TestClassInference.infer(project, test, suffix));
+            String cut = inference.candidates().size() == 1 ? inference.candidates().getFirst()
+                    : ExtensionTargetDialog.choose(project, test, inference);
+            Module owner = IdeThread.smartRead(project, () -> {
+                var type = JavaPsiFacade.getInstance(project).findClass(cut,
+                        GlobalSearchScope.moduleWithDependenciesAndLibrariesScope(test.module(), false));
+                return type == null ? null : ProjectFileIndex.getInstance(project)
+                        .getModuleForFile(type.getContainingFile().getVirtualFile());
+            });
+            if (owner == null) throw new IllegalArgumentException("Production class is no longer available: " + cut);
+            var seed = test.file() == null
+                    ? new GenerationTarget.Seed(test.name(), test.root().toNioPath().toFile())
+                    : new GenerationTarget.Seed(test.name(), test.root().toNioPath().toFile(),
+                            test.file().toNioPath().toFile());
             grouped.computeIfAbsent(owner, ignored -> new LinkedHashMap<>())
-                    .computeIfAbsent(cut.trim(), ignored -> new ArrayList<>())
-                    .add(new GenerationTarget.Seed(test.name(), test.root().toNioPath().toFile()));
+                    .computeIfAbsent(cut, ignored -> new ArrayList<>()).add(seed);
         }
         Map<Module, List<GenerationTarget>> result = new LinkedHashMap<>();
-        grouped.forEach(
-                (module, classes) ->
-                        result.put(
-                                module,
-                                classes.entrySet().stream()
-                                        .map(
-                                                e ->
-                                                        GenerationTarget.extending(
-                                                                e.getKey(), e.getValue()))
-                                        .toList()));
+        grouped.forEach((module, classes) -> result.put(module, classes.entrySet().stream()
+                .map(entry -> GenerationTarget.extending(entry.getKey(), entry.getValue())).toList()));
         return result;
     }
 }

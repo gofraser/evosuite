@@ -192,6 +192,10 @@ public final class GenerationOptions {
         return effective("search_budget", Integer.toString(searchBudget));
     }
 
+    public String effectiveRandomSeed() {
+        return effective("random_seed", randomSeed);
+    }
+
     public String effectiveLlmMaxCalls() {
         return effective("llm_max_calls", Integer.toString(llmMaxCalls));
     }

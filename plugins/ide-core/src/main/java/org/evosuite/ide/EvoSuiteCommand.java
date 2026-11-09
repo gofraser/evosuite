@@ -192,9 +192,7 @@ public final class EvoSuiteCommand {
         }
         // Last, so that the user's own arguments win over everything above; among them, the pom's
         // win over the IDE's, and its extraArgs over its evosuiteProperties, as with Maven.
-        args.addAll(splitArguments(options.extraArguments));
-        options.pomProperties.forEach((name, value) -> args.add("-D" + name + "=" + value));
-        args.addAll(splitArguments(options.pomExtraArguments));
+        args.addAll(additionalArguments(options));
         // After the user's arguments, since EvoSuite takes the last value of a property: the
         // plug-in reads the suite from where it told EvoSuite to write it, under the name it
         // told it to use, and finds nothing if another value wins.
@@ -244,14 +242,19 @@ public final class EvoSuiteCommand {
         return locations;
     }
 
+    public static List<String> additionalArguments(GenerationOptions options) {
+        List<String> arguments = new ArrayList<>(splitArguments(options.extraArguments));
+        options.pomProperties.forEach((name, value) -> arguments.add("-D" + name + "=" + value));
+        arguments.addAll(splitArguments(options.pomExtraArguments));
+        return arguments;
+    }
+
     /**
      * The {@linkplain #outputLocations() output locations} that the additional arguments or the pom
      * try to set, such as {@code test_dir}: the plug-in's own values override them.
      */
     public static List<String> overriddenUserProperties(GenerationOptions options) {
-        List<String> user = new ArrayList<>(splitArguments(options.extraArguments));
-        options.pomProperties.forEach((name, value) -> user.add("-D" + name + "=" + value));
-        user.addAll(splitArguments(options.pomExtraArguments));
+        List<String> user = additionalArguments(options);
         return OUTPUT_PROPERTIES.stream()
                 .filter(name -> user.stream().anyMatch(a -> a.startsWith("-D" + name + "=")))
                 .collect(Collectors.toList());

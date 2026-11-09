@@ -49,19 +49,12 @@ public final class SettingsResolver {
                                 ? state.values
                                 : EvoSuiteAppSettings.getInstance().getState().values);
         if (!values.containsKey("testFormat") || values.get("testFormat").isBlank()) {
-            String format =
-                    IdeThread.smartRead(
-                            project,
-                            () -> {
-                                JavaPsiFacade psi = JavaPsiFacade.getInstance(project);
-                                GlobalSearchScope scope =
-                                        GlobalSearchScope.moduleWithDependenciesAndLibrariesScope(
-                                                ProjectSetupService.testModule(module), true);
-                                return SettingKeys.junitFormat(
-                                        psi.findClass("org.junit.Test", scope) != null,
-                                        psi.findClass("org.junit.jupiter.api.Test", scope) != null);
-                            });
-            values.put("testFormat", format);
+            JavaPsiFacade psi = JavaPsiFacade.getInstance(project);
+            var scope = GlobalSearchScope.moduleWithDependenciesAndLibrariesScope(
+                    ProjectSetupService.testModule(module), true);
+            values.put("testFormat", SettingKeys.junitFormat(
+                    psi.findClass("org.junit.Test", scope) != null,
+                    psi.findClass("org.junit.jupiter.api.Test", scope) != null));
         }
         GenerationOptions options = SettingKeys.resolve(values);
         if (options.usePomSettings) {

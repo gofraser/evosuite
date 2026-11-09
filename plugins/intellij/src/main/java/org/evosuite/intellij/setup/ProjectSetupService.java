@@ -106,19 +106,26 @@ public final class ProjectSetupService {
     public static Path testFolder(Module module, GenerationOptions options) {
         Path base = baseDir(module).toAbsolutePath().normalize();
         Path folder = base.resolve(options.testFolder).normalize();
-        if (!folder.startsWith(base) || folder.equals(base))
-            throw new IllegalArgumentException("Test folder must be inside the module: " + folder);
-        // Existing symlinks must not redirect output outside the module.
-        try {
-            Path ancestor = folder;
-            while (!Files.exists(ancestor)) ancestor = ancestor.getParent();
-            if (!ancestor.toRealPath().startsWith(base.toRealPath()))
-                throw new IllegalArgumentException(
-                        "Test folder resolves outside the module: " + folder);
-        } catch (IOException ex) {
-            throw new IllegalArgumentException("Cannot resolve test folder " + folder, ex);
-        }
+        verifyOutputPath(base, folder);
+        if (Files.exists(folder) && !Files.isDirectory(folder))
+            throw new IllegalArgumentException("Test folder is not a directory: " + folder);
         return folder;
+    }
+
+    public static void verifyOutputPath(Path base, Path output) {
+        Path module = base.toAbsolutePath().normalize();
+        Path path = output.toAbsolutePath().normalize();
+        if (!path.startsWith(module) || path.equals(module))
+            throw new IllegalArgumentException("Test output must be inside the module: " + path);
+        // Check package directories and broken symlinks as well as the configured test folder.
+        try {
+            Path existing = path;
+            while (!Files.exists(existing, LinkOption.NOFOLLOW_LINKS)) existing = existing.getParent();
+            if (!existing.toRealPath().startsWith(module.toRealPath()))
+                throw new IllegalArgumentException("Test output resolves outside the module: " + path);
+        } catch (IOException ex) {
+            throw new IllegalArgumentException("Cannot resolve test output " + path, ex);
+        }
     }
 
     public static void prepare(

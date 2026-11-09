@@ -69,4 +69,14 @@ public class GradleReviewTest extends TestCase {
             assertFalse(changedRoot.contains("custom/tests"));
         }
     }
+
+    public void testUnrelatedDeclarationsDoNotSuppressNeededTestDependency() {
+        String script = "// junit:junit:4.13.2 is available\n"
+                + "dependencies { compileOnly(\"junit:junit:4.13.2\") }\n";
+        var dependency = new UnifiedDependency("junit", "junit", "4.13.2", "testImplementation");
+        String updated = GradleDependencySetup.updateDependencies(script, List.of(dependency));
+        assertTrue(updated.startsWith(script));
+        assertTrue(updated.contains("testImplementation(\"junit:junit:4.13.2\")"));
+        assertEquals(updated, GradleDependencySetup.updateDependencies(updated, List.of(dependency)));
+    }
 }

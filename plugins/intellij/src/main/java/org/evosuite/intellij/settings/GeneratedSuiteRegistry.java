@@ -112,19 +112,4 @@ public final class GeneratedSuiteRegistry
                 && id.equals(
                         state.runtimeFreeSuites.get(path.toAbsolutePath().normalize().toString()));
     }
-
-    public synchronized void record(Path path, boolean runtimeFree) {
-        String key = path.toAbsolutePath().normalize().toString();
-        if (runtimeFree) {
-            try {
-                String id = markerId(currentSource(path));
-                if (!id.isEmpty()) {
-                    state.runtimeFreeSuites.put(key, id);
-                    return;
-                }
-            } catch (java.io.IOException ignored) {
-            }
-        }
-        // Retain authorized markers for Undo/Redo. A path alone never establishes ownership.
-    }
 }

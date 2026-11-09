@@ -74,7 +74,12 @@ public final class GenerationRun {
             for (GenerationTarget.Seed seed : target.seeds()) {
                 Path copy = seeds.resolve(seed.className().replace('.', '/') + ".java");
                 Files.createDirectories(copy.getParent());
-                Files.copy(seed.sourceFile().toPath(), copy, StandardCopyOption.REPLACE_EXISTING);
+                if (Files.exists(copy)) {
+                    if (Files.mismatch(seed.sourceFile().toPath(), copy) != -1)
+                        throw new IOException("Selected tests have the same class name: " + seed.className());
+                } else {
+                    Files.copy(seed.sourceFile().toPath(), copy);
+                }
             }
             command.seededBy(
                     target.seeds().stream().map(GenerationTarget.Seed::className).toList(),
@@ -115,13 +120,16 @@ public final class GenerationRun {
         } finally {
             Files.deleteIfExists(argfile);
         }
-        Path suite =
-                EvoSuiteCommand.suiteFile(output.toFile(), target.className(), options.testSuffix)
-                        .toPath();
-        Path scaffold =
-                suite.resolveSibling(
-                        suite.getFileName().toString().replace(".java", "_scaffolding.java"));
-        return new Result(exit, suite, scaffold, seeding);
+        return output(exit, output, target, options.testSuffix, seeding);
+    }
+
+    public static Result output(int exitCode, Path folder, GenerationTarget target, String suffix,
+                                SeedingReport seeding) {
+        Path suite = EvoSuiteCommand.suiteFile(folder.toFile(), target.className(), suffix).toPath();
+        String name = suite.getFileName().toString();
+        Path scaffold = suite.resolveSibling(name.substring(0, name.length() - ".java".length())
+                + "_scaffolding.java");
+        return new Result(exitCode, suite, scaffold, seeding);
     }
 
     public static int measureCoverage(
