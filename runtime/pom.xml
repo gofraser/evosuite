@@ -130,15 +130,9 @@
 
     <build>
         <plugins>
-            <!-- The published jar must have the same class inventory whichever JDK
-                 runs the build. src/main/java is compiled with release 8 (inherited
-                 from the parent), so javac enforces the Java 8 API floor. The mocks for
-                 newer platform APIs live in their own source roots and are compiled in
-                 one extra execution, against the JDK's own API, to Java 8 bytecode (they
-                 are only loaded when the running JVM has the API). The enforcer below
-                 fails the build on a JDK that lacks those APIs instead of silently
-                 dropping the classes. src/main/java25 needs a JDK 25 compiler and is only
-                 part of the jar in the opt-in java25 profile (see below). -->
+            <!-- src/main/java compiles against the Java 8 API. The versioned mocks compile against
+                 the build JDK's APIs. JDK 17+ builds include the RandomGenerator
+                 mocks, and the java25 profile adds the ScopedValue mocks. -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
@@ -151,8 +145,8 @@
                         <configuration>
                             <rules>
                                 <requireJavaVersion>
-                                    <version>[17,)</version>
-                                    <message>The runtime module compiles the java11 and java17 source roots against the JDK's own API: build it with JDK 17 or newer.</message>
+                                    <version>[11,)</version>
+                                    <message>The runtime module compiles the java11 source root against the JDK's own API: build it with JDK 11 or newer.</message>
                                 </requireJavaVersion>
                             </rules>
                             <fail>true</fail>
@@ -178,10 +172,23 @@
                             <source>8</source>
                             <target>8</target>
                             <compileSourceRoots>
-                                <compileSourceRoot>${project.basedir}/src/main/java-applet</compileSourceRoot>
                                 <compileSourceRoot>${project.basedir}/src/main/java11</compileSourceRoot>
-                                <compileSourceRoot>${project.basedir}/src/main/java17</compileSourceRoot>
                                 <compileSourceRoot>${project.basedir}/src/main/java-jdk-internal</compileSourceRoot>
+                            </compileSourceRoots>
+                        </configuration>
+                    </execution>
+                    <!-- The Applet API was removed in JDK 26. Compile against its Java 8
+                         signature so the mock stays available on older JVMs. -->
+                    <execution>
+                        <id>compile-applet-mock</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                        <configuration>
+                            <release>8</release>
+                            <compileSourceRoots>
+                                <compileSourceRoot>${project.basedir}/src/main/java-applet</compileSourceRoot>
                             </compileSourceRoots>
                         </configuration>
                     </execution>
@@ -212,6 +219,37 @@
     </build>
 
     <profiles>
+        <profile>
+            <id>java17-mocks</id>
+            <activation>
+                <jdk>[17,)</jdk>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>compile-java17-mocks</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>compile</goal>
+                                </goals>
+                                <configuration>
+                                    <release combine.self="override" />
+                                    <source>8</source>
+                                    <target>8</target>
+                                    <compileSourceRoots>
+                                        <compileSourceRoot>${project.basedir}/src/main/java17</compileSourceRoot>
+                                    </compileSourceRoots>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
         <!-- Opt-in (profile java25, never activated automatically): compiles the mocks for
              JDK 25 APIs in src/main/java25 with release 25 into the normal classes
              directory, so the runtime jar (and the shaded and standalone jars built from

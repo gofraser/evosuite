@@ -22,6 +22,7 @@ package org.evosuite.utils.generic;
 import org.evosuite.Properties;
 import org.evosuite.utils.ParameterizedTypeImpl;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockSettings;
 import org.mockito.Mockito;
 
 import java.io.*;
@@ -71,9 +72,14 @@ public class GenericClassImplMockitoSerializationTest {
         assertEquals("java.util.function.Function<java.lang.Object, java.lang.Byte>",
                 roundTripped.getTypeName());
 
-        Object mock = Mockito.mock(Function.class,
-                withSettings().stubOnly().genericTypeToMock(roundTripped.getType()));
-        assertNotNull(mock);
+        MockSettings settings = withSettings().stubOnly();
+        try {
+            MockSettings.class.getMethod("genericTypeToMock", Type.class)
+                    .invoke(settings, roundTripped.getType());
+        } catch (NoSuchMethodException ignored) {
+            // Mockito 4 in the Java 8 CLI profile has no generic mock setting.
+        }
+        assertNotNull(Mockito.mock(Function.class, settings));
     }
 
     private static GenericClassImpl serializeAndDeserialize(GenericClassImpl value)

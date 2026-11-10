@@ -119,6 +119,18 @@
 
     <profiles>
         <profile>
+            <!-- Build the generator and matching standalone runtime for a Java 8 JVM. -->
+            <id>java8-cli</id>
+            <properties>
+                <logback.version>1.3.16</logback.version>
+                <mockito.version>4.11.0</mockito.version>
+                <jgrapht.version>1.4.0</jgrapht.version>
+                <maven.install.skip>true</maven.install.skip>
+                <maven.deploy.skip>true</maven.deploy.skip>
+                <skipPublishing>true</skipPublishing>
+            </properties>
+        </profile>
+        <profile>
             <!-- Release to Maven Central:
                    mvn -Prelease -Drevision=2.0.0 clean deploy
                  Attaches sources and javadoc, signs with GPG (loopback pinentry, so CI can pass
@@ -128,6 +140,26 @@
             <id>release</id>
             <build>
                 <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-enforcer-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>enforce-release-build-jdk</id>
+                                <goals>
+                                    <goal>enforce</goal>
+                                </goals>
+                                <configuration>
+                                    <rules>
+                                        <requireJavaVersion>
+                                            <version>[17,)</version>
+                                            <message>Release builds require JDK 17 or newer to include the Java 17 mocks.</message>
+                                        </requireJavaVersion>
+                                    </rules>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-source-plugin</artifactId>
@@ -179,7 +211,7 @@
                     <plugin>
                         <groupId>org.sonatype.central</groupId>
                         <artifactId>central-publishing-maven-plugin</artifactId>
-                        <version>0.8.0</version>
+                        <version>0.12.0</version>
                         <extensions>true</extensions>
                         <configuration>
                             <publishingServerId>central</publishingServerId>
@@ -232,13 +264,13 @@
                 <!-- Apache 2 -->
                 <groupId>com.fasterxml.jackson.core</groupId>
                 <artifactId>jackson-databind</artifactId>
-                <version>2.16.1</version>
+                <version>2.23.0</version>
             </dependency>
             <dependency>
                 <!-- Apache 2 -->
                 <groupId>com.google.code.gson</groupId>
                 <artifactId>gson</artifactId>
-                <version>2.10.1</version>
+                <version>2.15.0</version>
             </dependency>
             <dependency>
                 <!-- Apache 2 -->
@@ -265,9 +297,9 @@
             </dependency>
             <dependency>
                 <!-- BSD -->
-                <groupId>dk.brics.automaton</groupId>
+                <groupId>dk.brics</groupId>
                 <artifactId>automaton</artifactId>
-                <version>1.11-8</version>
+                <version>1.13-1</version>
             </dependency>
             <dependency>
                 <!-- MIT -->
@@ -279,7 +311,7 @@
                 <!-- EPL/LGPL -->
                 <groupId>ch.qos.logback</groupId>
                 <artifactId>logback-classic</artifactId>
-                <!-- For Java 8 compatibility, use 1.2.x. 1.3+ requires Java 11 -->
+                <!-- The java8-cli profile selects the Java 8-compatible 1.3.x line. -->
                 <version>${logback.version}</version>
                 <optional>true</optional>
             </dependency>
@@ -349,10 +381,10 @@
                 <version>1.2.0</version>
             </dependency>
             <dependency>
-                <!-- LGPL 2.1 or EPL 2.0; 1.3.x is the last line that runs on Java 8 -->
+                <!-- LGPL 2.1 or EPL 2.0; JGraphT 1.5 requires Java 11. -->
                 <groupId>org.jgrapht</groupId>
                 <artifactId>jgrapht-core</artifactId>
-                <version>1.3.1</version>
+                <version>${jgrapht.version}</version>
             </dependency>
 
             <dependency>
@@ -365,7 +397,7 @@
                 <!-- Apache 2 -->
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-lang3</artifactId>
-                <version>3.20.0</version>
+                <version>${commons-lang3.version}</version>
                 <!-- Version 3.2.1 leads to a NPE in org.jcvi.jillion.fasta.qual.QualityFastaRecordWriterBuilder
                     in 92_jcvi-javacommon -->
             </dependency>
@@ -373,13 +405,13 @@
                 <!-- Apache 2 -->
                 <groupId>commons-io</groupId>
                 <artifactId>commons-io</artifactId>
-                <version>2.22.0</version>
+                <version>${commons-io.version}</version>
             </dependency>
             <dependency>
                 <!-- Apache 2 -->
                 <groupId>commons-cli</groupId>
                 <artifactId>commons-cli</artifactId>
-                <version>1.11.0</version>
+                <version>${commons-cli.version}</version>
             </dependency>
             <dependency>
                 <!-- Apache 2 -->
@@ -392,7 +424,13 @@
                 <!-- Apache 2 -->
                 <groupId>org.apache.maven.shared</groupId>
                 <artifactId>maven-verifier</artifactId>
-                <version>1.7.2</version>
+                <version>2.0.0</version>
+            </dependency>
+            <dependency>
+                <!-- Maven Verifier provides no settings implementation to forked test JVMs. -->
+                <groupId>org.apache.maven</groupId>
+                <artifactId>maven-settings-builder</artifactId>
+                <version>${maven.api.version}</version>
             </dependency>
 
             <dependency>
@@ -411,7 +449,7 @@
             <dependency>
                 <groupId>commons-logging</groupId>
                 <artifactId>commons-logging</artifactId>
-                <version>1.3.5</version>
+                <version>1.4.0</version>
             </dependency>
             <dependency>
                 <groupId>javax.activation</groupId>
@@ -422,7 +460,7 @@
                 <!-- LGPL / Apache 2 -->
                 <groupId>com.github.javaparser</groupId>
                 <artifactId>javaparser-core</artifactId>
-                <version>3.28.0</version>
+                <version>3.28.2</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -436,7 +474,7 @@
                 <inherited>true</inherited>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
-                <version>3.6.3</version>
+                <version>3.7.0</version>
                 <executions>
                     <execution>
                         <id>enforce-maven-3</id>
@@ -457,14 +495,16 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>build-helper-maven-plugin</artifactId>
-                <version>3.6.1</version>
+                <!-- Newer releases require Maven 3.9. -->
+                <version>3.6.2</version>
             </plugin>
             <!-- Version is a CI-friendly ${revision}: write the resolved version into the poms
                  that are installed and deployed, and leave everything else untouched. -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>flatten-maven-plugin</artifactId>
-                <version>1.7.3</version>
+                <!-- Newer releases require Maven 3.9. -->
+                <version>1.8.0</version>
                 <configuration>
                     <updatePomFile>true</updatePomFile>
                     <outputDirectory>${project.build.directory}</outputDirectory>
@@ -490,7 +530,8 @@
             <plugin>
                 <groupId>com.github.spotbugs</groupId>
                 <artifactId>spotbugs-maven-plugin</artifactId>
-                <version>4.9.8.2</version>
+                <!-- Newer releases require Maven 3.8.9. -->
+                <version>4.10.3.0</version>
                 <configuration>
                     <xmlOutput>true</xmlOutput>
                     <excludeFilterFile>spotbugs-exclude.xml</excludeFilterFile>
@@ -523,7 +564,7 @@
             <plugin>
                 <groupId>com.mycila</groupId>
                 <artifactId>license-maven-plugin</artifactId>
-                <version>5.0.0</version>
+                <version>5.1.2</version>
                 <configuration>
                     <licenseSets>
                         <licenseSet>
@@ -575,7 +616,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.15.0</version>
+                <version>3.16.0</version>
                 <configuration>
                     <encoding>${project.build.sourceEncoding}</encoding>
                 </configuration>
@@ -651,6 +692,9 @@
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <version>${surefire.version}</version>
                 <configuration>
+                    <!-- Failsafe 3.6 stopped binding this property by default. Keep it for callers
+                         that use -DskipTests to skip both unit and integration tests. -->
+                    <skipTests>${skipTests}</skipTests>
                     <!-- Same isolation as the unit tests: EvoSuite tests modify global state -->
                     <forkCount>1</forkCount>
                     <reuseForks>false</reuseForks>
@@ -693,6 +737,21 @@
         <pluginManagement>
             <plugins>
                 <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-clean-plugin</artifactId>
+                    <version>3.5.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-install-plugin</artifactId>
+                    <version>3.2.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-deploy-plugin</artifactId>
+                    <version>3.2.0</version>
+                </plugin>
+                <plugin>
                     <!-- This is used differently in "runtime" pom-->
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-jar-plugin</artifactId>
@@ -701,7 +760,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-site-plugin</artifactId>
-                    <version>3.21.0</version>
+                    <version>3.22.0</version>
                 </plugin>
                 <!-- Removed Eclipse m2e lifecycle mapping plugin. For a better solution
                     see: http://stackoverflow.com/questions/7409823/m2e-lifecycle-mapping-not-found -->
@@ -849,16 +908,23 @@
              classpath of the code under test. -->
         <java.release>8</java.release>
 
-        <asm.version>9.10.1</asm.version>
-        <slf4j.version>2.0.16</slf4j.version>
-        <ant.version>1.10.17</ant.version>
-        <junit.version>5.14.3</junit.version>
-        <surefire.version>3.5.4</surefire.version>
+        <asm.version>9.11.1</asm.version>
+        <slf4j.version>2.0.20</slf4j.version>
+        <ant.version>1.10.18</ant.version>
+        <commons-cli.version>1.11.0</commons-cli.version>
+        <commons-io.version>2.22.0</commons-io.version>
+        <commons-lang3.version>3.21.0</commons-lang3.version>
+        <!-- JUnit 6 requires Java 17. -->
+        <junit.version>5.14.4</junit.version>
+        <jgrapht.version>1.5.3</jgrapht.version>
+        <!-- Keep the provided Maven API on the plugin's supported 3.9 line. -->
+        <maven.api.version>3.9.16</maven.api.version>
+        <surefire.version>3.6.1</surefire.version>
         <maven.javadoc.plugin.version>3.12.0</maven.javadoc.plugin.version>
-        <mockito.version>5.23.0</mockito.version>
+        <mockito.version>5.24.0</mockito.version>
         <!-- Byte Buddy 1.17.5+ required for Java 24/25 support -->
-        <bytebuddy.version>1.18.11</bytebuddy.version>
-        <logback.version>1.5.32</logback.version>
+        <bytebuddy.version>1.18.17</bytebuddy.version>
+        <logback.version>1.6.6</logback.version>
 
         <!-- Test classes excluded from the default test run -->
         <exclude.tests.mimeType>**/*TestMIMEType.java</exclude.tests.mimeType>

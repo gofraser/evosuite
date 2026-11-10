@@ -184,7 +184,6 @@ public class ExecutionTracerClassInitTest {
      */
     @Test
     @Timeout(value = 10, unit = TimeUnit.SECONDS)
-    @SuppressWarnings("deprecation")
     public void testAbandonedClassInitTimeoutProbeTerminatesAfterKillSwitchIsDisarmed()
             throws InterruptedException {
         Thread worker = new Thread(() -> {
@@ -211,10 +210,6 @@ public class ExecutionTracerClassInitTest {
             if (worker.isAlive()) {
                 abandonTimeoutProbeStop = true;
                 worker.interrupt();
-                worker.join(1000);
-            }
-            if (worker.isAlive()) {
-                worker.stop();
                 worker.join(1000);
             }
         }

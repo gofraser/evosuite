@@ -290,11 +290,10 @@ public class MockList {
             if (!EvoSuiteMock.class.isAssignableFrom(klass)) {
                 return;
             }
-            // StaticReplacementMock classes can load successfully even when the
-            // JDK class they target is missing, because the JVM resolves field
-            // and signature types lazily. Probe getMockedClassName() up-front
-            // so NoClassDefFoundError surfaces here (once) rather than on every
-            // subsequent getMockClass() call.
+            // Loading the class alone does not resolve its method signatures.
+            // Reject mocks that refer to unavailable types before instrumentation
+            // inspects them (for example, MockProcess refers to ProcessHandle).
+            klass.getMethods();
             if (StaticReplacementMock.class.isAssignableFrom(klass)) {
                 ((StaticReplacementMock) klass.newInstance()).getMockedClassName();
             }

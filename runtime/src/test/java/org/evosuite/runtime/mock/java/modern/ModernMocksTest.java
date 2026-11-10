@@ -27,8 +27,10 @@ import org.evosuite.runtime.mock.java.io.MockIOException;
 import org.evosuite.runtime.mock.java.lang.MockRuntime;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -48,6 +50,7 @@ import java.nio.channels.SeekableByteChannel;
 import java.nio.file.FileStore;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardWatchEventKinds;
@@ -63,6 +66,7 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -1176,6 +1180,19 @@ public class ModernMocksTest {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
             Assertions.assertTrue(cause.getClass().getName().contains("MockIOException"));
         }
+    }
+
+    @Test
+    public void testMockFileSystemsDelegatesPathAndOptionsWhenDisabled(@TempDir Path directory) throws Exception {
+        Assumptions.assumeTrue(java.lang.Runtime.version().feature() >= 13);
+        MockFramework.disable();
+        Path archive = directory.resolve("example.zip");
+        Class<?> mock = Class.forName("org.evosuite.runtime.mock.java.nio.file.MockFileSystems");
+        try (FileSystem fileSystem = (FileSystem) mock.getMethod("newFileSystem", Path.class, Map.class)
+                .invoke(null, archive, Collections.singletonMap("create", "true"))) {
+            Assertions.assertTrue(fileSystem.isOpen());
+        }
+        Assertions.assertTrue(Files.isRegularFile(archive));
     }
 
     @Test

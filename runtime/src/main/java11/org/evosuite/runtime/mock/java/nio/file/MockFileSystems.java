@@ -24,6 +24,7 @@ import org.evosuite.runtime.mock.StaticReplacementMock;
 import org.evosuite.runtime.mock.java.io.MockIOException;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.net.URI;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
@@ -79,24 +80,39 @@ public class MockFileSystems implements StaticReplacementMock {
     }
 
     public static FileSystem newFileSystem(Path path) throws IOException {
-        if (!MockFramework.isEnabled()) {
-            return FileSystems.newFileSystem(path);
-        }
-        throw new MockIOException("Creating custom FileSystem providers is disabled in mocked execution");
+        return newFileSystem(path, (ClassLoader) null);
     }
 
     public static FileSystem newFileSystem(Path path, Map<String, ?> env) throws IOException {
-        if (!MockFramework.isEnabled()) {
-            return FileSystems.newFileSystem(path, env);
-        }
-        throw new MockIOException("Creating custom FileSystem providers is disabled in mocked execution");
+        return newFileSystem(path, env, null);
     }
 
     public static FileSystem newFileSystem(Path path, Map<String, ?> env, ClassLoader loader) throws IOException {
-        if (!MockFramework.isEnabled()) {
-            return FileSystems.newFileSystem(path, env, loader);
+        if (MockFramework.isEnabled()) {
+            throw new MockIOException("Creating custom FileSystem providers is disabled in mocked execution");
         }
-        throw new MockIOException("Creating custom FileSystem providers is disabled in mocked execution");
+        // Resolve the overload on the runtime JDK so this mock also builds on JDK 11.
+        try {
+            return (FileSystem) FileSystems.class.getMethod("newFileSystem", Path.class, Map.class, ClassLoader.class)
+                    .invoke(null, path, env, loader);
+        } catch (InvocationTargetException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof IOException) {
+                throw (IOException) cause;
+            }
+            if (cause instanceof RuntimeException) {
+                throw (RuntimeException) cause;
+            }
+            if (cause instanceof Error) {
+                throw (Error) cause;
+            }
+            throw new IllegalStateException(cause);
+        } catch (NoSuchMethodException e) {
+            throw new UnsupportedOperationException(
+                    "The running JDK has no FileSystems.newFileSystem(Path, Map, ClassLoader)", e);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     public static Iterable<FileSystemProvider> installedProviders() {

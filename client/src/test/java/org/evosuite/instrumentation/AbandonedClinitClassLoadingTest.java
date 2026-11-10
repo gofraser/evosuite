@@ -132,7 +132,6 @@ public class AbandonedClinitClassLoadingTest {
         assertTrue(threw, "an abandoned initializer that loads no classes must still be stopped");
     }
 
-    @SuppressWarnings("deprecation")
     private void runAbandonedInitializer(Class<?> fixture) throws InterruptedException {
         Thread worker = new Thread(() -> {
             try {
@@ -144,10 +143,13 @@ public class AbandonedClinitClassLoadingTest {
         worker.setDaemon(true);
         LoopCounter.getInstance().abandonStaticInitializer(worker);
         worker.start();
-        worker.join(15_000);
-        if (worker.isAlive()) {
-            worker.stop();
-            worker.join(1000);
+        try {
+            worker.join(15_000);
+            assertFalse(worker.isAlive(), "the initializer must finish within the test deadline");
+        } finally {
+            if (worker.isAlive()) {
+                worker.interrupt();
+            }
         }
     }
 

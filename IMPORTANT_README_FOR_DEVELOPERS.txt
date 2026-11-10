@@ -166,10 +166,11 @@ root pom keep no header, because tests depend on their line numbers.
 ---------------------------------------------
 BUILD COMMANDS
 
-Build with JDK 17 (21 also works; JDK 25 additionally compiles
-runtime/src/main/java25, JDK 27 does not work). Maven 3.6.3 or later is
-required. All modules target Java 8 (java.release 8), and the runtime module
-must stay Java 8 compatible.
+Build with JDK 11 or newer and Maven 3.6.3 or later. JDK 17+ builds
+include the RandomGenerator mocks and are required for releases. The optional
+-Pjava25 profile requires JDK 25 or newer and adds the ScopedValue mocks.
+The main source roots target Java 8 (java.release 8). See the README for
+building the Java 8 compatibility CLI and its matching standalone runtime.
 
   mvn package -DskipTests          # fast build, no tests
   mvn verify                       # build and run the tests
@@ -180,6 +181,8 @@ Traps:
   packaged runtime jar, which exists only after the package phase.
 - When building a single module with -pl X, add -am, otherwise Maven resolves
   the other EvoSuite modules from ~/.m2 (possibly a stale version).
+- Run clean when switching JDK versions or the java8-cli profile so classes
+  and shaded JARs from the previous build cannot be reused.
 - A full 'mvn install' rewrites tracked files under
   plugins/build-support-test/projects/*/.m2. Restore them with
   'git checkout plugins/build-support-test'.
@@ -217,9 +220,9 @@ Locally, without changing the pom:
   mvn -Prelease -Drevision=X.Y.Z deploy
 
 The 'release' profile attaches sources and javadoc jars, signs with GPG and
-uploads through central-publishing-maven-plugin. This requires a server with
-id 'central' in ~/.m2/settings.xml (a Central Portal user token) and a GPG
-key configured on your machine. The uploaded bundle is validated but not
+uploads through central-publishing-maven-plugin. This requires Maven 3.9.2
+or later, a 'central' server entry in ~/.m2/settings.xml with a Central Portal
+user token, and a local GPG key. The uploaded bundle is validated but not
 published automatically; publish it from the Central Portal.
 
 After the release, set the 'revision' property in the root pom.xml to the

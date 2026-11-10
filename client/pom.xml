@@ -81,7 +81,7 @@
             <artifactId>cfr</artifactId>
         </dependency>
         <dependency>
-            <groupId>dk.brics.automaton</groupId>
+            <groupId>dk.brics</groupId>
             <artifactId>automaton</artifactId>
         </dependency>
         <dependency>

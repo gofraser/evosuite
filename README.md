@@ -7,8 +7,9 @@ EvoSuite automatically generates JUnit test suites for Java classes, targeting c
 
 # Requirements
 
-- To run EvoSuite, use a JDK (not just a JRE), because generated tests are compiled.
-- To build EvoSuite, use JDK 17 (21 also works) and Maven 3.6.3 or later. All modules are compiled for Java 8 (`java.release` 8), and the `evosuite-runtime` module has to stay Java 8 compatible.
+- The standard generator requires JDK 11 or newer. For JDK 8, build the compatibility CLI and its matching runtime as shown below. Use a JDK so EvoSuite can compile and check the tests it generates.
+- Build EvoSuite with JDK 11 or newer and Maven 3.6.3 or later. Release builds require JDK 17 or newer to include the `RandomGenerator` mocks.
+- The core runtime targets Java 8. To run generated tests that use functional mocks on Java 8, use the compatibility runtime.
 - EvoSuite's sandbox needs a Java security manager. It is available on Java 8 to 17; on Java 18 to 23 only if the JVM is started with `-Djava.security.manager=allow`; Java 24 and later removed the security manager, and the sandbox is then switched off, with a warning.
 
 # Using EvoSuite
@@ -185,13 +186,24 @@ To access the source code, use the github repository:
 
 EvoSuite uses [Maven](https://maven.apache.org/).
 
-To build EvoSuite on the command line, install Maven (3.6.3 or later) and a JDK 17, and call
+To build EvoSuite on the command line, install Maven (3.6.3 or later) and JDK 11 or newer, and call
 
 ```mvn package -DskipTests```
 
 This creates the executable jar with all dependencies at `master/target/evosuite-master-<version>.jar`. Run `mvn verify` to also run the tests. The build version is set by the `revision` property in the root `pom.xml`; a release build overrides it with `-Drevision=<version>`. See [IMPORTANT_README_FOR_DEVELOPERS.txt](IMPORTANT_README_FOR_DEVELOPERS.txt) for more build notes.
 
 To build EvoSuite in Eclipse, make sure you have the [M2Eclipse](https://eclipse.dev/m2e/) plugin installed, and import EvoSuite as Maven project. This will ensure that Eclipse uses Maven to build the project.
+
+### Java 8 compatibility CLI
+
+Build with JDK 11 or newer, then run with JDK 8:
+
+```sh
+mvn -Pjava8-cli -Drevision=java8-SNAPSHOT -DskipTests clean package
+JAVA_HOME=/path/to/jdk8 /path/to/jdk8/bin/java -jar master/target/evosuite-master-java8-SNAPSHOT.jar -help
+```
+
+Use `standalone_runtime/target/evosuite-standalone-runtime-java8-SNAPSHOT.jar` as the runtime dependency for the generated tests. The compatibility profile uses Logback 1.3 and Mockito 4, which are out of active support.
 
 
 # LLM-based operators

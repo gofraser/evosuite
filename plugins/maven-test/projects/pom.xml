@@ -38,16 +38,16 @@
     </modules>
 
     <properties>
-        <jacoco.version>0.8.14</jacoco.version>
+        <jacoco.version>0.8.16</jacoco.version>
         <jmockit.version>1.23</jmockit.version>
         <jmockit.coverage.check>99</jmockit.coverage.check>
         <junit.version>4.13.2</junit.version>
-        <junit.jupiter.version>5.14.3</junit.jupiter.version>
-        <surefire.version>3.5.4</surefire.version>
-        <powermock.version>1.6.5</powermock.version>
+        <junit.jupiter.version>5.14.4</junit.jupiter.version>
+        <surefire.version>3.6.1</surefire.version>
+        <powermock.version>2.0.9</powermock.version>
         <cobertura.version>2.7</cobertura.version>
-        <pit.version>1.22.1</pit.version>
-        <pit.junit5.plugin.version>1.2.2</pit.junit5.plugin.version>
+        <pit.version>1.30.2</pit.version>
+        <pit.junit5.plugin.version>1.2.3</pit.junit5.plugin.version>
         <forkCount>1</forkCount>
         <!-- evosuiteVersion is passed with -D by the integration test -->
         <maven.compiler.source>1.8</maven.compiler.source>
@@ -122,7 +122,7 @@
                 <inherited>true</inherited>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
-                <version>3.6.2</version>
+                <version>3.7.0</version>
                 <executions>
                     <execution>
                         <id>enforce-maven-3</id>
@@ -144,7 +144,7 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>build-helper-maven-plugin</artifactId>
-                <version>3.6.1</version>
+                <version>3.6.2</version>
                 <executions>
                     <execution>
                         <id>add-test-source</id>

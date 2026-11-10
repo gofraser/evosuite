@@ -20,7 +20,7 @@
 package org.evosuite.buildsupport;
 
 import org.apache.commons.io.FileUtils;
-import org.apache.maven.it.Verifier;
+import org.apache.maven.shared.verifier.Verifier;
 import org.apache.tools.ant.DefaultLogger;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.ProjectHelper;
@@ -37,7 +37,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -112,7 +111,7 @@ public class BuildSupportIT {
         Verifier bootstrapRuntimeAndPlugin = new Verifier(repoRoot.toString());
         bootstrapRuntimeAndPlugin.setAutoclean(false);
         bootstrapRuntimeAndPlugin.setLocalRepo(localRepo.toString());
-        bootstrapRuntimeAndPlugin.setCliOptions(Arrays.asList(
+        bootstrapRuntimeAndPlugin.addCliArguments(
                 "-pl", "runtime,plugins/maven",
                 "-am",
                 "-DskipTests",
@@ -121,15 +120,16 @@ public class BuildSupportIT {
                 "-Denforcer.skip=true",
                 "-Dmaven.javadoc.skip=true",
                 "-Dlicense.skip=true",
-                "-Dspotbugs.skip=true"
-        ));
-        bootstrapRuntimeAndPlugin.executeGoal("install");
+                "-Dspotbugs.skip=true",
+                "install"
+        );
+        bootstrapRuntimeAndPlugin.execute();
 
         // Build standalone runtime from a clean module target to avoid stale shaded classes.
         Verifier bootstrapStandaloneRuntime = new Verifier(repoRoot.toString());
         bootstrapStandaloneRuntime.setAutoclean(false);
         bootstrapStandaloneRuntime.setLocalRepo(localRepo.toString());
-        bootstrapStandaloneRuntime.setCliOptions(Arrays.asList(
+        bootstrapStandaloneRuntime.addCliArguments(
                 "-pl", "standalone_runtime",
                 "-DskipTests",
                 "-DskipITs",
@@ -137,9 +137,10 @@ public class BuildSupportIT {
                 "-Denforcer.skip=true",
                 "-Dmaven.javadoc.skip=true",
                 "-Dlicense.skip=true",
-                "-Dspotbugs.skip=true"
-        ));
-        bootstrapStandaloneRuntime.executeGoals(Arrays.asList("clean", "install"));
+                "-Dspotbugs.skip=true",
+                "clean", "install"
+        );
+        bootstrapStandaloneRuntime.execute();
     }
 
     @Test

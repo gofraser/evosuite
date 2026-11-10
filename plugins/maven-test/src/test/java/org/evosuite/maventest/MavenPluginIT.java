@@ -20,8 +20,8 @@
 package org.evosuite.maventest;
 
 import org.apache.commons.io.FileUtils;
-import org.apache.maven.it.VerificationException;
-import org.apache.maven.it.Verifier;
+import org.apache.maven.shared.verifier.VerificationException;
+import org.apache.maven.shared.verifier.Verifier;
 import org.evosuite.runtime.InitializingListener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assumptions;
@@ -36,6 +36,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
@@ -62,7 +63,7 @@ public class MavenPluginIT {
     public void clean() throws Exception{
         Verifier verifier  = getVerifier(projects);
         verifier.addCliOption("evosuite:clean");
-        verifier.executeGoal("clean");
+        executeGoal(verifier, "clean");
 
         for(Path p : Arrays.asList(projects,simple,dependency,env,coverage,extension)){
             FileUtils.deleteDirectory(getESFolder(p).toFile());
@@ -87,7 +88,7 @@ public class MavenPluginIT {
     @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
     public void testCompile() throws Exception{
         Verifier verifier  = getVerifier(projects);
-        verifier.executeGoal("compile");
+        executeGoal(verifier, "compile");
         verifier.verifyTextInLog("SimpleModule");
         verifier.verifyTextInLog("ModuleWithOneDependency");
     }
@@ -98,7 +99,7 @@ public class MavenPluginIT {
     public void testESClean() throws Exception{
         Verifier verifier  = getVerifier(simple);
         verifier.addCliOption("evosuite:clean");
-        verifier.executeGoal("clean");
+        executeGoal(verifier, "clean");
 
         Path es = getESFolder(simple);
         assertFalse(Files.exists(es));
@@ -115,7 +116,7 @@ public class MavenPluginIT {
         addGenerateAndExportOption(verifier);
         verifier.addCliOption("-DtimeInMinutesPerClass=1");
         verifier.addCliOption("-Dcuts="+cut);
-        verifier.executeGoal("compile");
+        executeGoal(verifier, "compile");
 
         Path es = getESFolder(simple);
         assertTrue(Files.exists(es));
@@ -143,7 +144,7 @@ public class MavenPluginIT {
         tooLittle.addCliOption("-Dcores=2");
         tooLittle.addCliOption("-DmemoryInMB=600");
         try {
-            tooLittle.executeGoal("compile");
+            executeGoal(tooLittle, "compile");
             fail();
         } catch (VerificationException e){
             //expected, because CTG needs 500 MB per core
@@ -154,7 +155,7 @@ public class MavenPluginIT {
         verifier.addCliOption("evosuite:generate");
         verifier.addCliOption("-DtimeInMinutesPerClass=1");
         verifier.addCliOption("-Dcores=2");
-        verifier.executeGoal("compile");
+        executeGoal(verifier, "compile");
         verifier.verifyTextInLog("Total memory: 2000mb");
 
         verifyLogFilesExist(simple, a);
@@ -170,7 +171,7 @@ public class MavenPluginIT {
 
         Verifier verifier  = getVerifier(dependency);
         verifier.addCliOption("evosuite:generate");
-        verifier.executeGoal("compile");
+        executeGoal(verifier, "compile");
 
         verifyLogFilesExist(dependency, cut);
     }
@@ -184,7 +185,7 @@ public class MavenPluginIT {
         verifier.addCliOption("evosuite:export");
         verifier.addCliOption("-DtargetFolder="+srcEvo);
 
-        verifier.executeGoal("test");
+        executeGoal(verifier, "test");
 
         Files.exists(dependency.resolve(srcEvo));
         verifyLogFilesExist(dependency,"org.maven_test_project.mwod.OneDependencyClass");
@@ -198,7 +199,7 @@ public class MavenPluginIT {
         addGenerateAndExportOption(verifier);
         verifier.addCliOption("-DforkCount=1");
 
-        verifier.executeGoal("test");
+        executeGoal(verifier, "test");
 
         Files.exists(dependency.resolve(srcEvo));
         String cut = "org.maven_test_project.mwod.OneDependencyClass";
@@ -215,7 +216,7 @@ public class MavenPluginIT {
         addGenerateAndExportOption(verifier);
         verifier.addCliOption("-DforkCount=0");
 
-        verifier.executeGoal("test");
+        executeGoal(verifier, "test");
 
         Files.exists(dependency.resolve(srcEvo));
         String cut = "org.maven_test_project.mwod.OneDependencyClass";
@@ -229,7 +230,7 @@ public class MavenPluginIT {
         Verifier verifier  = getVerifier(env);
         addGenerateAndExportOption(verifier);
 
-        verifier.executeGoal("test");
+        executeGoal(verifier, "test");
 
         Files.exists(env.resolve(srcEvo));
         String cut = "org.maven_test_project.em.FileCheck";
@@ -242,7 +243,7 @@ public class MavenPluginIT {
     @Timeout(value = timeoutInMs, unit = TimeUnit.MILLISECONDS)
     public void testSetupWithExtensionModeFixture() throws Exception {
         Verifier verifier = getVerifier(extension);
-        verifier.executeGoal("test");
+        executeGoal(verifier, "test");
 
         verifier.verifyTextInLog("Running org.maven_test_project.xm.ExtensionTarget_ESTest");
         verifyAgentConfigured(verifier);
@@ -269,7 +270,7 @@ public class MavenPluginIT {
         verifier.addCliOption("evosuite:generate");
         verifier.addCliOption("-Devosuite.timeInMinutesPerClass=1");
         verifier.addCliOption("-Devosuite.cuts=" + cut);
-        verifier.executeGoal("test");
+        executeGoal(verifier, "test");
 
         // generate wrote the tests to the folder setup added, without export or build-helper
         assertTrue(Files.exists(simple.resolve(srcEvo).resolve("org/maven_test_project/sm/SimpleClass_ESTest.java")));
@@ -288,7 +289,7 @@ public class MavenPluginIT {
         Verifier verifier = getVerifier(junit4);
         verifier.addCliOption("evosuite:generate");
         verifier.addCliOption("-Devosuite.timePerClass=1m15s");
-        verifier.executeGoal("test");
+        executeGoal(verifier, "test");
 
         verifier.verifyTextInLog("Generating JUnit 4 tests");
         verifier.verifyTextInLog("Time per class: 1m15s");
@@ -308,13 +309,13 @@ public class MavenPluginIT {
         first.addCliOption("-Devosuite.timeInMinutesPerClass=1");
         first.addCliOption("-Devosuite.cores=2");
         first.addCliOption("-Devosuite.memoryInMB=1200");
-        first.executeGoal("compile");
+        executeGoal(first, "compile");
         verifyLogFilesExist(simple, "org.maven_test_project.sm.SimpleClass");
 
         Verifier second = getVerifier(simple);
         second.addCliOption("evosuite:generate");
         second.addCliOption("-Devosuite.timeInMinutesPerClass=1");
-        second.executeGoal("compile");
+        executeGoal(second, "compile");
         second.verifyTextInLog("testable classes are unchanged since their tests were generated");
     }
 
@@ -324,7 +325,7 @@ public class MavenPluginIT {
     public void testSetupNamesTheMissingRuntimeDependency() throws Exception {
         Verifier verifier = getVerifier(noRuntime);
         try {
-            verifier.executeGoal("test-compile");
+            executeGoal(verifier, "test-compile");
             fail("the generated test cannot compile without the EvoSuite runtime");
         } catch (VerificationException e) {
             // expected
@@ -345,7 +346,7 @@ public class MavenPluginIT {
         verifier.addCliOption(llm.resolve("settings.xml").toAbsolutePath().toString());
         verifier.addCliOption("evosuite:generate");
         verifier.addCliOption("-Devosuite.timeInMinutesPerClass=1");
-        verifier.executeGoal("compile");
+        executeGoal(verifier, "compile");
 
         // the provider is unreachable, so the job generates tests without LLM help
         verifyLogFilesExist(llm, cut);
@@ -386,7 +387,7 @@ public class MavenPluginIT {
             verifier.addCliOption("evosuite:generate");
             verifier.addCliOption("-Devosuite.cuts=org.maven_test_project.sm.SimpleClass");
             try {
-                verifier.executeGoal("compile");
+                executeGoal(verifier, "compile");
                 fail("the build passed although EvoSuite could not run");
             } catch (VerificationException e) {
                 // expected
@@ -412,7 +413,7 @@ public class MavenPluginIT {
         verifier.addCliOption("evosuite:generate");
         verifier.addCliOption("-Devosuite.timeInMinutesPerClass=1");
         verifier.addCliOption("-Devosuite.cuts=" + a + "," + b);
-        verifier.executeGoal("compile");
+        executeGoal(verifier, "compile");
 
         verifyLogFilesExist(simple, a);
         verifyLogFilesExist(dependency, b);
@@ -428,7 +429,7 @@ public class MavenPluginIT {
         verifier.addCliOption("evosuite:generate");
         verifier.addCliOption("-DtimeInMinutesPerClass=1");
         verifier.addCliOption("-Dcuts=" + cut);
-        verifier.executeGoal("compile");
+        executeGoal(verifier, "compile");
 
         verifier.verifyTextInLog("Property 'cuts' is deprecated, use 'evosuite.cuts' instead");
         verifier.verifyTextInLog("Time per class: 1 minutes");
@@ -444,7 +445,7 @@ public class MavenPluginIT {
         addGenerateAndExportOption(verifier);
         addExtensionModeArgs(verifier);
         verifier.addCliOption("-Dcuts=" + cut);
-        verifier.executeGoal("test");
+        executeGoal(verifier, "test");
 
         verifyLogFilesExist(extension, cut);
         verifyESTestsRunFor(verifier, cut);
@@ -461,7 +462,7 @@ public class MavenPluginIT {
         addExtensionModeArgs(verifier);
         verifier.addCliOption("-Dcuts=" + cut);
         verifier.addCliOption("-Ppit");
-        verifier.executeGoal("verify");
+        executeGoal(verifier, "verify");
 
         verifyLogFilesExist(extension, cut);
         verifyESTestsRunFor(verifier, cut);
@@ -479,7 +480,7 @@ public class MavenPluginIT {
         addExtensionModeArgs(verifier);
         verifier.addCliOption("-Dcuts=" + cut);
         verifier.addCliOption("-Pjacoco");
-        verifier.executeGoal("verify");
+        executeGoal(verifier, "verify");
 
         verifyLogFilesExist(extension, cut);
         verifyESTestsRunFor(verifier, cut);
@@ -498,7 +499,7 @@ public class MavenPluginIT {
         addExtensionModeArgs(verifier);
         verifier.addCliOption("-Dcuts=" + cut);
         verifier.addCliOption("-Pjmockit");
-        verifier.executeGoal("verify");
+        executeGoal(verifier, "verify");
 
         verifyLogFilesExist(extension, cut);
         verifyESTestsRunFor(verifier, cut);
@@ -516,7 +517,7 @@ public class MavenPluginIT {
         addExtensionModeArgs(verifier);
         verifier.addCliOption("-Dcuts=" + cut);
         verifier.addCliOption("-DforkCount=0");
-        verifier.executeGoal("test");
+        executeGoal(verifier, "test");
 
         verifyLogFilesExist(extension, cut);
         verifyESTestsRunFor(verifier, cut);
@@ -532,7 +533,7 @@ public class MavenPluginIT {
         addGenerateAndExportOption(verifier);
         addExtensionModeArgs(verifier);
         verifier.addCliOption("-Dcuts=" + cut);
-        verifier.executeGoal("verify");
+        executeGoal(verifier, "verify");
 
         verifyLogFilesExist(extension, cut);
         verifyESTestsRunFor(verifier, cut);
@@ -548,14 +549,14 @@ public class MavenPluginIT {
         addGenerateAndExportOption(first);
         addExtensionModeArgs(first);
         first.addCliOption("-Dcuts=" + cut);
-        first.executeGoal("verify");
+        executeGoal(first, "verify");
         verifyESTestsRunFor(first, cut);
 
         Verifier second = getVerifier(extension);
         addGenerateAndExportOption(second);
         addExtensionModeArgs(second);
         second.addCliOption("-Dcuts=" + cut);
-        second.executeGoal("verify");
+        executeGoal(second, "verify");
 
         verifyLogFilesExist(extension, cut);
         verifyESTestsRunFor(second, cut);
@@ -707,7 +708,7 @@ public class MavenPluginIT {
         addExtensionModeArgs(verifier);
         verifier.addCliOption("-Dcuts=" + cut);
         verifier.addCliOption("-Ppit");
-        verifier.executeGoal("verify");
+        executeGoal(verifier, "verify");
 
         verifyLogFilesExist(extension, cut);
         verifyESTestsRunFor(verifier, cut);
@@ -745,7 +746,7 @@ public class MavenPluginIT {
         verifier.addCliOption("-P"+profile);
         verifier.addCliOption("-DforkCount="+forkCount);
 
-        verifier.executeGoal("verify");
+        executeGoal(verifier, "verify");
 
         Files.exists(env.resolve(srcEvo));
         String cut = "org.maven_test_project.em.FileCheck";
@@ -765,7 +766,7 @@ public class MavenPluginIT {
         verifier.addCliOption("-P"+profile);
         verifier.addCliOption("-DforkCount="+forkCount);
 
-        verifier.executeGoal("verify");
+        executeGoal(verifier, "verify");
 
         Files.exists(dependency.resolve(srcEvo));
         String cut = "org.maven_test_project.mwod.OneDependencyClass";
@@ -776,19 +777,19 @@ public class MavenPluginIT {
     private void testCoveragePass(String profile) throws Exception{
         Verifier verifier = getVerifier(coverage);
         verifier.addCliOption("-P"+profile);
-        verifier.executeGoal("verify");
+        executeGoal(verifier, "verify");
     }
 
     private void testCoverageFail(String profile) throws Exception{
         Verifier verifier = getVerifier(coverage);
         verifier.addCliOption("-Dtest=SimpleClassPartialTest");
 
-        verifier.executeGoal("verify");
+        executeGoal(verifier, "verify");
 
-        verifier.executeGoal("clean");
+        executeGoal(verifier, "clean");
         verifier.addCliOption("-P"+profile);
         try{
-            verifier.executeGoal("verify");
+            executeGoal(verifier, "verify");
             fail();
         } catch (Exception e){
             //expected, as coverage check should had failed
@@ -809,12 +810,12 @@ public class MavenPluginIT {
     }
 
     private void addExtensionModeArgs(Verifier verifier) {
-        verifier.addCliOption("-DextraArgs=\"-Dtest_format=JUNIT5 -Dtest_extension_mode=true -Duse_separate_classloader=false\"");
+        verifier.addCliOption("-DextraArgs=-Dtest_format=JUNIT5 -Dtest_extension_mode=true -Duse_separate_classloader=false");
     }
 
     private void addCoverageToolClassloaderOptionIfNeeded(Verifier verifier, String profile) {
         if (profile != null && (profile.contains("jacoco") || profile.contains("cobertura") || profile.contains("pit"))) {
-            verifier.addCliOption("-DextraArgs=\"-Duse_separate_classloader=false\"");
+            verifier.addCliOption("-DextraArgs=-Duse_separate_classloader=false");
         }
     }
 
@@ -899,8 +900,24 @@ public class MavenPluginIT {
         return project.resolve(".evosuite");
     }
 
+    private void executeGoal(Verifier verifier, String goal) throws VerificationException {
+        // A Verifier can be reused for another phase without carrying this goal into it.
+        List<String> arguments = verifier.getCliOptions();
+        int goalIndex = arguments.size();
+        verifier.addCliArgument(goal);
+        try {
+            verifier.execute();
+        } finally {
+            arguments.remove(goalIndex);
+        }
+    }
+
     private Verifier getVerifier(Path targetProject) throws Exception{
         Verifier verifier  = new Verifier(targetProject.toAbsolutePath().toString());
+        String localRepo = System.getProperty("evosuiteTestMavenRepo");
+        if (localRepo != null) {
+            verifier.setLocalRepo(localRepo);
+        }
         Properties props = new Properties(System.getProperties());
         // Set by the failsafe configuration in pom.xml; pass -DevosuiteVersion=... from an IDE.
         String version = System.getProperty("evosuiteVersion");
