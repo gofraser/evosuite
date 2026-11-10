@@ -2,6 +2,13 @@
 
 Generates JUnit test suites with EvoSuite from inside Eclipse.
 
+## Installing it
+
+The plugin needs Eclipse running on Java 21 or newer. It is built and tested against Eclipse 2026-09.
+Follow the [build instructions](#building) to produce the p2 update site. In Eclipse, choose
+*Help > Install New Software... > Add...*. Select *Local...* and open
+`evosuite-eclipse-site/target/repository`, or select *Archive...* and open the ZIP next to it.
+
 ## Using it
 
 Right-click a class, a package, a source folder or a project in the Package Explorer or the
@@ -231,9 +238,8 @@ plugin state area, with the run's history and pending comparisons.
 
 If a Maven project configures the EvoSuite Maven plugin
 (`org.evosuite.plugins:evosuite-maven-plugin`), among its build plugins or only in
-`pluginManagement`, the plugin takes these settings from the pom. Properties such as
-`evosuite.version` alone do not count.
-That way a class gets the same tests in Eclipse as with `mvn evosuite:generate`:
+`pluginManagement`, Eclipse reads the settings that apply to its run from the POM. Properties such
+as `evosuite.version` alone do not count.
 
 | pom parameter | becomes | if unset |
 |---|---|---|
@@ -244,7 +250,7 @@ That way a class gets the same tests in Eclipse as with `mvn evosuite:generate`:
 | `evosuiteProperties` | `-D` arguments after the Eclipse ones (values may contain spaces) | |
 | `extraArgs` | arguments after those, so they win, as with Maven, except over where EvoSuite writes (see *Settings*) | |
 | `llmApiKeyServerId` | the LLM API key: the password of that `<server>` in Maven's `settings.xml`, decrypted if need be | the key in the Eclipse preferences |
-| `memoryInMB` / `numberOfCores` (or `cores`) | client heap | the Eclipse setting; the Maven default of 800 MB is a whole-module budget |
+| `memoryInMB` / `numberOfCores` (or `cores`) | client heap when the POM sets `memoryInMB` | the Eclipse setting |
 
 If the pom switches the LLM on through `evosuiteProperties` or `extraArgs`, the Eclipse plugin
 supplies the API key and checks the model just as for its own LLM settings. Wherever an API key
@@ -308,7 +314,7 @@ project tests and pending comparisons. Failed placements retain generated source
 ## Building
 
 The plugin is a Tycho build, separate from the EvoSuite reactor because Tycho 5 needs Java 21.
-It bundles the engine jars that the reactor builds:
+It bundles the engine JARs from the main reactor.
 
 ```sh
 # repository root, JDK 17
@@ -321,30 +327,28 @@ mvn -pl master,standalone_runtime -am package -DskipTests
 Use `./mvnw`, which pins Maven 3.9. Maven 3.10 fails on the test bundle with "Invalid Collect
 Request", and the enforcer rejects it up front.
 
-The update site is in `evosuite-eclipse-site/target/repository`, with a zipped copy beside it.
-To install it, use *Help > Install New Software... > Add... > Local...* or *Archive...*, or run
-headlessly:
+To install the update site from the command line, run this from `plugins/eclipse`.
 
 ```sh
 eclipse -nosplash -application org.eclipse.equinox.p2.director \
-  -repository file:$PWD/evosuite-eclipse-site/target/repository,https://download.eclipse.org/releases/2026-09 \
+  -repository "file:$PWD/evosuite-eclipse-site/target/repository,https://download.eclipse.org/releases/2026-09" \
   -installIU org.evosuite.plugins.eclipse.feature.feature.group
 ```
 
-The build compiles and tests against Eclipse 2026-09 (`-Declipse-repo.url=...` selects another
-release). The plugin requires Java 21, so it only installs into an Eclipse that runs on Java 21
-or newer.
+Use `-Declipse-repo.url=...` to build against a different Eclipse release.
 
 ### Tests
 
 `evosuite-eclipse-core-tests` runs in a workbench (Tycho's UI harness). It includes end-to-end
 tests that generate tests for a small class with the bundled EvoSuite and check that the project
-compiles them. They take about two minutes, and run EvoSuite on the JVM that runs the build
-unless you name another JDK. To skip them, pass `-Devosuite.it.skip=true`:
+compiles them. They run EvoSuite on the JDK that runs the build by default. To try a different
+JDK for the generator, set `evosuite.it.javaHome`.
 
 ```sh
 ./mvnw verify -Devosuite.it.javaHome=/path/to/jdk-17
 ```
+
+Pass `-Devosuite.it.skip=true` to skip the end-to-end generation checks.
 
 The settings tests open the pages in the workbench's dialogs, and the tests of the existing-suites
 dialog and the compare editor open those. To look at them, name a directory in

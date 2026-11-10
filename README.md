@@ -1,224 +1,162 @@
-# What is EvoSuite?
+# ![EvoSuite](docs/images/evosuite-wordmark.png)
 
-[![CI](https://github.com/EvoSuite/evosuite/actions/workflows/ci.yml/badge.svg)](https://github.com/EvoSuite/evosuite/actions/workflows/ci.yml)
+[![Development CI](https://github.com/gofraser/evosuite/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/gofraser/evosuite/actions/workflows/ci.yml?query=branch%3Amaster)
 
+EvoSuite automatically generates JUnit test suites for Java classes, targeting code coverage criteria such as branch coverage. It uses an evolutionary search to find tests, minimises the resulting suite, and adds regression assertions that capture the current behaviour of the classes under test.
 
-EvoSuite automatically generates JUnit test suites for Java classes, targeting code coverage criteria such as branch coverage. It uses an evolutionary approach based on a genetic algorithm to derive test suites. To improve readability, the generated unit tests are minimized, and regression assertions that capture the current behavior of the tested classes are added to the tests.
+## Downloads
 
-# Requirements
+[GitHub Releases](https://github.com/EvoSuite/evosuite/releases/latest) has the executable JAR and the matching standalone runtime JAR. For the Maven plugin and runtime published on Maven Central, check the versions there. The examples below use the current source checkout.
 
-- The standard generator requires JDK 11 or newer. For JDK 8, build the compatibility CLI and its matching runtime as shown below. Use a JDK so EvoSuite can compile and check the tests it generates.
-- Build EvoSuite with JDK 11 or newer and Maven 3.6.3 or later. Release builds require JDK 17 or newer to include the `RandomGenerator` mocks.
-- The core runtime targets Java 8. To run generated tests that use functional mocks on Java 8, use the compatibility runtime.
-- EvoSuite's sandbox needs a Java security manager. It is available on Java 8 to 17; on Java 18 to 23 only if the JVM is started with `-Djava.security.manager=allow`; Java 24 and later removed the security manager, and the sandbox is then switched off, with a warning.
+- [EvoSuite Maven plugin](https://central.sonatype.com/artifact/org.evosuite.plugins/evosuite-maven-plugin)
+- [EvoSuite standalone runtime](https://central.sonatype.com/artifact/org.evosuite/evosuite-standalone-runtime)
 
-# Using EvoSuite
+## Quick start
 
-There are different ways to use EvoSuite:
+Use JDK 17 for this example. From the root of the EvoSuite checkout, [build the JARs](#building-evosuite). Set `version` to the `revision` in the root `pom.xml` if it differs from the one below. Then compile a small class and ask EvoSuite to cover its branches.
 
-### EvoSuite on the command line
+```sh
+version=1.2.1-SNAPSHOT
+engine="$PWD/master/target/evosuite-master-$version.jar"
+runtime="$PWD/standalone_runtime/target/evosuite-standalone-runtime-$version.jar"
+cd "$(mktemp -d)"
 
-EvoSuite comes as an executable jar file which you can call as follows:
+cat > Calculator.java <<'EOF'
+package example;
 
-```java -jar evosuite.jar <options>```
+public class Calculator {
+    public int sign(int value) {
+        return value < 0 ? -1 : 1;
+    }
+}
+EOF
 
-To generate a test suite using EvoSuite, use the following command:
-
-```java -jar evosuite.jar <target> [options]```
-
-The target can be a class:
-
-```-class <ClassName>```
-
-or a package prefix, in which case EvoSuite tries to generate a test
-suite for each class in the classpath that matches the prefix:
-
-```-prefix <PrefixName>```
-
-or a classpath entry, in which case EvoSuite tries to generate a test
-suite for each class in the given classpath entry:
-
-```-target <jar file or directory>```
-
-The most important option is to set the classpath, using standard Java
-classpath syntax:
-
-```-projectCP <classpath>```
-
-For more options, see the
-[Documentation](https://www.evosuite.org/documentation/commandline/)
-
-```java -jar evosuite.jar -help```
-
-### EvoSuite on Docker
-
-The repository contains a `Dockerfile` that builds EvoSuite from the sources and runs it on a Temurin 17 JDK. Build the image locally:
-
-```
-git clone https://github.com/EvoSuite/evosuite.git
-cd evosuite
-docker build . --tag evosuite/evosuite:local
+mkdir -p classes test-classes
+javac -d classes Calculator.java
+java -jar "$engine" -class example.Calculator -projectCP classes \
+  -seed 17 -criterion BRANCH -Dsearch_budget=3
 ```
 
-(Tests are skipped in the image build; pass `--build-arg SKIP_TESTS=false` to run them.) There is also an [EvoSuite repository on Docker Hub](https://hub.docker.com/r/evosuite/evosuite); check which tags it offers before pulling.
+EvoSuite writes `evosuite-tests/example/Calculator_ESTest.java`. The current CLI generates JUnit 5 tests by default. Run the generated tests with JUnit and the EvoSuite runtime from the same build.
 
-EvoSuite can be called as follows:
-
-```docker run -it -u ${UID} -v ${PWD}:/evosuite evosuite/evosuite:local <options>```
-
-It assumes that the project to be tested is located in the current directory the command is called from. The current directory, ```${PWD}```, is mapped to the ```/evosuite``` directory inside the container. This location is also the working directory of EvoSuite. All results will be mapped back to the directory on the host system. The ```-u ${UID}``` makes sure that the results have the same file ownership as the user initiating the command.
-
-When EvoSuite needs to be run in the background, you can use ```-d``` instead of ```-it```.
-
-The ```<options>``` are the same as they would be when EvoSuite is called from the command line.
-
-
-#### Large-scale experiment runner
-
-The repository also contains `Dockerfile.experiment`, an image to run large-scale experiments easily. Build it locally:
-
-```
-git clone https://github.com/EvoSuite/evosuite.git
-cd evosuite
-git checkout <tag> # optional: build a specific release
-docker build -f Dockerfile.experiment . --tag evosuite/evosuite:experiment
+```sh
+junit=junit-platform-console-standalone-1.14.4.jar
+curl -fLO "https://repo.maven.apache.org/maven2/org/junit/platform/junit-platform-console-standalone/1.14.4/$junit"
+javac -cp "classes:$runtime:$junit" -d test-classes evosuite-tests/example/*.java
+java "-javaagent:$runtime" -jar "$junit" execute \
+  --class-path "classes:test-classes:$runtime" --select-class example.Calculator_ESTest
 ```
 
-The experiment runner can be called as follows:
+For your own project, give `-projectCP` the compiled classes and their dependencies, using the usual Java classpath separator (`:` on Unix and `;` on Windows). Use `-class` for a fully qualified class name, `-prefix` for a package and its subpackages, or `-target` for a JAR or directory of class files. Run `java -jar "$engine" -help` for the options available in your build.
 
-```docker run -it -u ${UID} -v ${PWD}:/evosuite evosuite/evosuite:experiment [<options>] <configurations_file> <projects_file>```
+## Requirements
 
-and has the following options:
-```
--h                       print help and exit
--m <memory>              memory limit (MB) for the EvoSuite client process (default: 2500)
--p <parallel_instances>  limit for the number of parallel executions (default: 1)
--r <rounds>              number of rounds to execute each experiment (default: 1)
--s <seeds_file>          file with the seeds for the executions of the experiment (default: SEEDS)
--t <timeout>             amount of time before EvoSuite process is killed (default: 10m)
-```
+- The standard generator needs a JDK (11 or newer) to compile and check the tests it generates. For Java 8, use the [compatibility CLI](#java-8-compatibility-cli).
+- The core runtime targets Java 8. Use the matching compatibility runtime for tests that use functional mocks on Java 8.
+- EvoSuite uses the Security Manager to sandbox the code under test. On JDK 18–23, pass `-Djava.security.manager=allow` before `-jar` to enable the sandbox. Java 24 permanently disabled the Security Manager, so EvoSuite runs with the sandbox off and prints a warning.
 
-It assumes that the current working directory has a folder named ```projects```, which contains a sub-directory for each project under test containing all jar files for that project. The current directory should also contain two csv files:
+## Building EvoSuite
 
-- One for the different configurations of the experiment, with two columns for the ```configuration_name``` and the ```user_configuration```
-- One for the classes per project, with two columns for the ```project_name``` (which should be the same as the folder under ```projects```) and the ```class``` (which should be the full class path)
+Use Maven 3.6.3 or later and JDK 11 or newer. To build the JARs, run the following from the repository root.
 
-An example of the directory structure would be:
-
-```
-./projects/<project1_name>/<first jar file of project 1>
-./projects/<project1_name>/<second jar file of project 1>
-./projects/<project2_name>/<jar file of project 2>
-./configurations.csv
-./projects.csv
+```sh
+mvn clean package -DskipTests
 ```
 
-configurations.csv:
-```
-configuration_name,user_configuration
-default60,-generateMOSuite -Dalgorithm=DynaMOSA -Dsearch_budget=60 -Dassertion_timeout=120 -Dminimization_timeout=120
-default120,-generateMOSuite -Dalgorithm=DynaMOSA -Dsearch_budget=120 -Dassertion_timeout=120 -Dminimization_timeout=120
-```
+The executable JAR is `master/target/evosuite-master-<version>.jar`. The matching test runtime is `standalone_runtime/target/evosuite-standalone-runtime-<version>.jar`. Run `mvn verify` to build and run the tests.
 
-The configuration for the projectCP, class, seed, and output locations are already provided by the image.
-
-projects.csv:
-```
-project_name,class
-<project1_name>,com.project1.application
-```
-
-The image will put the output of the experiment in the following locations (inside the current directory):
-
-- ```./results/<configuration_name>/<project_name>/<class_name>/logs/<round>```
-- ```./results/<configuration_name>/<project_name>/<class_name>/reports/<round>/```
-- ```./results/<configuration_name>/<project_name>/<class_name>/tests/<round>/```
-
-When you run the image, it will automatically generate a SEEDS file in the current directory containing the seeds it used for the experiment. When you want to replicate the experiment, you can put that file back in the same place and instead of creating new seeds the image will now use those seeds.
-
-When you want to set a manual class path instead of letting the script determine one for you, a file called, 'CLASSPATH' can be put inside the individual project folders where the first line is the class path for that project.
-
-When EvoSuite needs to be run in the background, you can use ```-d``` instead of ```-it```.
-
-### EvoSuite plugin for Eclipse
-
-The Eclipse plugin is built from [plugins/eclipse](plugins/eclipse/) as a standalone Tycho build, which runs EvoSuite in a separate process. See [plugins/eclipse/README.md](plugins/eclipse/README.md) for how to use it, how to build it, and how to install the resulting p2 update site.
-
-### EvoSuite plugin for Maven
-
-EvoSuite has a Maven Plugin that can be used to generate new test cases as part of the build. This has at least the following advantages:
-
-1. Can run EvoSuite from Continuous Integration servers (eg a CI server) with minimal configuration overheads
-2. Generated tests can be put directly on the classpath of the system based on the pom.xml files
-3. No need to install EvoSuite on local machine (Maven will take care of it automatically)
-
-```xml
-<plugin>
-  <groupId>org.evosuite.plugins</groupId>
-  <artifactId>evosuite-maven-plugin</artifactId>
-  <version>${evosuite.version}</version>
-  <executions>
-    <execution>
-      <goals>
-        <goal>setup</goal>
-      </goals>
-    </execution>
-  </executions>
-</plugin>
-```
-
-Tests are then generated with `mvn evosuite:generate`. The project also needs `org.evosuite:evosuite-standalone-runtime` in the same version as a test dependency.
-
-Generated tests are written to `src/test/evosuite`, which the plugin adds to the build, and later runs only
-regenerate tests for classes that changed. See [plugins/maven/README.md](plugins/maven/README.md) for setup
-and options.
-
-# Getting EvoSuite
-
-The current release of EvoSuite (main EvoSuite jar file and plugins) is available for download at <https://www.evosuite.org/downloads/>.
-
-To access the source code, use the github repository:
-
-```git clone https://github.com/EvoSuite/evosuite.git```
-
-
-# Building EvoSuite
-
-EvoSuite uses [Maven](https://maven.apache.org/).
-
-To build EvoSuite on the command line, install Maven (3.6.3 or later) and JDK 11 or newer, and call
-
-```mvn package -DskipTests```
-
-This creates the executable jar with all dependencies at `master/target/evosuite-master-<version>.jar`. Run `mvn verify` to also run the tests. The build version is set by the `revision` property in the root `pom.xml`; a release build overrides it with `-Drevision=<version>`. See [IMPORTANT_README_FOR_DEVELOPERS.txt](IMPORTANT_README_FOR_DEVELOPERS.txt) for more build notes.
-
-To build EvoSuite in Eclipse, make sure you have the [M2Eclipse](https://eclipse.dev/m2e/) plugin installed, and import EvoSuite as Maven project. This will ensure that Eclipse uses Maven to build the project.
+Release builds need Maven 3.9.2 or later and JDK 17 or newer to include the `RandomGenerator` mocks. See [CONTRIBUTING.md](CONTRIBUTING.md) for build, test, and release instructions.
 
 ### Java 8 compatibility CLI
 
-Build with JDK 11 or newer, then run with JDK 8:
+Build with JDK 11 or newer, then run the resulting generator with JDK 8.
 
 ```sh
 mvn -Pjava8-cli -Drevision=java8-SNAPSHOT -DskipTests clean package
 JAVA_HOME=/path/to/jdk8 /path/to/jdk8/bin/java -jar master/target/evosuite-master-java8-SNAPSHOT.jar -help
 ```
 
-Use `standalone_runtime/target/evosuite-standalone-runtime-java8-SNAPSHOT.jar` as the runtime dependency for the generated tests. The compatibility profile uses Logback 1.3 and Mockito 4, which are out of active support.
+Use `standalone_runtime/target/evosuite-standalone-runtime-java8-SNAPSHOT.jar` when compiling and running the generated tests. The compatibility profile uses Logback 1.3 and Mockito 4, which are out of active support.
 
+## Maven and Eclipse plugins
 
-# LLM-based operators
+The [Maven plugin](plugins/maven/README.md) requires Maven 3.9 or later. Add its `setup` goal and the matching standalone runtime test dependency as shown in the plugin guide. Run `mvn evosuite:generate` to generate tests in `src/test/evosuite`, then `mvn test` to run them. Later runs generate tests for classes that have no suite yet or whose bytecode, superclass bytecode, or EvoSuite version has changed.
 
-EvoSuite can use a large language model inside the search, as semantic mutation and crossover operators. They are off by default. Key properties, with their descriptions from `Properties.java` (group `LLM`, which lists the remaining `llm_*` properties):
+The [Eclipse plugin](plugins/eclipse/README.md) runs EvoSuite in a separate JVM. The plugin guide explains how to build the p2 update site with Tycho and install it into Eclipse.
 
-- `llm_operator_mode`: How LLM semantic operators take part in MOSA breeding: OFF uses the standard operators only; SYNC replaces standard mutation/crossover with a blocking LLM call on offspring whose parent was chosen by the operator target selector (subject to `llm_mutation_probability` / `llm_crossover_probability`); ASYNC submits selector targets to a background executor each generation and its results enter the next generation as external candidates.
-- `llm_operator_targeting`: How LLM operator targets are chosen: DIRECTED ranks (parent, goal) pairs by closeness to an uncovered goal; RANDOM pairs random individuals with random current goals as a control.
+## Docker
 
-# More Information
+The repository's Dockerfile builds EvoSuite from source and runs it on Temurin 17. Build the image from the repository root.
 
-Usage documentation can be found at <https://www.evosuite.org/documentation/>
+```sh
+docker build -t evosuite/evosuite:local .
+```
 
-The developers' mailing list is hosted at <https://groups.google.com/g/evosuite>
+The image build skips tests. Pass `--build-arg SKIP_TESTS=false` to run the tests included in Maven's `package` phase. [Docker Hub](https://hub.docker.com/r/evosuite/evosuite/tags) also has images for older releases.
 
-EvoSuite has resulted in a number of publications, all of which are available at <https://www.evosuite.org/publications/>
+Run the image from the project directory. Docker mounts it at `/evosuite`, so EvoSuite reads the project and writes its results there. The user ID keeps the files owned by the user who started the container.
 
+```sh
+docker run --rm -it -u "$(id -u)" -v "$PWD:/evosuite" evosuite/evosuite:local -help
+```
 
+Replace `-help` with the usual EvoSuite arguments. Use `-d` in place of `-it` to run in the background.
+
+### Large-scale experiment runner
+
+Build the experiment image from the repository root. To use a particular EvoSuite version, check out its tag first.
+
+```sh
+docker build -f Dockerfile.experiment -t evosuite/evosuite:experiment .
+```
+
+Prepare a directory with the project JARs and two CSV files. Start with a directory that has no `results/` folder.
+
+```text
+projects/project1/project1.jar
+projects/project1/dependency.jar
+configurations.csv
+projects.csv
+```
+
+`configurations.csv` lists the EvoSuite configurations to compare.
+
+```csv
+configuration_name,user_configuration
+default60,-generateMOSuite -Dalgorithm=DynaMOSA -Dsearch_budget=60 -Dassertion_timeout=120 -Dminimization_timeout=120
+default120,-generateMOSuite -Dalgorithm=DynaMOSA -Dsearch_budget=120 -Dassertion_timeout=120 -Dminimization_timeout=120
+```
+
+`projects.csv` names the project directory and the fully qualified class to test.
+
+```csv
+project_name,class
+project1,com.project1.Application
+```
+
+Run the experiment image from that directory.
+
+```sh
+docker run --rm -it -u "$(id -u)" -v "$PWD:/evosuite" evosuite/evosuite:experiment \
+  configurations.csv projects.csv
+```
+
+The runner supplies the classpath, class name, seed, and output paths. If a project needs a specific classpath, put it on the first line of `projects/<project>/CLASSPATH`. For each configuration, project, and class, the runner writes `logs/<round>`, `reports/<round>/`, and `tests/<round>/` under `results/<configuration>/<project>/<class>/`. It replaces dots in the class name with underscores.
+
+Keep the `SEEDS` file to reuse the same seeds for a repeat run. The runner accepts `-r` for the number of rounds, `-p` for parallel runs, `-m` for client memory in MB, `-t` for the timeout, and `-s` for a different seeds file. Pass `-h` to see the defaults.
+
+## Using a language model
+
+EvoSuite can use a language model to seed the search or to suggest changes to tests during the search. LLM support is off by default. Set `llm_provider` to `OPENAI`, `ANTHROPIC`, or `OLLAMA` and enable the feature you want to use. For example, pass `-Dllm_provider=OPENAI -Dllm_seed_initial_population=true` to seed the initial population with OpenAI. For an API that needs a key, set `EVOSUITE_LLM_API_KEY` in the environment. Run `java -jar "$engine" -listParameters` to see the `llm_*` settings. The [Maven plugin guide](plugins/maven/README.md#llm-support) shows how to configure a provider in a Maven project.
+
+## License and citation
+
+EvoSuite is released under the [GNU Lesser General Public License, version 3 or later](LICENSE.txt).
+
+If you use EvoSuite in your research, please cite Gordon Fraser and Andrea Arcuri, [EvoSuite: Automatic Test Suite Generation for Object-Oriented Software](https://doi.org/10.1145/2025113.2025179), ESEC/FSE 2011. See the project website for [other publications](https://www.evosuite.org/publications/).
+
+## More information
+
+- [Documentation](https://www.evosuite.org/documentation/)
+- [EvoSuite mailing list](https://groups.google.com/g/evosuite)
+- [Report an issue](https://github.com/EvoSuite/evosuite/issues)

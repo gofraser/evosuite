@@ -1,14 +1,27 @@
 # EvoSuite Maven plugin
 
-The plugin generates JUnit tests for a Maven project with EvoSuite, and wires the generated tests into
-the build so that `mvn test` compiles and runs them like any other test. Maven downloads EvoSuite
-itself, so nothing needs to be installed.
+The plugin generates JUnit tests for a Maven project. It adds the generated tests to the build so
+that `mvn test` runs them with the rest of your tests.
 
-Requires Maven 3.9 or later.
+Use Maven 3.9 or later and JDK 11 or newer. The `setup` goal below is part of the current plugin.
+To try it before release, build the plugin and the matching runtime from this checkout.
+
+## Trying a local build
+
+Run this from the EvoSuite repository root. Use a separate Maven repository so the build does not
+replace a snapshot you already use.
+
+```sh
+repo=$(mktemp -d)
+mvn -Dmaven.repo.local="$repo" -pl plugins/maven,standalone_runtime -am install -DskipTests
+```
+
+Set `evosuite.version` in the project under test to the `revision` in EvoSuite's root `pom.xml`.
+Use the same `-Dmaven.repo.local="$repo"` when running `evosuite:generate` and `test` in that project.
 
 ## Setup
 
-Add the plugin with its `setup` goal, and the EvoSuite runtime, in the same version, as a test dependency:
+Add the plugin with its `setup` goal and add the matching EvoSuite runtime as a test dependency.
 
 ```xml
 <build>
@@ -164,8 +177,8 @@ responses, which include code of the project, are written to `.evosuite/llm-trac
 
 ## JDK
 
-EvoSuite runs on the JDK Maven runs on, unless a toolchain is selected with maven-toolchains-plugin, in which
-case it runs on the toolchain's JDK.
+EvoSuite runs on Maven's JDK by default. If the project selects a JDK with
+`maven-toolchains-plugin`, EvoSuite runs on that JDK instead. Use JDK 11 or newer for the toolchain too.
 
 ## Upgrading from earlier versions
 

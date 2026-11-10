@@ -130,9 +130,8 @@
 
     <build>
         <plugins>
-            <!-- src/main/java compiles against the Java 8 API. The versioned mocks compile against
-                 the build JDK's APIs. JDK 17+ builds include the RandomGenerator
-                 mocks, and the java25 profile adds the ScopedValue mocks. -->
+            <!-- src/main/java compiles against the Java 8 API. The build JDK selects
+                 which additional mocks to compile. -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
@@ -250,20 +249,13 @@
                 </plugins>
             </build>
         </profile>
-        <!-- Opt-in (profile java25, never activated automatically): compiles the mocks for
-             JDK 25 APIs in src/main/java25 with release 25 into the normal classes
-             directory, so the runtime jar (and the shaded and standalone jars built from
-             it) contain them. They are class file version 69 and MockList only registers
-             them when the running JVM can load them (JDK 25 or newer); without the profile
-             the jar simply lacks them. The profile needs nothing in the shaded or
-             standalone_runtime modules: they take whatever is in the runtime jar.
-             Only MockScopedValue and MockScopedValueCarrier are compiled: ScopedValue is
-             final in JDK 25 (JEP 506). StructuredTaskScope is still a preview API in
-             JDK 25 (JEP 505), so MockStructuredTaskScope cannot be compiled without
-             the preview flag, which would mark its class file as loadable only on exactly
-             that JDK with preview enabled. It stays out until the API is final. -->
+        <!-- Compile the ScopedValue mocks against Java 25. MockList skips them on older JVMs.
+             StructuredTaskScope is a preview API in Java 25 and stays out of the jar. -->
         <profile>
             <id>java25</id>
+            <activation>
+                <jdk>[25,)</jdk>
+            </activation>
             <build>
                 <plugins>
                     <plugin>
