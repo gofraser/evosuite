@@ -28,10 +28,32 @@ import org.evosuite.utils.generic.GenericMethod;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.Collections;
 import java.util.Optional;
 
 public class DmonCoordinatorTest {
+
+    @Test
+    public void promotionPlanSurvivesSerialization() throws Exception {
+        DmonFailureSite site = new DmonFailureSite("example.Target", "run", 12,
+                DmonFailureSiteKind.METHOD_INVOCATION);
+        DmonPromotionPlan plan = new DmonPromotionPlan(site, Optional.of("this.dep"),
+                Optional.empty(), Optional.of("dep"), null);
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ObjectOutputStream out = new ObjectOutputStream(bytes)) {
+            out.writeObject(plan);
+        }
+        try (ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
+            DmonPromotionPlan restored = (DmonPromotionPlan) in.readObject();
+            Assert.assertEquals(plan, restored);
+            Assert.assertEquals(Optional.of("this.dep"), restored.getNullExpression());
+            Assert.assertEquals(Optional.empty(), restored.getInferredMissingTypeName());
+        }
+    }
 
     public static class CacheCtorTarget {
         public CacheCtorTarget() {

@@ -64,6 +64,7 @@ public class ConstructionPath {
      * @param obj the object to compare to
      * @return true if the other object is an equal construction path
      */
+    @Override
     public boolean equals(Object obj) {
         if (obj instanceof ConstructionPath) {
             ConstructionPath otherPath = (ConstructionPath) obj;
@@ -80,6 +81,11 @@ public class ConstructionPath {
         }
 
         return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return path.hashCode();
     }
 
     /**

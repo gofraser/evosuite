@@ -32,7 +32,7 @@ import org.evosuite.symbolic.vm.heap.SymbolicArrayImpl;
 import org.evosuite.symbolic.vm.heap.SymbolicInputArray;
 import org.objectweb.asm.Type;
 
-import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Map;
 
 /**
@@ -47,7 +47,8 @@ public class LazyArraysImpl implements ArraysSection {
      *
      * <p>TODO: Implement Strings and References</p>
      */
-    private final Map<ReferenceExpression, SymbolicArray> symbolicArrays = new HashMap<>();
+    // Array constants can enter the heap before their concrete reference is initialized.
+    private final Map<ReferenceExpression, SymbolicArray> symbolicArrays = new IdentityHashMap<>();
 
     @Override
     public ReferenceExpression arrayLoad(ReferenceExpression symbolicArray, IntegerValue symbolicIndex,

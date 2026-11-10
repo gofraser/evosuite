@@ -21,9 +21,7 @@
 
 -->
 <!--
-  This file contains some false positive bugs detected by findbugs. Their
-  false positive nature has been analyzed individually and they have been
-  put here to instruct findbugs it must ignore them.
+  Exceptions for deliberate behaviours reported by SpotBugs.
 -->
 <FindBugsFilter>
 
@@ -40,13 +38,35 @@
     <Bug pattern="DM_GC" />
   </Match>
   
-  <!-- Ignore encoding warnings -->
+  <!-- These constructors mirror the JDK overloads that use the platform charset. -->
   <Match>
+    <Or>
+      <Class name="org.evosuite.runtime.mock.java.io.MockFileReader" />
+      <Class name="org.evosuite.runtime.mock.java.io.MockFileWriter" />
+      <Class name="org.evosuite.runtime.mock.java.io.MockPrintWriter" />
+    </Or>
+    <Method name="&lt;init&gt;" />
     <Bug pattern="DM_DEFAULT_ENCODING" />
   </Match>
-  
-  <!-- We do this quite a lot -->
+
+  <!-- The legacy scaffolding list can have been written using the platform charset. -->
   <Match>
+    <Class name="org.evosuite.runtime.InitializingListenerUtils" />
+    <Method name="~(read|write)InitializationClassList" />
+    <Bug pattern="DM_DEFAULT_ENCODING" />
+  </Match>
+
+  <!-- The JUnit listener enables the shared runtime settings for the test run. -->
+  <Match>
+    <Class name="org.evosuite.runtime.InitializingListener" />
+    <Method name="testRunStarted" />
+    <Bug pattern="ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD" />
+  </Match>
+
+  <!-- Releasing a lease updates the shared spawn manager under its lock. -->
+  <Match>
+    <Class name="org.evosuite.maven.util.SpawnProcessManagerLease" />
+    <Method name="close" />
     <Bug pattern="ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD" />
   </Match>
 </FindBugsFilter>

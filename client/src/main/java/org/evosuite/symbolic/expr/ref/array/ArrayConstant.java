@@ -23,6 +23,8 @@ import org.evosuite.symbolic.expr.ExpressionVisitor;
 import org.evosuite.symbolic.expr.ref.NonNullReferenceConstant;
 import org.objectweb.asm.Type;
 
+import java.util.Objects;
+
 /**
  * Represents an instant of an array.
  *
@@ -30,25 +32,36 @@ import org.objectweb.asm.Type;
  */
 public abstract class ArrayConstant extends NonNullReferenceConstant implements ArrayValue {
 
+    private static final long serialVersionUID = -4837586943538263455L;
+
     public ArrayConstant(Type arrayType, int instanceId) {
         super(arrayType, instanceId);
     }
 
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        ArrayConstant other = (ArrayConstant) obj;
+        return concreteValue != null && concreteValue.equals(other.concreteValue);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(concreteValue);
+    }
+
     public static final class IntegerArrayConstant extends ArrayConstant implements ArrayValue.IntegerArrayValue {
+
+        private static final long serialVersionUID = 8782417009903552164L;
 
         public IntegerArrayConstant(Type arrayType, int instanceId) {
             super(arrayType, instanceId);
         }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (obj instanceof ArrayConstant.IntegerArrayConstant) {
-                ArrayConstant.IntegerArrayConstant v = (ArrayConstant.IntegerArrayConstant) obj;
-                return this.concreteValue.equals(v.concreteValue);
-            }
-            return false;
-        }
-
 
         @Override
         public <K, V> K accept(ExpressionVisitor<K, V> v, V arg) {
@@ -58,17 +71,10 @@ public abstract class ArrayConstant extends NonNullReferenceConstant implements 
 
     public static final class RealArrayConstant extends ArrayConstant implements ArrayValue.RealArrayValue {
 
+        private static final long serialVersionUID = 4245124775439103610L;
+
         public RealArrayConstant(Type arrayType, int instanceId) {
             super(arrayType, instanceId);
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (obj instanceof ArrayConstant.RealArrayConstant) {
-                ArrayConstant.RealArrayConstant v = (ArrayConstant.RealArrayConstant) obj;
-                return this.concreteValue.equals(v.concreteValue);
-            }
-            return false;
         }
 
         @Override
@@ -79,17 +85,10 @@ public abstract class ArrayConstant extends NonNullReferenceConstant implements 
 
     public static final class StringArrayConstant extends ArrayConstant implements ArrayValue.StringArrayValue {
 
+        private static final long serialVersionUID = -431480209150834944L;
+
         public StringArrayConstant(int instanceId) {
             super(Type.getType(String[].class), instanceId);
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (obj instanceof ArrayConstant.StringArrayConstant) {
-                ArrayConstant.StringArrayConstant v = (ArrayConstant.StringArrayConstant) obj;
-                return this.concreteValue.equals(v.concreteValue);
-            }
-            return false;
         }
 
         @Override
@@ -100,17 +99,10 @@ public abstract class ArrayConstant extends NonNullReferenceConstant implements 
 
     public static final class ReferenceArrayConstant extends ArrayConstant implements ArrayValue.ReferenceArrayValue {
 
+        private static final long serialVersionUID = -8345808433788765844L;
+
         public ReferenceArrayConstant(Type arrayType, int instanceId) {
             super(arrayType, instanceId);
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (obj instanceof ArrayConstant.ReferenceArrayConstant) {
-                ArrayConstant.ReferenceArrayConstant v = (ArrayConstant.ReferenceArrayConstant) obj;
-                return this.concreteValue.equals(v.concreteValue);
-            }
-            return false;
         }
 
         @Override

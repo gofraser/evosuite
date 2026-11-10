@@ -3342,7 +3342,7 @@ public class StatementParser {
         Type fallbackType = expectedType == null ? Object.class : expectedType;
         addWarning(expr, diagnostic.withAppendedText(" — replaced with compilable fallback"));
         Class<?> raw = GenericUtils.rawClassOrObject(fallbackType);
-        if (raw == void.class || raw == Void.TYPE) {
+        if (raw == void.class) {
             // Do not preserve unresolved void expressions as raw source (eg. helper calls
             // with invented types), because that can produce uncompilable output.
             return addStatement(createUninterpretedStatement(expr, ";"));

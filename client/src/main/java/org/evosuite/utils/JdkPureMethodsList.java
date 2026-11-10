@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -62,7 +63,7 @@ public enum JdkPureMethodsList {
 
         try (InputStream fstream = this.getClass().getResourceAsStream("/jdkPureMethods.txt");
                 DataInputStream in = new DataInputStream(fstream);
-                BufferedReader br = new BufferedReader(new InputStreamReader(in))) {
+                BufferedReader br = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
             String strLine;
             while ((strLine = br.readLine()) != null) {
                 set.add(strLine);

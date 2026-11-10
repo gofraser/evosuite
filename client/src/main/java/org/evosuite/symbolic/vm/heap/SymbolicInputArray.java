@@ -23,7 +23,6 @@ import org.evosuite.symbolic.expr.Expression;
 import org.evosuite.symbolic.expr.bv.IntegerVariable;
 import org.evosuite.symbolic.expr.fp.RealVariable;
 import org.evosuite.symbolic.expr.ref.ClassReferenceVariable;
-import org.evosuite.symbolic.expr.ref.ReferenceExpression;
 import org.evosuite.symbolic.expr.ref.array.SymbolicArrayUtil;
 import org.evosuite.symbolic.expr.str.StringVariable;
 import org.evosuite.utils.TypeUtil;
@@ -119,7 +118,7 @@ public final class SymbolicInputArray extends SymbolicArrayImpl {
             return new StringVariable(symbolicArrayVariableName, "");
         }
 
-        if (componentType.equals(ReferenceExpression.class)) {
+        if (componentType.getSort() == Type.OBJECT) {
             return new ClassReferenceVariable(componentType, 0, symbolicArrayVariableName, null);
         }
 

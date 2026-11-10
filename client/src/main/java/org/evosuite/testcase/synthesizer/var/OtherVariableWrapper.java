@@ -1012,8 +1012,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
                 continue;
             }
             VariableReference element = relevance.matchedVars.get(0);
-            if (returnType.equals(element.getType())
-                    || returnType.getClassName().equals(element.getClassName())) {
+            if (returnType.equals(Type.getType(element.getVariableClass()))) {
                 return element;
             }
         }

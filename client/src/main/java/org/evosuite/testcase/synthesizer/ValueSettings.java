@@ -79,4 +79,9 @@ public class ValueSettings {
 
         return false;
     }
+
+    @Override
+    public int hashCode() {
+        return valueSettingInstruction.hashCode();
+    }
 }

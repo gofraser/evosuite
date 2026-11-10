@@ -32,10 +32,10 @@ public final class DmonPromotionPlan implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private final DmonFailureSite failureSite;
-    private final Optional<String> nullExpression;
-    private final Optional<String> ownerToken;
-    private final Optional<String> memberToken;
-    private final Optional<String> inferredMissingTypeName;
+    private final String nullExpression;
+    private final String ownerToken;
+    private final String memberToken;
+    private final String inferredMissingTypeName;
 
     /**
      * Create a new DmonPromotionPlan.
@@ -52,10 +52,10 @@ public final class DmonPromotionPlan implements Serializable {
                              Optional<String> memberToken,
                              Optional<String> inferredMissingTypeName) {
         this.failureSite = failureSite;
-        this.nullExpression = nullExpression == null ? Optional.empty() : nullExpression;
-        this.ownerToken = ownerToken == null ? Optional.empty() : ownerToken;
-        this.memberToken = memberToken == null ? Optional.empty() : memberToken;
-        this.inferredMissingTypeName = inferredMissingTypeName == null ? Optional.empty() : inferredMissingTypeName;
+        this.nullExpression = nullExpression == null ? null : nullExpression.orElse(null);
+        this.ownerToken = ownerToken == null ? null : ownerToken.orElse(null);
+        this.memberToken = memberToken == null ? null : memberToken.orElse(null);
+        this.inferredMissingTypeName = inferredMissingTypeName == null ? null : inferredMissingTypeName.orElse(null);
     }
 
     public DmonFailureSite getFailureSite() {
@@ -63,19 +63,19 @@ public final class DmonPromotionPlan implements Serializable {
     }
 
     public Optional<String> getNullExpression() {
-        return nullExpression;
+        return Optional.ofNullable(nullExpression);
     }
 
     public Optional<String> getOwnerToken() {
-        return ownerToken;
+        return Optional.ofNullable(ownerToken);
     }
 
     public Optional<String> getMemberToken() {
-        return memberToken;
+        return Optional.ofNullable(memberToken);
     }
 
     public Optional<String> getInferredMissingTypeName() {
-        return inferredMissingTypeName;
+        return Optional.ofNullable(inferredMissingTypeName);
     }
 
     @Override

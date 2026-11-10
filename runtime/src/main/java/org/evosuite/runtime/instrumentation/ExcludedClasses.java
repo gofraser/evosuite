@@ -25,6 +25,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -49,16 +50,12 @@ public class ExcludedClasses {
         InputStream excludedClassesStream = ExcludedClasses.class.getClassLoader()
                 .getResourceAsStream("excluded.classes");
         classesLoaded = true;
-        try {
-            //Construct BufferedReader from InputStreamReader
-            BufferedReader br = new BufferedReader(new InputStreamReader(excludedClassesStream));
-
-            String line = null;
+        try (BufferedReader br = new BufferedReader(
+                new InputStreamReader(excludedClassesStream, StandardCharsets.UTF_8))) {
+            String line;
             while ((line = br.readLine()) != null) {
                 excludedClasses.add(line);
             }
-
-            br.close();
         } catch (IOException e) {
             // ignored
         }
