@@ -1,4 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
+    contributors
+
+    This file is part of EvoSuite.
+
+    EvoSuite is free software: you can redistribute it and/or modify it
+    under the terms of the GNU Lesser General Public License as published
+    by the Free Software Foundation, either version 3.0 of the License, or
+    (at your option) any later version.
+
+    EvoSuite is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+    Lesser Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public
+    License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
+
+-->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <!-- Standalone parent: IDE infrastructure is Java 17, engine modules retain Java 8 compatibility. -->
@@ -13,5 +34,27 @@
   <build><plugins>
     <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>3.14.1</version></plugin>
     <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId><version>3.5.4</version></plugin>
+    <plugin>
+      <groupId>com.mycila</groupId>
+      <artifactId>license-maven-plugin</artifactId>
+      <version>5.1.2</version>
+      <configuration>
+        <licenseSets>
+          <licenseSet>
+            <header>${project.basedir}/../../src/etc/header.txt</header>
+            <includes>
+              <include>pom.xml</include>
+              <include>src/**/*.java</include>
+            </includes>
+          </licenseSet>
+        </licenseSets>
+        <properties>
+          <year>2010-2026</year>
+        </properties>
+        <mapping>
+          <java>SLASHSTAR_STYLE</java>
+        </mapping>
+      </configuration>
+    </plugin>
   </plugins></build>
 </project>

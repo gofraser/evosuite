@@ -6,7 +6,8 @@ JDK and EvoSuite versions, and the random seed if you have it.
 
 ## Building and testing
 
-Build EvoSuite with JDK 11 or newer and Maven 3.6.3 or later.
+Build EvoSuite with JDK 11 or newer and Maven 3.6.3 or later. The shared IDE module builds
+with JDK 17 or newer.
 
 ```sh
 mvn clean package -DskipTests

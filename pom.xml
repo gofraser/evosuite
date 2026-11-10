@@ -593,6 +593,7 @@
                                 <exclude>**/src/test/java/latefixture/**</exclude>
                                 <exclude>**/src/test/java/shadowpkg/**</exclude>
                                 <exclude>**/testparser/fixtures/**</exclude>
+                                <exclude>**/intellij/src/test/testData/**</exclude>
                                 <exclude>plugins/maven-test/projects/*/src/**</exclude>
                                 <exclude>plugins/maven-test/standalone-projects/*/src/**</exclude>
                                 <exclude>plugins/build-support-test/projects/*/src/**</exclude>
