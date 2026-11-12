@@ -281,8 +281,8 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
 
     /**
      * Redirects the edge target of the given edge to the given node by removing
-     * the given edge from the graph and reinserting it from the original source
-     * node to the given node.
+     * the given edge from the graph and inserting a copy of it from the original
+     * source node to the given node.
      */
     protected boolean redirectEdgeTarget(E edge, V node) {
         if (!(containsVertex(node) && containsEdge(edge))) {
@@ -295,13 +295,13 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
             return false;
         }
 
-        return addEdge(edgeSource, node, edge);
+        return addEdge(edgeSource, node, copyEdge(edge));
     }
 
     /**
      * Redirects the edge source of the given edge to the given node by removing
-     * the given edge from the graph and reinserting it from the given node to
-     * the original target node.
+     * the given edge from the graph and inserting a copy of it from the given
+     * node to the original target node.
      */
     protected boolean redirectEdgeSource(E edge, V node) {
         if (!(containsVertex(node) && containsEdge(edge))) {
@@ -314,7 +314,19 @@ public abstract class EvoSuiteGraph<V, E extends DefaultEdge> {
             return false;
         }
 
-        return addEdge(node, edgeTarget, edge);
+        return addEdge(node, edgeTarget, copyEdge(edge));
+    }
+
+    /**
+     * Returns a new edge that carries the same information as the given one.
+     *
+     * <p>A {@link DefaultEdge} stores its endpoints, and JGraphT 1.5 refuses to add an edge
+     * object again with different endpoints, even after it has been removed. Redirecting an
+     * edge therefore inserts a copy. Graphs that redirect edges must override this method.</p>
+     */
+    protected E copyEdge(E edge) {
+        throw new UnsupportedOperationException(
+                getClass().getSimpleName() + " does not support redirecting edges");
     }
 
     // different counts

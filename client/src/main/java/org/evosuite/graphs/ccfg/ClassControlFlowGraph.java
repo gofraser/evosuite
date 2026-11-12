@@ -436,6 +436,11 @@ public class ClassControlFlowGraph extends EvoSuiteGraph<CCFGNode, CCFGEdge> {
         }
     }
 
+    @Override
+    protected CCFGEdge copyEdge(CCFGEdge edge) {
+        return edge.copy();
+    }
+
     private Map<BytecodeInstruction, CCFGCodeNode> importCFG(
             RawControlFlowGraph cfg) {
         Map<BytecodeInstruction, CCFGCodeNode> temp = new HashMap<>();

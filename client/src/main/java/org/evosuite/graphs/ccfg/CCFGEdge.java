@@ -25,4 +25,15 @@ public class CCFGEdge extends DefaultEdge {
 
     private static final long serialVersionUID = -6957788788845428721L;
 
+    /**
+     * Returns a new edge of the same kind and with the same attributes, but without endpoints.
+     * Subclasses must override this method.
+     */
+    public CCFGEdge copy() {
+        if (getClass() != CCFGEdge.class) {
+            throw new UnsupportedOperationException(getClass().getName() + " does not override copy()");
+        }
+        return new CCFGEdge();
+    }
+
 }

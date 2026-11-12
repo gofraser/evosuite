@@ -37,6 +37,11 @@ public class CCFGMethodCallEdge extends CCFGEdge {
     /**
      * Marks whether this is a calling edge or a returning edge.
      */
+    @Override
+    public CCFGMethodCallEdge copy() {
+        return new CCFGMethodCallEdge(callInstruction, isCallingEdge);
+    }
+
     public boolean isCallingEdge() {
         return isCallingEdge;
     }

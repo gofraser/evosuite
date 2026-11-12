@@ -32,6 +32,11 @@ public class CCFGCodeEdge extends CCFGEdge {
     }
 
     @Override
+    public CCFGCodeEdge copy() {
+        return new CCFGCodeEdge(cfgEdge);
+    }
+
+    @Override
     public int hashCode() {
         final int prime = 31;
         int result = 1;

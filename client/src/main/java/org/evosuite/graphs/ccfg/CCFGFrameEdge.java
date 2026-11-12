@@ -25,6 +25,11 @@ public class CCFGFrameEdge extends CCFGEdge {
 
 
     @Override
+    public CCFGFrameEdge copy() {
+        return new CCFGFrameEdge();
+    }
+
+    @Override
     public String toString() {
         return "";
     }
