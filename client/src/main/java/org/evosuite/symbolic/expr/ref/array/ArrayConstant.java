@@ -23,8 +23,6 @@ import org.evosuite.symbolic.expr.ExpressionVisitor;
 import org.evosuite.symbolic.expr.ref.NonNullReferenceConstant;
 import org.objectweb.asm.Type;
 
-import java.util.Objects;
-
 /**
  * Represents an instant of an array.
  *
@@ -38,6 +36,14 @@ public abstract class ArrayConstant extends NonNullReferenceConstant implements 
         super(arrayType, instanceId);
     }
 
+    /**
+     * Two array constants are equal if they stand for the same concrete array.
+     *
+     * <p>{@link #hashCode()} deliberately stays the identity hash. The concrete array is only
+     * set by {@link #initializeReference(Object)}, often after the constant has become a key in
+     * the symbolic heap's hash maps, so a hash derived from it would change under those maps
+     * and lose their entries.</p>
+     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -48,11 +54,6 @@ public abstract class ArrayConstant extends NonNullReferenceConstant implements 
         }
         ArrayConstant other = (ArrayConstant) obj;
         return concreteValue != null && concreteValue.equals(other.concreteValue);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(concreteValue);
     }
 
     public static final class IntegerArrayConstant extends ArrayConstant implements ArrayValue.IntegerArrayValue {

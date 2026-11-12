@@ -63,6 +63,5 @@ class LazyArraysImplTest {
         ArrayConstant sameArray = heap.createConstantArray(Type.getType(int[].class), 2);
         sameArray.initializeReference(values);
         assertEquals(array, sameArray);
-        assertEquals(array.hashCode(), sameArray.hashCode());
     }
 }

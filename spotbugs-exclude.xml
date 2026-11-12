@@ -49,6 +49,12 @@
     <Bug pattern="DM_DEFAULT_ENCODING" />
   </Match>
 
+  <!-- Array constants keep the identity hash: their concrete array is set after they become map keys. -->
+  <Match>
+    <Class name="org.evosuite.symbolic.expr.ref.array.ArrayConstant" />
+    <Bug pattern="HE_EQUALS_USE_HASHCODE" />
+  </Match>
+
   <!-- The legacy scaffolding list can have been written using the platform charset. -->
   <Match>
     <Class name="org.evosuite.runtime.InitializingListenerUtils" />
