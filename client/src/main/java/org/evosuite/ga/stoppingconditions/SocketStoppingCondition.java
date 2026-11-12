@@ -53,6 +53,8 @@ public class SocketStoppingCondition<T extends Chromosome<T>> implements Stoppin
 
     private static final Logger logger = LoggerFactory.getLogger(SocketStoppingCondition.class);
 
+    private static final long LISTENER_EXIT_WAIT_MS = 5_000L;
+
     private SocketStoppingCondition() {
         // singleton pattern
     }
@@ -119,6 +121,7 @@ public class SocketStoppingCondition<T extends Chromosome<T>> implements Stoppin
      * Closes the listening socket, which ends the listener thread, and frees the port.
      */
     private synchronized void close() {
+        Thread oldListener = listener;
         if (serverSocket != null) {
             try {
                 serverSocket.close();
@@ -128,6 +131,15 @@ public class SocketStoppingCondition<T extends Chromosome<T>> implements Stoppin
             serverSocket = null;
         }
         listener = null;
+        // On Linux the port stays bound until the listener has returned from accept(), so a
+        // new listener started right away would fail to bind. Wait for the old one to end.
+        if (oldListener != null && oldListener != Thread.currentThread()) {
+            try {
+                oldListener.join(LISTENER_EXIT_WAIT_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
     }
 
     @Override
