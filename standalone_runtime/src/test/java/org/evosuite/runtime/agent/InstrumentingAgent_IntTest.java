@@ -240,8 +240,8 @@ public class InstrumentingAgent_IntTest {
 			Instrumentation inst = InstrumentingAgent.getInstrumentation();
 			Assertions.assertNotNull(inst);
 			ClassLoader loader = this.getClass().getClassLoader();
+			// Do not load TimeB here: testTime needs it to be loaded first while the agent is inactive.
 			Assertions.assertTrue(inst.isModifiableClass(loader.loadClass(TimeA.class.getName())));
-			Assertions.assertTrue(inst.isModifiableClass(loader.loadClass(TimeB.class.getName())));
 			Assertions.assertTrue(inst.isModifiableClass(loader.loadClass(TimeC.class.getName())));
 			Assertions.assertTrue(inst.isModifiableClass(loader.loadClass(ExtendingTimeC.class.getName())));
 			Assertions.assertTrue(inst.isModifiableClass(loader.loadClass(ConcreteTime.class.getName())));
