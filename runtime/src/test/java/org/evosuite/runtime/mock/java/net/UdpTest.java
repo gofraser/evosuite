@@ -43,11 +43,13 @@ public class UdpTest {
     @BeforeEach
     public void setupMock() {
         MockFramework.enable();
+        VirtualNetwork.getInstance().init();
     }
 
     @AfterEach
     public void tearDownMock() {
         MockFramework.disable();
+        VirtualNetwork.getInstance().reset();
     }
 
 
