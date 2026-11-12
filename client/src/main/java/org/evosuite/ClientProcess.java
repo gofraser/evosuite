@@ -38,6 +38,9 @@ import org.evosuite.utils.SpawnProcessKeepAliveChecker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.management.ManagementFactory;
+import java.util.ServiceConfigurationError;
+
 /**
  * <p>
  * ClientProcess class.
@@ -71,6 +74,7 @@ public class ClientProcess {
      * </p>
      */
     public void run() {
+        initializePlatformMXBeans();
         Properties.getInstance();
         setupRuntimeProperties();
         JDKClassResetter.init();
@@ -115,6 +119,23 @@ public class ClientProcess {
         ClientServices.getInstance().getClientNode().waitUntilDone();
         ClientServices.getInstance().stopServices();
         SpawnProcessKeepAliveChecker.getInstance().unRegister();
+    }
+
+    /**
+     * Initializes the JDK's platform MXBeans before the sandbox can be installed.
+     *
+     * <p>The first {@link ManagementFactory} call loads a native library. Under the sandbox,
+     * an unprivileged thread such as the Mockito warm-up thread is refused that, and
+     * {@code ManagementFactory} then fails for the rest of the JVM, including in
+     * {@code TimeoutHandler}. The master can start the search, and with it the sandbox, as soon
+     * as this client has registered, so this must run first.</p>
+     */
+    static void initializePlatformMXBeans() {
+        try {
+            ManagementFactory.getRuntimeMXBean();
+        } catch (RuntimeException | ServiceConfigurationError | LinkageError e) {
+            logger().warn("Could not initialize the platform MXBeans: {}", e.toString());
+        }
     }
 
     private static void startMockitoWarmUpAsync() {
