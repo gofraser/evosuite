@@ -21,6 +21,8 @@ package org.evosuite.llm.provider;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -73,6 +75,24 @@ class RequestCancellationTest {
         assertEquals(1, runs.get());
         cancellation.abort();
         assertEquals(1, runs.get());
+    }
+
+    @Test
+    void abortWithAnExecutorMarksTheHandleAbortedBeforeTheAborterRuns() {
+        AtomicInteger runs = new AtomicInteger();
+        List<Runnable> dispatched = new ArrayList<>();
+        RequestCancellation cancellation = new RequestCancellation();
+        cancellation.attach(runs::incrementAndGet);
+
+        cancellation.abort(dispatched::add);
+        assertTrue(cancellation.isAborted());
+        assertEquals(0, runs.get());
+        assertEquals(1, dispatched.size());
+
+        dispatched.get(0).run();
+        assertEquals(1, runs.get());
+        cancellation.abort(dispatched::add);
+        assertEquals(1, dispatched.size());
     }
 
     @Test

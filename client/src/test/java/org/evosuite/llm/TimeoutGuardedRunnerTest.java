@@ -21,6 +21,7 @@ package org.evosuite.llm;
 
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -32,6 +33,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TimeoutGuardedRunnerTest {
@@ -95,6 +97,40 @@ class TimeoutGuardedRunnerTest {
             assertEquals("next", runner.run(cancellation -> "next", ONE_SECOND, Long.MAX_VALUE));
         } finally {
             release.countDown();
+        }
+    }
+
+    @Test
+    void aBlockingAborterDoesNotHoldUpTheCaller() throws Exception {
+        // HttpURLConnection.disconnect() can block until the in-flight read
+        // yields. The caller must still time out without waiting for it.
+        CountDownLatch release = new CountDownLatch(1);
+        CountDownLatch abortStarted = new CountDownLatch(1);
+        try (TimeoutGuardedRunner runner = new TimeoutGuardedRunner(
+                TimeoutGuardedRunner::newDefaultExecutor, () -> { })) {
+            assertTimeoutPreemptively(Duration.ofSeconds(10), () -> assertThrows(TimeoutException.class,
+                    () -> runner.run(cancellation -> {
+                        cancellation.attach(() -> {
+                            abortStarted.countDown();
+                            awaitUninterruptibly(release);
+                        });
+                        awaitUninterruptibly(release);
+                        return "released";
+                    }, TimeUnit.MILLISECONDS.toNanos(50), Long.MAX_VALUE)));
+            assertTrue(abortStarted.await(5, TimeUnit.SECONDS), "the aborter should still run");
+        } finally {
+            release.countDown();
+        }
+    }
+
+    private static void awaitUninterruptibly(CountDownLatch latch) {
+        while (true) {
+            try {
+                latch.await();
+                return;
+            } catch (InterruptedException ignored) {
+                // Like a blocked socket read, ignore the interrupt.
+            }
         }
     }
 }

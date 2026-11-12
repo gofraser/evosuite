@@ -42,6 +42,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -124,8 +126,11 @@ class JsonHttpClientCancellationTest {
 
             cancellation.abort();
 
-            assertTrue(done.await(2_000L, TimeUnit.MILLISECONDS),
-                    "cancellation.abort() should end the blocked read well before the 30s read timeout");
+            // disconnect() only gets through once the in-flight read yields,
+            // which has been seen to take many seconds while bytes trickle in.
+            // Anything below the 30s read timeout shows that the abort ended it.
+            assertTrue(done.await(25_000L, TimeUnit.MILLISECONDS),
+                    "cancellation.abort() should end the blocked read before the 30s read timeout");
             assertNotNull(thrown.get());
             assertInstanceOf(IOException.class, thrown.get());
         } finally {
@@ -168,10 +173,10 @@ class JsonHttpClientCancellationTest {
         server.createContext("/", exchange -> {
             exchange.sendResponseHeaders(200, 0);
             try (OutputStream body = exchange.getResponseBody()) {
-                for (int i = 0; i < 600; i++) {
+                // Trickle until the client aborts, or the test releases the handler.
+                while (!releaseHandler.await(10L, TimeUnit.MILLISECONDS)) {
                     body.write('a');
                     body.flush();
-                    Thread.sleep(10L);
                 }
             } catch (IOException e) {
                 // Expected once the client aborts the in-flight connection.
@@ -218,7 +223,9 @@ class JsonHttpClientCancellationTest {
                 assertTrue(elapsedMs < 15_000L,
                         "call should fail shortly after the 1s phase deadline, not the 30s read timeout: took "
                                 + elapsedMs + "ms");
-                assertTrue(serverObservedDisconnect.await(3_000L, TimeUnit.MILLISECONDS),
+                // The caller no longer waits for the disconnect, which can take
+                // many seconds to get through while bytes trickle in.
+                assertTrue(serverObservedDisconnect.await(25_000L, TimeUnit.MILLISECONDS),
                         "server should observe the client disconnect once the request cancellation aborts");
             } finally {
                 service.close();
@@ -234,7 +241,12 @@ class JsonHttpClientCancellationTest {
         AtomicInteger requestCount = new AtomicInteger();
         AtomicInteger serverDisconnects = new AtomicInteger();
         CountDownLatch slowRequestReceived = new CountDownLatch(1);
+        CountDownLatch slowRequestDisconnected = new CountDownLatch(1);
         HttpServer server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        // The default executor handles one exchange at a time, which would make
+        // the healthy request wait for the slow one's connection to be torn down.
+        ExecutorService handlers = Executors.newCachedThreadPool();
+        server.setExecutor(handlers);
         server.createContext("/", exchange -> {
             if (requestCount.incrementAndGet() == 1) {
                 // The first request to arrive is the one whose 1s phase
@@ -243,14 +255,14 @@ class JsonHttpClientCancellationTest {
                 slowRequestReceived.countDown();
                 exchange.sendResponseHeaders(200, 0);
                 try (OutputStream body = exchange.getResponseBody()) {
-                    for (int i = 0; i < 600; i++) {
+                    while (!releaseHandler.await(50L, TimeUnit.MILLISECONDS)) {
                         body.write('a');
                         body.flush();
-                        Thread.sleep(50L);
                     }
                 } catch (IOException e) {
                     // Expected once this specific request's cancellation aborts.
                     serverDisconnects.incrementAndGet();
+                    slowRequestDisconnected.countDown();
                 } catch (InterruptedException ignored) {
                     Thread.currentThread().interrupt();
                 } finally {
@@ -340,13 +352,17 @@ class JsonHttpClientCancellationTest {
                 }
                 assertEquals("ok", normalResult.get(),
                         "a concurrent healthy request must complete successfully despite an unrelated timeout");
+                assertTrue(slowRequestDisconnected.await(25_000L, TimeUnit.MILLISECONDS),
+                        "the timed-out request's connection should be aborted");
                 assertEquals(1, serverDisconnects.get(),
                         "only the timed-out request's connection should have been aborted");
             } finally {
                 service.close();
             }
         } finally {
+            releaseHandler.countDown();
             server.stop(0);
+            handlers.shutdownNow();
         }
     }
 }

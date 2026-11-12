@@ -96,10 +96,11 @@ public class JsonHttpClient {
      * RequestCancellation#attach(Runnable) attached} to this specific
      * connection right after it is opened, so a caller that gives up on this
      * one request (a phase deadline, or the caller thread being interrupted)
-     * can force just this connection closed — turning a blocked socket read
-     * into an {@link IOException} immediately instead of waiting for the
-     * read timeout, without touching any other request the client may have
-     * in flight concurrently.
+     * can close just this connection, without touching any other request the
+     * client may have in flight concurrently. The blocked read then fails
+     * with an {@link IOException}. {@code HttpURLConnection.disconnect()}
+     * only closes the stream once the in-flight read yields, though: after
+     * the next bytes arrive, or at the latest at the read timeout.
      *
      * @throws LlmHttpException if the server responds with a non-2xx status
      * @throws IOException      on any other transport failure (including a
@@ -132,8 +133,9 @@ public class JsonHttpClient {
             // connecting — a no-op that would let the request go out anyway.
             // Fail before any I/O in both cases. From getOutputStream() on the
             // connection is live, so a later abort() tears down a real socket
-            // and the blocked write/read fails with an IOException (covered by
-            // the blocked-read test in JsonHttpClientCancellationTest).
+            // and the blocked write/read fails with an IOException once the
+            // JDK lets the disconnect through (covered by the blocked-read
+            // test in JsonHttpClientCancellationTest).
             if (!attachedBeforeAbort || (cancellation != null && cancellation.isAborted())) {
                 throw new RequestCancelledBeforeSendException();
             }

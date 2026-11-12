@@ -19,6 +19,8 @@
  */
 package org.evosuite.llm.provider;
 
+import java.util.concurrent.Executor;
+
 /**
  * A cancellation handle scoped to a single LLM request.
  *
@@ -67,11 +69,23 @@ public final class RequestCancellation {
     }
 
     /**
-     * Aborts the request, running the attached aborter exactly once. Safe to
-     * call more than once or before {@link #attach(Runnable)}; a later
-     * {@code attach} call then runs its aborter immediately instead.
+     * Aborts the request, running the attached aborter exactly once on the
+     * calling thread. Safe to call more than once or before
+     * {@link #attach(Runnable)}; a later {@code attach} call then runs its
+     * aborter immediately instead.
      */
     public void abort() {
+        abort(Runnable::run);
+    }
+
+    /**
+     * Aborts the request: marks it aborted at once, so a request that has not
+     * been sent yet fails before sending, and hands the attached aborter to
+     * {@code executor}. Use this when the caller must not wait for the
+     * aborter. {@code HttpURLConnection.disconnect()} can block until the
+     * in-flight read yields, which may be as late as the read timeout.
+     */
+    public void abort(Executor executor) {
         Runnable toRun;
         synchronized (lock) {
             if (aborted) {
@@ -81,7 +95,7 @@ public final class RequestCancellation {
             toRun = aborter;
         }
         if (toRun != null) {
-            toRun.run();
+            executor.execute(toRun);
         }
     }
 

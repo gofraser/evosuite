@@ -117,13 +117,13 @@ final class TimeoutGuardedRunner implements AutoCloseable {
             // notice sooner if it happens to be at an interruptible point.
             future.cancel(true);
             // Future.cancel(true) cannot interrupt a thread blocked inside
-            // HttpURLConnection I/O, so force this specific request's
-            // connection closed directly; that turns the blocked read into
-            // an IOException immediately instead of waiting for the read
-            // timeout, which is a much coarser bound than this deadline. Only
-            // this call's own connection is affected — other concurrent calls
-            // sharing the same model are untouched.
-            cancellation.abort();
+            // HttpURLConnection I/O, so close this specific request's
+            // connection. Only this call's own connection is affected; other
+            // concurrent calls sharing the same model are untouched. The
+            // disconnect runs on its own thread because it can block until
+            // the in-flight read yields, as late as the read timeout, and the
+            // caller must not wait that long past its deadline.
+            cancellation.abort(TimeoutGuardedRunner::startAborter);
             if (!waitForWorkerToFinish(workerEntered, workerExited, WORKER_EXIT_WAIT_MS)) {
                 // Worker is still running — the read timeout hasn't elapsed yet
                 // and the socket read isn't interruptible on this JVM. Drop the
@@ -141,7 +141,7 @@ final class TimeoutGuardedRunner implements AutoCloseable {
             // search worker has been stopped. As above, only this call's own
             // connection is aborted.
             future.cancel(true);
-            cancellation.abort();
+            cancellation.abort(TimeoutGuardedRunner::startAborter);
             if (!waitForWorkerToFinish(workerEntered, workerExited, WORKER_EXIT_WAIT_MS)) {
                 logger.warn("LLM worker did not terminate after caller interruption; replacing executor");
                 replaceExecutor(runner);
@@ -149,6 +149,10 @@ final class TimeoutGuardedRunner implements AutoCloseable {
             Thread.currentThread().interrupt();
             throw e;
         }
+    }
+
+    private static void startAborter(Runnable aborter) {
+        LlmPrivilegedThreads.newThread(aborter, "request-abort").start();
     }
 
     private static boolean waitForWorkerToFinish(AtomicBoolean workerEntered,
