@@ -47,6 +47,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * Note: the tests do not have instrumentation code, and so they will pass only if
  * JUnit listener does it
+ *
+ * <p>Use only compile-time constants from EvoSuite classes here. The fixture bootstrap
+ * rebuilds the EvoSuite jars of this checkout while the tests run, so a class loaded
+ * from them could be read from a jar that is being rewritten.</p>
  */
 public class BuildSupportIT {
 
@@ -92,13 +96,13 @@ public class BuildSupportIT {
         maven.executeGoal("clean");
 
         FileUtils.deleteQuietly(simple.resolve("log.txt").toFile());
-        FileUtils.deleteQuietly(simple.resolve(InitializingListener.getScaffoldingListFilePath()).toFile());
+        FileUtils.deleteQuietly(simple.resolve(InitializingListener.SCAFFOLDING_LIST_FILE_STRING).toFile());
         FileUtils.deleteQuietly(simple.resolve("build").toFile());
 
         Verifier extensionMaven = getMaven(extension);
         extensionMaven.executeGoal("clean");
         FileUtils.deleteQuietly(extension.resolve("log.txt").toFile());
-        FileUtils.deleteQuietly(extension.resolve(InitializingListener.getScaffoldingListFilePath()).toFile());
+        FileUtils.deleteQuietly(extension.resolve(InitializingListener.SCAFFOLDING_LIST_FILE_STRING).toFile());
     }
 
     private static void bootstrapEvoSuiteArtifacts(Path localRepo) throws Exception {
@@ -149,7 +153,7 @@ public class BuildSupportIT {
         maven.executeGoal("test");
         maven.verifyTextInLog("Running com.testbuild.support.FooTest");
         maven.verifyTextInLog("Tests run: 3, Failures: 0, Errors: 0, Skipped: 0");
-        assertTrue(simple.resolve(InitializingListener.getScaffoldingListFilePath()).toFile().isFile());
+        assertTrue(simple.resolve(InitializingListener.SCAFFOLDING_LIST_FILE_STRING).toFile().isFile());
     }
 
     @Test
@@ -159,7 +163,7 @@ public class BuildSupportIT {
         maven.verifyTextInLog("Running com.testbuild.extension.Foo_ESTest");
         maven.verifyTextInLog("Tests run: 1, Failures: 0, Errors: 0, Skipped: 0");
 
-        Path scaffoldingList = extension.resolve(InitializingListener.getScaffoldingListFilePath());
+        Path scaffoldingList = extension.resolve(InitializingListener.SCAFFOLDING_LIST_FILE_STRING);
         assertTrue(scaffoldingList.toFile().isFile());
         String content = new String(Files.readAllBytes(scaffoldingList), StandardCharsets.UTF_8).trim();
         assertTrue(content.isEmpty(), "Expected no scaffolding entries for extension-mode fixture");

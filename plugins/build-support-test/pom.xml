@@ -41,11 +41,20 @@
     </properties>
 
     <dependencies>
-        <!-- Force this module to be built after the Master-->
+        <!-- Build this module after the master module, without putting the master jar on the
+             test classpath: the fixture bootstrap rebuilds that jar while the tests run. -->
         <dependency>
             <groupId>org.evosuite</groupId>
             <artifactId>evosuite-master</artifactId>
             <version>${project.version}</version>
+            <type>pom</type>
+        </dependency>
+        <!-- Only for compile-time constants. No runtime class may be loaded, for the same reason. -->
+        <dependency>
+            <groupId>org.evosuite</groupId>
+            <artifactId>evosuite-runtime</artifactId>
+            <version>${project.version}</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.maven.shared</groupId>
