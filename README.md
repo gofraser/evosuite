@@ -160,5 +160,4 @@ If you use EvoSuite in your research, please cite Gordon Fraser and Andrea Arcur
 ## More information
 
 - [Documentation](https://www.evosuite.org/documentation/)
-- [EvoSuite mailing list](https://groups.google.com/g/evosuite)
 - [Report an issue](https://github.com/EvoSuite/evosuite/issues)

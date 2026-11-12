@@ -45,12 +45,6 @@
         <url>https://github.com/EvoSuite/evosuite/issues</url>
     </issueManagement>
 
-    <mailingLists>
-        <mailingList>
-            <archive>https://groups.google.com/forum/#!forum/evosuite</archive>
-        </mailingList>
-    </mailingLists>
-
     <modules>
         <module>master</module>
         <module>client</module>
