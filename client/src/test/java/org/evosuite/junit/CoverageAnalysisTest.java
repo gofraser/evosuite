@@ -99,7 +99,11 @@ public class CoverageAnalysisTest {
 
     private static boolean deferredRunnerInitialized;
 
-    public static class DeferredRunnerTest {
+    /**
+     * Fails to initialize outside the coverage scope. Its name must not match surefire's test
+     * patterns, or surefire loads it as a test class of its own.
+     */
+    public static class DeferredRunnerFixture {
         static {
             if (!org.evosuite.runtime.agent.AgentLoader.isSkipAttach()) {
                 throw new IllegalStateException("runner initialized outside coverage scope");
@@ -118,7 +122,7 @@ public class CoverageAnalysisTest {
         clientNodeField.setAccessible(true);
         Object node = clientNodeField.get(ClientServices.getInstance());
         try {
-            Properties.JUNIT = DeferredRunnerTest.class.getName();
+            Properties.JUNIT = DeferredRunnerFixture.class.getName();
             clientNodeField.set(ClientServices.getInstance(), new CapturingClientNode());
             try (MockedConstruction<JUnitRunner> runners = mockConstruction(JUnitRunner.class, (runner, context) -> {
                 org.mockito.Mockito.doAnswer(invocation -> {
