@@ -78,11 +78,13 @@ JAVA_HOME=/path/to/jdk8 /path/to/jdk8/bin/java -jar master/target/evosuite-maste
 
 Use `standalone_runtime/target/evosuite-standalone-runtime-java8-SNAPSHOT.jar` when compiling and running the generated tests. The compatibility profile uses Logback 1.3 and Mockito 4, which are out of active support.
 
-## Maven and Eclipse plugins
+## Maven, Eclipse, and IntelliJ plugins
 
 The [Maven plugin](plugins/maven/README.md) requires Maven 3.9 or later. Add its `setup` goal and the matching standalone runtime test dependency as shown in the plugin guide. Run `mvn evosuite:generate` to generate tests in `src/test/evosuite`, then `mvn test` to run them. Later runs generate tests for classes that have no suite yet or whose bytecode, superclass bytecode, or EvoSuite version has changed.
 
 The [Eclipse plugin](plugins/eclipse/README.md) runs EvoSuite in a separate JVM. The plugin guide explains how to build the p2 update site with Tycho and install it into Eclipse.
+
+The [IntelliJ plugin](plugins/intellij/README.md) requires IntelliJ IDEA 2025.3 or later. It bundles EvoSuite and its runtime and runs generation in a separate JVM on the module's JDK. The plugin guide explains how to build the plugin ZIP with Gradle and install it from disk.
 
 ## Docker
 

@@ -37,7 +37,8 @@ the full suite. The build-support fixtures bootstrap their own Maven repository 
 installing a development build alongside another build of the same version.
 
 The [Eclipse plugin](plugins/eclipse/README.md#building) has its own Tycho build and uses the
-JARs produced by the main reactor.
+JARs produced by the main reactor. The [IntelliJ plugin](plugins/intellij/README.md#build-and-test)
+has its own Gradle build, which uses JDK 21, the engine JARs and `plugins/ide-core`.
 
 ## Writing code
 

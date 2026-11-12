@@ -6,7 +6,8 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) for the build, test, and style conventio
   and test generation. `runtime` contains the code used by generated tests. `standalone_runtime`
   packages it for users, and `shaded` packages the relocated generator.
 - `plugins/maven` is part of the main Maven reactor. `plugins/eclipse` has a separate Tycho build
-  and needs engine JARs from the main reactor.
+  and needs engine JARs from the main reactor. `plugins/intellij` has a separate Gradle build on
+  JDK 21 and uses the engine JARs and `plugins/ide-core`, which joins the reactor on JDK 17+.
 - Use `mvn -pl <module> -am verify` for a focused build. Some tests need packaged JARs, so use
   `verify` for validation. See [CONTRIBUTING.md](CONTRIBUTING.md#building-and-testing) for test
   selectors and the separate Maven plugin integration tests.
