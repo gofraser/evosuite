@@ -97,10 +97,9 @@ public class JsonHttpClient {
      * connection right after it is opened, so a caller that gives up on this
      * one request (a phase deadline, or the caller thread being interrupted)
      * can close just this connection, without touching any other request the
-     * client may have in flight concurrently. The blocked read then fails
-     * with an {@link IOException}. {@code HttpURLConnection.disconnect()}
-     * only closes the stream once the in-flight read yields, though: after
-     * the next bytes arrive, or at the latest at the read timeout.
+     * client may have in flight concurrently. The read then fails with an
+     * {@link IOException} as soon as the next bytes arrive, or at the latest
+     * at the read timeout if the server sends nothing more.
      *
      * @throws LlmHttpException if the server responds with a non-2xx status
      * @throws IOException      on any other transport failure (including a
@@ -145,9 +144,9 @@ public class JsonHttpClient {
 
             int status = connection.getResponseCode();
             if (status < 200 || status >= 300) {
-                throw new LlmHttpException(status, readStream(connection, connection.getErrorStream()));
+                throw new LlmHttpException(status, readStream(connection, connection.getErrorStream(), cancellation));
             }
-            String response = readStream(connection, connection.getInputStream());
+            String response = readStream(connection, connection.getInputStream(), cancellation);
             completed = true;
             return response;
         } finally {
@@ -160,7 +159,13 @@ public class JsonHttpClient {
         }
     }
 
-    private String readStream(HttpURLConnection connection, InputStream input) throws IOException {
+    /**
+     * Reads the whole response. The reading thread also checks {@code cancellation} after every
+     * read: {@code disconnect()} from another thread can be starved for as long as bytes keep
+     * arriving, while closing the stream here, on the reading thread, closes the socket at once.
+     */
+    private String readStream(HttpURLConnection connection, InputStream input,
+                              RequestCancellation cancellation) throws IOException {
         if (input == null) {
             return "";
         }
@@ -170,6 +175,9 @@ public class JsonHttpClient {
         int total = 0;
         try (InputStream stream = input) {
             while ((count = stream.read(chunk)) >= 0) {
+                if (cancellation != null && cancellation.isAborted()) {
+                    throw new IOException("request aborted");
+                }
                 total += count;
                 if (total > maxResponseBytes) {
                     connection.disconnect();

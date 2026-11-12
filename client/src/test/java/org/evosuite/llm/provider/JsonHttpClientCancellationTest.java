@@ -126,14 +126,61 @@ class JsonHttpClientCancellationTest {
 
             cancellation.abort();
 
-            // disconnect() only gets through once the in-flight read yields,
-            // which has been seen to take many seconds while bytes trickle in.
-            // Anything below the 30s read timeout shows that the abort ended it.
-            assertTrue(done.await(25_000L, TimeUnit.MILLISECONDS),
+            // The reading thread stops when the next byte arrives, well before
+            // the 30s read timeout.
+            assertTrue(done.await(10_000L, TimeUnit.MILLISECONDS),
                     "cancellation.abort() should end the blocked read before the 30s read timeout");
             assertNotNull(thrown.get());
             assertInstanceOf(IOException.class, thrown.get());
         } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void anAbortedRequestStopsReadingWhenTheNextBytesArrive() throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        server.createContext("/", exchange -> {
+            exchange.sendResponseHeaders(200, 0);
+            try (OutputStream body = exchange.getResponseBody()) {
+                while (!releaseHandler.await(50L, TimeUnit.MILLISECONDS)) {
+                    body.write('a');
+                    body.flush();
+                }
+            } catch (IOException | InterruptedException ignored) {
+                // Client closed the connection, or the test is tearing down.
+            } finally {
+                exchange.close();
+            }
+        });
+        server.start();
+
+        try {
+            String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/";
+            JsonHttpClient client = new JsonHttpClient();
+            RequestCancellation cancellation = new RequestCancellation();
+            AtomicReference<Throwable> thrown = new AtomicReference<>();
+            CountDownLatch done = new CountDownLatch(1);
+            Thread worker = new Thread(() -> {
+                try {
+                    client.postJson(url, Collections.emptyMap(), "{}", 5_000, 30_000, cancellation);
+                } catch (Throwable t) {
+                    thrown.set(t);
+                } finally {
+                    done.countDown();
+                }
+            });
+            worker.start();
+            Thread.sleep(300L);
+
+            // Drop the disconnect: only the reading thread's own check can end the read.
+            cancellation.abort(aborter -> { });
+
+            assertTrue(done.await(5_000L, TimeUnit.MILLISECONDS),
+                    "the reading thread should stop once it sees the abort");
+            assertInstanceOf(IOException.class, thrown.get());
+        } finally {
+            releaseHandler.countDown();
             server.stop(0);
         }
     }
@@ -223,9 +270,7 @@ class JsonHttpClientCancellationTest {
                 assertTrue(elapsedMs < 15_000L,
                         "call should fail shortly after the 1s phase deadline, not the 30s read timeout: took "
                                 + elapsedMs + "ms");
-                // The caller no longer waits for the disconnect, which can take
-                // many seconds to get through while bytes trickle in.
-                assertTrue(serverObservedDisconnect.await(25_000L, TimeUnit.MILLISECONDS),
+                assertTrue(serverObservedDisconnect.await(10_000L, TimeUnit.MILLISECONDS),
                         "server should observe the client disconnect once the request cancellation aborts");
             } finally {
                 service.close();
@@ -352,7 +397,7 @@ class JsonHttpClientCancellationTest {
                 }
                 assertEquals("ok", normalResult.get(),
                         "a concurrent healthy request must complete successfully despite an unrelated timeout");
-                assertTrue(slowRequestDisconnected.await(25_000L, TimeUnit.MILLISECONDS),
+                assertTrue(slowRequestDisconnected.await(10_000L, TimeUnit.MILLISECONDS),
                         "the timed-out request's connection should be aborted");
                 assertEquals(1, serverDisconnects.get(),
                         "only the timed-out request's connection should have been aborted");
