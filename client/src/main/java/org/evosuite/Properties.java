@@ -2461,6 +2461,26 @@ public class Properties {
             description = "Oracle generation mode for unified LLM post-processing")
     public static OracleMode ORACLE_MODE = OracleMode.REGRESSION;
 
+    @Parameter(key = "include_class_javadoc", group = "LLM",
+            description = "Include class-level Javadoc in intended-mode LLM post-processing prompts")
+    public static boolean INCLUDE_CLASS_JAVADOC = true;
+
+    @Parameter(key = "include_method_javadoc", group = "LLM",
+            description = "Include method and constructor Javadoc in intended-mode LLM post-processing prompts")
+    public static boolean INCLUDE_METHOD_JAVADOC = true;
+
+    @Parameter(key = "include_method_comments", group = "LLM",
+            description = "Include attached and body comments of invoked members in intended-mode LLM post-processing prompts")
+    public static boolean INCLUDE_METHOD_COMMENTS = true;
+
+    @Parameter(key = "include_runtime_evidence", group = "LLM",
+            description = "Include observed candidate facts, observations, exceptions, and runtime types in intended-mode LLM post-processing prompts")
+    public static boolean INCLUDE_RUNTIME_EVIDENCE = false;
+
+    @Parameter(key = "exception_oracle_enabled", group = "LLM",
+            description = "Enable intended-mode exception oracle generation for throwing and normal prefixes")
+    public static boolean EXCEPTION_ORACLE_ENABLED = false;
+
     @Parameter(key = "llm_repair_attempts", group = "LLM",
             description = "Maximum repair attempts for malformed LLM output")
     @IntValue(min = 0)

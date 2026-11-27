@@ -39,28 +39,35 @@ public final class PostProcessingOptions {
     private final AssertionPolicy assertionPolicy;
     private final PhaseBudget phaseBudget;
     private final RepairFallbackPolicy repairFallbackPolicy;
+    private final EvidencePolicy evidencePolicy;
     private final String targetClass;
     private final boolean enabled;
     private final Properties.LlmProvider provider;
     private final Properties.OracleMode oracleMode;
+    private final boolean exceptionOracleEnabled;
     private final int callTimeoutSeconds;
     private final long minimumFreeMemoryBytes;
 
     private PostProcessingOptions(Features features, ContextLimits contextLimits,
                                   AssertionPolicy assertionPolicy, PhaseBudget phaseBudget,
-                                  RepairFallbackPolicy repairFallbackPolicy, String targetClass,
-                                  boolean enabled, Properties.LlmProvider provider,
-                                  Properties.OracleMode oracleMode,
+                                  RepairFallbackPolicy repairFallbackPolicy, EvidencePolicy evidencePolicy,
+                                  String targetClass, boolean enabled, Properties.LlmProvider provider,
+                                  Properties.OracleMode oracleMode, boolean exceptionOracleEnabled,
                                   int callTimeoutSeconds, long minimumFreeMemoryBytes) {
         this.features = features;
         this.contextLimits = contextLimits;
         this.assertionPolicy = assertionPolicy;
         this.phaseBudget = phaseBudget;
         this.repairFallbackPolicy = repairFallbackPolicy;
+        this.evidencePolicy = evidencePolicy == null
+                ? new EvidencePolicy(false, false, false, true)
+                : evidencePolicy;
         this.targetClass = targetClass == null ? "" : targetClass;
         this.enabled = enabled;
         this.provider = provider == null ? Properties.LlmProvider.NONE : provider;
         this.oracleMode = oracleMode == null ? Properties.OracleMode.REGRESSION : oracleMode;
+        this.exceptionOracleEnabled =
+                this.oracleMode == Properties.OracleMode.INTENDED && exceptionOracleEnabled;
         this.callTimeoutSeconds = nonNegative(callTimeoutSeconds);
         this.minimumFreeMemoryBytes = Math.max(0L, minimumFreeMemoryBytes);
     }
@@ -71,6 +78,18 @@ public final class PostProcessingOptions {
      * @return the snapshot of the post-processing configuration
      */
     public static PostProcessingOptions fromProperties() {
+        Properties.OracleMode oracleMode = Properties.ORACLE_MODE == null
+                ? Properties.OracleMode.REGRESSION
+                : Properties.ORACLE_MODE;
+        boolean intendedMode = oracleMode == Properties.OracleMode.INTENDED;
+        EvidencePolicy evidencePolicy = intendedMode
+                ? new EvidencePolicy(
+                        Properties.INCLUDE_CLASS_JAVADOC,
+                        Properties.INCLUDE_METHOD_JAVADOC,
+                        Properties.INCLUDE_METHOD_COMMENTS,
+                        Properties.INCLUDE_RUNTIME_EVIDENCE)
+                : new EvidencePolicy(false, false, false, true);
+        boolean exceptionOracleEnabled = intendedMode && Properties.EXCEPTION_ORACLE_ENABLED;
         return new PostProcessingOptions(
                 new Features(Properties.LLM_POSTPROCESSING_ASSERTIONS,
                         Properties.LLM_POSTPROCESSING_TEST_NAMES,
@@ -112,10 +131,12 @@ public final class PostProcessingOptions {
                 new RepairFallbackPolicy(Properties.LLM_POSTPROCESSING_ASSERTION_REPAIR_ATTEMPTS > 0,
                         Properties.LLM_POSTPROCESSING_REPAIR_POLICY,
                         Properties.LLM_POSTPROCESSING_ASSERTION_FALLBACK),
+                evidencePolicy,
                 Properties.TARGET_CLASS,
                 Properties.LLM_POSTPROCESSING_ENABLED,
                 Properties.LLM_PROVIDER,
-                Properties.ORACLE_MODE,
+                oracleMode,
+                exceptionOracleEnabled,
                 Properties.LLM_TIMEOUT_SECONDS,
                 Properties.MIN_FREE_MEM);
     }
@@ -151,6 +172,10 @@ public final class PostProcessingOptions {
         return repairFallbackPolicy;
     }
 
+    public EvidencePolicy evidencePolicy() {
+        return evidencePolicy;
+    }
+
     public String targetClass() {
         return targetClass;
     }
@@ -165,6 +190,10 @@ public final class PostProcessingOptions {
 
     public Properties.OracleMode oracleMode() {
         return oracleMode;
+    }
+
+    public boolean exceptionOracleEnabled() {
+        return exceptionOracleEnabled;
     }
 
     public int callTimeoutSeconds() {
@@ -526,6 +555,37 @@ public final class PostProcessingOptions {
 
         public Properties.LlmPostProcessingAssertionFallback fallback() {
             return fallback;
+        }
+    }
+
+    public static final class EvidencePolicy {
+        private final boolean includeClassJavadoc;
+        private final boolean includeMethodJavadoc;
+        private final boolean includeMethodComments;
+        private final boolean includeRuntimeEvidence;
+
+        public EvidencePolicy(boolean includeClassJavadoc, boolean includeMethodJavadoc,
+                              boolean includeMethodComments, boolean includeRuntimeEvidence) {
+            this.includeClassJavadoc = includeClassJavadoc;
+            this.includeMethodJavadoc = includeMethodJavadoc;
+            this.includeMethodComments = includeMethodComments;
+            this.includeRuntimeEvidence = includeRuntimeEvidence;
+        }
+
+        public boolean includeClassJavadoc() {
+            return includeClassJavadoc;
+        }
+
+        public boolean includeMethodJavadoc() {
+            return includeMethodJavadoc;
+        }
+
+        public boolean includeMethodComments() {
+            return includeMethodComments;
+        }
+
+        public boolean includeRuntimeEvidence() {
+            return includeRuntimeEvidence;
         }
     }
 
