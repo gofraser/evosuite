@@ -2453,6 +2453,14 @@ public class Properties {
             description = "Which tests receive unified LLM post-processing requests")
     public static LlmPostProcessingScope LLM_POSTPROCESSING_SCOPE = LlmPostProcessingScope.ALL_TESTS;
 
+    public enum OracleMode {
+        REGRESSION, INTENDED
+    }
+
+    @Parameter(key = "oracle_mode", group = "LLM",
+            description = "Oracle generation mode for unified LLM post-processing")
+    public static OracleMode ORACLE_MODE = OracleMode.REGRESSION;
+
     @Parameter(key = "llm_repair_attempts", group = "LLM",
             description = "Maximum repair attempts for malformed LLM output")
     @IntValue(min = 0)

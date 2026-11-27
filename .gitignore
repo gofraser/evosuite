@@ -33,3 +33,6 @@ __pycache__/
 *.pyc
 javac.*.args
 .claude/
+GEMINI.md
+.agents/
+

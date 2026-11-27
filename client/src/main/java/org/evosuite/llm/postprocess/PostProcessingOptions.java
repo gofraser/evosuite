@@ -42,6 +42,7 @@ public final class PostProcessingOptions {
     private final String targetClass;
     private final boolean enabled;
     private final Properties.LlmProvider provider;
+    private final Properties.OracleMode oracleMode;
     private final int callTimeoutSeconds;
     private final long minimumFreeMemoryBytes;
 
@@ -49,6 +50,7 @@ public final class PostProcessingOptions {
                                   AssertionPolicy assertionPolicy, PhaseBudget phaseBudget,
                                   RepairFallbackPolicy repairFallbackPolicy, String targetClass,
                                   boolean enabled, Properties.LlmProvider provider,
+                                  Properties.OracleMode oracleMode,
                                   int callTimeoutSeconds, long minimumFreeMemoryBytes) {
         this.features = features;
         this.contextLimits = contextLimits;
@@ -58,6 +60,7 @@ public final class PostProcessingOptions {
         this.targetClass = targetClass == null ? "" : targetClass;
         this.enabled = enabled;
         this.provider = provider == null ? Properties.LlmProvider.NONE : provider;
+        this.oracleMode = oracleMode == null ? Properties.OracleMode.REGRESSION : oracleMode;
         this.callTimeoutSeconds = nonNegative(callTimeoutSeconds);
         this.minimumFreeMemoryBytes = Math.max(0L, minimumFreeMemoryBytes);
     }
@@ -112,6 +115,7 @@ public final class PostProcessingOptions {
                 Properties.TARGET_CLASS,
                 Properties.LLM_POSTPROCESSING_ENABLED,
                 Properties.LLM_PROVIDER,
+                Properties.ORACLE_MODE,
                 Properties.LLM_TIMEOUT_SECONDS,
                 Properties.MIN_FREE_MEM);
     }
@@ -157,6 +161,10 @@ public final class PostProcessingOptions {
 
     public Properties.LlmProvider provider() {
         return provider;
+    }
+
+    public Properties.OracleMode oracleMode() {
+        return oracleMode;
     }
 
     public int callTimeoutSeconds() {
